@@ -116,6 +116,12 @@ input[type=range]{accent-color:var(--pink);width:120px}
 #iceWall{position:absolute;left:50%;top:-40px;transform:translateX(-50%);height:30px;padding:0 14px;border-radius:15px;background:rgba(40,90,130,.55);border:1.5px solid rgba(143,227,255,.7);color:#dff8ff;font-size:11.5px;font-weight:900;overflow:hidden;white-space:nowrap;box-shadow:0 0 10px rgba(143,227,255,.35)}
 #iceWall i{position:absolute;left:0;top:0;bottom:0;width:0;background:rgba(143,227,255,.3);pointer-events:none}
 #iceWall.cd{filter:saturate(.3);opacity:.7}
+#titleTrain{margin-top:10px;background:linear-gradient(180deg,#9af0ff,#3aa8cc);color:#06202a;box-shadow:0 5px 0 #1c6074}
+#trainHud{position:fixed;left:10px;right:10px;top:calc(74px + var(--sat));z-index:13;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+#trainHud p{margin:0;padding:8px 10px;border-radius:14px;background:rgba(16,6,20,.86);border:1px solid rgba(255,201,77,.55);font-size:12.5px;line-height:1.35;font-weight:700;pointer-events:none}
+#trainHud .rowb{display:flex;gap:8px;pointer-events:auto}
+#trainHud button{flex:1;padding:9px 8px;border-radius:12px;font-weight:900;font-size:13px;background:rgba(28,12,34,.92);border:1px solid rgba(255,79,180,.5);color:#fff}
+#trainHud button.gold{background:linear-gradient(180deg,#ffd978,#f0a92e);color:#3a1d05;border:0}
 /* v7: wire view panel, danger edge, boss countdown, hp bar */
 img{image-rendering:pixelated}
 #wirePanel{position:fixed;left:12px;top:calc(96px + var(--sat));z-index:6;display:flex;flex-direction:column;gap:5px;align-items:flex-start}
@@ -253,11 +259,19 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
     <button class="sp on" data-i="0"><i></i><img alt=""><span>Ember<br>Bolt</span></button>
     <button class="sp" data-i="1"><i></i><img alt=""><span>Frost<br>Shard</span></button>
     <button class="sp" data-i="2"><i></i><img alt=""><span>Honey<br>Nova</span></button>
-    <button id="iceWall" aria-label="Ice Wall"><i></i>❄ Ice Wall</button>
+    <button id="iceWall" aria-label="Iceberg"><i></i>❄ Iceberg</button>
   </div>
   <button class="dodge" id="dodgeR" aria-label="Dodge right">›</button>
 </div>
 
+<div id="trainHud" class="hide">
+  <p id="trainHelp"></p>
+  <div class="rowb">
+    <button type="button" id="trainClass">Mage</button>
+    <button type="button" id="trainReset" class="gold">Reset</button>
+    <button type="button" id="trainBack">Back</button>
+  </div>
+</div>
 <div id="ring">
   <button id="ringClose">tap anywhere to close</button>
 </div>
@@ -332,7 +346,8 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
     <button class="race" data-r="slime"><canvas id="pvS"></canvas><b>Boba</b><small>Milk-tea slime</small></button>
   </div>
   <button class="big gold" id="titleGo">Begin the day</button>
-  <div class="hint" style="text-align:center">Best on a phone, held upright. Sound starts on your first tap.</div>
+  <button class="big" id="titleTrain">Training arena</button>
+  <div class="hint" style="text-align:center">Best on a phone, held upright. Touch or mouse. This build does not track hands or a camera pose.</div>
 </div>
 <div id="dbg"></div>
 <script>
@@ -2228,7 +2243,7 @@ function raiseWall() {
   FIELD.wall = { hexes, hp: WALL_HP * LV.hp, max: WALL_HP * LV.hp, hs: LV.h, lv: FIELD.iceWallLevel || 3, t: 0, cx, cy, hits: [], lastWeak: false, lastDmg: 0, shake: 0 };
   FIELD.wallCD = WALL_CD; SFX.frost(); buzz([15, 20, 30]); AR.castT = .3; wirePulse(cx, cy, 1, 'arena');
   for (const [x, y] of pts) { const [X, Y, f] = proj(AR.cam, x, y); for (let i = 0; i < 5; i++) fx({ kind: 'shard', x: X, y: Y - 10, vx: (Math.random() - .5) * 120, vy: -80 - Math.random() * 120, g: 400, col: '#bff4ff', size: 4 * f, rot: Math.random() * 3, vr: 5, life: .7 }); }
-  if (!FIELD.wallTip) { FIELD.wallTip = true; coach('<b>Ice Wall</b> up. Bullet lines stop on it. The <b>glowing centre</b> is its weak point: hits there do <b>2×</b>. Watch the cracks.', 6500); }
+  if (!FIELD.wallTip) { FIELD.wallTip = true; coach('<b>Iceberg</b> up. Bullet lines stop on it. The <b>glowing centre</b> is its weak point: hits there do <b>2×</b>. Watch the cracks.', 6500); }
   return true;
 }
 // where a mob shot from (x0,y0) toward the player meets the wall, or null
@@ -3562,5 +3577,639 @@ function chFrame(now) {
 }
 requestAnimationFrame(chFrame);
 window.__charmenu = { open: chOpen, close: chClose, tab: chTab, CH, GSLOTS, SKN, BONDS, look: k => gLookItem(gSlot(k)).ic, pose: chPoseName, setAng: a => { CH.ang = a; CH.vel = 0; } };
+
+/* ===================== v7 review pass: training yard, aim, map fixes =====================
+   Pink band: heavyGrade drew TWO screen-blended copies of a pink fog texture.
+   On a portrait phone each copy is ~0.54 screen-heights tall, at y=0.35H and y=0.55H.
+   The overlap is a full-width brighter pink stripe about a third of the screen tall.
+   That is a screen-space composite, not the objective beacon and not world fog.
+   Map scale: the follow cam capped hex size near 45px and sat the walker a hex behind
+   the look-at point, so the character and trees read tiny. Pinch/wheel changes MAP.zoom.
+   Aim: touch and mouse only. This page never opens a WebXR session or a camera. */
+const MAGE_RIM = [
+  { id: 'ember', name: 'Ember', col: '#ff8a3d', el: 'Fire' },
+  { id: 'frost', name: 'Frost', col: '#8fe3ff', el: 'Ice' },
+  { id: 'nova', name: 'Nova', col: '#ffc94d', el: 'Honey' },
+  { id: 'iceberg', name: 'Iceberg', col: '#bff4ff', el: 'Ice' },
+  { id: 'slash', name: 'Slash', col: '#ff5ad8', el: 'Cut' },
+];
+const GUN_RIM = [
+  { id: 'shot', name: 'Shot', col: '#ff3b4e', el: 'Round' },
+  { id: 'frag', name: 'Frag', col: '#ffb45a', el: 'Fire' },
+  { id: 'turret', name: 'Turret', col: '#ffd36a', el: 'Gold' },
+  { id: 'drone', name: 'Drone', col: '#7fd8ff', el: 'Cyan' },
+];
+const TRAIN = {
+  on: false, aim: null, charge: 0, focus: 0, hb: 0, speed: 0, shotCd: 0,
+  cap: null, drag: null, disc: null, sel: { mage: 0, gunner: 0 }, bolts: [], last: null,
+  mx: 0, my: 0, moveT: 0,
+};
+MAP.zoom = 1.2;
+let dockHud = null;
+let pinchD = 0;
+const mapPtrs = new Map();
+
+function currentRim() { return GUN.cls === 'gunner' ? GUN_RIM : MAGE_RIM; }
+function trainHelpText() {
+  if (GUN.cls === 'gunner') return 'Gunner: drag to aim. Red line is the shot. Hold still and the circle tightens, then release. Rim: Frag, Turret, Drone. ‹ › steps. Touch or mouse, no hand tracking.';
+  return 'Mage: tap the rim. Center shows the element. Drag from the center to aim, hold to charge, release to cast. Aim sticks. Swipe the ground to step. Touch or mouse, no hand tracking.';
+}
+function syncClassBtn() {
+  const b = document.getElementById('trainClass');
+  if (b) b.textContent = GUN.cls === 'gunner' ? 'Gunner' : 'Mage';
+}
+function popPlayer(txt, col) {
+  const [X, Y] = proj(AR.cam, AR.ppx, AR.ppy);
+  popText(X, Y - 128, txt, col || '#fff', 15);
+}
+function nearestLive(pt, rad) {
+  let b = null, bd = rad;
+  for (const m of liveMobs()) {
+    const d = Math.hypot(m.x - pt.x, m.y - pt.y);
+    if (d < bd) { bd = d; b = m; }
+  }
+  return b;
+}
+function paintField(id, aim) {
+  const [q, r] = xyHex(aim.x, aim.y);
+  if (!onField(q, r)) return false;
+  if (id === 'ember') setHex(q, r, 'fire');
+  else if (id === 'frost') setHex(q, r, 'ice');
+  else if (id === 'nova') setHex(q, r, 'honey');
+  else return false;
+  return true;
+}
+function aimAngle() {
+  if (!TRAIN.aim || G.scene !== 'arena') return -Math.PI / 2;
+  const [px, py] = pPos();
+  const P = proj(AR.cam, px, py), A = proj(AR.cam, TRAIN.aim.x, TRAIN.aim.y);
+  return Math.atan2(A[1] - P[1], A[0] - P[0]);
+}
+function discRot() {
+  const n = currentRim().length;
+  const sel = TRAIN.sel[GUN.cls === 'gunner' ? 'gunner' : 'mage'] || 0;
+  const mid = -Math.PI / 2 + (sel + 0.5) * TAU / n;
+  return aimAngle() - mid;
+}
+function discAnchor() {
+  const [px, py] = pPos();
+  const P = proj(AR.cam, px, py);
+  let x = SET.hand === 'left' ? 108 : W - 108, y = H - 210;
+  if (TRAIN.aim) {
+    const A = proj(AR.cam, TRAIN.aim.x, TRAIN.aim.y);
+    const dx = A[0] - P[0], dy = A[1] - P[1], L = Math.hypot(dx, dy) || 1;
+    x = P[0] + dx / L * Math.min(78, L * 0.28);
+    y = (H - 200) + dy / L * 28;
+  }
+  return [clamp(x, 84, Math.max(84, W - 84)), clamp(y, H * 0.58, Math.max(H * 0.58, H - 168))];
+}
+function discCenter() {
+  if (!TRAIN.disc) { const a = discAnchor(); TRAIN.disc = { x: a[0], y: a[1] }; }
+  return TRAIN.disc;
+}
+function rimIndex(dx, dy, n) {
+  let a = Math.atan2(dy, dx) - discRot() + Math.PI / 2;
+  if (a < 0) a += TAU;
+  if (a >= TAU) a -= TAU;
+  return Math.floor(a / (TAU / n)) % n;
+}
+function discHit(X, Y) {
+  if (G.scene !== 'arena') return null;
+  const d = discCenter(), dx = X - d.x, dy = Y - d.y, r = Math.hypot(dx, dy);
+  if (r > 88) return null;
+  if (r < 32) return { part: 'center' };
+  return { part: 'rim', i: rimIndex(dx, dy, currentRim().length) };
+}
+function selectRim(i) {
+  const key = GUN.cls === 'gunner' ? 'gunner' : 'mage';
+  TRAIN.sel[key] = i;
+  if (key === 'mage' && i < 3) selSpell(i);
+  SFX.tap();
+}
+function castSlash() {
+  const aim = TRAIN.aim;
+  const m = (aim && nearestLive(aim, 4)) || liveMobs()[0];
+  if (!m) return false;
+  return shadowSlash(m);
+}
+function releaseMage() {
+  const rim = MAGE_RIM[TRAIN.sel.mage] || MAGE_RIM[0];
+  const shown = Math.round(clamp(TRAIN.charge || 0, 0, 1) * 100);
+  const power = 0.5 + clamp(TRAIN.charge || 0, 0, 1) * 1.15;
+  TRAIN.charge = 0;
+  if (!TRAIN.aim) { const [px, py] = pPos(); TRAIN.aim = { x: px, y: py - 2.2 }; }
+  let ok = false;
+  if (rim.id === 'iceberg') ok = !!raiseWall();
+  else if (rim.id === 'slash') ok = !!castSlash();
+  else {
+    const idx = rim.id === 'frost' ? 1 : rim.id === 'nova' ? 2 : 0;
+    const m = nearestLive(TRAIN.aim, 1.85);
+    if (rim.id === 'nova') ok = !!cast(2, power, null);
+    else if (m) ok = !!cast(idx, power, m);
+    else if (spendMana(MANA_COST.spell)) { ok = paintField(rim.id, TRAIN.aim); AR.castT = .3; AR.cds[idx] = SPELLS[idx].cd; SFX.cast(); }
+    if (ok && rim.id !== 'nova') paintField(rim.id, m ? { x: m.x, y: m.y } : TRAIN.aim);
+  }
+  popPlayer((ok ? rim.name : 'not ready') + ' ' + shown + '%', rim.col);
+  TRAIN.last = { spell: rim.id, power, shown, ok };
+  return ok;
+}
+function fireGun(power) {
+  const aim = TRAIN.aim;
+  if (!aim) { popPlayer('drag to aim', '#ff8a9a'); return false; }
+  if (TRAIN.shotCd > 0) { popPlayer('reloading', '#ff8a9a'); return false; }
+  const [px, py] = pPos();
+  let hit = null, best = 0.7;
+  for (const m of liveMobs()) {
+    const d = Math.min(segDist(m.x, m.y, px, py, aim.x, aim.y), Math.hypot(m.x - aim.x, m.y - aim.y));
+    if (d < best) { best = d; hit = m; }
+  }
+  const tight = TRAIN.focus || 0;
+  const dmg = Math.max(1, Math.round(14 * clamp(power, 0.4, 1.8) * (1 + tight * 0.35)));
+  TRAIN.bolts.push({ x0: px, y0: py, x1: aim.x, y1: aim.y, t: 0, life: 0.32, col: '#ff2438' });
+  TRAIN.shotCd = 0.26;
+  TRAIN.charge = 0;
+  if (hit) damage(hit, dmg, { col: '#ff4a55', k: 'shot' }, tight > 0.62);
+  else popPlayer('miss', '#ff8a9a');
+  SFX.shot(); buzz(8);
+  TRAIN.last = { spell: 'shot', power, dmg, hit: !!hit, tight };
+  return !!hit;
+}
+function useGunRim(i) {
+  const id = GUN_RIM[i].id;
+  if (id === 'shot') { popPlayer('drag to aim', '#ff8a9a'); return; }
+  if (id === 'frag') {
+    const aim = TRAIN.aim || { x: AR.ppx, y: AR.ppy - 2.2 };
+    const [q, r] = xyHex(aim.x, aim.y);
+    fragGrenade(q, r);
+    return;
+  }
+  if (id === 'turret') deployTurret();
+  if (id === 'drone') droneToggle();
+}
+function beginDisc(X, Y, hit) {
+  AR.ptr = null;
+  TRAIN.cap = { part: hit.part, i: hit.i || 0, x0: X, y0: Y, aimed: false };
+  TRAIN.drag = { x: X, y: Y };
+  TRAIN.mx = X; TRAIN.my = Y; TRAIN.moveT = performance.now();
+}
+function dragDisc(X, Y) {
+  const cap = TRAIN.cap; if (!cap) return;
+  const now = performance.now();
+  const dt = Math.max(0.008, (now - (TRAIN.moveT || now)) / 1000);
+  TRAIN.moveT = now;
+  TRAIN.speed = Math.hypot(X - TRAIN.mx, Y - TRAIN.my) / dt;
+  TRAIN.mx = X; TRAIN.my = Y;
+  TRAIN.drag = { x: X, y: Y };
+  if (Math.hypot(X - cap.x0, Y - cap.y0) > 12 && (cap.part === 'center' || GUN.cls === 'gunner')) {
+    const w = unproj(AR.cam, X, Y);
+    TRAIN.aim = { x: w[0], y: w[1] };
+    cap.aimed = true;
+  }
+}
+function releaseDisc(X, Y) {
+  const cap = TRAIN.cap; if (!cap) return;
+  TRAIN.cap = null; TRAIN.drag = null;
+  const moved = Math.hypot(X - cap.x0, Y - cap.y0);
+  if (cap.part === 'rim' && moved < 18) {
+    selectRim(cap.i);
+    if (GUN.cls === 'gunner') useGunRim(cap.i);
+    return;
+  }
+  if (GUN.cls === 'gunner') {
+    if (moved > 8) { const w = unproj(AR.cam, X, Y); TRAIN.aim = { x: w[0], y: w[1] }; }
+    const power = 0.45 + clamp(TRAIN.charge || 0, 0, 1) * 0.85 + (TRAIN.focus || 0) * 0.3;
+    fireGun(power);
+    return;
+  }
+  if (cap.part === 'center' || cap.aimed || moved > 16) releaseMage();
+}
+function releaseGun(X, Y) {
+  const p = AR.ptr; AR.ptr = null;
+  if (!p) return;
+  const w = unproj(AR.cam, X, Y);
+  TRAIN.aim = { x: w[0], y: w[1] };
+  const held = (performance.now() - p.t0) / 1000;
+  const power = clamp(0.42 + Math.min(held, 0.85) / 0.85 * 0.75 + (TRAIN.focus || 0) * 0.35, 0.42, 1.75);
+  fireGun(power);
+}
+function trainUpdate(dt) {
+  TRAIN.shotCd = Math.max(0, (TRAIN.shotCd || 0) - dt);
+  const holding = !!(TRAIN.cap || (GUN.cls === 'gunner' && AR.ptr && G.scene === 'arena'));
+  const calm = (TRAIN.speed || 0) < 48;
+  const gun = GUN.cls === 'gunner';
+  if (holding && calm) TRAIN.focus = Math.min(1, (TRAIN.focus || 0) + dt * (gun ? 1.05 : 0.34));
+  else if (holding) TRAIN.focus = Math.max(0, (TRAIN.focus || 0) - dt * (gun ? 1.4 : 0.15));
+  else TRAIN.focus = Math.max(0, (TRAIN.focus || 0) - dt * 0.45);
+  if (TRAIN.cap && TRAIN.cap.part === 'center' && !gun) TRAIN.charge = Math.min(1, (TRAIN.charge || 0) + dt / 0.78);
+  if (gun && AR.ptr && G.scene === 'arena') TRAIN.charge = Math.min(1, (TRAIN.charge || 0) + dt / 0.62);
+  TRAIN.hb += dt * (gun ? 2.8 : 1.1);
+  TRAIN.speed = (TRAIN.speed || 0) * Math.max(0, 1 - dt * 7);
+  for (let i = TRAIN.bolts.length - 1; i >= 0; i--) { TRAIN.bolts[i].t += dt; if (TRAIN.bolts[i].t > TRAIN.bolts[i].life) TRAIN.bolts.splice(i, 1); }
+  if (G.scene === 'arena') {
+    const a = TRAIN.drag ? [TRAIN.drag.x, TRAIN.drag.y] : discAnchor();
+    if (!TRAIN.disc) TRAIN.disc = { x: a[0], y: a[1] };
+    if (TRAIN.drag) { TRAIN.disc.x = a[0]; TRAIN.disc.y = a[1]; }
+    else { const k = Math.min(1, dt * 9); TRAIN.disc.x += (a[0] - TRAIN.disc.x) * k; TRAIN.disc.y += (a[1] - TRAIN.disc.y) * k; }
+  }
+}
+function drawAimLayer() {
+  if (G.scene !== 'arena' || !TRAIN.aim) return;
+  const gun = GUN.cls === 'gunner';
+  const [px, py] = pPos();
+  const A = proj(AR.cam, px, py), B = proj(AR.cam, TRAIN.aim.x, TRAIN.aim.y);
+  const rim = currentRim()[TRAIN.sel[gun ? 'gunner' : 'mage']] || MAGE_RIM[0];
+  ctx.save();
+  ctx.lineCap = 'round';
+  if (gun) {
+    ctx.strokeStyle = 'rgba(255,30,50,.35)'; ctx.lineWidth = 10;
+    ctx.beginPath(); ctx.moveTo(A[0], A[1] - 28 * A[2]); ctx.lineTo(B[0], B[1]); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,40,60,.95)'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(A[0], A[1] - 28 * A[2]); ctx.lineTo(B[0], B[1]); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,230,230,.95)'; ctx.lineWidth = 1.4; ctx.stroke();
+  } else {
+    ctx.strokeStyle = rim.col; ctx.globalAlpha = 0.55; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(A[0], A[1] - 24 * A[2]); ctx.lineTo(B[0], B[1]); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  const focus = TRAIN.focus || 0;
+  const pulse = 0.5 + 0.5 * Math.sin(TRAIN.hb * TAU);
+  const breath = 1 + pulse * (gun ? 0.09 : 0.04);
+  const rad = (gun ? lerp(58, 15, focus) : lerp(42, 24, focus)) * breath * Math.max(0.8, B[2]);
+  ctx.strokeStyle = gun ? `rgba(255,45,65,${0.7 + focus * 0.3})` : rim.col;
+  ctx.globalAlpha = gun ? 1 : 0.7;
+  ctx.lineWidth = gun ? 3 : 1.5;
+  ctx.beginPath(); ctx.arc(B[0], B[1], rad, 0, TAU); ctx.stroke();
+  if (gun) {
+    ctx.globalAlpha = 0.25 + pulse * 0.55;
+    ctx.beginPath(); ctx.arc(B[0], B[1], rad * (1.18 + pulse * 0.12), 0, TAU); ctx.stroke();
+  }
+  ctx.restore();
+  for (const s of TRAIN.bolts) {
+    const P = proj(AR.cam, s.x0, s.y0), Q = proj(AR.cam, s.x1, s.y1), a = 1 - s.t / s.life;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = `rgba(255,60,70,${a})`; ctx.lineWidth = 6 * a + 1;
+    ctx.beginPath(); ctx.moveTo(P[0], P[1] - 20 * P[2]); ctx.lineTo(Q[0], Q[1]); ctx.stroke();
+    ctx.strokeStyle = `rgba(255,240,240,${a})`; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+  }
+}
+function drawDisc() {
+  if (G.scene !== 'arena') return;
+  const d = discCenter(), rim = currentRim(), key = GUN.cls === 'gunner' ? 'gunner' : 'mage';
+  const sel = TRAIN.sel[key] || 0, cur = rim[sel], x = d.x, y = d.y, R = 74, n = rim.length, rot = discRot();
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = 'rgba(14,6,20,.84)';
+  ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,214,130,.95)'; ctx.lineWidth = 3; ctx.stroke();
+  for (let i = 0; i < n; i++) {
+    const a0 = -Math.PI / 2 + i * TAU / n + rot, a1 = a0 + TAU / n, am = (a0 + a1) / 2;
+    ctx.beginPath(); ctx.arc(0, 0, R - 6, a0 + 0.08, a1 - 0.08);
+    ctx.strokeStyle = i === sel ? rim[i].col : 'rgba(255,255,255,.38)';
+    ctx.lineWidth = i === sel ? 9 : 5; ctx.stroke();
+    ctx.fillStyle = i === sel ? '#fff' : 'rgba(255,244,230,.82)';
+    ctx.font = '800 10px ui-rounded,system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(rim[i].name, Math.cos(am) * (R * 0.62), Math.sin(am) * (R * 0.62));
+  }
+  const ch = clamp(TRAIN.charge || 0, 0, 1);
+  const g = ctx.createRadialGradient(-8, -10, 2, 0, 0, 28);
+  g.addColorStop(0, '#fff'); g.addColorStop(0.4, cur.col); g.addColorStop(1, 'rgba(20,0,16,.2)');
+  ctx.fillStyle = g; ctx.globalAlpha = 0.28 + 0.72 * ch;
+  ctx.beginPath(); ctx.arc(0, 0, 27, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+  ctx.strokeStyle = cur.col; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(0, 0, 27, -Math.PI / 2, -Math.PI / 2 + TAU * ch); ctx.stroke();
+  ctx.fillStyle = '#fff'; ctx.font = '900 12px ui-rounded,system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(cur.el, 0, -3);
+  ctx.fillStyle = '#ffe7a4'; ctx.font = '700 9px ui-rounded,system-ui';
+  ctx.fillText(Math.round(ch * 100) + '%', 0, 12);
+  ctx.restore();
+}
+
+function spawnDummies() {
+  const spots = [[-1, -2], [1, -2], [0, -3]];
+  AR.mobs = spots.map((at, i) => {
+    const m = mkMob({ k: 'scout', at, full: 1, rar: 0 }, 0);
+    m.state = 'live'; m.st = 0; m.aggro = false; m.atkT = 99; m.dummy = true;
+    m.hp = m.max = 100;
+    m.D = Object.assign({}, MOBDEF.scout, { n: 'Dummy ' + (i + 1), atk: 'none', sp: 0, aggroR: 0, drop: [] });
+    return m;
+  });
+  AR.phase = 'wave';
+  AR.floorDirty = true;
+}
+function reviveDummy(m) {
+  m.state = 'live'; m.st = 0; m.hp = m.max; m.aggro = false; m.atkT = 99; m.fl = 0; m.slow = 0;
+}
+function drawDummy(m) {
+  const [X, Y, f] = proj(AR.cam, m.x, m.y), s = 36 * f;
+  ctx.save();
+  if (m.fl > 0) ctx.globalAlpha = 0.65;
+  shadow(ctx, X, Y, s * 0.7, s * 0.22, 0.45);
+  ctx.fillStyle = '#6b4b34'; ctx.fillRect(X - 4 * f, Y - s * 1.65, 8 * f, s * 1.65);
+  ctx.strokeStyle = '#efc89a'; ctx.lineWidth = 2; ctx.strokeRect(X - 4 * f, Y - s * 1.65, 8 * f, s * 1.65);
+  const rings = ['#2a1018', '#ff3d4e', '#fff6f2', '#ff3d4e', '#ffd36a'];
+  for (let i = 0; i < rings.length; i++) { ctx.fillStyle = rings[i]; ctx.beginPath(); ctx.arc(X, Y - s * 1.15, s * (0.62 - i * 0.1), 0, TAU); ctx.fill(); }
+  ctx.fillStyle = '#14080c'; ctx.beginPath(); ctx.arc(X, Y - s * 1.15, s * 0.07, 0, TAU); ctx.fill();
+  if (m.fl > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.arc(X, Y - s * 1.15, s * 0.66, 0, TAU); ctx.fill(); }
+  ctx.restore();
+  const w = 54 * f, k = clamp(m.hp / m.max, 0, 1);
+  ctx.fillStyle = 'rgba(16,6,20,.88)'; rrect(ctx, X - w / 2, Y - s * 2.05, w, 7, 3); ctx.fill();
+  ctx.fillStyle = k > 0.35 ? '#ffd36a' : '#ff4a55'; rrect(ctx, X - w / 2, Y - s * 2.05, w * k, 7, 3); ctx.fill();
+  ctx.font = `800 ${Math.max(11, 13 * f)}px ui-rounded,system-ui`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff4d4';
+  ctx.fillText(m.D.n + '  ' + Math.ceil(m.hp), X, Y - s * 2.22);
+  ctx.textAlign = 'left';
+}
+function startTrain() {
+  audioInit();
+  const title = document.getElementById('title');
+  title.classList.add('out');
+  setTimeout(() => title.classList.add('hide'), 420);
+  document.getElementById('hud').classList.remove('hide');
+  document.getElementById('wirePanel').classList.remove('hide');
+  document.getElementById('menuBtn').classList.add('dim');
+  document.getElementById('hearts').classList.remove('hide');
+  Object.assign(AR, {
+    kind: 'raid', t: 0, phase: 'wave', wave: 0, waves: [[]], mobs: [], shots: [], teles: [],
+    lane: 1, px: 0, hurt: 0, castT: 0, cds: [0, 0, 0], ptr: null, novaT: -1, shake: 0, floorDirty: true,
+    share: 0, claimK: 0, drops: [], firstLive: true, idleHint: true, onDone: null, block: null,
+  });
+  arenaV7Reset();
+  layoutArenaCam();
+  G.scene = 'arena';
+  TRAIN.on = true; TRAIN.charge = 0; TRAIN.aim = null; TRAIN.focus = 0; TRAIN.cap = null; TRAIN.drag = null; TRAIN.bolts = [];
+  spawnDummies();
+  FIELD.wallTip = true;
+  G.hp = G.maxHp; renderHearts();
+  document.getElementById('wheel').classList.add('on');
+  document.getElementById('trainHud').classList.remove('hide');
+  document.getElementById('trainHelp').textContent = trainHelpText();
+  syncClassBtn();
+  setObj('<b>Training yard</b> · three dummies');
+  banner('Training yard', 'Touch or mouse');
+  coach(null);
+  setAct(null);
+}
+function resetTrain() {
+  spawnDummies();
+  FIELD.hex.clear(); FIELD.terr.clear(); FIELD.wall = null; FIELD.chunks = []; FIELD.fogs = [];
+  FIELD.pslash = null; FIELD.mana = 100; FIELD.slashCD = 0; FIELD.wallCD = 0;
+  AR.cds = [0, 0, 0]; AR.shots = []; AR.zones = []; AR.lines = []; AR.phase = 'wave';
+  G.hp = G.maxHp; renderHearts();
+  TRAIN.charge = 0; TRAIN.bolts = [];
+  FIELD.wallTip = true;
+  coach(null);
+  banner('Reset', 'Dummies and field cleared');
+  setAct(null);
+}
+function leaveTrain() {
+  TRAIN.on = false; TRAIN.cap = null; TRAIN.drag = null;
+  document.getElementById('trainHud').classList.add('hide');
+  document.getElementById('wheel').classList.remove('on');
+  document.getElementById('hearts').classList.add('hide');
+  document.getElementById('bossCD').classList.add('hide');
+  document.getElementById('dangerV').style.opacity = 0;
+  setAct(null); coach(null);
+  if ((G.step || 0) >= 1) {
+    G.scene = 'map';
+    document.getElementById('menuBtn').classList.remove('dim');
+    document.getElementById('hud').classList.remove('hide');
+  } else {
+    G.scene = 'title';
+    const title = document.getElementById('title');
+    title.classList.remove('hide', 'out');
+    document.getElementById('menuBtn').classList.add('dim');
+  }
+  groundDirty = true;
+}
+
+/* ----- pink band + closer map ----- */
+heavyGrade = function (T, scene) {
+  const g = ctx, raid = scene === 'arena';
+  g.globalCompositeOperation = 'multiply';
+  g.fillStyle = raid ? '#9a8aa8' : '#66507c';
+  g.fillRect(0, 0, W, H);
+  // One ground-weighted mist. No second strip, so nothing overlaps into a middle band.
+  g.globalCompositeOperation = 'source-over';
+  const fog = g.createLinearGradient(0, H * 0.78, 0, H);
+  fog.addColorStop(0, 'rgba(0,0,0,0)');
+  fog.addColorStop(1, raid ? 'rgba(36,14,48,.22)' : 'rgba(24,10,36,.18)');
+  g.fillStyle = fog;
+  g.fillRect(0, H * 0.78, W, H * 0.22);
+  g.globalCompositeOperation = 'lighter';
+  let gr = g.createRadialGradient(W / 2, H * (raid ? .26 : .34), 10, W / 2, H * (raid ? .26 : .34), Math.max(W, H) * .72);
+  gr.addColorStop(0, raid ? 'rgba(255,40,170,.035)' : 'rgba(255,90,190,.04)');
+  gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  g.globalCompositeOperation = 'source-over';
+  gr = g.createLinearGradient(0, 0, 0, H);
+  gr.addColorStop(0, 'rgba(4,0,8,.5)');
+  gr.addColorStop(.12, 'rgba(4,0,8,0)');
+  gr.addColorStop(.9, 'rgba(4,0,8,0)');
+  gr.addColorStop(1, 'rgba(4,0,8,.55)');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  if (raid && typeof drawLugeGlow === 'function') drawLugeGlow(AR.cam, T);
+};
+layoutMapCam = function () {
+  const c = MAP.cam, z = MAP.zoom || 1.2;
+  const base = Math.min(W / 6.4, H / 10.8);
+  c.hz = clamp(base * z, 36, 160);
+  c.D = H * 1.12;
+  c.cy = H * 0.58;
+  c.A = 0.76 * (SET.tilt || 1);
+};
+{ const _mapUpdate = mapUpdate; mapUpdate = function (dt) { _mapUpdate(dt); const y = MAP.house.y - 0.22; MAP.camT.y = y; MAP.cam.y = y; }; }
+{ const _drawSprite = drawSprite; const TREES = { lpTree: 1, lpTreeC: 1, pine: 1, pineD: 1, pineG: 1, round: 1, bloom: 1 }; drawSprite = function (name, x, y, s, a) { return _drawSprite(name, x, y, s * (TREES[name] ? 1.28 : 1), a); }; }
+{ const _drawHome = drawHome; drawHome = function (X, Y, f, T) {
+  const s = f * MAP.cam.hz / 42;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const glow = ctx.createRadialGradient(X, Y, 4, X, Y, 86 * s);
+  glow.addColorStop(0, 'rgba(255,214,120,.72)'); glow.addColorStop(.45, 'rgba(255,79,180,.2)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = glow; ctx.beginPath(); ctx.ellipse(X, Y + 6 * s, 74 * s, 26 * s, 0, 0, TAU); ctx.fill();
+  const bx = X - 28 * s, top = Y - 96 * s, bot = Y - 16 * s;
+  const beam = ctx.createLinearGradient(bx, top, bx, bot);
+  beam.addColorStop(0, 'rgba(127,240,255,0)'); beam.addColorStop(1, 'rgba(180,250,255,.9)');
+  ctx.strokeStyle = beam; ctx.lineWidth = Math.max(2, 3.2 * s); ctx.beginPath(); ctx.moveTo(bx, bot); ctx.lineTo(bx, top); ctx.stroke();
+  ctx.restore();
+  const fs = f * 1.34;
+  _drawHome(X, Y, fs, T);
+  if (G.scene === 'map') {
+    const ss = fs * MAP.cam.hz / 42;
+    dockHud = { x: X, y: Y - Math.min(108, 72 * ss) };
+  }
+}; }
+function drawDockHud() {
+  if (!dockHud || G.scene !== 'map') return;
+  const { x, y } = dockHud;
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.lineWidth = 4;
+  ctx.font = '900 18px ui-rounded,system-ui';
+  ctx.strokeStyle = '#140810';
+  ctx.strokeText('THE DOCK', x, y);
+  ctx.fillStyle = '#ffe7a2';
+  ctx.fillText('THE DOCK', x, y);
+  ctx.font = '800 12px ui-rounded,system-ui';
+  ctx.fillStyle = '#d8fbff';
+  ctx.fillText('home mooring', x, y + 16);
+  ctx.restore();
+}
+{ const _gully = drawGully; drawGully = function (c, e, x, y, X, Y, f, k, st, T) {
+  _gully(c, e, x, y, X, Y, f, k, st, T);
+  if (st === 'ice' || st === 'fire' || st === 'honey' || st === 'channel' || st === 'flood') return;
+  ctx.save();
+  const g = ctx.createRadialGradient(X, Y + 8 * f, 2 * f, X, Y, 48 * f);
+  g.addColorStop(0, `rgba(10,2,16,${.4 * k})`); g.addColorStop(.55, `rgba(48,18,58,${.16 * k})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(X, Y + 6 * f, 50 * f, 18 * f, 0, 0, TAU); ctx.fill();
+  ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = `rgba(255,176,220,${.4 * k})`; ctx.lineWidth = 3.2 * f;
+  ctx.beginPath(); ctx.ellipse(X, Y + 5 * f, 42 * f, 14 * f, 0, .15 * Math.PI, .85 * Math.PI); ctx.stroke();
+  ctx.restore();
+}; }
+{ const _trench = drawTrench; drawTrench = function (c, h, x, y, X, Y, f, fade, T) {
+  _trench(c, h, x, y, X, Y, f, fade, T);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  ctx.strokeStyle = `rgba(255,180,220,${.45 * fade})`; ctx.lineWidth = 3 * f;
+  ctx.beginPath(); ctx.ellipse(X, Y + 2 * f, 28 * f, 10 * f, 0, .2 * Math.PI, .8 * Math.PI); ctx.stroke();
+  ctx.restore();
+}; }
+
+{ const _arenaDown = arenaDown, _arenaMove = arenaMove, _arenaUp = arenaUp;
+  arenaDown = function (X, Y) {
+    const hit = discHit(X, Y);
+    if (hit) { beginDisc(X, Y, hit); return; }
+    const r = _arenaDown(X, Y);
+    if (GUN.cls === 'gunner') { TRAIN.mx = X; TRAIN.my = Y; TRAIN.moveT = performance.now(); }
+    return r;
+  };
+  arenaMove = function (X, Y) {
+    if (TRAIN.cap) { dragDisc(X, Y); return; }
+    if (G.scene === 'arena' && GUN.cls === 'gunner' && AR.ptr) {
+      const now = performance.now(), dt = Math.max(0.008, (now - (TRAIN.moveT || now)) / 1000);
+      TRAIN.moveT = now;
+      TRAIN.speed = Math.hypot(X - TRAIN.mx, Y - TRAIN.my) / dt;
+      TRAIN.mx = X; TRAIN.my = Y;
+      const w = unproj(AR.cam, X, Y);
+      TRAIN.aim = { x: w[0], y: w[1] };
+      AR.ptr.x = X; AR.ptr.y = Y;
+      return;
+    }
+    return _arenaMove(X, Y);
+  };
+  arenaUp = function (X, Y) {
+    if (TRAIN.cap) { releaseDisc(X, Y); return; }
+    if (G.scene === 'arena' && GUN.cls === 'gunner' && AR.ptr && !AR.ptr.swiped) { releaseGun(X, Y); return; }
+    return _arenaUp(X, Y);
+  };
+}
+{ const _arenaUpdate = arenaUpdate; arenaUpdate = function (dt) {
+  if (TRAIN.on) for (const m of AR.mobs) if (m.dummy) { m.aggro = false; m.atkT = 99; }
+  _arenaUpdate(dt);
+  if (TRAIN.on) {
+    for (const m of AR.mobs) if (m.dummy && (m.state === 'gone' || m.state === 'dying' && m.st > 0.42)) reviveDummy(m);
+    if (AR.phase !== 'wave') { AR.phase = 'wave'; setAct(null); }
+  }
+  trainUpdate(dt);
+}; }
+{ const _waveCleared = waveCleared; waveCleared = function () { if (TRAIN.on) return; return _waveCleared(); }; }
+{ const _tryAttack = tryAttack; tryAttack = function (m) { if (m && m.dummy) { m.aggro = false; m.atkT = 99; return; } return _tryAttack(m); }; }
+{ const _damage = damage; damage = function (m, dmg, sp, focus) { const r = _damage(m, dmg, sp, focus); if (m && m.dummy) { m.aggro = false; m.atkT = 99; } return r; }; }
+{ const _cubes = cubesFor; cubesFor = function (m) { if (m && m.dummy) { const [X, Y, f] = proj(AR.cam, m.x, m.y); popText(X, Y - 36 * f, 'down', '#ffd36a', 16); SFX.cube(); return; } return _cubes(m); }; }
+{ const _drawMob = drawArenaMob; drawArenaMob = function (m, T) { if (m && m.dummy) return drawDummy(m); return _drawMob(m, T); }; }
+{ const _vignette = vignette; vignette = function () { _vignette(); if (G.scene === 'arena') { drawAimLayer(); drawDisc(); } if (G.scene === 'map') drawDockHud(); }; }
+{ const _obj = arenaObjective; arenaObjective = function () { if (!TRAIN.on) return _obj(); const n = AR.mobs.filter(m => m.dummy && m.state === 'live').length; const t = `<b>Training</b> · ${n} dummies`; if (t !== AR.objT) { AR.objT = t; setObj(t); } }; }
+{ const _setClass = setClass; setClass = function (c) { const r = _setClass(c); syncClassBtn(); const help = document.getElementById('trainHelp'); if (help && TRAIN.on) help.textContent = trainHelpText(); return r; }; }
+{ const _manaUI = manaUI; manaUI = function () {
+  _manaUI();
+  const sb = document.getElementById('slashBtn'), wb = document.getElementById('iceWall');
+  if (sb) {
+    sb.style.position = 'absolute'; sb.style.left = '0'; sb.style.top = '-40px'; sb.style.height = '30px';
+    sb.style.padding = '0 10px'; sb.style.borderRadius = '15px'; sb.style.background = 'rgba(36,12,40,.88)';
+    sb.style.zIndex = '3'; sb.style.whiteSpace = 'nowrap';
+  }
+  if (wb) {
+    const tn = Array.from(wb.childNodes).find(n => n.nodeType === 3);
+    if (tn && tn.nodeValue.indexOf('Iceberg') < 0) tn.nodeValue = ' Iceberg';
+  }
+}; }
+
+function applyZoom(mult) {
+  MAP.zoom = clamp((MAP.zoom || 1.35) * mult, 0.72, 2.3);
+  layoutMapCam();
+  groundDirty = true;
+}
+cv.addEventListener('pointerdown', e => {
+  if (G.scene === 'map' || G.scene === 'title') mapPtrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (G.scene === 'arena') { try { cv.setPointerCapture(e.pointerId); } catch (err) { } }
+}, true);
+cv.addEventListener('pointerdown', () => { if (mapPtrs.size >= 2) mp = null; });
+cv.addEventListener('pointermove', e => {
+  if (!mapPtrs.has(e.pointerId)) return;
+  mapPtrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (mapPtrs.size >= 2 && (G.scene === 'map' || G.scene === 'title')) {
+    mp = null;
+    const pts = Array.from(mapPtrs.values());
+    const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    if (pinchD > 0) applyZoom(d / pinchD);
+    pinchD = d;
+  }
+}, true);
+function endMapPtr(e) { mapPtrs.delete(e.pointerId); if (mapPtrs.size < 2) pinchD = 0; if (TRAIN.cap && e.type === 'pointercancel') { TRAIN.cap = null; TRAIN.drag = null; } }
+cv.addEventListener('pointerup', endMapPtr, true);
+cv.addEventListener('pointercancel', endMapPtr, true);
+cv.addEventListener('wheel', e => {
+  if (G.scene !== 'map' && G.scene !== 'title') return;
+  e.preventDefault();
+  applyZoom(e.deltaY > 0 ? 0.92 : 1.09);
+}, { passive: false });
+
+document.getElementById('titleTrain').addEventListener('click', () => { SFX.tap(); startTrain(); });
+document.getElementById('trainReset').addEventListener('click', e => { e.stopPropagation(); resetTrain(); });
+document.getElementById('trainBack').addEventListener('click', e => { e.stopPropagation(); leaveTrain(); });
+document.getElementById('trainClass').addEventListener('click', e => { e.stopPropagation(); setClass(GUN.cls === 'gunner' ? 'mage' : 'gunner'); });
+layoutMapCam(); groundDirty = true;
+if (QS.has('train')) setTimeout(startTrain, 350);
+
+function trainSelfTest() {
+  const was = G.scene;
+  startTrain();
+  setClass('mage');
+  TRAIN.sel.mage = 0;
+  const d0 = AR.mobs[0];
+  const ax = d0.x, ay = d0.y, hp0 = d0.hp;
+  TRAIN.aim = { x: ax, y: ay };
+  TRAIN.cap = { part: 'center', x0: 0, y0: 0, aimed: true };
+  trainUpdate(0.5);
+  const aimHeld = TRAIN.aim && TRAIN.aim.x === ax && TRAIN.aim.y === ay;
+  const charged = TRAIN.charge > 0.4;
+  TRAIN.cap = null;
+  TRAIN.charge = 1;
+  const castOk = releaseMage();
+  for (let i = 0; i < 12; i++) arenaUpdate(0.05);
+  const emberHp = d0.hp;
+  const fires = Array.from(FIELD.hex.values()).filter(h => h.s === 'fire').length;
+  const slashOk = shadowSlash(d0);
+  slashUpdate(1);
+  const trenches = FIELD.terr.size;
+  const wallOk = !!raiseWall();
+  const wallN = FIELD.wall ? FIELD.wall.hexes.length : 0;
+  setClass('gunner');
+  const d1 = AR.mobs[1];
+  const hpG = d1.hp;
+  TRAIN.aim = { x: d1.x, y: d1.y };
+  TRAIN.focus = 0.8;
+  TRAIN.shotCd = 0;
+  const gunOk = fireGun(1);
+  const report = {
+    aimHeld, charged, castOk, emberHit: emberHp < hp0, emberHp, fires,
+    slashOk, trenches, wallOk, wallN, gunOk, gunHit: d1.hp < hpG, gunHp: d1.hp,
+    zoom: MAP.zoom, hz: MAP.cam.hz,
+  };
+  report.ok = !!(report.aimHeld && report.charged && report.emberHit && report.fires > 0 && report.slashOk && report.trenches > 0 && report.wallOk && report.wallN > 0 && report.gunHit);
+  if (was === 'title') { /* leave the yard up so a screenshot can show it */ }
+  return report;
+}
+window.__train = {
+  TRAIN, startTrain, resetTrain, leaveTrain, releaseMage, fireGun, raiseWall, shadowSlash,
+  trainSelfTest, MAGE_RIM, GUN_RIM, applyZoom, layoutMapCam, setClass, slashUpdate,
+  markDirty: () => { groundDirty = true; },
+};
+
 </script>
 </body></html>
