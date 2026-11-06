@@ -118,6 +118,7 @@ input[type=range]{accent-color:var(--pink);width:120px}
 #iceWall.cd{filter:saturate(.3);opacity:.7}
 #titleTrain{margin-top:10px;background:linear-gradient(180deg,#9af0ff,#3aa8cc);color:#06202a;box-shadow:0 5px 0 #1c6074}
 #trainHud{position:fixed;left:10px;right:10px;top:calc(74px + var(--sat));z-index:13;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+#trainHud.king .note{display:none}
 #trainHud .note{pointer-events:none;font-size:11px;font-weight:800;line-height:1.25;padding:6px 10px;border-radius:12px;background:rgba(16,6,20,.88);border:1px solid rgba(127,240,255,.5);color:#d9fbff}
 #trainHud p{margin:0;padding:8px 10px;border-radius:14px;background:rgba(16,6,20,.86);border:1px solid rgba(255,201,77,.55);font-size:12.5px;line-height:1.35;font-weight:700;pointer-events:none}
 #trainHud p.collapsed{display:none}
@@ -1043,7 +1044,11 @@ function buildSprites() {
     for (let i = 1; i <= 3; i++) { g.beginPath(); g.ellipse(cx, by, i * R2 / 3.2, 66, 0, Math.PI, TAU); g.stroke(); }
     g.beginPath(); g.moveTo(cx, by); g.lineTo(cx, by - 66); g.stroke();
     g.strokeStyle = '#ff4fb4'; g.lineWidth = 2.5; g.beginPath(); g.ellipse(cx, by, R2, 12, 0, 0, TAU); g.stroke();
-    g.fillStyle = '#ffc94d'; poly(g, HEXC.map(p => [cx + p[0] * 9, by - 70 + p[1] * 9])); g.fill();
+    const cap = HEXC.map(p => [cx + p[0] * 9, by - 70 + p[1] * 9]);
+    g.beginPath(); cap.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath();
+    g.fillStyle = 'rgba(16,4,24,.5)'; g.fill();
+    g.strokeStyle = '#ff4fb4'; g.lineWidth = 2; g.stroke();
+    g.strokeStyle = 'rgba(190,255,255,.9)'; g.lineWidth = 1; g.stroke();
   });
 }
 const DECO_BY = {
@@ -1533,6 +1538,31 @@ function mapUpdate(dt) {
   if (MAP.avOut) MAP.avT += dt;
 }
 function ripple(t) { MAP.ripples.push({ q: t.q, r: t.r, t: 0, gold: t.ter === 'home' || t.ter === 'yard' || (t.ter === 'poi' && G.day.hack) }); }
+// Raid-start plate: translucent neon glass on the dome hex. Same tile, same walk, thinner glow.
+function drawRaidGlass(c, x, y, scale, T) {
+  const pul = .5 + .5 * Math.sin(T * 2.2), [, , f] = proj(c, x, y);
+  ctx.save(); ctx.translate(0, 6 * f); hexPath(c, x, y, scale * .94); ctx.fillStyle = 'rgba(6,0,12,.34)'; ctx.fill(); ctx.restore();
+  hexPath(c, x, y, scale); ctx.fillStyle = `rgba(10,2,18,${.14 + pul * .05})`; ctx.fill();
+  hexPath(c, x, y, scale * .58); ctx.fillStyle = `rgba(255,79,180,${.05 + pul * .04})`; ctx.fill();
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  hexPath(c, x, y, scale); ctx.strokeStyle = `rgba(255,79,180,${.2 + pul * .1})`; ctx.lineWidth = 4.5; ctx.stroke();
+  ctx.strokeStyle = `rgba(186,255,255,${.5 + pul * .18})`; ctx.lineWidth = 1.35; ctx.stroke();
+  hexPath(c, x, y, scale * .58); ctx.strokeStyle = `rgba(255,79,180,${.38 + pul * .14})`; ctx.lineWidth = 1.1; ctx.stroke();
+  ctx.strokeStyle = `rgba(255,214,120,${.26 + pul * .1})`; ctx.lineWidth = 1; ctx.beginPath();
+  for (let i = 0; i < 6; i += 2) { const p = HEXC[i], a = proj(c, x + p[0] * scale * .18, y + p[1] * scale * .18), b = proj(c, x + p[0] * scale * .5, y + p[1] * scale * .5); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); }
+  ctx.stroke(); ctx.restore();
+}
+function drawRaidBeacon(X, Y, rad, T) {
+  const pul = .5 + .5 * Math.sin(T * 2.2);
+  const ring = (s, fn) => { ctx.beginPath(); HEXC.forEach((p, i) => { const q = [X + p[0] * rad * s, Y + p[1] * rad * s]; i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }); ctx.closePath(); fn(); };
+  ctx.save(); ctx.translate(0, 5); ring(1, () => { ctx.fillStyle = 'rgba(6,0,12,.4)'; ctx.fill(); }); ctx.restore();
+  ring(1, () => { ctx.fillStyle = 'rgba(12,4,22,.4)'; ctx.fill(); });
+  ring(.58, () => { ctx.fillStyle = `rgba(255,79,180,${.1 + pul * .05})`; ctx.fill(); });
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  ring(1, () => { ctx.strokeStyle = 'rgba(255,79,180,.42)'; ctx.lineWidth = 3.5; ctx.stroke(); ctx.strokeStyle = `rgba(190,255,255,${.75 + pul * .15})`; ctx.lineWidth = 1.2; ctx.stroke(); });
+  ring(.58, () => { ctx.strokeStyle = 'rgba(255,79,180,.6)'; ctx.lineWidth = 1; ctx.stroke(); });
+  ctx.restore();
+}
 function drawMap(T) {
   const c = MAP.cam, ck = c.x.toFixed(3) + c.y.toFixed(3) + c.A + W + H + G.hackFill.toFixed(2);
   if (ck !== MAP.lastCam || groundDirty) { renderGround(c); MAP.lastCam = ck; groundDirty = false; }
@@ -1557,11 +1587,14 @@ function drawMap(T) {
     if (o) {
       const here = tileAt(h.q, h.r), pk = here.k + '>' + o.k; if (MAP.prevK !== pk) { MAP.prevK = pk; MAP.prev = pathTo(here, o); }
       MAP.prev.forEach((t, i) => { const [X, Y, f] = proj(c, t.x, t.y); const a = .35 + .4 * Math.max(0, Math.sin(T * 4 - i * .7)); ctx.fillStyle = `rgba(255,201,77,${a})`; ctx.beginPath(); ctx.arc(X, Y, 3 * f, 0, TAU); ctx.fill(); });
-      hexPath(c, o.x, o.y, .86); ctx.fillStyle = `rgba(255,201,77,${.18 + pul * .2})`; ctx.fill(); ctx.strokeStyle = '#ffc94d'; ctx.lineWidth = 2.5; ctx.stroke();
+      if (o.ter === 'dome') { const [, , lf] = proj(c, o.x, o.y); ctx.save(); ctx.translate(0, -tileLift(o) * lf); drawRaidGlass(c, o.x, o.y, .86, T); ctx.restore(); }
+      else { hexPath(c, o.x, o.y, .86); ctx.fillStyle = `rgba(255,201,77,${.18 + pul * .2})`; ctx.fill(); ctx.strokeStyle = '#ffc94d'; ctx.lineWidth = 2.5; ctx.stroke(); }
     }
   }
   // objective marker (gold hex beacon)
-  const tg = objectiveTile(); if (tg && h.mode === 'park' && !(h.q === tg.q && h.r === tg.r)) { const [X, Y, f] = proj(c, tg.x, tg.y); const b = Math.sin(T * 3) * 4; ctx.fillStyle = 'rgba(255,201,77,.9)'; poly(ctx, HEXC.map(p => [X + p[0] * 7 * f, Y - 92 * f + b + p[1] * 7 * f])); ctx.fill(); ctx.strokeStyle = 'rgba(255,201,77,.35)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(X, Y - 84 * f + b); ctx.lineTo(X, Y - 10 * f); ctx.stroke(); }
+  const tg = objectiveTile(); if (tg && h.mode === 'park' && !(h.q === tg.q && h.r === tg.r)) { const [X, Y, f] = proj(c, tg.x, tg.y); const b = Math.sin(T * 3) * 4;
+    if (tg.ter === 'dome') { ctx.strokeStyle = `rgba(186,255,255,${.4 + .15 * Math.sin(T * 3)})`; ctx.lineWidth = 1.15; ctx.beginPath(); ctx.moveTo(X, Y - 78 * f + b); ctx.lineTo(X, Y - tileLift(tg) * f); ctx.stroke(); drawRaidBeacon(X, Y - 92 * f + b, 8 * f, T); }
+    else { ctx.fillStyle = 'rgba(255,201,77,.9)'; poly(ctx, HEXC.map(p => [X + p[0] * 7 * f, Y - 92 * f + b + p[1] * 7 * f])); ctx.fill(); ctx.strokeStyle = 'rgba(255,201,77,.35)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(X, Y - 84 * f + b); ctx.lineTo(X, Y - 10 * f); ctx.stroke(); } }
   // contested crackle on a rival-hacked tile (hidden in cozy mode)
   if (!SET.cozy) { const t = tileAt(-4, 1); if (t) { hexPath(c, t.x, t.y, .9); ctx.strokeStyle = `rgba(255,70,90,${.25 + Math.random() * .4})`; ctx.lineWidth = 1.5 + Math.random() * 1.5; ctx.stroke(); } }
   // y-sorted sprites
@@ -1756,7 +1789,7 @@ function arenaUpdate(dt) {
     else if (m.state === 'load' && m.st >= m.tm.l) { m.state = 'skin'; m.st = 0; }
     else if (m.state === 'skin' && m.st >= m.tm.s) {
       m.state = 'live'; m.st = 0; SFX.live(); if (m.tier === 'boss') bossLive(m); const [X, Y, f] = proj(AR.cam, m.x, m.y);
-      fx({ x: X, y: Y, kind: 'ring', col: RAR[m.rar], size: 40 * f, life: .7 }); popText(X, Y - 70 * f, 'live', RAR[m.rar], 15);
+      fx({ x: X, y: Y, kind: 'ring', col: RAR[m.rar], size: 40 * f, life: .7 }); if (!(TRAIN.king && m.tier === 'boss')) popText(X, Y - 70 * f, 'live', RAR[m.rar], 15);
       if (m.full || inAggro(m)) { m.aggro = true; m.atkT = R(.8, 1.4) * PACE(); }
       if (!AR.firstLive) { AR.firstLive = true; coach('Skinned = <b>live</b>. Your <b>lock</b> sticks to one mob; stand still and the <b>bullet circle</b> tightens for bonus damage. <b>Red hexes</b> hurt only while you stand in them: <b>swipe</b> or <b>‹ ›</b> to step off.', 9000); }
     } else if (m.state === 'live') {
@@ -1904,8 +1937,19 @@ function renderArenaFloor() {
     }
     else { const isPoi = d <= 1, wtr = r < -1 || (d > 2); col = wtr ? '#163e6e' : isPoi ? mixHex('#2a3a48', '#d99a2a', AR.share * (d === 0 ? 1 : .8)) : '#24563c'; lift = wtr ? 0 : 5; }
     const [, , f] = proj(c, x, y);
-    if (lift) { g.save(); g.translate(0, lift * f); hexPath(c, x, y, .94, g); g.restore(); g.fillStyle = shade(col, -.5); g.fill(); }
-    hexPath(c, x, y, .94, g); g.fillStyle = col; g.fill();
+    const skirt = lift * (AR.kind === 'raid' ? clamp(f / .85, .7, 1.6) : 1);
+    if (skirt) { g.save(); g.translate(0, skirt * f); hexPath(c, x, y, .94, g); g.restore(); g.fillStyle = shade(col, -.55); g.fill(); }
+    hexPath(c, x, y, .94, g);
+    if (AR.kind === 'raid') {
+      const pts = HEXC.map(p => proj(c, x + p[0] * .94, y + p[1] * .94));
+      let tx = pts[0][0], ty = pts[0][1], bx = tx, by = ty;
+      for (const p of pts) { if (p[1] < ty) { ty = p[1]; tx = p[0]; } if (p[1] > by) { by = p[1]; bx = p[0]; } }
+      const face = g.createLinearGradient(tx, ty, bx, by);
+      face.addColorStop(0, shade(col, .32)); face.addColorStop(.48, col); face.addColorStop(1, shade(col, -.4));
+      g.fillStyle = face; g.fill();
+      hexPath(c, x, y, .5, g); g.fillStyle = 'rgba(255,255,255,.045)'; g.fill();
+      hexPath(c, x, y, .94, g);
+    } else { g.fillStyle = col; g.fill(); }
     const station = TRAIN.on && !TRAIN.king && AR.kind === 'raid' && ((q === -1 && r === -2) || (q === 1 && r === -2) || (q === 0 && r === -3));
     const seam = AR.kind === 'hack' ? (d <= 1 && AR.share > .5 ? '255,201,77' : '255,79,180') : (station ? '255,214,120' : d <= 2 ? '255,176,60' : '255,60,180'); // v7 heavy: gold core seams, magenta rim (north-star raid)
     g.strokeStyle = `rgba(${seam},.16)`; g.lineWidth = 6; g.stroke(); g.strokeStyle = `rgba(${seam},${d > 3 ? .45 : .8})`; g.lineWidth = 1.5; g.stroke();
@@ -1913,11 +1957,23 @@ function renderArenaFloor() {
   }
   AR.floorDirty = false;
 }
+// Soft face light on the raid floor. Drawn over the cached plates, under field colors and red zones. Not a camera plane.
+function drawRaidShimmer(c, T) {
+  if (AR.kind !== 'raid' || SET.cozy) return;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (let q = -4; q <= 4; q++) for (let r = -4; r <= 4; r++) {
+    const d = (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2; if (d > 4) continue;
+    const wave = .5 + .5 * Math.sin(T * 1.35 + q * .65 + r * .4); if (wave < .72) continue;
+    const [x, y] = hexXY(q, r); hexPath(c, x, y, .62);
+    ctx.fillStyle = `rgba(255,150,210,${(wave - .72) * .28})`; ctx.fill();
+  }
+  ctx.restore();
+}
 function drawArena(T) {
   const c = AR.cam;
   if (AR.floorDirty) renderArenaFloor();
   const sh = AR.shake > 0 ? AR.shake * 6 : 0; ctx.save(); if (sh) ctx.translate((Math.random() - .5) * sh, (Math.random() - .5) * sh);
-  drawWireUnder(c, AHEX, T, 'arena'); ctx.globalAlpha = surfaceAlpha(); ctx.drawImage(acv, 0, 0, W, H); ctx.globalAlpha = 1; drawWireOver(c, AHEX.filter(h => h.d <= 4), T, 'arena');
+  drawWireUnder(c, AHEX, T, 'arena'); ctx.globalAlpha = surfaceAlpha(); ctx.drawImage(acv, 0, 0, W, H); ctx.globalAlpha = 1; drawWireOver(c, AHEX.filter(h => h.d <= 4), T, 'arena'); drawRaidShimmer(c, T);
   if (TRAIN.on && TRAIN.pulses) for (const p of TRAIN.pulses) {
     const k = clamp(1 - p.t / 0.42, 0, 1), [x, y] = hexXY(p.q, p.r);
     hexPath(c, x, y, 0.82); ctx.globalAlpha = 0.28 * k; ctx.fillStyle = p.col; ctx.fill();
@@ -2005,14 +2061,30 @@ function drawArenaMob(m, T) {
 function drawBlock(T) {
   const b = AR.block, c = AR.cam, [X, Y, f] = proj(c, b.x, b.y), s = 40 * f * c.hz / 70, k = b.k;
   if (k > 0) return;
-  const lift = 18 * f + Math.sin(T * 2) * 4;
-  shadow(ctx, X, Y, s * 1.2, s * .4, .45);
-  const top = HEXC.map(p => [X + p[0] * s, Y - lift - s * 1.25 + p[1] * s * .45]);
-  ctx.fillStyle = '#b8761c'; poly(ctx, [top[0], top[1], top[2], [top[2][0], top[2][1] + s * 1.2], [top[1][0], top[1][1] + s * 1.2], [top[0][0], top[0][1] + s * 1.2]]); ctx.fill();
-  ctx.fillStyle = '#e09a2a'; poly(ctx, [top[2], top[3], [top[3][0], top[3][1] + s * 1.2], [top[2][0], top[2][1] + s * 1.2]]); ctx.fill();
-  ctx.fillStyle = '#ffd25e'; poly(ctx, top); ctx.fill();
-  ctx.strokeStyle = RAR[b.rar]; ctx.lineWidth = 3; poly(ctx, top); ctx.stroke(); ctx.beginPath(); ctx.moveTo(top[0][0], top[0][1]); ctx.lineTo(top[0][0], top[0][1] + s * 1.2); ctx.moveTo(top[2][0], top[2][1]); ctx.lineTo(top[2][0], top[2][1] + s * 1.2); ctx.moveTo(top[1][0], top[1][1]); ctx.lineTo(top[1][0], top[1][1] + s * 1.2); ctx.stroke();
-  ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = `900 ${13 * f}px ui-rounded,system-ui`; ctx.textAlign = 'center'; ctx.fillText('TAP', X, Y - lift - s * 2.1 + Math.sin(T * 5) * 3);
+  const lift = 18 * f + Math.sin(T * 2) * 4, pul = .5 + .5 * Math.sin(T * 2.4), drop = s * 1.05;
+  shadow(ctx, X, Y, s * 1.2, s * .4, .35);
+  const top = HEXC.map(p => [X + p[0] * s, Y - lift - s * 1.15 + p[1] * s * .42]);
+  const baseY = top.reduce((m, p) => Math.max(m, p[1]), 0);
+  for (let i = 0; i < 6; i++) {
+    const j = (i + 1) % 6; if ((top[i][1] + top[j][1]) / 2 < baseY - s * .12) continue;
+    ctx.beginPath(); ctx.moveTo(top[i][0], top[i][1]); ctx.lineTo(top[j][0], top[j][1]); ctx.lineTo(top[j][0], top[j][1] + drop); ctx.lineTo(top[i][0], top[i][1] + drop); ctx.closePath();
+    ctx.fillStyle = i % 2 ? 'rgba(48,10,58,.5)' : 'rgba(16,2,22,.62)'; ctx.fill();
+  }
+  ctx.beginPath(); top.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fillStyle = 'rgba(12,4,20,.4)'; ctx.fill();
+  const cx = top.reduce((a, p) => a + p[0], 0) / 6, cy = top.reduce((a, p) => a + p[1], 0) / 6;
+  const inn = top.map(p => [cx + (p[0] - cx) * .55, cy + (p[1] - cy) * .55]);
+  ctx.beginPath(); inn.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fillStyle = `rgba(255,79,180,${.08 + pul * .05})`; ctx.fill();
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  ctx.beginPath(); top.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath();
+  ctx.strokeStyle = `rgba(255,79,180,${.4 + pul * .18})`; ctx.lineWidth = 4; ctx.stroke();
+  ctx.strokeStyle = 'rgba(190,255,255,.8)'; ctx.lineWidth = 1.4; ctx.stroke();
+  ctx.beginPath(); inn.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.strokeStyle = 'rgba(255,79,180,.65)'; ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.beginPath(); for (let i = 0; i < 6; i += 2) { ctx.moveTo(cx + (top[i][0] - cx) * .16, cy + (top[i][1] - cy) * .16); ctx.lineTo(cx + (top[i][0] - cx) * .48, cy + (top[i][1] - cy) * .48); }
+  ctx.strokeStyle = `rgba(255,214,120,${.32 + pul * .16})`; ctx.lineWidth = 1; ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,79,180,.4)'; ctx.lineWidth = 1.2; ctx.beginPath();
+  for (let i = 0; i < 6; i++) { const j = (i + 1) % 6; if ((top[i][1] + top[j][1]) / 2 < baseY - s * .18) continue; ctx.moveTo(top[i][0], top[i][1]); ctx.lineTo(top[i][0], top[i][1] + drop); }
+  ctx.stroke(); ctx.restore();
+  ctx.fillStyle = 'rgba(230,255,255,.88)'; ctx.font = `900 ${13 * f}px ui-rounded,system-ui`; ctx.textAlign = 'center'; ctx.fillText('TAP', X, Y - lift - s * 2.1 + Math.sin(T * 5) * 3);
 }
 function drawSpike(T) {
   const sp = AR.spike, c = AR.cam, [X, Y, f] = proj(c, sp.x, sp.y), s = 26 * f * c.hz / 70; if (sp.k > 0) return;
@@ -2223,16 +2295,17 @@ function spawnFX(m, dt) {
   if (m.tier === 'elite' && m.state === 'load') { m.blip = (m.blip || 0) - dt; if (m.blip <= 0) { SFX.warn(); m.blip = .55; } }
   if (m.tier !== 'boss') return;
   AR.boss = m;
+  if (TRAIN.king) $('#bossCD').classList.add('hide');
   if (m.state === 'panel') {
     const c = m.st - .8, n = Math.ceil(3 - c);
-    if (c >= 0 && n >= 1 && n !== m.cd) { m.cd = n; SFX.tick(); buzz(15); $('#bossCD').classList.remove('hide'); $('#bossCD b').textContent = n; }
-    if (m.st > 0 && !m.dim) { m.dim = true; banner('BOSS', MOBDEF.boss.n); noise(.8, .1, 200); }
+    if (c >= 0 && n >= 1 && n !== m.cd) { m.cd = n; SFX.tick(); buzz(15); if (!TRAIN.king) { $('#bossCD').classList.remove('hide'); $('#bossCD b').textContent = n; } }
+    if (m.st > 0 && !m.dim) { m.dim = true; if (!TRAIN.king) banner('BOSS', MOBDEF.boss.n); noise(.8, .1, 200); }
   } else if (m.state === 'load') {
     $('#bossCD').classList.add('hide'); const seg = Math.min(6, Math.floor(m.st / T.l * 6) + 1);
     if (seg !== m.seg) { m.seg = seg; SFX.rumble(); buzz(40); AR.shake = Math.max(AR.shake, SET.cozy ? .15 : .7); wirePulse(m.x, m.y, 1.2, 'arena'); }
   } else if (m.state === 'skin') { const c = Math.floor(m.st / T.s * 5); if (c !== m.ck) { m.ck = c; SFX.crack(); } }
 }
-function bossLive(m) { $('#bossCD').classList.add('hide'); SFX.roar(); buzz([80, 40, 120]); AR.shake = SET.cozy ? .2 : 1; banner(MOBDEF.boss.n, 'ROAR'); const [X, Y, f] = proj(AR.cam, m.x, m.y); for (let i = 0; i < 3; i++) fx({ x: X, y: Y - 40 * f, kind: 'ring', col: i ? '#ffc94d' : '#ff4fb4', size: (60 + i * 30) * f, life: .9 + i * .2 }); wirePulse(m.x, m.y, 2, 'arena'); }
+function bossLive(m) { $('#bossCD').classList.add('hide'); SFX.roar(); buzz([80, 40, 120]); AR.shake = SET.cozy ? .2 : 1; if (!TRAIN.king) banner(MOBDEF.boss.n, 'ROAR'); const [X, Y, f] = proj(AR.cam, m.x, m.y); for (let i = 0; i < 3; i++) fx({ x: X, y: Y - 40 * f, kind: 'ring', col: i ? '#ffc94d' : '#ff4fb4', size: (60 + i * 30) * f, life: .9 + i * .2 }); wirePulse(m.x, m.y, 2, 'arena'); }
 
 /* ---------- drawing ---------- */
 function drawPlayerArea(c, T) {
@@ -2482,9 +2555,9 @@ function fieldStep(q, r, nq, nr) {
   if (wallAt(nq, nr)) { const [X, Y] = proj(AR.cam, AR.ppx, AR.ppy); popText(X, Y - 110, 'wall', '#8fe3ff', 12); return null; }
   const here = hexState(q, r);
   const into = hexState(nq, nr);
-  if ((into === 'trench' || (shapeAt(nq, nr) === 'trench' && shapeAt(q, r) !== 'trench')) && AR.t - (FIELD.climbT || -9) > 1.2) { FIELD.climbT = AR.t; FIELD.climbs = (FIELD.climbs || 0) + 1; const [X, Y] = proj(AR.cam, AR.ppx, AR.ppy); popText(X, Y - 110, 'trench! tap again', '#ff5fd0', 14); SFX.tele(); return null; }
-  if ((here === 'flood' || here === 'channel') && AR.t - (FIELD.wadeT || -9) > .7) { FIELD.wadeT = AR.t; FIELD.wades = (FIELD.wades || 0) + 1; const [X, Y] = proj(AR.cam, AR.ppx, AR.ppy); popText(X, Y - 110, 'wading…', '#7fd8ff', 14); return null; }
-  if ((here === 'honey' || here === 'caramel') && AR.t - (FIELD.stuckT || -9) > .9) { FIELD.stuckT = AR.t; FIELD.stuck = (FIELD.stuck || 0) + 1; const [X, Y] = proj(AR.cam, AR.ppx, AR.ppy); popText(X, Y - 110, 'stuck!', '#ffc94d', 14); SFX.tele(); return null; }
+  if ((into === 'trench' || (shapeAt(nq, nr) === 'trench' && shapeAt(q, r) !== 'trench')) && AR.t - (FIELD.climbT ?? -9) > 1.2) { FIELD.climbT = AR.t; FIELD.climbs = (FIELD.climbs || 0) + 1; const [X, Y] = proj(AR.cam, AR.ppx, AR.ppy); popText(X, Y - 110, 'trench! tap again', '#ff5fd0', 14); SFX.tele(); return null; }
+  if ((here === 'flood' || here === 'channel') && AR.t - (FIELD.wadeT ?? -9) > .7) { FIELD.wadeT = AR.t; FIELD.wades = (FIELD.wades || 0) + 1; const [X, Y] = proj(AR.cam, AR.ppx, AR.ppy); popText(X, Y - 110, 'wading…', '#7fd8ff', 14); return null; }
+  if ((here === 'honey' || here === 'caramel') && AR.t - (FIELD.stuckT ?? -9) > .9) { FIELD.stuckT = AR.t; FIELD.stuck = (FIELD.stuck || 0) + 1; const [X, Y] = proj(AR.cam, AR.ppx, AR.ppy); popText(X, Y - 110, 'stuck!', '#ffc94d', 14); SFX.tele(); return null; }
   let land = [nq, nr];
   if (hexState(nq, nr) === 'ice') { const sq = nq + (nq - q), sr = nr + (nr - r); if (inPA(sq, sr) && !wallAt(sq, sr)) { land = [sq, sr]; FIELD.slides = (FIELD.slides || 0) + 1; const [X, Y] = proj(AR.cam, AR.ppx, AR.ppy); popText(X, Y - 110, 'slide!', '#bff4ff', 14); } }
   return land;
@@ -2639,7 +2712,7 @@ function slashLine(x0, y0, x1, y1, opt = {}) {
   if (emp) for (const sd of [-1, 1]) { const ox = -dy * 1.55 * sd, oy = dx * 1.55 * sd; hexesOnLine(x0 + ox, y0 + oy, x1 + ox, y1 + oy).forEach(([q, r]) => { if (!hs.some(h => h[0] === q && h[1] === r)) put(q, r, 'berm', sd); }); }
   const dust = SET.cozy ? 6 : 12; for (let i = 0; i < dust; i++) { const h = hs[i % hs.length], [x, y] = hexXY(h[0], h[1]), [X, Y, f] = proj(AR.cam, x, y); fx({ x: X + (Math.random() - .5) * 30 * f, y: Y, vx: (Math.random() - .5) * 90, vy: -60 - Math.random() * 80, g: 160, col: 'rgba(120,90,130,.75)', size: 6 * f, life: .6 }); }
   for (let i = 0; i < (SET.cozy ? 5 : 10); i++) { const h = hs[(i * 3) % hs.length], [x, y] = hexXY(h[0], h[1]), [X, Y, f] = proj(AR.cam, x, y); fx({ x: X + (Math.random() - .5) * 40 * f, y: Y, vx: (Math.random() - .5) * 160, vy: -160 - Math.random() * 140, g: 620, col: i % 3 ? '#2a1432' : '#ff5ad8', size: (3 + Math.random() * 4) * f, life: .8, kind: 'cube', vr: (Math.random() - .5) * 12 }); }
-  if (!reducedMotion()) AR.shake = Math.max(AR.shake, emp ? .45 : .3); SFX.punch(); return hs;
+  if (!reducedMotion()) AR.shake = Math.max(AR.shake, emp ? .45 : .3);   SFX.punch(); if (hs.length) { const mid = hs[(hs.length / 2) | 0]; hexPop(mid[0], mid[1], 'Trench', '#ff5fd0'); } return hs;
 }
 function terrK(e) { const u = clamp((e.t - e.delay) / .28, 0, 1), back = 1 + 2.4 * Math.pow(u - 1, 3) + 1.4 * Math.pow(u - 1, 2); return u <= 0 ? 0 : back * clamp((e.life - e.t) / 3, 0, 1); }
 function drawTerrain(c, T) {
@@ -3826,6 +3899,19 @@ function paintField(id, aim) {
   else return false;
   return true;
 }
+// The player's own iceberg. Aim must land on a wall hex; nothing is chosen for them.
+function aimedOwnWall(aim) {
+  const w = FIELD.wall;
+  if (!w || !aim || !Number.isFinite(aim.x) || !Number.isFinite(aim.y)) return null;
+  let near = false;
+  for (const h of w.hexes) {
+    const [x, y] = hexXY(h[0], h[1]);
+    if (Math.hypot(aim.x - x, aim.y - y) < 1.05) { near = true; break; }
+  }
+  if (!near) return null;
+  const xs = w.hexes.map(h => hexXY(h[0], h[1])[0]);
+  return { x: clamp(aim.x, Math.min(...xs), Math.max(...xs)), y: w.cy };
+}
 function aimAngle() {
   if (!TRAIN.aim || G.scene !== 'arena') return -Math.PI / 2;
   const [px, py] = pPos();
@@ -3935,9 +4021,8 @@ function selectRim(i) {
 }
 function castSlash() {
   const aim = TRAIN.aim;
-  const m = (aim && nearestLive(aim, 4)) || liveMobs()[0];
-  if (!m) return false;
-  return shadowSlash(m);
+  if (!aim || !Number.isFinite(aim.x) || !Number.isFinite(aim.y)) return false;
+  return shadowSlash(aim);
 }
 function releaseMage() {
   const rim = MAGE_RIM[TRAIN.sel.mage] || MAGE_RIM[0];
@@ -3950,11 +4035,18 @@ function releaseMage() {
   else if (rim.id === 'slash') ok = !!castSlash();
   else {
     const idx = rim.id === 'frost' ? 1 : rim.id === 'nova' ? 2 : 0;
-    const m = nearestLive(TRAIN.aim, 1.85);
-    if (rim.id === 'nova') ok = !!cast(2, power, null);
+    const wallAim = rim.id === 'ember' ? aimedOwnWall(TRAIN.aim) : null;
+    const m = wallAim ? null : nearestLive(TRAIN.aim, 1.85);
+    if (wallAim) {
+      if (AR.cds[idx] <= 0 && spendMana(MANA_COST.spell)) {
+        AR.cds[idx] = SPELLS[idx].cd; AR.castT = .25; G.day.casts++;
+        wallHit(Math.round(SPELLS[idx].dmg * power), wallAim.x, wallAim.y);
+        SFX.cast(); ok = true;
+      }
+    } else if (rim.id === 'nova') ok = !!cast(2, power, null);
     else if (m) ok = !!cast(idx, power, m);
     else if (spendMana(MANA_COST.spell)) { ok = paintField(rim.id, TRAIN.aim); AR.castT = .3; AR.cds[idx] = SPELLS[idx].cd; SFX.cast(); }
-    if (ok && rim.id !== 'nova') paintField(rim.id, m ? { x: m.x, y: m.y } : TRAIN.aim);
+    if (ok && !wallAim && rim.id !== 'nova') paintField(rim.id, m ? { x: m.x, y: m.y } : TRAIN.aim);
   }
   const castMsg = (ok ? rim.name + ' released ' + shown + '%' : rim.name + ' not ready');
   popPlayer(castMsg, rim.col);
@@ -4348,9 +4440,9 @@ function drawDummy(m) {
 function kingLine() {
   if (AR.phase === 'clear') return '<b>Gel King down</b> · Retry or Back to the yard';
   const m = AR.mobs.find(x => x.k === 'boss' && x.state !== 'gone');
-  const hp = m ? Math.max(0, Math.ceil(m.hp)) : 0;
   const you = Math.max(0, Math.ceil(G.hp));
-  return `<b>Gel King</b> · ${hp} HP · you ${you}`;
+  if (!m || m.state !== 'live') return `<b>Gel King</b> · arriving · you ${you}`;
+  return `<b>Gel King</b> · ${Math.max(0, Math.ceil(m.hp))} HP · you ${you}`;
 }
 function kingDown() {
   AR.phase = 'clear';
@@ -4372,13 +4464,15 @@ function startKing() {
   TRAIN.king = true;
   TRAIN.demo = false;
   AR.kind = 'raid';
-  AR.waves = [[{ k: 'boss', at: [0, -3], full: 1 }]];
+  AR.waves = [[{ k: 'boss', at: [0, -1], full: 1 }]];
   AR.wave = 0;
   AR.phase = 'wave';
   spawnWave(0);
   AR.floorDirty = true;
   G.hp = G.maxHp; renderHearts();
   setObj(kingLine());
+  document.getElementById('trainHud').classList.add('king');
+  layoutArenaCam();
   showCast('Step off red');
   coach(null);
 }
@@ -4413,7 +4507,7 @@ function startTrain() {
   FIELD.wallTip = true;
   G.hp = G.maxHp; renderHearts();
   document.getElementById('wheel').classList.add('on');
-  document.getElementById('trainHud').classList.remove('hide');
+  document.getElementById('trainHud').classList.remove('hide', 'king');
   document.getElementById('trainHelp').textContent = trainHelpText();
   document.getElementById('trainHelp').classList.toggle('collapsed', !TRAIN.helpOpen);
   syncClassBtn();
@@ -4428,7 +4522,7 @@ function resetTrain() {
   interruptCharge();
   spawnDummies();
   FIELD.hex.clear(); FIELD.terr.clear(); FIELD.wall = null; FIELD.chunks = []; FIELD.fogs = [];
-  FIELD.pslash = null; FIELD.mana = 100; FIELD.slashCD = 0; FIELD.wallCD = 0;
+  FIELD.pslash = null; FIELD.scars = []; FIELD.cut = null; FIELD.mana = 100; FIELD.slashCD = 0; FIELD.wallCD = 0;
   AR.cds = [0, 0, 0]; AR.shots = []; AR.zones = []; AR.lines = []; AR.phase = 'wave';
   G.hp = G.maxHp; renderHearts();
   TRAIN.charge = 0; TRAIN.bolts = []; TRAIN.spent = false; TRAIN.snap = 0;
@@ -4614,7 +4708,7 @@ function drillLine() {
   proj = function (c, wx, wy) { return (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') ? projFp(wx, wy) : _proj(c, wx, wy); };
   unproj = function (c, X, Y) { return (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') ? unprojFp(X, Y) : _unproj(c, X, Y); };
 }
-{ const _layoutArenaCam = layoutArenaCam; layoutArenaCam = function () { if (TRAIN.on && TRAIN.view === 'fp') { applyFpCam(); return; } _layoutArenaCam(); AR.cam.x = 0; if (TRAIN.on) { AR.cam.cy = H * 0.58; AR.floorDirty = true; } }; }
+{ const _layoutArenaCam = layoutArenaCam; layoutArenaCam = function () { if (TRAIN.on && TRAIN.view === 'fp') { applyFpCam(); return; } _layoutArenaCam(); AR.cam.x = 0; if (TRAIN.king) { AR.cam.cy = H * 0.54; AR.cam.y = 0.15; AR.floorDirty = true; } else if (TRAIN.on) { AR.cam.cy = H * 0.58; AR.floorDirty = true; } }; }
 function drawFpFrame() {
   if (!(TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena')) return;
   ctx.save();
@@ -4913,7 +5007,7 @@ window.__train = {
   trainSelfTest, MAGE_RIM, GUN_RIM, applyZoom, layoutMapCam, setClass, setTrainView, slashUpdate,
   openMapNav, openCommand, goPlace, BOARD, boardNote, discPlate, discCenter, discRadius, discHit,
   startKing, kingLine,
-  trainUpdate, releaseDisc, interruptCharge,
+  trainUpdate, releaseDisc, interruptCharge, aimedOwnWall,
   DISC_IDLE, DISC_CHARGED,
   stepArena: dt => arenaUpdate(dt),
   markDirty: () => { groundDirty = true; },
