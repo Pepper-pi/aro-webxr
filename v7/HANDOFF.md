@@ -7,6 +7,7 @@ Live `/v7/` on main is unchanged. Nothing here was merged or deployed.
 ## What you can do
 
 - Mage: press the center, drag to aim, hold. **Full fires once** casts at full charge and the lift does not cast again. An early release is one weaker cast. Switching view, class, Reset, or Back drops the charge and does not cast. The forearm mark says **Not tracked**.
+- Views: **Tactical** is the default. **Low** is an optional closer-to-the-floor arena camera (same aim math). **First person** is unchanged. Details are below.
 - Gunner: holding does not fire. The shot happens on release.
 - Slash cuts the hexes you aimed. The first step into a trench says to tap again, including when the fight clock is still 0. The next step enters. Ember on that trench is a lava seam and burns while you stand in it. Reset and the 14 second life both clear it. A mob that walks into the cut is stopped by the same obstacle check the arena uses.
 - Iceberg raises your wall at 90 HP. Ember aimed at that wall, on the glowing center, hits for 40 (weak point, 2×). Three of those remove it: cracked hexes and ice chunks. Frost and a shot at empty ground do not damage it. A lift after the cast does not hit again.
@@ -44,11 +45,19 @@ An earlier phone frame of a pit (`hole_trench_phone`) looked empty of people. Me
 - The cast line sat on the player on a tall phone. It now sits at the left, under the buttons, and in the corner on short screens.
 - The page already sets `overflow: hidden` and `touch-action: none` on the canvas, so the field does not scroll.
 
-## Depth, and what a lower angle would take
+## Low angle (optional)
 
-The picture is one canvas projection. `proj` / `unproj` use `cam.A` of 0.8. World Y is the depth axis, and at this angle a thin cut along that axis becomes a short screen band. That is why a slash ribbon looked like two bars. The current pits avoid that by dropping each hex downward on the screen by about the hex’s own screen height, with side walls and a cyan floor. That is as deep as this angle can show without covering the next tile.
+In the yard and the Gel King bout, the view row is **Tactical**, **Low**, **First person**. Tactical is still the default and still uses camera angle 0.8. **Low** is a second arena camera on the same `proj` / `unproj`: angle 1.0, the floor pulled a little closer to the horizon, plate edges drawn thicker, seam glow turned down, and a dim band plus a few drifting streaks at the back. Those streaks are drawn only. They are not rain gameplay and they do not wet the hexes.
 
-A closer match to the low, tilted concept view is a smaller `cam.A` (and a pass over `cy`) so a multi-hex canyon has tall inner walls in screen space. `unproj` is the inverse of that same angle, and every drag-to-aim, shot, and tap uses it. Changing `A` moves the world point under a finger. It is the same 2D math, not a camera plane and not WebXR. It is not a safe one-line change: aim, the disc, trench steps, and the three viewports above would have to be rechecked, and the floor skirts and pit drop would need to be retuned or they will intersect the buttons. That work is not done.
+Switching Low cancels a charge in progress, the same way First person does. Reset keeps the view you picked. Back, and a new yard or king entrance, return to Tactical. The map raid does not grow a new button; it stays on the default camera. Map navigation is unchanged.
+
+`v7/regress.mjs` checks that a point aimed in Low unprojects back to itself, that Ember still hits the dummy under the ring, that the dummies stay off the buttons and the disc at 320×568, 390×844, and landscape, and that Tactical’s angle returns to 0.8.
+
+What Low does not do: it is not the low heroic painting. The pits are still one hex, the back rocks are still small, and there is no wide canyon. Pushing the angle further made the side dummies leave the screen in the trials above, so this is the setting that stayed playable.
+
+![Tactical](handoff/tac_before.png)
+
+![Low](handoff/low_after.png)
 
 ## Not in this build
 

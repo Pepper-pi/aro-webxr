@@ -297,6 +297,74 @@ await layout(320, 568);
 await layout(390, 844);
 await layout(844, 390);
 
+const lowPage = await open(390, 844);
+const low = await lowPage.evaluate(() => {
+  window.__aroFreeze = true;
+  window.__train.startTrain();
+  window.__train.setClass('mage');
+  window.__train.TRAIN.demo = false;
+  const beforeA = window.__aro.AR.cam.A;
+  window.__train.setTrainView('low');
+  const c = window.__aro.AR.cam;
+  const d = window.__aro.AR.mobs[1];
+  const p = proj(c, d.x, d.y);
+  const back = unproj(c, p[0], p[1]);
+  const err = Math.hypot(back[0] - d.x, back[1] - d.y);
+  const hud = document.getElementById('trainHud').getBoundingClientRect();
+  const disc = window.__train.discCenter();
+  const R = window.__train.discRadius();
+  const onHud = p[1] > hud.top && p[1] < hud.bottom && p[0] > hud.left && p[0] < hud.right;
+  const onDisc = Math.hypot(p[0] - disc.x, p[1] - disc.y) < R + 8;
+  window.__train.TRAIN.sel.mage = 0;
+  window.__train.TRAIN.aim = { x: d.x, y: d.y };
+  window.__train.TRAIN.charge = 1;
+  window.__train.TRAIN.spent = false;
+  window.__aro.AR.cds[0] = 0;
+  const hp0 = d.hp;
+  window.__train.releaseMage();
+  for (let i = 0; i < 14; i++) window.__train.stepArena(0.05);
+  const hit = d.hp < hp0;
+  const lowA = c.A;
+  window.__train.setTrainView('tactical');
+  const restored = Math.abs(window.__aro.AR.cam.A - beforeA) < 1e-6;
+  return { A: lowA, err, onHud, onDisc, hit, screen: [Math.round(p[0]), Math.round(p[1])], restored };
+});
+check('low angle round-trips aim', low.A === 1 && low.err < 0.05, 'A ' + low.A + ' err ' + low.err.toFixed(4));
+check('low angle keeps the dummy off the HUD and the disc', !low.onHud && !low.onDisc && low.screen[1] > 80 && low.screen[1] < 700, JSON.stringify(low.screen));
+check('low angle ember still hits the aimed dummy', low.hit, '');
+check('tactical camera returns', low.restored, '');
+await lowPage.close();
+
+async function lowLayout(w, h) {
+  const p = await open(w, h);
+  const r = await p.evaluate(() => {
+    window.__train.startTrain();
+    window.__train.setTrainView('low');
+    const c = window.__aro.AR.cam;
+    const scr = (x, y) => {
+      const u = (x - c.x) * c.hz, v = (y - c.y) * c.hz;
+      const depth = Math.max(c.D * 0.3, c.D - v * Math.sin(c.A)), f = c.D / depth;
+      return { x: innerWidth / 2 + u * f, y: c.cy + v * Math.cos(c.A) * f };
+    };
+    const boxes = ['trainHud', 'castFeed'].map(id => {
+      const b = document.getElementById(id).getBoundingClientRect();
+      return { top: b.top, bottom: b.bottom, left: b.left, right: b.right };
+    });
+    const hit = (pt, b) => pt.x > b.left && pt.x < b.right && pt.y > b.top && pt.y < b.bottom;
+    const covered = [];
+    for (const m of window.__aro.AR.mobs) {
+      const pt = scr(m.x, m.y - 0.35);
+      if (boxes.some(b => hit(pt, b)) || pt.x < 8 || pt.x > innerWidth - 8 || pt.y < 8 || pt.y > innerHeight - 8) covered.push(m.D.n);
+    }
+    return { covered, A: c.A };
+  });
+  check('low ' + w + 'x' + h + ' shows the dummies', r.covered.length === 0 && r.A === 1, r.covered.join(',') || 'ok');
+  await p.close();
+}
+await lowLayout(320, 568);
+await lowLayout(390, 844);
+await lowLayout(844, 390);
+
 fs.mkdirSync(OUT, { recursive: true });
 async function frame(p, file) {
   await p.evaluate(() => {
@@ -347,6 +415,11 @@ check('phone frame draws a dummy and the player', colors.head[0] > 80 || colors.
 await shot.setViewport({ width: 844, height: 390, deviceScaleFactor: 1 });
 await shot.evaluate(() => { resize(); window.__aro.AR.floorDirty = true; window.__train.TRAIN.demo = false; showCast(''); });
 await frame(shot, 'play_land.png');
+await shot.setViewport({ width: 390, height: 844, deviceScaleFactor: 1 });
+await shot.evaluate(() => { resize(); window.__train.setTrainView('tactical'); window.__train.TRAIN.demo = false; syncAutoBtn(); showCast(''); });
+await frame(shot, 'tac_before.png');
+await shot.evaluate(() => { window.__train.setTrainView('low'); window.__train.TRAIN.demo = false; syncAutoBtn(); showCast(''); });
+await frame(shot, 'low_after.png');
 await shot.close();
 
 await browser.close();

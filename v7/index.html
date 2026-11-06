@@ -300,6 +300,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
   <div class="note" id="trainNote">Practice views · not tracked AR · code-drawn disc, not a live mesh</div>
   <div class="rowb" id="trainViews">
     <button type="button" id="viewTac" class="on">Tactical</button>
+    <button type="button" id="viewLow">Low</button>
     <button type="button" id="viewFp">First person</button>
   </div>
   <div class="rowb">
@@ -1945,7 +1946,7 @@ function renderArenaFloor() {
     }
     else { const isPoi = d <= 1, wtr = r < -1 || (d > 2); col = wtr ? '#163e6e' : isPoi ? mixHex('#2a3a48', '#d99a2a', AR.share * (d === 0 ? 1 : .8)) : '#24563c'; lift = wtr ? 0 : 5; }
     const [, , f] = proj(c, x, y);
-    const skirt = lift * (AR.kind === 'raid' ? clamp(f / .85, .7, 1.6) : 1);
+    const skirt = lift * (AR.kind === 'raid' ? clamp(f / .85, .7, 1.6) * (TRAIN.on && TRAIN.view === 'low' ? 2.3 : 1) : 1);
     if (skirt) { g.save(); g.translate(0, skirt * f); hexPath(c, x, y, .94, g); g.restore(); g.fillStyle = shade(col, -.55); g.fill(); }
     hexPath(c, x, y, .94, g);
     if (AR.kind === 'raid') {
@@ -1960,7 +1961,8 @@ function renderArenaFloor() {
     } else { g.fillStyle = col; g.fill(); }
     const station = TRAIN.on && !TRAIN.king && AR.kind === 'raid' && ((q === -1 && r === -2) || (q === 1 && r === -2) || (q === 0 && r === -3));
     const seam = AR.kind === 'hack' ? (d <= 1 && AR.share > .5 ? '255,201,77' : '255,79,180') : (station ? '140,220,255' : d <= 2 ? '80,200,255' : '176,96,220');
-    g.strokeStyle = `rgba(${seam},.16)`; g.lineWidth = 6; g.stroke(); g.strokeStyle = `rgba(${seam},${d > 3 ? .45 : .8})`; g.lineWidth = 1.5; g.stroke();
+    const lowSeam = TRAIN.on && TRAIN.view === 'low';
+    g.strokeStyle = `rgba(${seam},${lowSeam ? .08 : .16})`; g.lineWidth = lowSeam ? 3 : 6; g.stroke(); g.strokeStyle = `rgba(${seam},${d > 3 ? .35 : (lowSeam ? .55 : .8)})`; g.lineWidth = 1.5; g.stroke();
     if (station) { hexPath(c, x, y, .7, g); g.strokeStyle = 'rgba(255,214,120,.95)'; g.lineWidth = 2.2; g.stroke(); }
   }
   AR.floorDirty = false;
@@ -1977,11 +1979,24 @@ function drawRaidShimmer(c, T) {
   }
   ctx.restore();
 }
+function drawLowAir(T) {
+  if (!(TRAIN.on && TRAIN.view === 'low') || SET.cozy) return;
+  const hy = proj(AR.cam, 0, -7)[1];
+  ctx.save();
+  ctx.fillStyle = 'rgba(6,8,18,.28)';
+  ctx.fillRect(0, 0, W, Math.max(0, hy + 8));
+  for (let i = 0; i < 16; i++) {
+    const x = (hsh(i, 4) * W + T * 14) % W, y = hsh(i, 8) * Math.max(24, hy);
+    ctx.strokeStyle = 'rgba(190,205,230,.12)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 1, y + 9); ctx.stroke();
+  }
+  ctx.restore();
+}
 function drawArena(T) {
   const c = AR.cam;
   if (AR.floorDirty) renderArenaFloor();
   const sh = AR.shake > 0 ? AR.shake * 6 : 0; ctx.save(); if (sh) ctx.translate((Math.random() - .5) * sh, (Math.random() - .5) * sh);
-  drawWireUnder(c, AHEX, T, 'arena'); ctx.globalAlpha = surfaceAlpha(); ctx.drawImage(acv, 0, 0, W, H); ctx.globalAlpha = 1; drawWireOver(c, AHEX.filter(h => h.d <= 4), T, 'arena'); drawRaidShimmer(c, T);
+  drawWireUnder(c, AHEX, T, 'arena'); ctx.globalAlpha = surfaceAlpha(); ctx.drawImage(acv, 0, 0, W, H); ctx.globalAlpha = 1; drawLowAir(T); drawWireOver(c, AHEX.filter(h => h.d <= 4), T, 'arena'); drawRaidShimmer(c, T);
   if (TRAIN.on && TRAIN.pulses) for (const p of TRAIN.pulses) {
     const k = clamp(1 - p.t / 0.42, 0, 1), [x, y] = hexXY(p.q, p.r);
     hexPath(c, x, y, 0.82); ctx.globalAlpha = 0.28 * k; ctx.fillStyle = p.col; ctx.fill();
@@ -3968,13 +3983,21 @@ function unprojFp(X, Y) {
   const fpx = 320 / Math.max(0.55, dist);
   return [ex + (X - W / 2) / fpx / 0.72, ey - dist];
 }
+function applyLowCam() {
+  const c = AR.cam;
+  const hz0 = clamp(Math.min(W / 5.6, H / 10.5), 44, 96);
+  c.x = 0; c.y = 0.35; c.hz = hz0 * 0.72; c.D = H * 1.05; c.cy = H * 0.5; c.A = 1;
+  AR.floorDirty = true;
+}
 function syncViewBtns() {
-  const fp = TRAIN.view === 'fp';
-  const tac = document.getElementById('viewTac'), bfp = document.getElementById('viewFp');
-  if (tac) tac.classList.toggle('on', !fp);
-  if (bfp) bfp.classList.toggle('on', fp);
+  const v = TRAIN.view;
+  const tac = document.getElementById('viewTac'), low = document.getElementById('viewLow'), bfp = document.getElementById('viewFp');
+  if (tac) tac.classList.toggle('on', v !== 'fp' && v !== 'low');
+  if (low) low.classList.toggle('on', v === 'low');
+  if (bfp) bfp.classList.toggle('on', v === 'fp');
   const note = document.getElementById('trainNote');
-  if (note) note.textContent = (fp ? 'First person' : 'Tactical') + ' · practice view, not tracked AR · ' + discSkinLabel();
+  const name = v === 'fp' ? 'First person' : v === 'low' ? 'Low angle' : 'Tactical';
+  if (note) note.textContent = name + ' · practice view, not tracked AR · ' + discSkinLabel();
 }
 function interruptCharge(msg) {
   const held = !!(TRAIN.cap || AR.ptr);
@@ -3988,10 +4011,10 @@ function interruptCharge(msg) {
 }
 function setTrainView(v) {
   interruptCharge('Charge cancelled');
-  const next = v === 'fp' ? 'fp' : 'tactical';
+  const next = v === 'fp' ? 'fp' : v === 'low' ? 'low' : 'tactical';
   TRAIN.view = next;
-  if (next === 'tactical') layoutArenaCam();
-  else applyFpCam();
+  if (next === 'fp') applyFpCam();
+  else layoutArenaCam();
   syncViewBtns();
   return next;
 }
@@ -4707,7 +4730,7 @@ function drillLine() {
   proj = function (c, wx, wy) { return (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') ? projFp(wx, wy) : _proj(c, wx, wy); };
   unproj = function (c, X, Y) { return (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') ? unprojFp(X, Y) : _unproj(c, X, Y); };
 }
-{ const _layoutArenaCam = layoutArenaCam; layoutArenaCam = function () { if (TRAIN.on && TRAIN.view === 'fp') { applyFpCam(); return; } _layoutArenaCam(); AR.cam.x = 0; if (TRAIN.king) { AR.cam.cy = H * 0.60; AR.cam.y = 0.15; AR.floorDirty = true; } else if (TRAIN.on) { AR.cam.cy = H * 0.58; AR.floorDirty = true; } }; }
+{ const _layoutArenaCam = layoutArenaCam; layoutArenaCam = function () { if (TRAIN.on && TRAIN.view === 'fp') { applyFpCam(); return; } _layoutArenaCam(); AR.cam.x = 0; if (TRAIN.on && TRAIN.view === 'low') { applyLowCam(); return; } if (TRAIN.king) { AR.cam.cy = H * 0.60; AR.cam.y = 0.15; AR.floorDirty = true; } else if (TRAIN.on) { AR.cam.cy = H * 0.58; AR.floorDirty = true; } }; }
 function drawFpFrame() {
   if (!(TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena')) return;
   ctx.save();
@@ -4793,6 +4816,7 @@ document.getElementById('trainReset').addEventListener('click', e => { e.stopPro
 document.getElementById('trainBack').addEventListener('click', e => { e.stopPropagation(); if (TRAIN.king) { TRAIN.king = false; startTrain(); return; } leaveTrain(); });
 document.getElementById('trainClass').addEventListener('click', e => { e.stopPropagation(); setClass(GUN.cls === 'gunner' ? 'mage' : 'gunner'); });
 document.getElementById('viewTac').addEventListener('click', e => { e.stopPropagation(); setTrainView('tactical'); });
+document.getElementById('viewLow').addEventListener('click', e => { e.stopPropagation(); setTrainView('low'); });
 document.getElementById('viewFp').addEventListener('click', e => { e.stopPropagation(); setTrainView('fp'); });
 document.getElementById('trainAuto').addEventListener('click', e => {
   e.stopPropagation();
