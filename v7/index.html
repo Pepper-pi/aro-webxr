@@ -1882,6 +1882,7 @@ function claimEnd() {
   setAct('Back to the map', () => endArena(), true);
 }
 function endArena() {
+  dropCanvasPress();
   setAct(null); coach(null); $('#bossCD').classList.add('hide'); $('#dangerV').style.opacity = 0; $('#wheel').classList.remove('on'); $('#hearts').classList.add('hide'); $('#menuBtn').classList.remove('dim');
   G.scene = 'map'; groundDirty = true; syncRoomLow(); if (typeof syncMapNav === 'function') syncMapNav(); const f = AR.onDone; AR.onDone = null; f && f();
 }
@@ -1909,7 +1910,8 @@ function cast(i, power = 1, target = null) {
   return true;
 }
 function noLive() { const [px, py] = pPos(), [X, Y] = proj(AR.cam, px, py); popText(X, Y - 130, AR.mobs.some(m => m.state === 'panel' || m.state === 'load' || m.state === 'skin') ? 'wireframes can’t be hit yet' : 'nothing live', '#7ff0ff', 13); }
-function selSpell(i) { AR.sel = i; $$('.sp').forEach((b, j) => b.classList.toggle('on', j === i)); }
+function dropCanvasPress() { AR.ptr = null; }
+function selSpell(i) { if (i !== AR.sel) dropCanvasPress(); AR.sel = i; $$('.sp').forEach((b, j) => b.classList.toggle('on', j === i)); }
 function updWheel() { { const b = $('#iceWall'), k = FIELD.wallCD / WALL_CD; b.querySelector('i').style.width = (k > 0 ? (1 - k) * 100 : 0) + '%'; b.classList.toggle('cd', k > 0 || !!FIELD.wall); } $$('.sp').forEach((b, j) => { const k = AR.cds[j] / SPELLS[j].cd; b.querySelector('i').style.height = (k > 0 ? (1 - k) * 100 : 0) + '%'; b.classList.toggle('cd', k > 0); }); }
 
 function arenaDown(X, Y) {
@@ -1954,6 +1956,12 @@ function releaseEmberAt(X, Y, aim, power) {
 function arenaUp(X, Y) {
   const p = AR.ptr; AR.ptr = null; if (!p || p.swiped) return;
   const held = (performance.now() - p.t0) / 1000;
+  const dx = X - p.x0, dy = Y - p.y0, travel = Math.hypot(dx, dy);
+  // A touch flick often reports its distance on the lift, after the move events were dropped.
+  if (!p.aiming && held < .45 && travel > 38) {
+    if (Math.abs(dx) > Math.abs(dy) * 1.3) { moveP(dx > 0 ? 1 : -1, 0); return; }
+    if (Math.abs(dy) > Math.abs(dx) * 1.3) { moveP(0, dy > 0 ? 1 : -1); return; }
+  }
   const aim = aimWorld(X, Y);
   // Ember in a map raid: a rested drag, or a tap that lands on your own wall and not on a creature.
   if (raidEmberAim() && (p.aiming || (!mobAt(X, Y) && typeof aimedOwnWall === 'function' && aimedOwnWall(aim)))) {
@@ -3534,17 +3542,21 @@ $('#act').addEventListener('click', () => { audioInit(); SFX.tap(); const f = ac
 $('#menuBtn').addEventListener('click', openRing);
 $$('.race').forEach(b => b.onclick = () => { G.race = b.dataset.r; if (G.race === 'slime') G.form = 'boba'; $$('.race').forEach(x => x.classList.toggle('sel', x === b)); SFX.tap(); });
 $('#titleGo').onclick = () => startDay();
-$$('.sp').forEach(b => b.addEventListener('click', () => { const i = +b.dataset.i; selSpell(i); cast(i, 1, null); }));
+$$('.sp').forEach(b => b.addEventListener('click', () => { dropCanvasPress(); const i = +b.dataset.i; selSpell(i); cast(i, 1, null); }));
 $('#iceWall').addEventListener('click', () => raiseWall());
 $('#dodgeL').addEventListener('pointerdown', e => { e.preventDefault(); dodge(-1); });
 $('#dodgeR').addEventListener('pointerdown', e => { e.preventDefault(); dodge(1); });
 
 /* ===================== input on the canvas ===================== */
 let mp = null;
-cv.addEventListener('pointerdown', e => { e.preventDefault(); audioInit(); const X = e.clientX, Y = e.clientY; if (G.scene === 'arena') arenaDown(X, Y); else { const [AX, AY, f] = proj(MAP.cam, MAP.house.x, MAP.house.y); mp = { x: X, y: Y, t: performance.now(), onMe: MAP.avOut && Math.hypot(X - AX, Y - (AY - 22 * f)) < 46 }; } }, { passive: false });
-cv.addEventListener('pointermove', e => { if (G.scene === 'arena') arenaMove(e.clientX, e.clientY); else if (mp && !mp.onMe && e.clientY - mp.y > 90 && Math.abs(e.clientX - mp.x) < 60 && G.step >= 5) { mp = null; openRing(); } });
-cv.addEventListener('pointerup', e => { const X = e.clientX, Y = e.clientY; if (G.scene === 'arena') arenaUp(X, Y); else if (mp) { const dx = X - mp.x, dy = Y - mp.y; if (Math.hypot(dx, dy) < 14) mapTap(X, Y); else if (mp.onMe && Math.hypot(dx, dy) > 24) dragStep(dx, dy); } mp = null; });
-cv.addEventListener('pointercancel', () => { AR.ptr = null; mp = null; });
+function pressOwns(e) { return !AR.ptr || AR.ptr.id == null || AR.ptr.id === e.pointerId; }
+cv.addEventListener('pointerdown', e => { e.preventDefault(); audioInit(); const X = e.clientX, Y = e.clientY; if (G.scene === 'arena') { if (AR.ptr && AR.ptr.id != null && AR.ptr.id !== e.pointerId) return; arenaDown(X, Y); if (AR.ptr) AR.ptr.id = e.pointerId; } else { const [AX, AY, f] = proj(MAP.cam, MAP.house.x, MAP.house.y); mp = { x: X, y: Y, t: performance.now(), onMe: MAP.avOut && Math.hypot(X - AX, Y - (AY - 22 * f)) < 46 }; } }, { passive: false });
+cv.addEventListener('pointermove', e => { if (G.scene === 'arena') { if (!pressOwns(e)) return; arenaMove(e.clientX, e.clientY); } else if (mp && !mp.onMe && e.clientY - mp.y > 90 && Math.abs(e.clientX - mp.x) < 60 && G.step >= 5) { mp = null; openRing(); } });
+cv.addEventListener('pointerup', e => { const X = e.clientX, Y = e.clientY; if (G.scene === 'arena') { if (!pressOwns(e)) return; e.preventDefault(); arenaUp(X, Y); } else if (mp) { const dx = X - mp.x, dy = Y - mp.y; if (Math.hypot(dx, dy) < 14) mapTap(X, Y); else if (mp.onMe && Math.hypot(dx, dy) > 24) dragStep(dx, dy); } mp = null; });
+cv.addEventListener('touchend', e => { if (G.scene === 'arena') e.preventDefault(); }, { passive: false });
+cv.addEventListener('pointercancel', e => { if (!pressOwns(e)) return; AR.ptr = null; mp = null; });
+cv.addEventListener('touchcancel', () => { AR.ptr = null; mp = null; });
+cv.addEventListener('lostpointercapture', e => { if (AR.ptr && AR.ptr.id != null && AR.ptr.id === e.pointerId) AR.ptr = null; });
 $('#fishC').addEventListener('pointerdown', e => { e.preventDefault(); if (FI.phase === 'aim') fishCharge(); else fishTap(); });
 ['pointerup', 'pointerleave', 'pointercancel'].forEach(n => $('#fishC').addEventListener(n, () => { if (FI.charging) fishTap(); }));
 addEventListener('keyup', e => { if (e.key === ' ' && FI.charging) fishTap(); });
@@ -3564,6 +3576,7 @@ function resize() {
   DPR = Math.min(2, window.devicePixelRatio || 1); W = innerWidth; H = innerHeight;
   cv.width = W * DPR | 0; cv.height = H * DPR | 0; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   layoutMapCam(); layoutArenaCam(); groundDirty = true;
+  dropCanvasPress();
 }
 addEventListener('resize', resize);
 function dayTint() {
@@ -4073,6 +4086,7 @@ function syncRoomLow() {
 }
 function toggleRoomLow() {
   if (TRAIN.on || G.scene !== 'arena' || AR.kind !== 'raid') return;
+  dropCanvasPress();
   AR.roomLow = !AR.roomLow;
   layoutArenaCam();
   syncRoomLow();
@@ -4876,7 +4890,10 @@ cv.addEventListener('pointermove', e => {
     pinchD = d;
   }
 }, true);
-function endMapPtr(e) { mapPtrs.delete(e.pointerId); if (mapPtrs.size < 2) pinchD = 0; if (e.type === 'pointercancel') interruptCharge('Charge cancelled'); }
+function endMapPtr(e) {
+  mapPtrs.delete(e.pointerId); if (mapPtrs.size < 2) pinchD = 0;
+  if (e.type === 'pointercancel' && (!AR.ptr || AR.ptr.id == null || AR.ptr.id === e.pointerId || TRAIN.cap)) interruptCharge('Charge cancelled');
+}
 window.addEventListener('pointerup', e => {
   if (!TRAIN.on || G.scene !== 'arena') return;
   if (e.target === cv) return;

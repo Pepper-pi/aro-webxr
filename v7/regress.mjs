@@ -459,7 +459,10 @@ async function raidWallPointer(w, h, low, shots) {
   await p.mouse.move(spot.aim.x, spot.aim.y);
   await p.mouse.down();
   await new Promise(r => setTimeout(r, 80));
-  await p.evaluate(() => document.getElementById('cv').dispatchEvent(new PointerEvent('pointercancel', { bubbles: true, clientX: 8, clientY: 8 })));
+  await p.evaluate(() => {
+    const id = window.__aro.AR.ptr && window.__aro.AR.ptr.id;
+    document.getElementById('cv').dispatchEvent(new PointerEvent('pointercancel', { bubbles: true, pointerId: id == null ? 1 : id, clientX: 8, clientY: 8 }));
+  });
   await p.mouse.up();
   const afterCancel = await wall();
   await p.click('.sp[data-i="1"]');
@@ -470,12 +473,15 @@ async function raidWallPointer(w, h, low, shots) {
   await waitCd();
   await p.mouse.move(spot.aim.x, spot.aim.y);
   await p.mouse.down();
-  await new Promise(r => setTimeout(r, 400));
-  const ring = await p.evaluate(() => {
-    const ptr = window.__aro.AR.ptr;
-    if (!ptr || !ptr.aiming) return { aiming: false };
-    return { aiming: true, kind: raidAimKind(ptr.x, ptr.y, ptr.aim) };
-  });
+  let ring = { aiming: false };
+  for (let i = 0; i < 12 && !ring.aiming; i++) {
+    await new Promise(r => setTimeout(r, 80));
+    ring = await p.evaluate(() => {
+      const ptr = window.__aro.AR.ptr;
+      if (!ptr || !ptr.aiming) return { aiming: false };
+      return { aiming: true, kind: raidAimKind(ptr.x, ptr.y, ptr.aim) };
+    });
+  }
   if (shots && shots.ring) {
     await p.evaluate(() => showCast(''));
     await p.screenshot({ path: path.join(OUT, shots.ring) });
@@ -512,6 +518,267 @@ await raidWallPointer(320, 568, false, null);
 await raidWallPointer(320, 568, true, null);
 await raidWallPointer(844, 390, false, null);
 await raidWallPointer(844, 390, true, null);
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+async function touchApi(page) {
+  const cdp = await page.createCDPSession();
+  await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 2 });
+  let n = 10;
+  const pt = (id, x, y) => ({ x: Math.round(x), y: Math.round(y), id, radiusX: 0.5, radiusY: 0.5, force: 0.5 });
+  return {
+    async down(x, y) { const id = ++n; await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [pt(id, x, y)] }); return id; },
+    async move(id, x, y) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [pt(id, x, y)] }); },
+    async up(id, x, y) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [pt(id, x, y)] }); },
+    async cancel() { await cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] }); },
+  };
+}
+async function enterRaid(p) {
+  await p.evaluate(() => {
+    window.__train.TRAIN.on = false;
+    document.getElementById('trainHud').classList.add('hide');
+    window.__train.openMapNav();
+    const MAP = window.__aro.MAP, dome = MAP.list.find(t => t.ter === 'dome');
+    const near = MAP.list.find(t => !t.edge && t.ter !== 'water' && (Math.abs(t.q - dome.q) + Math.abs(t.r - dome.r) + Math.abs(t.q + t.r - dome.q - dome.r)) / 2 === 1);
+    Object.assign(MAP.house, { q: near.q, r: near.r, x: near.x, y: near.y, mode: 'park' });
+    window.__aro.G.step = 2;
+  });
+  await p.evaluate(() => window.__train.goPlace(1, -3));
+  await p.waitForFunction(() => document.getElementById('act').textContent.includes('Enter the raid'), { timeout: 8000 });
+  await p.click('#act');
+  await p.waitForFunction(() => window.__aro.AR.phase === 'block', { timeout: 4000 });
+}
+async function btnCenter(page, sel) {
+  const b = await page.$(sel);
+  if (!b) return null;
+  const r = await b.boundingBox();
+  return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
+}
+async function raidTouch(w, h, low) {
+  const p = await open(w, h);
+  await p.setViewport({ width: w, height: h, deviceScaleFactor: 1, hasTouch: true });
+  const touch = await touchApi(p);
+  await p.evaluate(() => {
+    window.__ptrTypes = [];
+    document.getElementById('cv').addEventListener('pointerdown', e => window.__ptrTypes.push(e.pointerType), true);
+  });
+  await enterRaid(p);
+  if (low) await p.click('#roomLow');
+  await p.mouse.click(w / 2, Math.min(h * 0.42, h - 120));
+  await sleep(350);
+  await p.evaluate(() => { for (let i = 0; i < 16; i++) window.__train.stepArena(0.05); });
+  await p.click('#iceWall');
+  await sleep(120);
+  const pot = await p.$('#manaPot');
+  if (pot) await pot.click();
+  const spot = await p.evaluate(() => {
+    const wall = window.__aro.FIELD.wall;
+    if (!wall) return null;
+    const cam = window.__aro.AR.cam;
+    const mid = proj(cam, wall.cx, wall.cy);
+    const far = proj(cam, 0, -2);
+    let mob = null;
+    for (const m of window.__aro.AR.mobs) {
+      if (m.state !== 'live') continue;
+      const s = proj(cam, m.x, m.y - 0.35);
+      const el = document.elementFromPoint(s[0], s[1]);
+      if (!el || el.id !== 'cv' || !mobAt(s[0], s[1])) continue;
+      const world = unproj(cam, s[0], s[1]);
+      if (aimedOwnWall({ x: world[0], y: world[1] })) continue;
+      m.__mark = 1;
+      mob = { x: s[0], y: s[1], hp: m.hp };
+      break;
+    }
+    return { aim: { x: mid[0], y: mid[1] }, far: { x: far[0], y: far[1] }, mob, q: window.__aro.AR.ph.q };
+  });
+  const tag = 'touch ' + w + 'x' + h + (low ? ' low' : ' tactical');
+  const wall = () => p.evaluate(() => { const w = window.__aro.FIELD.wall; return w ? { hp: w.hp, dmg: w.lastDmg, weak: !!w.lastWeak } : { gone: true, shatters: window.__aro.FIELD.shatters }; });
+  const waitCd = () => p.waitForFunction(() => window.__aro.AR.cds[0] <= 0, { timeout: 3000 }).catch(() => {});
+  if (!spot) { check(tag + ' raises a wall', false, 'no wall'); await p.close(); return; }
+  const hold = async (x, y, ms) => { const id = await touch.down(x, y); await sleep(ms); await touch.up(id, x, y); };
+  await hold(spot.far.x, spot.far.y, 450);
+  const afterEmpty = await wall();
+  await waitCd();
+  let enemy = null;
+  const mobNow = await p.evaluate(() => {
+    const cam = window.__aro.AR.cam;
+    for (const m of window.__aro.AR.mobs) {
+      if (m.state !== 'live') continue;
+      const s = proj(cam, m.x, m.y - 0.35);
+      const el = document.elementFromPoint(s[0], s[1]);
+      if (!el || el.id !== 'cv' || !mobAt(s[0], s[1])) continue;
+      const world = unproj(cam, s[0], s[1]);
+      if (aimedOwnWall({ x: world[0], y: world[1] })) continue;
+      m.__mark = 1;
+      return { x: s[0], y: s[1], hp: m.hp };
+    }
+    return null;
+  });
+  if (mobNow) {
+    const wallBefore = (await wall()).hp;
+    await hold(mobNow.x, mobNow.y, 280);
+    await sleep(400);
+    enemy = await p.evaluate(() => {
+      const m = window.__aro.AR.mobs.find(m => m.__mark);
+      const w = window.__aro.FIELD.wall;
+      return { hp: m ? m.hp : null, wall: w && w.hp };
+    });
+    enemy.start = mobNow.hp;
+    enemy.wallBefore = wallBefore;
+  }
+  await waitCd();
+  const sx = spot.far.x, sy = spot.far.y;
+  const hpBeforeSwipe = (await wall()).hp;
+  let q1 = spot.q;
+  let afterSwipe = await wall();
+  for (let attempt = 0; attempt < 2 && q1 === spot.q; attempt++) {
+    const swipeId = await touch.down(sx, sy);
+    await sleep(40);
+    await touch.move(swipeId, sx + 90, sy);
+    await sleep(30);
+    await touch.up(swipeId, sx + 90, sy);
+    await sleep(50);
+    q1 = await p.evaluate(() => window.__aro.AR.ph.q);
+    afterSwipe = await wall();
+  }
+  if (q1 === spot.q) {
+    const flick = await p.touchscreen.touchStart(spot.far.x, spot.far.y);
+    await sleep(20);
+    await flick.move(spot.far.x + 110, spot.far.y);
+    await flick.end();
+    await sleep(40);
+    q1 = await p.evaluate(() => window.__aro.AR.ph.q);
+    afterSwipe = await wall();
+  }
+  const qBeforeDodge = q1;
+  const dodgeId = await touch.down(spot.far.x, spot.far.y);
+  for (const sel of ['dodgeL', 'dodgeR']) {
+    const now = await p.evaluate(() => window.__aro.AR.ph.q);
+    const el = await p.$('#' + sel);
+    if (el) { try { await el.tap(); } catch { /* a later pointerdown covers a missed tap */ } }
+    await sleep(30);
+    let next = await p.evaluate(() => window.__aro.AR.ph.q);
+    if (next === now) {
+      await p.evaluate(id => {
+        const b = document.getElementById(id);
+        const r = b.getBoundingClientRect();
+        b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerType: 'touch', pointerId: 7, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2 }));
+      }, sel);
+      next = await p.evaluate(() => window.__aro.AR.ph.q);
+    }
+    if (next !== now) break;
+  }
+  await touch.up(dodgeId, spot.far.x, spot.far.y);
+  const qDodge = await p.evaluate(() => window.__aro.AR.ph.q);
+  const afterDodge = await wall();
+  const first = await touch.down(spot.aim.x, spot.aim.y);
+  let ring = 'none';
+  for (let i = 0; i < 12 && ring === 'none'; i++) {
+    await sleep(80);
+    ring = await p.evaluate(() => {
+      const ptr = window.__aro.AR.ptr;
+      return ptr && ptr.aiming ? raidAimKind(ptr.x, ptr.y, ptr.aim) : 'none';
+    });
+  }
+  const second = await touch.down(spot.far.x, spot.far.y);
+  await sleep(40);
+  await touch.up(second, spot.far.x, spot.far.y);
+  const duringSecond = await wall();
+  await sleep(700);
+  await touch.up(first, spot.aim.x, spot.aim.y);
+  await sleep(40);
+  const afterFirst = await wall();
+  const cancelId = await touch.down(spot.aim.x, spot.aim.y);
+  await sleep(80);
+  await touch.cancel();
+  await sleep(40);
+  const afterCancel = await wall();
+  const ptrAfterCancel = await p.evaluate(() => window.__aro.AR.ptr);
+  const beforeSpell = afterCancel.hp;
+  const spellHold = await touch.down(spot.aim.x, spot.aim.y);
+  await sleep(200);
+  await p.click('.sp[data-i="1"]');
+  await sleep(40);
+  await touch.up(spellHold, spot.aim.x, spot.aim.y);
+  const afterSpell = await p.evaluate(() => ({ hp: window.__aro.FIELD.wall && window.__aro.FIELD.wall.hp, sel: window.__aro.AR.sel, ptr: !!window.__aro.AR.ptr }));
+  await p.click('.sp[data-i="0"]');
+  await waitCd();
+  const hits = [afterFirst];
+  for (let i = 0; i < 3 && (await wall()).hp; i++) {
+    const pt = await p.evaluate(() => { const wall = window.__aro.FIELD.wall; const s = proj(window.__aro.AR.cam, wall.cx, wall.cy); return { x: s[0], y: s[1] }; });
+    await hold(pt.x, pt.y, 1050);
+    hits.push(await wall());
+    await waitCd();
+  }
+  const types = await p.evaluate(() => window.__ptrTypes);
+  const shattered = hits.some(h => h.gone && h.shatters >= 1);
+  check(tag + ' events are touch', types.includes('touch'), JSON.stringify(types.slice(0, 6)));
+  check(tag + ' empty ground does not hit the wall', afterEmpty.hp === 90 && afterEmpty.dmg === 0, JSON.stringify(afterEmpty));
+  check(tag + ' enemy is not a wall hit', !enemy || enemy.wall === enemy.wallBefore, JSON.stringify(enemy));
+  check(tag + ' fast swipe does not hit the wall', afterSwipe.hp === hpBeforeSwipe, 'q ' + spot.q + ' to ' + q1 + ' hp ' + hpBeforeSwipe + ' -> ' + afterSwipe.hp);
+  check(tag + ' dodge still steps during a press', qDodge !== qBeforeDodge && afterDodge.hp === afterSwipe.hp, 'q ' + qBeforeDodge + ' to ' + qDodge + ' hp ' + JSON.stringify(afterDodge));
+  const onWall = ring === 'wall' && duringSecond.hp === afterDodge.hp && afterFirst.dmg === 38 && afterFirst.weak;
+  const noAccidental = duringSecond.hp === afterDodge.hp && afterFirst.hp === afterDodge.hp;
+  check(tag + ' second finger does not cast and the first finger does not hit the wrong target', onWall || noAccidental, JSON.stringify({ ring, duringSecond, afterFirst }));
+  check(tag + ' touch cancel does not hit', afterCancel.hp === afterFirst.hp && !ptrAfterCancel, JSON.stringify({ afterFirst, afterCancel }));
+  check(tag + ' spell switch then release does not hit the wall', afterSpell.sel === 1 && afterSpell.hp === beforeSpell && !afterSpell.ptr, JSON.stringify(afterSpell));
+  check(tag + ' center holds of about a second shatter', shattered && hits.some(h => h.dmg === 38 && h.weak), JSON.stringify(hits));
+  await p.close();
+}
+for (const [w, h] of [[390, 844], [320, 568], [844, 390]]) {
+  for (const low of [false, true]) await raidTouch(w, h, low);
+}
+
+const orient = await open(390, 844);
+await orient.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, hasTouch: true });
+const orientTouch = await touchApi(orient);
+await enterRaid(orient);
+await orient.mouse.click(195, 340);
+await sleep(300);
+await orient.evaluate(() => { for (let i = 0; i < 12; i++) window.__train.stepArena(0.05); });
+await orient.click('#iceWall');
+await sleep(100);
+const orientAim = await orient.evaluate(() => { const wall = window.__aro.FIELD.wall; const s = proj(window.__aro.AR.cam, wall.cx, wall.cy); return { x: s[0], y: s[1], hp: wall.hp }; });
+const orientId = await orientTouch.down(orientAim.x, orientAim.y);
+await sleep(200);
+await orient.setViewport({ width: 844, height: 390, deviceScaleFactor: 1, hasTouch: true });
+await sleep(80);
+await orientTouch.up(orientId, orientAim.x, orientAim.y);
+const orientAfter = await orient.evaluate(() => ({ hp: window.__aro.FIELD.wall && window.__aro.FIELD.wall.hp, ptr: !!window.__aro.AR.ptr, w: innerWidth, h: innerHeight }));
+check('touch orientation change drops the press', orientAfter.hp === 90 && !orientAfter.ptr && orientAfter.w === 844, JSON.stringify(orientAfter));
+const lowBtn = await btnCenter(orient, '#roomLow');
+const again = await orient.evaluate(() => { const wall = window.__aro.FIELD.wall; const s = proj(window.__aro.AR.cam, wall.cx, wall.cy); return wall ? { x: s[0], y: s[1] } : null; });
+if (again && lowBtn) {
+  const id = await orientTouch.down(again.x, again.y);
+  await sleep(180);
+  await orient.click('#roomLow');
+  await sleep(40);
+  await orientTouch.up(id, again.x, again.y);
+}
+const lowDrop = await orient.evaluate(() => ({ hp: window.__aro.FIELD.wall && window.__aro.FIELD.wall.hp, low: document.getElementById('roomLow').textContent, ptr: !!window.__aro.AR.ptr }));
+check('touch Low switch drops the press and does not hit', lowDrop.hp === 90 && lowDrop.low === 'Low on' && !lowDrop.ptr, JSON.stringify(lowDrop));
+await orient.close();
+
+const yard = await open(390, 844);
+await yard.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, hasTouch: true });
+const yardTouch = await touchApi(yard);
+await yard.evaluate(() => { window.__train.startTrain(); window.__train.setClass('mage'); window.__train.TRAIN.casts = 0; window.__train.TRAIN.demo = false; });
+const disc = await yard.evaluate(() => window.__train.discCenter());
+const yardId = await yardTouch.down(disc.x, disc.y);
+await sleep(250);
+const grabbed = await yard.evaluate(() => !!window.__train.TRAIN.cap);
+await yard.click('#trainReset');
+await sleep(40);
+await yardTouch.up(yardId, disc.x, disc.y);
+const afterReset = await yard.evaluate(() => ({ casts: window.__train.TRAIN.casts, on: window.__train.TRAIN.on, cap: !!window.__train.TRAIN.cap }));
+check('touch release after Reset does not cast', grabbed && afterReset.casts === 0 && afterReset.on && !afterReset.cap, JSON.stringify({ grabbed, afterReset }));
+const disc2 = await yard.evaluate(() => { window.__train.TRAIN.casts = 0; return window.__train.discCenter(); });
+const yardId2 = await yardTouch.down(disc2.x, disc2.y);
+await sleep(200);
+const backNow = await yard.evaluate(() => { document.getElementById('trainBack').click(); return { on: window.__train.TRAIN.on, scene: window.__aro.G.scene }; });
+await yardTouch.up(yardId2, 2, 2);
+const afterBack = await yard.evaluate(() => ({ casts: window.__train.TRAIN.casts, on: window.__train.TRAIN.on, scene: window.__aro.G.scene }));
+check('touch release after Back does not cast', afterBack.casts === 0 && !afterBack.on && !backNow.on, JSON.stringify({ backNow, afterBack }));
+await yard.close();
 
 async function frame(p, file) {
   await p.evaluate(() => {

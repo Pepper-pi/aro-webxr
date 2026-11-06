@@ -10,8 +10,8 @@ Live `/v7/` on main is unchanged. Nothing here was merged or deployed.
 - Views: **Tactical** is the default. **Low** is an optional closer-to-the-floor arena camera (same aim math). **First person** is unchanged. Details are below.
 - Gunner: holding does not fire. The shot happens on release.
 - Slash cuts the hexes you aimed. The first step into a trench says to tap again, including when the fight clock is still 0. The next step enters. Ember on that trench is a lava seam and burns while you stand in it. Reset and the 14 second life both clear it. A mob that walks into the cut is stopped by the same obstacle check the arena uses.
-- Training yard, Mage disc: Iceberg raises your wall at 90 HP. Ember aimed at that wall, on the glowing center, hits for 40 (full-charge power 1.65, weak point 2×). Three of those remove it: cracked hexes and ice chunks. Frost and a shot at empty ground do not damage it. A lift after the cast does not hit again.
-- Map raid, Ember on the spell wheel, Tactical and Low: hold the field about a quarter second and a ring labels **Ice wall**, **Enemy**, or **Ground**. Release on your own wall to hit it. A hold of about a second is 19 damage, 38 on the center. Three center holds shatter 90. A short tap on the wall is 12, or 24 on the center. Empty ground paints fire and does not hit the wall. A finger on a creature casts at that creature. Frost and Honey do not use this aim. A fast swipe still steps. A cancelled touch does not cast. The training disc is not drawn in the map raid, so it does not cover the wall. The spell wheel, dodge, Iceberg button, and swipes stay.
+- Training yard, Mage disc: Iceberg raises your wall at 90 HP. Ember aimed at that wall, on the glowing center, hits for **40** (full-charge power 1.65 × 12, weak point ×2). Three of those remove it. Frost and empty ground do not. A lift after the cast does not hit again. This 40 is the yard disc only.
+- Map raid, Ember on the spell wheel, Tactical and Low: hold the field about a quarter second. The ring labels **Ice wall**, **Enemy**, or **Ground**. Release on your own wall to hit it. A hold of about a second is 19 damage, **38** on the center (power 1.6 × 12, weak point ×2). Three center holds go 90, then 52, then 14, then the wall shatters. A short tap is 12, or 24 on the center. Empty ground paints fire and does not hit the wall. A finger on a creature casts at that creature, even if the creature is standing on the wall. Frost and Honey do not use this aim. A fast swipe still steps. A second finger does not take the aim. A cancelled touch, a spell change, the Low button, Back, or a turn of the phone drops the press and the lift does not cast. The spell wheel and the dodge buttons stay. The training disc is not drawn in the map raid.
 - Gel King bout is on the title. A full fight from 160 HP, without editing his health, can be won with Ember while stepping off red. One run of the test below did that in 7 casts.
 - Raid: walk to the dome, **Enter the raid dome**, then tap the glass block. That punch starts the wave. **Back to the map** uses `endArena()` and returns to the map.
 
@@ -27,12 +27,15 @@ From the repo, with the page already served at `http://127.0.0.1:8765/v7/` and C
 CHROME=/usr/local/bin/google-chrome node v7/regress.mjs
 ```
 
-Two kinds of check live in that file. Do not treat them as the same thing.
+Three kinds of check live in that file. Do not treat them as the same thing.
 
-- **Helper-level.** These call game functions. They do not move the pointer. Mage early / full / lift / view-switch and the Gunner hold versus release go through `releaseDisc`, `releaseMage`, and `trainUpdate`. The training iceberg (90 HP, weak 40, three-hit shatter, frost and empty ground) also calls `releaseMage`. The trench step, mob block, lava burn, expiry, and reset call `moveP`, `mobObstacle`, and `slashLine`. The Gel King fight calls `releaseMage` from 160 HP. None of these invoke `wallHit` directly, and none of them are a finger on the raid canvas.
-- **UI-interaction.** These use real clicks and pointer events on the page. Raid enter, the glass punch, and Back are clicks. The map-raid wall test, `raidWallPointer`, enters from the map, punches, clicks Iceberg, and then uses `mouse` down / move / up. It does not call `wallHit` or `releaseMage`. For Tactical and Low, at 320×568, 390×844, and 844×390, it checks: a live enemy is on screen, empty ground leaves the wall at 90, a swipe steps and does not hit the wall, pointercancel does not hit, Frost on the wall does not damage it, the hold reports Ice wall, and Ember center holds of about a second deal 38 and shatter. It also checks 320×568, 390×844, and 844×390 that the training buttons and the cast line do not cover the dummies or the player, and that the page does not scroll.
+- **Helper-level.** These call game functions. They do not move a finger. Mage early / full / lift / view-switch and the Gunner hold versus release go through `releaseDisc`, `releaseMage`, and `trainUpdate`. The training iceberg is the **40** center hit: 90 HP, three hits, shatter, frost and empty ground. That calls `releaseMage`. The trench step, mob block, lava burn, expiry, and reset call `moveP`, `mobObstacle`, and `slashLine`. The Gel King fight calls `releaseMage` from 160 HP. None of these call `wallHit` directly, and none of them are a finger on the raid canvas.
+- **Mouse UI.** `raidWallPointer` enters from the map, punches the glass block, clicks Iceberg, and uses mouse down / move / up. It does not call `wallHit` or `releaseMage`. Tactical and Low, at 320×568, 390×844, and 844×390: a live enemy is on screen, empty ground leaves the wall at 90, a swipe steps, pointercancel does not hit, Frost on the wall does not damage it, the hold reports Ice wall, and Ember center holds deal **38** and shatter (90, 52, 14, gone). Layout checks at those three sizes still show the dummies and the player, and the page does not scroll.
+- **Touch UI.** `raidTouch` uses Chrome's touch events (`Input.dispatchTouchEvent` with touch emulation). The page recorded `pointerType: "touch"` and a `touchstart`. This is not a physical phone. The same six raid views checked empty ground, a creature (the wall stayed at 90; the creature lost HP when the point landed on its sprite), a second finger, `touchcancel`, a spell-button press while a finger was down, and center holds of about a second. Those holds were **38** on the center and the wall shattered in every view. Turning the phone (390×844 to 844×390) and the Low button each dropped the press with the wall still at 90. In the yard, a touch on the disc followed by Reset or Back did not cast.
 
-Last run of the whole file, helper checks and the pointer cases together, passed.
+Last run of the whole file passed: helper checks, mouse UI, and touch UI together.
+
+A touch flick on the back row of the field often did not step in this Chrome, and it did not damage the wall. One did step (320×568, Low, q −1 to 0). Mouse flicks stepped at all three sizes and both cameras. A flick whose distance shows up only on the lift now steps, when the aim ring is not already up and the lift is within about half a second. Dodge still stepped while a finger was on the field, including on 320×568.
 
 ## Pictures
 
@@ -92,6 +95,14 @@ After the aimed Ember holds. Shattered, player and slime still there:
 
 ![Low](handoff/low_after.png)
 
-## Not in this build
+## What this acceptance changed
 
-No tracked hand through the disc. No walking slime. No characters taken from the concept paintings. No new Gel King attacks. Root `index.html` and `v6/` are unchanged.
+A second finger no longer replaces the press or fires it. The spell wheel, the Low button, Back, and a resize or turn of the phone drop the press, so the lift does not cast the old aim. `pointercancel` and `touchcancel` drop it too. The spell wheel and the dodge buttons are unchanged.
+
+## Still open
+
+- No phone in hand. iOS Safari can cancel a touch on rotation at a different moment than this Chrome. The events here were synthesized touches, and they did arrive as `pointerType: "touch"`.
+- A touch flick on the far side of the raid often did not move the player in this Chrome. The mouse flick did, at every size. The touch flick did not hit the wall.
+- If a creature is standing on the center of the wall, the ring says Enemy and the cast hits the creature. Aim a clear part of the wall to get the 38.
+- Frost and Honey do not shatter a wall. The yard's 40 and the raid's 38 are different holds. Do not mix them.
+- The pits are still one hex deep. The rocks are simple peaks. No tracked hand, no walking slime, no characters from the paintings. Root `index.html` and `v6/` are unchanged. Not merged. Not deployed.
