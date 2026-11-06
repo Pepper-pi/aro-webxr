@@ -126,6 +126,13 @@ input[type=range]{accent-color:var(--pink);width:120px}
 #trainHud button.gold{background:linear-gradient(180deg,#ffd978,#f0a92e);color:#3a1d05;border:0}
 #trainHud button.on{background:#ff4fb4;border-color:#ff9ad2;color:#fff}
 #trainHelpBtn{flex:none !important;padding:7px 10px !important;font-size:12px !important;pointer-events:auto}
+#castFeed{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(236px + var(--sab));z-index:14;max-width:92vw;pointer-events:none;background:rgba(12,6,16,.92);border:1px solid rgba(255,201,77,.75);border-radius:12px;padding:6px 12px;font-weight:900;font-size:14px;white-space:nowrap}
+#mapNav{position:fixed;left:10px;bottom:calc(16px + var(--sab));z-index:8;display:flex;flex-direction:column;gap:6px;width:118px}
+#mapNav button{padding:8px 8px;border-radius:12px;background:rgba(18,8,24,.9);border:1px solid rgba(255,201,77,.55);font-weight:900;font-size:13px;color:#fff6d8}
+#cmdList{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+#cmdList button{text-align:left;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);font-weight:800;font-size:13px}
+#cmdList button.on{border-color:var(--gold);background:rgba(255,201,77,.14)}
+#cmdNote{margin-top:8px}
 /* v7: wire view panel, danger edge, boss countdown, hp bar */
 img{image-rendering:pixelated}
 #wirePanel{position:fixed;left:12px;top:calc(96px + var(--sat));z-index:6;display:flex;flex-direction:column;gap:5px;align-items:flex-start}
@@ -282,6 +289,19 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
   <button type="button" id="trainHelpBtn">How to aim</button>
   <p id="trainHelp" class="collapsed"></p>
 </div>
+<div id="castFeed" class="hide"></div>
+<div id="mapNav" class="hide">
+  <button type="button" id="navHome">Home</button>
+  <button type="button" id="navDome">Dome</button>
+  <button type="button" id="navPond">Pond</button>
+  <button type="button" id="navCmd">Command</button>
+</div>
+<div class="modal" id="cmdM"><div class="sheet">
+  <div class="sh-h"><div><small>Command board</small>Local staging</div><button class="x" data-close>×</button></div>
+  <div class="hint">Sprites, not meshes. Only Mage and Gunner can fight in this demo. A staged team is saved on this device and does not travel, fight, or pay rewards.</div>
+  <div id="cmdList"></div>
+  <div class="hint" id="cmdNote"></div>
+</div></div>
 <div id="ring">
   <button id="ringClose">tap anywhere to close</button>
 </div>
@@ -357,6 +377,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
   </div>
   <button class="big gold" id="titleGo">Begin the day</button>
   <button class="big" id="titleTrain">Training arena</button>
+  <button class="big" id="titleMap">Open the map</button>
   <div class="hint" style="text-align:center">Best on a phone, held upright. Touch or mouse. This build does not track hands or a camera pose.</div>
 </div>
 <div id="dbg"></div>
@@ -3070,6 +3091,7 @@ const RING = [
   { k: 'skills', n: 'Spellbook', i: 'book', a: 150, r: 1, go: () => { renderSpells(); openModal('skillM'); } },
   { k: 'log', n: 'Collection', i: 'star', a: 30, r: 1, go: () => { renderLog(); openModal('logM'); } },
   { k: 'set', n: 'Settings', i: 'gear', a: -90, r: 1.85, go: () => { renderSettings(); openModal('setM'); } },
+  { k: 'cmd', n: 'Command', i: 'book', a: 90, r: 1.85, go: () => openCommand() },
 ];
 function buildRing() {
   const ring = $('#ring');
@@ -3611,7 +3633,7 @@ const GUN_RIM = [
 ];
 const TRAIN = {
   on: false, view: 'tactical', helpOpen: false, aim: null, charge: 0, focus: 0, hb: 0, speed: 0, shotCd: 0,
-  cap: null, drag: null, disc: null, sel: { mage: 0, gunner: 0 }, bolts: [], last: null,
+  cap: null, drag: null, disc: null, sel: { mage: 0, gunner: 0 }, bolts: [], last: null, labels: [],
   mx: 0, my: 0, moveT: 0,
 };
 MAP.zoom = 1.2;
@@ -3630,7 +3652,13 @@ function syncClassBtn() {
 }
 function popPlayer(txt, col) {
   const [X, Y] = proj(AR.cam, AR.ppx, AR.ppy);
-  popText(X, Y - 128, txt, col || '#fff', 15);
+  popText(X, clamp(Y - 90, 140, H - 220), txt, col || '#fff', 15);
+}
+function showCast(txt) {
+  const el = document.getElementById('castFeed');
+  if (!el) return;
+  el.textContent = txt;
+  el.classList.toggle('hide', !txt);
 }
 function nearestLive(pt, rad) {
   let b = null, bd = rad;
@@ -3685,7 +3713,7 @@ function projFp(wx, wy) {
   const dist = Math.max(0.55, ey - wy);
   const fpx = 320 / dist;
   const horizon = H * 0.38;
-  return [W / 2 + (wx - ex) * fpx, horizon + (H * 0.5) / dist, clamp(fpx / 78, 0.42, 2.2)];
+  return [W / 2 + (wx - ex) * fpx * 0.72, horizon + (H * 0.5) / dist, clamp(fpx / 78, 0.42, 2.2)];
 }
 function unprojFp(X, Y) {
   const [ex, ey] = fpEye();
@@ -3693,7 +3721,7 @@ function unprojFp(X, Y) {
   const drop = Math.max(14, Y - horizon);
   const dist = (H * 0.5) / drop;
   const fpx = 320 / Math.max(0.55, dist);
-  return [ex + (X - W / 2) / fpx, ey - dist];
+  return [ex + (X - W / 2) / fpx / 0.72, ey - dist];
 }
 function syncViewBtns() {
   const fp = TRAIN.view === 'fp';
@@ -3757,7 +3785,9 @@ function releaseMage() {
     else if (spendMana(MANA_COST.spell)) { ok = paintField(rim.id, TRAIN.aim); AR.castT = .3; AR.cds[idx] = SPELLS[idx].cd; SFX.cast(); }
     if (ok && rim.id !== 'nova') paintField(rim.id, m ? { x: m.x, y: m.y } : TRAIN.aim);
   }
-  popPlayer((ok ? rim.name : 'not ready') + ' ' + shown + '%', rim.col);
+  const castMsg = (ok ? rim.name + ' released ' + shown + '%' : rim.name + ' not ready');
+  popPlayer(castMsg, rim.col);
+  showCast(castMsg);
   TRAIN.last = { spell: rim.id, power, shown, ok };
   return ok;
 }
@@ -3777,7 +3807,7 @@ function fireGun(power) {
   TRAIN.shotCd = 0.26;
   TRAIN.charge = 0;
   if (hit) damage(hit, dmg, { col: '#ff4a55', k: 'shot' }, tight > 0.62);
-  else popPlayer('miss', '#ff8a9a');
+  else { popPlayer('miss', '#ff8a9a'); showCast('Shot missed · release on a dummy'); }
   SFX.shot(); buzz(8);
   TRAIN.last = { spell: 'shot', power, dmg, hit: !!hit, tight };
   return !!hit;
@@ -3852,6 +3882,11 @@ function trainUpdate(dt) {
   if (gun && AR.ptr && G.scene === 'arena') TRAIN.charge = Math.min(1, (TRAIN.charge || 0) + dt / 0.62);
   TRAIN.hb += dt * (gun ? 2.8 : 1.1);
   TRAIN.speed = (TRAIN.speed || 0) * Math.max(0, 1 - dt * 7);
+  TRAIN.labels = [];
+  if (TRAIN.on && holding) {
+    const rim = currentRim()[TRAIN.sel[gun ? 'gunner' : 'mage']] || currentRim()[0];
+    showCast('Charging ' + rim.name + ' ' + Math.round((TRAIN.charge || 0) * 100) + '% · release to cast');
+  }
   for (let i = TRAIN.bolts.length - 1; i >= 0; i--) { TRAIN.bolts[i].t += dt; if (TRAIN.bolts[i].t > TRAIN.bolts[i].life) TRAIN.bolts.splice(i, 1); }
   if (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') applyFpCam();
   if (G.scene === 'arena') {
@@ -3959,11 +3994,23 @@ function drawDummy(m) {
   ctx.fillStyle = '#14080c'; ctx.beginPath(); ctx.arc(X, Y - s * 1.15, s * 0.07, 0, TAU); ctx.fill();
   if (m.fl > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.arc(X, Y - s * 1.15, s * 0.66, 0, TAU); ctx.fill(); }
   ctx.restore();
-  const w = 54 * f, k = clamp(m.hp / m.max, 0, 1);
-  ctx.fillStyle = 'rgba(16,6,20,.88)'; rrect(ctx, X - w / 2, Y - s * 2.05, w, 7, 3); ctx.fill();
-  ctx.fillStyle = k > 0.35 ? '#ffd36a' : '#ff4a55'; rrect(ctx, X - w / 2, Y - s * 2.05, w * k, 7, 3); ctx.fill();
-  ctx.font = `800 ${Math.max(11, 13 * f)}px ui-rounded,system-ui`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff4d4';
-  ctx.fillText(m.D.n + '  ' + Math.ceil(m.hp), X, Y - s * 2.22);
+  const w = Math.max(46, 54 * Math.min(f, 1.4)), k = clamp(m.hp / m.max, 0, 1);
+  const barY = clamp(Y - Math.min(s * 2.05, 36), 118, H - 210);
+  const barX = clamp(X, 28, W - 28);
+  ctx.fillStyle = 'rgba(16,6,20,.92)'; rrect(ctx, barX - w / 2, barY, w, 7, 3); ctx.fill();
+  ctx.fillStyle = k > 0.35 ? '#ffd36a' : '#ff4a55'; rrect(ctx, barX - w / 2, barY, w * k, 7, 3); ctx.fill();
+  const label = m.D.n + '  ' + Math.ceil(m.hp);
+  ctx.font = '800 13px ui-rounded,system-ui';
+  const tw = ctx.measureText(label).width;
+  let lx = clamp(barX, 8 + tw / 2, W - 8 - tw / 2);
+  let ly = barY - 6;
+  for (const b of TRAIN.labels) {
+    if (Math.abs(b.x - lx) < (b.w + tw) / 2 + 6 && Math.abs(b.y - ly) < 16) ly = b.y - 16;
+  }
+  ly = clamp(ly, 252, H - 210);
+  TRAIN.labels.push({ x: lx, y: ly, w: tw });
+  ctx.fillStyle = 'rgba(12,6,16,.88)'; rrect(ctx, lx - tw / 2 - 5, ly - 13, tw + 10, 16, 6); ctx.fill();
+  ctx.textAlign = 'center'; ctx.fillStyle = '#fff6d4'; ctx.fillText(label, lx, ly);
   ctx.textAlign = 'left';
 }
 function startTrain() {
@@ -3972,8 +4019,9 @@ function startTrain() {
   title.classList.add('out');
   setTimeout(() => title.classList.add('hide'), 420);
   document.getElementById('hud').classList.remove('hide');
-  document.getElementById('wirePanel').classList.remove('hide');
-  document.getElementById('wirePanel').style.top = 'calc(250px + var(--sat))';
+  document.getElementById('wirePanel').classList.add('hide');
+  document.getElementById('wirePanel').style.top = '';
+  document.getElementById('mapNav').classList.add('hide');
   document.getElementById('menuBtn').classList.add('dim');
   document.getElementById('hearts').classList.remove('hide');
   Object.assign(AR, {
@@ -3983,9 +4031,10 @@ function startTrain() {
   });
   arenaV7Reset();
   TRAIN.view = 'tactical';
+  TRAIN.on = true;
   layoutArenaCam();
   G.scene = 'arena';
-  TRAIN.on = true; TRAIN.charge = 0; TRAIN.aim = null; TRAIN.focus = 0; TRAIN.cap = null; TRAIN.drag = null; TRAIN.bolts = [];
+  TRAIN.charge = 0; TRAIN.aim = null; TRAIN.focus = 0; TRAIN.cap = null; TRAIN.drag = null; TRAIN.bolts = [];
   spawnDummies();
   FIELD.wallTip = true;
   G.hp = G.maxHp; renderHearts();
@@ -3996,7 +4045,7 @@ function startTrain() {
   syncClassBtn();
   syncViewBtns();
   setObj('<b>Training yard</b> · three dummies');
-  banner('Training yard', 'Touch or mouse');
+  showCast('Hold to charge · release to cast');
   coach(null);
   setAct(null);
 }
@@ -4009,12 +4058,13 @@ function resetTrain() {
   TRAIN.charge = 0; TRAIN.bolts = [];
   FIELD.wallTip = true;
   coach(null);
-  banner('Reset', 'Dummies and field cleared');
+  showCast('Dummies reset · HP restored');
   setAct(null);
 }
 function leaveTrain() {
   TRAIN.on = false; TRAIN.cap = null; TRAIN.drag = null;
   document.getElementById('trainHud').classList.add('hide');
+  document.getElementById('castFeed').classList.add('hide');
   document.getElementById('wirePanel').style.top = '';
   document.getElementById('wheel').classList.remove('on');
   document.getElementById('hearts').classList.add('hide');
@@ -4025,6 +4075,8 @@ function leaveTrain() {
     G.scene = 'map';
     document.getElementById('menuBtn').classList.remove('dim');
     document.getElementById('hud').classList.remove('hide');
+    document.getElementById('wirePanel').classList.remove('hide');
+    document.getElementById('mapNav').classList.remove('hide');
   } else {
     G.scene = 'title';
     const title = document.getElementById('title');
@@ -4069,7 +4121,7 @@ layoutMapCam = function () {
   c.cy = H * 0.58;
   c.A = 0.76 * (SET.tilt || 1);
 };
-{ const _mapUpdate = mapUpdate; mapUpdate = function (dt) { _mapUpdate(dt); const y = MAP.house.y - 0.22; MAP.camT.y = y; MAP.cam.y = y; }; }
+{ const _mapUpdate = mapUpdate; mapUpdate = function (dt) { _mapUpdate(dt); const y = MAP.house.y - 0.22; MAP.camT.y = y; MAP.cam.y = y; syncMapNav(); }; }
 { const _drawSprite = drawSprite; const TREES = { lpTree: 1, lpTreeC: 1, pine: 1, pineD: 1, pineG: 1, round: 1, bloom: 1 }; drawSprite = function (name, x, y, s, a) { return _drawSprite(name, x, y, s * (TREES[name] ? 1.28 : 1), a); }; }
 { const _drawHome = drawHome; drawHome = function (X, Y, f, T) {
   const s = f * MAP.cam.hz / 42;
@@ -4163,7 +4215,8 @@ function drawDockHud() {
 }; }
 { const _waveCleared = waveCleared; waveCleared = function () { if (TRAIN.on) return; return _waveCleared(); }; }
 { const _tryAttack = tryAttack; tryAttack = function (m) { if (m && m.dummy) { m.aggro = false; m.atkT = 99; return; } return _tryAttack(m); }; }
-{ const _damage = damage; damage = function (m, dmg, sp, focus) { const r = _damage(m, dmg, sp, focus); if (m && m.dummy) { m.aggro = false; m.atkT = 99; } return r; }; }
+{ const _damage = damage; damage = function (m, dmg, sp, focus) { const r = _damage(m, dmg, sp, focus); if (m && m.dummy) { m.aggro = false; m.atkT = 99; showCast('Hit ' + dmg + ' · ' + m.D.n + '  ' + Math.max(0, Math.ceil(m.hp)) + ' HP'); } return r; }; }
+{ const _lock = lockUpdate; lockUpdate = function (dt) { const n = FX.length; _lock(dt); if (TRAIN.on) { for (let i = FX.length - 1; i >= n; i--) if (FX[i].kind === 'text' && FX[i].txt === 'steady') FX.splice(i, 1); } }; }
 { const _cubes = cubesFor; cubesFor = function (m) { if (m && m.dummy) { const [X, Y, f] = proj(AR.cam, m.x, m.y); popText(X, Y - 36 * f, 'down', '#ffd36a', 16); SFX.cube(); return; } return _cubes(m); }; }
 { const _drawMob = drawArenaMob; drawArenaMob = function (m, T) { if (m && m.dummy) return drawDummy(m); return _drawMob(m, T); }; }
 { const _av = drawAvatar; drawAvatar = function (g, x, y, s, o) { if (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') return; return _av(g, x, y, s, o); }; }
@@ -4172,7 +4225,7 @@ function drawDockHud() {
   proj = function (c, wx, wy) { return (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') ? projFp(wx, wy) : _proj(c, wx, wy); };
   unproj = function (c, X, Y) { return (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') ? unprojFp(X, Y) : _unproj(c, X, Y); };
 }
-{ const _layoutArenaCam = layoutArenaCam; layoutArenaCam = function () { if (TRAIN.on && TRAIN.view === 'fp') { applyFpCam(); return; } _layoutArenaCam(); AR.cam.x = 0; }; }
+{ const _layoutArenaCam = layoutArenaCam; layoutArenaCam = function () { if (TRAIN.on && TRAIN.view === 'fp') { applyFpCam(); return; } _layoutArenaCam(); AR.cam.x = 0; if (TRAIN.on) { AR.cam.cy = H * 0.58; AR.floorDirty = true; } }; }
 function drawFpFrame() {
   if (!(TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena')) return;
   ctx.save();
@@ -4240,6 +4293,11 @@ cv.addEventListener('wheel', e => {
 }, { passive: false });
 
 document.getElementById('titleTrain').addEventListener('click', () => { SFX.tap(); startTrain(); });
+document.getElementById('titleMap').addEventListener('click', () => { SFX.tap(); openMapNav(); });
+document.getElementById('navHome').addEventListener('click', () => goPlace(HOME.q, HOME.r));
+document.getElementById('navDome').addEventListener('click', () => goPlace(DOME.q, DOME.r));
+document.getElementById('navPond').addEventListener('click', () => goPlace(POI.q, POI.r));
+document.getElementById('navCmd').addEventListener('click', () => openCommand());
 document.getElementById('trainReset').addEventListener('click', e => { e.stopPropagation(); resetTrain(); });
 document.getElementById('trainBack').addEventListener('click', e => { e.stopPropagation(); leaveTrain(); });
 document.getElementById('trainClass').addEventListener('click', e => { e.stopPropagation(); setClass(GUN.cls === 'gunner' ? 'mage' : 'gunner'); });
@@ -4254,6 +4312,67 @@ document.getElementById('trainHelpBtn').addEventListener('click', e => {
 layoutMapCam(); groundDirty = true;
 if (QS.has('train')) setTimeout(startTrain, 350);
 
+const BOARD = { staged: {} };
+function boardNames() { return BONDS.filter(b => BOARD.staged[b.n]).map(b => b.n); }
+function boardNote() {
+  const names = boardNames();
+  if (!names.length) return 'No companions staged. Saving a team does not deploy them.';
+  return 'Placeholder deployment. Nothing travels and no rewards are paid. Staged: ' + names.join(', ') + '.';
+}
+function renderCommand() {
+  const gun = GUN.cls === 'gunner';
+  const kit = gun ? GUN_RIM : MAGE_RIM;
+  const key = gun ? 'gunner' : 'mage';
+  const sel = TRAIN.sel[key] || 0;
+  const list = document.getElementById('cmdList');
+  let h = '<div class="hint" style="margin-top:0"><b>Fighting kit</b> · switches the yard for real</div>';
+  h += `<button type="button" data-cls="mage" class="${gun ? '' : 'on'}">Mage · Ember, Frost, Nova, Iceberg, Slash</button>`;
+  h += `<button type="button" data-cls="gunner" class="${gun ? 'on' : ''}">Gunner · Shot, Frag, Turret, Drone</button>`;
+  h += '<div class="hint"><b>Ready action</b> · selected when the yard opens</div>';
+  kit.forEach((s, i) => { h += `<button type="button" data-act="${i}" class="${i === sel ? 'on' : ''}">${s.name} · ${s.el}</button>`; });
+  h += '<div class="hint"><b>Stage companions</b> · local list only</div>';
+  BONDS.forEach((b, i) => {
+    const on = !!BOARD.staged[b.n];
+    h += `<button type="button" data-bond="${i}" class="${on ? 'on' : ''}">${b.n} · ${b.who}${on ? ' · staged' : ''}</button>`;
+  });
+  h += '<button type="button" id="cmdStage" class="big">Save staged team</button>';
+  list.innerHTML = h;
+  document.getElementById('cmdNote').textContent = boardNote();
+  list.querySelectorAll('[data-cls]').forEach(b => b.onclick = () => { setClass(b.dataset.cls); renderCommand(); });
+  list.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { TRAIN.sel[key] = +b.dataset.act; if (!gun && +b.dataset.act < 3) selSpell(+b.dataset.act); renderCommand(); });
+  list.querySelectorAll('[data-bond]').forEach(b => b.onclick = () => { const n = BONDS[+b.dataset.bond].n; BOARD.staged[n] = !BOARD.staged[n]; renderCommand(); });
+  document.getElementById('cmdStage').onclick = () => { document.getElementById('cmdNote').textContent = boardNote(); SFX.tap(); };
+}
+function openCommand() { if (typeof closeRing === 'function') closeRing(); renderCommand(); openModal('cmdM'); }
+function syncMapNav() {
+  const el = document.getElementById('mapNav');
+  if (el) el.classList.toggle('hide', G.scene !== 'map');
+}
+function openMapNav() {
+  audioInit();
+  const title = document.getElementById('title');
+  title.classList.add('out');
+  setTimeout(() => title.classList.add('hide'), 400);
+  document.getElementById('hud').classList.remove('hide');
+  document.getElementById('wirePanel').classList.remove('hide');
+  document.getElementById('menuBtn').classList.remove('hide', 'dim');
+  G.scene = 'map';
+  if ((G.step || 0) < 2) G.step = 2;
+  MAP.avOut = true; MAP.avT = 1;
+  if (MAP.house.mode === 'walk' || MAP.house.mode === 'fly') { /* keep moving */ }
+  else MAP.house.mode = 'park';
+  setObj('<b>Map</b> · tap a hex, or Home / Dome / Pond');
+  coach('Tap the ground to walk. <b>Command</b> only stages people on this device. It does not send them out.', 8000);
+  syncMapNav();
+  groundDirty = true;
+}
+function goPlace(q, r) {
+  if (G.scene !== 'map') return;
+  if (!MAP.avOut) { MAP.avOut = true; MAP.avT = 1; }
+  if ((G.step || 0) < 2) G.step = 2;
+  const t = tileAt(q, r);
+  if (t) walkTo(t);
+}
 function trainSelfTest() {
   const was = G.scene;
   startTrain();
@@ -4296,6 +4415,7 @@ function trainSelfTest() {
 window.__train = {
   TRAIN, startTrain, resetTrain, leaveTrain, releaseMage, fireGun, raiseWall, shadowSlash,
   trainSelfTest, MAGE_RIM, GUN_RIM, applyZoom, layoutMapCam, setClass, setTrainView, slashUpdate,
+  openMapNav, openCommand, goPlace, BOARD, boardNote,
   markDirty: () => { groundDirty = true; },
 };
 
