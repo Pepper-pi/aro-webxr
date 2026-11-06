@@ -399,7 +399,120 @@ await lowLayout(320, 568);
 await lowLayout(390, 844);
 await lowLayout(844, 390);
 
+async function raidWallPointer(w, h, low, shots) {
+  const p = await open(w, h);
+  await p.evaluate(() => {
+    window.__train.TRAIN.on = false;
+    document.getElementById('trainHud').classList.add('hide');
+    window.__train.openMapNav();
+    const MAP = window.__aro.MAP, dome = MAP.list.find(t => t.ter === 'dome');
+    const near = MAP.list.find(t => !t.edge && t.ter !== 'water' && (Math.abs(t.q - dome.q) + Math.abs(t.r - dome.r) + Math.abs(t.q + t.r - dome.q - dome.r)) / 2 === 1);
+    Object.assign(MAP.house, { q: near.q, r: near.r, x: near.x, y: near.y, mode: 'park' });
+    window.__aro.G.step = 2;
+  });
+  await p.evaluate(() => window.__train.goPlace(1, -3));
+  await p.waitForFunction(() => document.getElementById('act').textContent.includes('Enter the raid'), { timeout: 8000 });
+  await p.click('#act');
+  await p.waitForFunction(() => window.__aro.AR.phase === 'block', { timeout: 4000 });
+  if (low) await p.click('#roomLow');
+  await p.mouse.click(w / 2, Math.min(h * 0.42, h - 120));
+  await new Promise(r => setTimeout(r, 350));
+  await p.evaluate(() => { for (let i = 0; i < 20; i++) window.__train.stepArena(0.05); });
+  const actors = await p.evaluate(() => ({
+    mobs: window.__aro.AR.mobs.filter(m => m.state === 'live').length,
+    you: Math.round(window.__aro.G.hp),
+    scene: window.__aro.G.scene,
+  }));
+  if (shots && shots.before) await p.screenshot({ path: path.join(OUT, shots.before) });
+  await p.click('#iceWall');
+  await new Promise(r => setTimeout(r, 150));
+  const pot = await p.$('#manaPot');
+  if (pot) await pot.click();
+  const spot = await p.evaluate(() => {
+    const wall = window.__aro.FIELD.wall;
+    if (!wall) return null;
+    const cam = window.__aro.AR.cam;
+    const mid = proj(cam, wall.cx, wall.cy);
+    const far = proj(cam, 0, -2);
+    const fw = unproj(cam, far[0], far[1]);
+    return {
+      hp: wall.hp,
+      aim: { x: mid[0], y: mid[1] },
+      far: { x: far[0], y: far[1] },
+      farHitsWall: !!aimedOwnWall({ x: fw[0], y: fw[1] }),
+      q: window.__aro.AR.ph.q,
+    };
+  });
+  const tag = w + 'x' + h + (low ? ' low' : ' tactical');
+  if (!spot) { check('raid pointer ' + tag + ' raises a wall', false, 'no wall'); await p.close(); return; }
+  const hold = async (x, y, ms) => { await p.mouse.move(x, y); await p.mouse.down(); await new Promise(r => setTimeout(r, ms)); await p.mouse.up(); };
+  const wall = () => p.evaluate(() => { const w = window.__aro.FIELD.wall; return w ? { hp: w.hp, dmg: w.lastDmg, weak: !!w.lastWeak } : { gone: true, shatters: window.__aro.FIELD.shatters }; });
+  const waitCd = () => p.waitForFunction(() => window.__aro.AR.cds[0] <= 0, { timeout: 3000 }).catch(() => {});
+  await hold(spot.far.x, spot.far.y, 500);
+  const afterEmpty = await wall();
+  await p.mouse.move(w * 0.35, h * 0.5);
+  await p.mouse.down();
+  await p.mouse.move(w * 0.35 + 80, h * 0.5);
+  await p.mouse.up();
+  const q1 = await p.evaluate(() => window.__aro.AR.ph.q);
+  const afterSwipe = await wall();
+  await p.mouse.move(spot.aim.x, spot.aim.y);
+  await p.mouse.down();
+  await new Promise(r => setTimeout(r, 80));
+  await p.evaluate(() => document.getElementById('cv').dispatchEvent(new PointerEvent('pointercancel', { bubbles: true, clientX: 8, clientY: 8 })));
+  await p.mouse.up();
+  const afterCancel = await wall();
+  await p.click('.sp[data-i="1"]');
+  await waitCd();
+  await hold(spot.aim.x, spot.aim.y, 500);
+  const afterFrost = await p.evaluate(() => ({ hp: window.__aro.FIELD.wall && window.__aro.FIELD.wall.hp, sel: window.__aro.AR.sel }));
+  await p.click('.sp[data-i="0"]');
+  await waitCd();
+  await p.mouse.move(spot.aim.x, spot.aim.y);
+  await p.mouse.down();
+  await new Promise(r => setTimeout(r, 400));
+  const ring = await p.evaluate(() => {
+    const ptr = window.__aro.AR.ptr;
+    if (!ptr || !ptr.aiming) return { aiming: false };
+    return { aiming: true, kind: raidAimKind(ptr.x, ptr.y, ptr.aim) };
+  });
+  if (shots && shots.ring) {
+    await p.evaluate(() => showCast(''));
+    await p.screenshot({ path: path.join(OUT, shots.ring) });
+  }
+  await new Promise(r => setTimeout(r, 650));
+  await p.mouse.up();
+  await waitCd();
+  const hits = [await wall()];
+  for (let i = 0; i < 3 && (await wall()).hp; i++) {
+    const pt = await p.evaluate(() => { const wall = window.__aro.FIELD.wall; const s = proj(window.__aro.AR.cam, wall.cx, wall.cy); return { x: s[0], y: s[1] }; });
+    await hold(pt.x, pt.y, 1050);
+    hits.push(await wall());
+    await waitCd();
+  }
+  if (shots && shots.after) {
+    await p.evaluate(() => showCast(''));
+    await p.screenshot({ path: path.join(OUT, shots.after) });
+  }
+  const shattered = hits.some(h => h.gone && h.shatters >= 1);
+  const weak = hits.filter(h => h.dmg === 38 && h.weak).length >= 2;
+  check('raid pointer ' + tag + ' has a live enemy before the wall', actors.mobs >= 1 && actors.you > 0 && actors.scene === 'arena', JSON.stringify(actors));
+  check('raid pointer ' + tag + ' empty ground does not hit the wall', !spot.farHitsWall && afterEmpty.hp === 90 && afterEmpty.dmg === 0, JSON.stringify(afterEmpty));
+  check('raid pointer ' + tag + ' swipe steps and does not hit the wall', q1 !== spot.q && afterSwipe.hp === 90, 'q ' + spot.q + ' to ' + q1);
+  check('raid pointer ' + tag + ' cancel does not hit the wall', afterCancel.hp === 90, JSON.stringify(afterCancel));
+  check('raid pointer ' + tag + ' Frost on the wall does not damage it', afterFrost.sel === 1 && afterFrost.hp === 90, JSON.stringify(afterFrost));
+  check('raid pointer ' + tag + ' shows Ice wall while held', ring.aiming === true && ring.kind === 'wall', JSON.stringify(ring));
+  check('raid pointer ' + tag + ' Ember hold is weak 38 and shatters', weak && shattered, JSON.stringify(hits));
+  await p.close();
+}
 fs.mkdirSync(OUT, { recursive: true });
+await raidWallPointer(390, 844, false, { before: 'raid_play_before.png', ring: 'raid_aim_ring.png', after: 'raid_after_tac.png' });
+await raidWallPointer(390, 844, true, { after: 'raid_after_low.png' });
+await raidWallPointer(320, 568, false, null);
+await raidWallPointer(320, 568, true, null);
+await raidWallPointer(844, 390, false, null);
+await raidWallPointer(844, 390, true, null);
+
 async function frame(p, file) {
   await p.evaluate(() => {
     window.__train.TRAIN.demo = false;
