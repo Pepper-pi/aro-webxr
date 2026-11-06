@@ -210,6 +210,8 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
 #dbg{position:fixed;right:6px;bottom:calc(6px + var(--sab));font:10px ui-monospace,monospace;color:rgba(255,255,255,.45);z-index:50;pointer-events:none}
 /* ---------- v7 character menu (Gear · Skills · Bonds), phone portrait ---------- */
 #charBtn{position:fixed;right:12px;top:calc(96px + var(--sat));z-index:6;font-weight:800;font-size:12px;line-height:1;color:#ffe9b8;background:rgba(26,8,32,.82);border:1.5px solid var(--gold);border-radius:12px;padding:7px 10px;display:flex;gap:6px;align-items:center;box-shadow:0 0 10px rgba(255,201,77,.3)}
+#roomLow{position:fixed;right:12px;top:calc(96px + var(--sat));z-index:12;padding:7px 10px;border-radius:12px;background:rgba(12,8,20,.88);border:1px solid rgba(140,200,230,.4);color:#d7f4ff;font-weight:900;font-size:12px}
+#roomLow.on{background:#1c3c48;border-color:#9fdfff}
 #charBtn i{width:12px;height:13px;background:var(--gold);clip-path:polygon(35% 0,65% 0,75% 22%,65% 42%,100% 60%,100% 100%,0 100%,0 60%,35% 42%,25% 22%)}
 #charM{position:fixed;inset:0;z-index:40;background:radial-gradient(120% 60% at 50% 28%,#3a1842 0%,#1d0c23 55%,#120716 100%);display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity .22s}
 #charM.on{opacity:1;pointer-events:auto}
@@ -282,6 +284,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
 <div id="wirePanel" class="hide"><button id="wireBtn" aria-pressed="false"><i></i>Wire View</button>
   <label class="neon"><span>paint</span><input type="range" id="neonS" min="0" max="1" step="0.05" aria-label="Painterly to neon"><span>neon</span></label></div>
 <button id="charBtn" class="hide" aria-label="Character"><i></i>Character</button>
+<button id="roomLow" class="hide" type="button">Low</button>
 <div id="dangerV"></div>
 <div id="bossCD" class="hide"><small>BOSS</small><b></b></div>
 
@@ -1756,7 +1759,10 @@ function startArena(kind, onDone) {
   Object.assign(AR, { kind, t: 0, phase: 'intro', wave: 0, mobs: [], shots: [], teles: [], lane: 1, px: 0, hurt: 0, castT: 0, cds: [0, 0, 0], ptr: null, novaT: -1, shake: 0, floorDirty: true, share: 0, claimK: 0, drops: [], firstLive: false, idleHint: false, onDone, block: null });
   AR.waves = kind === 'raid' ? RAID_WAVES : HACK_GUARD;
   arenaV7Reset();
+  AR.roomLow = false;
   layoutArenaCam(); G.scene = 'arena';
+  syncRoomLow();
+  if (typeof syncMapNav === 'function') syncMapNav();
   $('#hearts').classList.remove('hide'); $('#menuBtn').classList.add('dim'); setAct(null); coach(null);
   if (kind === 'raid') { banner('Raid Dome', 'Floor 1 · Green'); setObj('<b>Raid</b> · punch the honey block'); AR.block = { x: 0, y: -.6, hp: 1, k: 0, rar: 0 }; }
   else { banner('Pond Spot', 'Hack · territory'); setObj('<b>Hack</b> · deal with the guard'); }
@@ -1872,7 +1878,7 @@ function claimEnd() {
 }
 function endArena() {
   setAct(null); coach(null); $('#bossCD').classList.add('hide'); $('#dangerV').style.opacity = 0; $('#wheel').classList.remove('on'); $('#hearts').classList.add('hide'); $('#menuBtn').classList.remove('dim');
-  G.scene = 'map'; groundDirty = true; const f = AR.onDone; AR.onDone = null; f && f();
+  G.scene = 'map'; groundDirty = true; syncRoomLow(); if (typeof syncMapNav === 'function') syncMapNav(); const f = AR.onDone; AR.onDone = null; f && f();
 }
 
 /* ---------- casting ---------- */
@@ -1929,8 +1935,10 @@ function renderArenaFloor() {
   // back dome lattice
   g.strokeStyle = AR.kind === 'hack' ? 'rgba(127,240,255,.12)' : 'rgba(255,79,180,.14)'; g.lineWidth = 1;
   const hy = proj(c, 0, -6)[1];
-  if (AR.kind === 'raid') { const vg = g.createLinearGradient(0, 0, 0, hy + 40); vg.addColorStop(0, '#070814'); vg.addColorStop(1, '#14101c'); g.fillStyle = vg; g.fillRect(0, 0, W, hy + 40); drawHexWall(g, -W * .02, hy + 10, a => `rgba(90,170,255,${a * .55})`);
-    for (let i = 0; i < 6; i++) { const cx = W * (.08 + i * .17), base = hy + 18, hgt = 54 + hsh(i, 4) * 78; g.beginPath(); g.moveTo(cx - 46, base); g.lineTo(cx - 16, base - hgt * .62); g.lineTo(cx + 4, base - hgt); g.lineTo(cx + 28, base - hgt * .5); g.lineTo(cx + 48, base); g.closePath(); g.fillStyle = i % 2 ? '#16243c' : '#121018'; g.fill(); g.strokeStyle = i % 2 ? 'rgba(90,190,255,.32)' : 'rgba(170,80,210,.28)'; g.lineWidth = 1.4; g.stroke(); } }
+  if (AR.kind === 'raid') { const vg = g.createLinearGradient(0, 0, 0, hy + 50); vg.addColorStop(0, '#05070f'); vg.addColorStop(1, '#121018'); g.fillStyle = vg; g.fillRect(0, 0, W, Math.max(0, hy + 24)); drawHexWall(g, -W * .02, hy + 8, a => `rgba(80,150,220,${a * .4})`);
+    const mass = (cx, base, hgt, fill, edge) => { g.beginPath(); g.moveTo(cx - hgt * .72, base); g.lineTo(cx - hgt * .3, base - hgt * .5); g.lineTo(cx - hgt * .04, base - hgt); g.lineTo(cx + hgt * .2, base - hgt * .66); g.lineTo(cx + hgt * .48, base - hgt * .28); g.lineTo(cx + hgt * .8, base); g.closePath(); g.fillStyle = fill; g.fill(); g.strokeStyle = edge; g.lineWidth = 1.15; g.stroke(); };
+    for (let i = 0; i < 8; i++) mass(W * (.04 + i * .13), hy - 4, 70 + hsh(i, 2) * 90, i % 2 ? '#10182a' : '#16141e', i % 2 ? 'rgba(90,160,210,.2)' : 'rgba(150,80,180,.16)');
+    for (let i = 0; i < 5; i++) mass(W * (.08 + i * .21), hy + 10, 36 + hsh(i, 6) * 28, '#0c1016', 'rgba(70,120,160,.18)'); }
   for (let i = 1; i < 6; i++) { g.beginPath(); g.ellipse(W / 2, hy, W * .2 * i, H * .07 * i, 0, Math.PI, TAU); g.stroke(); }
   for (let i = -5; i <= 5; i++) { g.beginPath(); g.moveTo(W / 2 + i * W * .1, hy); g.lineTo(W / 2 + i * W * .22, 0); g.stroke(); }
   for (let q = -5; q <= 5; q++) for (let r = -5; r <= 5; r++) {
@@ -1946,7 +1954,7 @@ function renderArenaFloor() {
     }
     else { const isPoi = d <= 1, wtr = r < -1 || (d > 2); col = wtr ? '#163e6e' : isPoi ? mixHex('#2a3a48', '#d99a2a', AR.share * (d === 0 ? 1 : .8)) : '#24563c'; lift = wtr ? 0 : 5; }
     const [, , f] = proj(c, x, y);
-    const skirt = lift * (AR.kind === 'raid' ? clamp(f / .85, .7, 1.6) * (TRAIN.on && TRAIN.view === 'low' ? 2.3 : 1) : 1);
+    const skirt = lift * (AR.kind === 'raid' ? clamp(f / .85, .7, 1.6) * (raidViewLow() ? 2.15 : 1.65) : 1);
     if (skirt) { g.save(); g.translate(0, skirt * f); hexPath(c, x, y, .94, g); g.restore(); g.fillStyle = shade(col, -.55); g.fill(); }
     hexPath(c, x, y, .94, g);
     if (AR.kind === 'raid') {
@@ -1961,7 +1969,7 @@ function renderArenaFloor() {
     } else { g.fillStyle = col; g.fill(); }
     const station = TRAIN.on && !TRAIN.king && AR.kind === 'raid' && ((q === -1 && r === -2) || (q === 1 && r === -2) || (q === 0 && r === -3));
     const seam = AR.kind === 'hack' ? (d <= 1 && AR.share > .5 ? '255,201,77' : '255,79,180') : (station ? '140,220,255' : d <= 2 ? '80,200,255' : '176,96,220');
-    const lowSeam = TRAIN.on && TRAIN.view === 'low';
+    const lowSeam = raidViewLow();
     g.strokeStyle = `rgba(${seam},${lowSeam ? .08 : .16})`; g.lineWidth = lowSeam ? 3 : 6; g.stroke(); g.strokeStyle = `rgba(${seam},${d > 3 ? .35 : (lowSeam ? .55 : .8)})`; g.lineWidth = 1.5; g.stroke();
     if (station) { hexPath(c, x, y, .7, g); g.strokeStyle = 'rgba(255,214,120,.95)'; g.lineWidth = 2.2; g.stroke(); }
   }
@@ -1980,7 +1988,7 @@ function drawRaidShimmer(c, T) {
   ctx.restore();
 }
 function drawLowAir(T) {
-  if (!(TRAIN.on && TRAIN.view === 'low') || SET.cozy) return;
+  if (!raidViewLow() || SET.cozy) return;
   const hy = proj(AR.cam, 0, -7)[1];
   ctx.save();
   ctx.fillStyle = 'rgba(6,8,18,.28)';
@@ -3983,11 +3991,26 @@ function unprojFp(X, Y) {
   const fpx = 320 / Math.max(0.55, dist);
   return [ex + (X - W / 2) / fpx / 0.72, ey - dist];
 }
+function raidViewLow() { return (TRAIN.on && TRAIN.view === 'low') || (!TRAIN.on && !!AR.roomLow); }
 function applyLowCam() {
   const c = AR.cam;
   const hz0 = clamp(Math.min(W / 5.6, H / 10.5), 44, 96);
   c.x = 0; c.y = 0.35; c.hz = hz0 * 0.72; c.D = H * 1.05; c.cy = H * 0.5; c.A = 1;
   AR.floorDirty = true;
+}
+function syncRoomLow() {
+  const b = document.getElementById('roomLow');
+  if (!b) return;
+  const show = G.scene === 'arena' && AR.kind === 'raid' && !TRAIN.on;
+  b.classList.toggle('hide', !show);
+  b.classList.toggle('on', !!AR.roomLow);
+  b.textContent = AR.roomLow ? 'Low on' : 'Low';
+}
+function toggleRoomLow() {
+  if (TRAIN.on || G.scene !== 'arena' || AR.kind !== 'raid') return;
+  AR.roomLow = !AR.roomLow;
+  layoutArenaCam();
+  syncRoomLow();
 }
 function syncViewBtns() {
   const v = TRAIN.view;
@@ -4730,7 +4753,7 @@ function drillLine() {
   proj = function (c, wx, wy) { return (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') ? projFp(wx, wy) : _proj(c, wx, wy); };
   unproj = function (c, X, Y) { return (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') ? unprojFp(X, Y) : _unproj(c, X, Y); };
 }
-{ const _layoutArenaCam = layoutArenaCam; layoutArenaCam = function () { if (TRAIN.on && TRAIN.view === 'fp') { applyFpCam(); return; } _layoutArenaCam(); AR.cam.x = 0; if (TRAIN.on && TRAIN.view === 'low') { applyLowCam(); return; } if (TRAIN.king) { AR.cam.cy = H * 0.60; AR.cam.y = 0.15; AR.floorDirty = true; } else if (TRAIN.on) { AR.cam.cy = H * 0.58; AR.floorDirty = true; } }; }
+{ const _layoutArenaCam = layoutArenaCam; layoutArenaCam = function () { if (TRAIN.on && TRAIN.view === 'fp') { applyFpCam(); return; } _layoutArenaCam(); AR.cam.x = 0; if (raidViewLow()) { applyLowCam(); return; } if (TRAIN.king) { AR.cam.cy = H * 0.60; AR.cam.y = 0.15; AR.floorDirty = true; } else if (TRAIN.on) { AR.cam.cy = H * 0.58; AR.floorDirty = true; } }; }
 function drawFpFrame() {
   if (!(TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena')) return;
   ctx.save();
@@ -4817,6 +4840,7 @@ document.getElementById('trainBack').addEventListener('click', e => { e.stopProp
 document.getElementById('trainClass').addEventListener('click', e => { e.stopPropagation(); setClass(GUN.cls === 'gunner' ? 'mage' : 'gunner'); });
 document.getElementById('viewTac').addEventListener('click', e => { e.stopPropagation(); setTrainView('tactical'); });
 document.getElementById('viewLow').addEventListener('click', e => { e.stopPropagation(); setTrainView('low'); });
+document.getElementById('roomLow').addEventListener('click', e => { e.stopPropagation(); toggleRoomLow(); });
 document.getElementById('viewFp').addEventListener('click', e => { e.stopPropagation(); setTrainView('fp'); });
 document.getElementById('trainAuto').addEventListener('click', e => {
   e.stopPropagation();

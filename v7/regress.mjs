@@ -297,6 +297,40 @@ await layout(320, 568);
 await layout(390, 844);
 await layout(844, 390);
 
+const room = await open(390, 844);
+await room.evaluate(() => {
+  window.__train.TRAIN.on = false;
+  document.getElementById('trainHud').classList.add('hide');
+  window.__train.openMapNav();
+  const MAP = window.__aro.MAP, dome = MAP.list.find(t => t.ter === 'dome');
+  const near = MAP.list.find(t => !t.edge && t.ter !== 'water' && (Math.abs(t.q - dome.q) + Math.abs(t.r - dome.r) + Math.abs(t.q + t.r - dome.q - dome.r)) / 2 === 1);
+  Object.assign(MAP.house, { q: near.q, r: near.r, x: near.x, y: near.y, mode: 'park' });
+  window.__aro.G.step = 2;
+});
+await room.evaluate(() => window.__train.goPlace(1, -3));
+await room.waitForFunction(() => document.getElementById('act').textContent.includes('Enter the raid'), { timeout: 8000 });
+await room.click('#act');
+await room.waitForFunction(() => window.__aro.AR.phase === 'block', { timeout: 4000 });
+const roomTac = await room.evaluate(() => ({
+  A: window.__aro.AR.cam.A,
+  low: document.getElementById('roomLow').textContent,
+  navHidden: document.getElementById('mapNav').classList.contains('hide'),
+}));
+await room.click('#roomLow');
+const roomLow = await room.evaluate(() => window.__aro.AR.cam.A);
+await room.click('#roomLow');
+const roomBackA = await room.evaluate(() => window.__aro.AR.cam.A);
+await room.evaluate(() => endArena());
+const roomMap = await room.evaluate(() => ({
+  scene: window.__aro.G.scene,
+  lowHidden: document.getElementById('roomLow').classList.contains('hide'),
+  navHidden: document.getElementById('mapNav').classList.contains('hide'),
+}));
+check('room raid starts tactical with the Low button and map buttons hidden', roomTac.A === 0.8 && roomTac.low === 'Low' && roomTac.navHidden, JSON.stringify(roomTac));
+check('room raid Low uses angle 1 and toggles back', roomLow === 1 && roomBackA === 0.8, roomLow + ' then ' + roomBackA);
+check('back from the room raid restores the map buttons', roomMap.scene === 'map' && roomMap.lowHidden && !roomMap.navHidden, JSON.stringify(roomMap));
+await room.close();
+
 const lowPage = await open(390, 844);
 const low = await lowPage.evaluate(() => {
   window.__aroFreeze = true;

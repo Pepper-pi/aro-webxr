@@ -45,15 +45,24 @@ An earlier phone frame of a pit (`hole_trench_phone`) looked empty of people. Me
 - The cast line sat on the player on a tall phone. It now sits at the left, under the buttons, and in the corner on short screens.
 - The page already sets `overflow: hidden` and `touch-action: none` on the canvas, so the field does not scroll.
 
-## Low angle (optional)
+## Low angle (optional), including the map raid
 
-In the yard and the Gel King bout, the view row is **Tactical**, **Low**, **First person**. Tactical is still the default and still uses camera angle 0.8. **Low** is a second arena camera on the same `proj` / `unproj`: angle 1.0, the floor pulled a little closer to the horizon, plate edges drawn thicker, seam glow turned down, and a dim band plus a few drifting streaks at the back. Those streaks are drawn only. They are not rain gameplay and they do not wet the hexes.
+Tactical stays the default at camera angle 0.8.
 
-Switching Low cancels a charge in progress, the same way First person does. Reset keeps the view you picked. Back, and a new yard or king entrance, return to Tactical. The map raid does not grow a new button; it stays on the default camera. Map navigation is unchanged.
+- Yard and Gel King: the view row is **Tactical**, **Low**, **First person**.
+- Map raid: a **Low** button at the top right (it says **Low on** while that camera is up). It is not on the map. Entering a raid starts on Tactical. **Back to the map** hides that button and brings the map buttons back. The map’s own Home / Dome / Pond / Command row is hidden during the fight so it does not sit on the floor, and it returns when you are on the map again.
 
-`v7/regress.mjs` checks that a point aimed in Low unprojects back to itself, that Ember still hits the dummy under the ring, that the dummies stay off the buttons and the disc at 320×568, 390×844, and landscape, and that Tactical’s angle returns to 0.8.
+Low uses the same `proj` / `unproj` as Tactical, at angle 1.0. Plate edges are thicker, seam glow is lower, and the back of a raid is two ranges of dark rock rising from the horizon with a thin cyan or purple edge. While Low is on, a few dim streaks drift in that sky. They do not wet hexes and they are not a weather spell. On a cozy setting those streaks are skipped. The rocks are drawn once into the floor cache, not every frame.
 
-What Low does not do: it is not the low heroic painting. The pits are still one hex, the back rocks are still small, and there is no wide canyon. Pushing the angle further made the side dummies leave the screen in the trials above, so this is the setting that stayed playable.
+A map raid checked in `v7/regress.mjs` starts at angle 0.8 with the Low button showing and the map row hidden, switches to angle 1 and back, then returns to the map with the map row visible. Separate play of that raid (phone and landscape) punched the glass block, cut a trench with Shadow Slash, raised the iceberg, and broke it with the existing center hit (40, three times). That shatter is the same wall hit enemy shots already use. The raid wheel still has no ground aim, so you do not drag onto the wall the way the yard disc does.
+
+What this is not: the paintings’ wide canyon and huge cliffs. The pits stay one hex. The rocks are simple peaks, not a sculpted range. A steeper angle than 1.0 pushed side targets off the screen, so it was not kept.
+
+![Room raid, tactical](handoff/room_tac_phone_start.png)
+
+![Room raid, Low](handoff/room_low_phone_start.png)
+
+![Room raid after the cut and the shatter, Low](handoff/room_low_phone.png)
 
 ![Tactical](handoff/tac_before.png)
 
