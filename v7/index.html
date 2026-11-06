@@ -277,7 +277,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
 </div>
 
 <div id="trainHud" class="hide">
-  <div class="note" id="trainNote">Practice views · not tracked AR · touch aim, not hand tracking</div>
+  <div class="note" id="trainNote">Practice views · not tracked AR · code-drawn disc, not a live mesh</div>
   <div class="rowb" id="trainViews">
     <button type="button" id="viewTac" class="on">Tactical</button>
     <button type="button" id="viewFp">First person</button>
@@ -3738,8 +3738,8 @@ const mapPtrs = new Map();
 
 function currentRim() { return GUN.cls === 'gunner' ? GUN_RIM : MAGE_RIM; }
 function trainHelpText() {
-  if (GUN.cls === 'gunner') return 'Gunner: drag to aim. Red line is the shot. Hold still and the circle tightens, then release. Rim: Frag, Turret, Drone. ‹ › steps. Touch or mouse, no hand tracking.';
-  return 'Mage: tap the rim. Center shows the element. Drag from the center to aim, hold to charge, release to cast. Aim sticks. Swipe the ground to step. Touch or mouse, no hand tracking.';
+  if (GUN.cls === 'gunner') return 'Gunner: drag to aim. Red line is the shot. Hold still and the circle tightens, then release. Rim: Frag, Turret, Drone. ‹ › steps. Touch or mouse, no hand tracking. The disc is code-drawn, not a live mesh.';
+  return 'Mage: tap the rim. Center shows the element. Drag from the center to aim, hold to charge, release to cast. Aim sticks. Swipe the ground to step. Touch or mouse, no hand tracking. The disc is code-drawn, not a live mesh.';
 }
 function syncClassBtn() {
   const b = document.getElementById('trainClass');
@@ -3824,7 +3824,7 @@ function syncViewBtns() {
   if (tac) tac.classList.toggle('on', !fp);
   if (bfp) bfp.classList.toggle('on', fp);
   const note = document.getElementById('trainNote');
-  if (note) note.textContent = (fp ? 'First person' : 'Tactical') + ' · practice view, not tracked AR · touch aim, not hand tracking';
+  if (note) note.textContent = (fp ? 'First person' : 'Tactical') + ' · practice view, not tracked AR · code-drawn disc, not a live mesh';
 }
 function interruptCharge(msg) {
   const held = !!(TRAIN.cap || AR.ptr);
@@ -4041,13 +4041,25 @@ function drawAimLayer() {
     ctx.strokeStyle = `rgba(255,240,240,${a})`; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
   }
 }
+function discPlate() {
+  const img = window.__discArt;
+  if (!img || !img.complete || !(img.naturalWidth >= 8)) return null;
+  return img;
+}
 function drawDisc() {
   if (G.scene !== 'arena') return;
   const d = discCenter(), rim = currentRim(), key = GUN.cls === 'gunner' ? 'gunner' : 'mage';
   const sel = TRAIN.sel[key] || 0, cur = rim[sel], x = d.x, y = d.y, R = 74, n = rim.length, rot = discRot();
+  const plate = discPlate();
   ctx.save();
   ctx.translate(x, y);
-  ctx.fillStyle = 'rgba(14,6,20,.84)';
+  if (plate) {
+    ctx.save();
+    ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.clip();
+    ctx.drawImage(plate, -R, -R, R * 2, R * 2);
+    ctx.restore();
+    ctx.fillStyle = 'rgba(14,6,20,.42)';
+  } else ctx.fillStyle = 'rgba(14,6,20,.84)';
   ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.fill();
   ctx.strokeStyle = 'rgba(255,214,130,.95)'; ctx.lineWidth = 3; ctx.stroke();
   for (let i = 0; i < n; i++) {
@@ -4612,7 +4624,8 @@ function trainSelfTest() {
 window.__train = {
   TRAIN, startTrain, resetTrain, leaveTrain, releaseMage, fireGun, raiseWall, shadowSlash,
   trainSelfTest, MAGE_RIM, GUN_RIM, applyZoom, layoutMapCam, setClass, setTrainView, slashUpdate,
-  openMapNav, openCommand, goPlace, BOARD, boardNote,
+  openMapNav, openCommand, goPlace, BOARD, boardNote, discPlate, discCenter,
+  stepArena: dt => arenaUpdate(dt),
   markDirty: () => { groundDirty = true; },
 };
 window.__look = { validateLookCatalog, readLookCatalog, LOOK, get catalog() { return LOOKS; }, heavyRef, saveLook };
