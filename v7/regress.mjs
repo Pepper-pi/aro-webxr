@@ -714,7 +714,7 @@ async function raidTouch(w, h, low) {
   check(tag + ' events are touch', types.includes('touch'), JSON.stringify(types.slice(0, 6)));
   check(tag + ' empty ground does not hit the wall', afterEmpty.hp === 90 && afterEmpty.dmg === 0, JSON.stringify(afterEmpty));
   check(tag + ' enemy is not a wall hit', !enemy || enemy.wall === enemy.wallBefore, JSON.stringify(enemy));
-  check(tag + ' fast swipe does not hit the wall', afterSwipe.hp === hpBeforeSwipe, 'q ' + spot.q + ' to ' + q1 + ' hp ' + hpBeforeSwipe + ' -> ' + afterSwipe.hp);
+  check(tag + ' touch flick steps and does not hit the wall', q1 !== spot.q && afterSwipe.hp === hpBeforeSwipe, 'q ' + spot.q + ' to ' + q1 + ' hp ' + hpBeforeSwipe + ' -> ' + afterSwipe.hp);
   check(tag + ' dodge still steps during a press', qDodge !== qBeforeDodge && afterDodge.hp === afterSwipe.hp, 'q ' + qBeforeDodge + ' to ' + qDodge + ' hp ' + JSON.stringify(afterDodge));
   const onWall = ring === 'wall' && duringSecond.hp === afterDodge.hp && afterFirst.dmg === 38 && afterFirst.weak;
   const noAccidental = duringSecond.hp === afterDodge.hp && afterFirst.hp === afterDodge.hp;

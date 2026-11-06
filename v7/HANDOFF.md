@@ -37,7 +37,7 @@ Three kinds of check live in that file. Do not treat them as the same thing.
 
 Last run of the whole file passed: helper checks, mouse UI, and touch UI together.
 
-A touch flick on the back row of the field often did not step in this Chrome, and it did not damage the wall. One did step (320×568, Low, q −1 to 0). Mouse flicks stepped at all three sizes and both cameras. A flick whose distance shows up only on the lift now steps, when the aim ring is not already up and the lift is within about half a second. Dodge still stepped while a finger was on the field, including on 320×568.
+Touch flick, morning check. Chrome was delivering the flick: a straight 90px jump, on the back row and in the middle, with `pointerType: "touch"`. The game then refused to step whenever that jump arrived after about a quarter second, because the still-timer had already armed the aim ring. That is a game bug, not a missing event. A flick whose first real sample jumps more than 38px, and which has not already been dragged in small steps, now steps even if the ring had armed. A finger that rests and then drags through intermediate points still aims and does not step. After the fix, the touch suite's back-row flick stepped (q −1 to 0) and left the wall at 90 on Tactical and Low at 320×568, 390×844, and 844×390. Mouse flicks still step. Hold, cancel, spell change, and dodge still pass. A real iPhone is still worth a pass: this Chrome synthesizes the touch, and a hold followed by one very fast snap can step instead of casting.
 
 ## Pictures
 
@@ -79,6 +79,12 @@ What this is not: the paintings’ wide canyon and huge cliffs. The pits stay on
 
 ![Room raid after the cut and the shatter, Low](handoff/room_low_phone.png)
 
+Same raid, before and after one back-row touch flick. The player steps one hex to the right. q went from −1 to 0.
+
+![Before the touch flick](handoff/flick_before.png)
+
+![After the touch flick](handoff/flick_after.png)
+
 Ordinary map raid, before the wall. Player, fox, and a live slime:
 
 ![Raid before the wall](handoff/raid_play_before.png)
@@ -104,7 +110,7 @@ A second finger no longer replaces the press or fires it. The spell wheel, the L
 ## Still open
 
 - No phone in hand. iOS Safari can cancel a touch on rotation at a different moment than this Chrome. The events here were synthesized touches, and they did arrive as `pointerType: "touch"`.
-- A touch flick on the far side of the raid often did not move the player in this Chrome. The mouse flick did, at every size. The touch flick did not hit the wall.
+- A touch flick that Chrome delivered as one late 90px jump now steps. Confirmed in the touch suite at all three sizes and both cameras. A phone in hand has not been tried.
 - If a creature is standing on the center of the wall, the ring says Enemy and the cast hits the creature. Aim a clear part of the wall to get the 38.
 - Frost and Honey do not shatter a wall. The yard's 40 and the raid's 38 are different holds. Do not mix them.
 - The pits are still one hex deep. The rocks are simple peaks. No tracked hand, no walking slime, no characters from the paintings. Root `index.html` and `v6/` are unchanged. Not merged. Not deployed.
