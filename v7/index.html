@@ -1894,13 +1894,21 @@ function renderArenaFloor() {
   for (let q = -5; q <= 5; q++) for (let r = -5; r <= 5; r++) {
     const d = (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2; if (d > 4) continue; const [x, y] = hexXY(q, r);
     let col, lift = 5;
-    if (AR.kind === 'raid') { col = d <= 1 ? '#2a1032' : d <= 2 ? '#1e0a26' : '#16071c'; if (d > 3) { col = '#0e0412'; lift = 2; } }
+    if (AR.kind === 'raid') {
+      const station = TRAIN.on && ((q === -1 && r === -2) || (q === 1 && r === -2) || (q === 0 && r === -3));
+      const lane = TRAIN.on && Math.abs(q) <= 1 && r <= -1 && r >= -4;
+      if (station) { col = '#7a4e28'; lift = 6; }
+      else if (lane) { col = '#2e1a36'; lift = 5; }
+      else { col = d <= 1 ? '#2a1032' : d <= 2 ? '#1e0a26' : '#16071c'; if (d > 3) { col = '#0e0412'; lift = 2; } }
+    }
     else { const isPoi = d <= 1, wtr = r < -1 || (d > 2); col = wtr ? '#163e6e' : isPoi ? mixHex('#2a3a48', '#d99a2a', AR.share * (d === 0 ? 1 : .8)) : '#24563c'; lift = wtr ? 0 : 5; }
     const [, , f] = proj(c, x, y);
     if (lift) { g.save(); g.translate(0, lift * f); hexPath(c, x, y, .94, g); g.restore(); g.fillStyle = shade(col, -.5); g.fill(); }
     hexPath(c, x, y, .94, g); g.fillStyle = col; g.fill();
-    const seam = AR.kind === 'hack' ? (d <= 1 && AR.share > .5 ? '255,201,77' : '255,79,180') : (d <= 2 ? '255,176,60' : '255,60,180'); // v7 heavy: gold core seams, magenta rim (north-star raid)
+    const station = TRAIN.on && AR.kind === 'raid' && ((q === -1 && r === -2) || (q === 1 && r === -2) || (q === 0 && r === -3));
+    const seam = AR.kind === 'hack' ? (d <= 1 && AR.share > .5 ? '255,201,77' : '255,79,180') : (station ? '255,214,120' : d <= 2 ? '255,176,60' : '255,60,180'); // v7 heavy: gold core seams, magenta rim (north-star raid)
     g.strokeStyle = `rgba(${seam},.16)`; g.lineWidth = 6; g.stroke(); g.strokeStyle = `rgba(${seam},${d > 3 ? .45 : .8})`; g.lineWidth = 1.5; g.stroke();
+    if (station) { hexPath(c, x, y, .7, g); g.strokeStyle = 'rgba(255,214,120,.95)'; g.lineWidth = 2.2; g.stroke(); }
   }
   AR.floorDirty = false;
 }
@@ -1909,6 +1917,11 @@ function drawArena(T) {
   if (AR.floorDirty) renderArenaFloor();
   const sh = AR.shake > 0 ? AR.shake * 6 : 0; ctx.save(); if (sh) ctx.translate((Math.random() - .5) * sh, (Math.random() - .5) * sh);
   drawWireUnder(c, AHEX, T, 'arena'); ctx.globalAlpha = surfaceAlpha(); ctx.drawImage(acv, 0, 0, W, H); ctx.globalAlpha = 1; drawWireOver(c, AHEX.filter(h => h.d <= 4), T, 'arena');
+  if (TRAIN.on && TRAIN.pulses) for (const p of TRAIN.pulses) {
+    const k = clamp(1 - p.t / 0.42, 0, 1), [x, y] = hexXY(p.q, p.r);
+    hexPath(c, x, y, 0.82); ctx.globalAlpha = 0.28 * k; ctx.fillStyle = p.col; ctx.fill();
+    ctx.globalAlpha = 0.85 * k; ctx.strokeStyle = p.col; ctx.lineWidth = 3; ctx.stroke(); ctx.globalAlpha = 1;
+  }
   drawBossDark(c, T);
   drawField(c, T);
   drawPlayerArea(c, T); drawTerrain(c, T);
@@ -3760,6 +3773,7 @@ const TRAIN = {
   on: false, view: 'tactical', helpOpen: false, aim: null, charge: 0, focus: 0, hb: 0, speed: 0, shotCd: 0,
   cap: null, drag: null, disc: null, sel: { mage: 0, gunner: 0 }, bolts: [], last: null, labels: [],
   mx: 0, my: 0, moveT: 0, autoFull: true, spent: false, casts: 0, snap: 0, guide: 0.2, demo: false, demoT: 0,
+  drill: { round: 1, hits: 0, dmg: 0, who: {}, said: false }, pulses: [],
 };
 MAP.zoom = 1.2;
 let dockHud = null;
@@ -4047,6 +4061,7 @@ function trainUpdate(dt) {
   }
   if (gun && AR.ptr && G.scene === 'arena') TRAIN.charge = Math.min(1, (TRAIN.charge || 0) + dt / 0.62);
   if (TRAIN.snap > 0) TRAIN.snap = Math.max(0, TRAIN.snap - dt * (reducedMotion() ? 6 : 2.4));
+  if (TRAIN.pulses) { for (const p of TRAIN.pulses) p.t += dt; TRAIN.pulses = TRAIN.pulses.filter(p => p.t < 0.42); }
   const guideWant = (holding && !gun) || TRAIN.demo ? 0.92 : 0.18;
   TRAIN.guide += (guideWant - (TRAIN.guide || 0)) * Math.min(1, dt * (reducedMotion() ? 8 : 2.5));
   if (TRAIN.demo) TRAIN.demoT = (TRAIN.demoT || 0) + dt;
@@ -4104,6 +4119,13 @@ function drawAimLayer() {
   ctx.globalAlpha = gun ? 1 : 0.7;
   ctx.lineWidth = gun ? 3 : 1.5;
   ctx.beginPath(); ctx.arc(B[0], B[1], rad, 0, TAU); ctx.stroke();
+  if (!gun) {
+    const ch = clamp(TRAIN.charge || 0, 0, 1);
+    if (ch > 0.02) {
+      ctx.globalAlpha = 0.95; ctx.lineWidth = 4; ctx.strokeStyle = rim.col;
+      ctx.beginPath(); ctx.arc(B[0], B[1], rad + 7, -Math.PI / 2, -Math.PI / 2 + TAU * ch); ctx.stroke();
+    }
+  }
   if (gun) {
     ctx.globalAlpha = 0.25 + pulse * 0.55;
     ctx.beginPath(); ctx.arc(B[0], B[1], rad * (1.18 + pulse * 0.12), 0, TAU); ctx.stroke();
@@ -4345,6 +4367,7 @@ function startTrain() {
   G.scene = 'arena';
   TRAIN.charge = 0; TRAIN.aim = null; TRAIN.focus = 0; TRAIN.cap = null; TRAIN.drag = null; TRAIN.bolts = [];
   TRAIN.spent = false; TRAIN.snap = 0; TRAIN.casts = 0;
+  TRAIN.drill = { round: 1, hits: 0, dmg: 0, who: {}, said: false }; TRAIN.pulses = []; AR.objT = null;
   try { TRAIN.autoFull = localStorage.getItem('aro7mageAuto') !== '0'; } catch (e) { TRAIN.autoFull = true; }
   try { if (!localStorage.getItem('aro7holdSeen')) TRAIN.demo = true; } catch (e) { }
   spawnDummies();
@@ -4369,9 +4392,12 @@ function resetTrain() {
   AR.cds = [0, 0, 0]; AR.shots = []; AR.zones = []; AR.lines = []; AR.phase = 'wave';
   G.hp = G.maxHp; renderHearts();
   TRAIN.charge = 0; TRAIN.bolts = []; TRAIN.spent = false; TRAIN.snap = 0;
+  const was = TRAIN.drill || { round: 1, said: false };
+  const next = was.said ? was.round + 1 : was.round;
+  TRAIN.drill = { round: next, hits: 0, dmg: 0, who: {}, said: false }; TRAIN.pulses = []; AR.objT = null;
   FIELD.wallTip = true;
   coach(null);
-  showCast('Dummies reset · HP restored');
+  showCast(next > was.round ? 'Round ' + next + ' · dummies ready' : 'Dummies reset · HP restored');
   setAct(null);
 }
 function leaveTrain() {
@@ -4530,7 +4556,14 @@ function drawDockHud() {
 }; }
 { const _waveCleared = waveCleared; waveCleared = function () { if (TRAIN.on) return; return _waveCleared(); }; }
 { const _tryAttack = tryAttack; tryAttack = function (m) { if (m && m.dummy) { m.aggro = false; m.atkT = 99; return; } return _tryAttack(m); }; }
-{ const _damage = damage; damage = function (m, dmg, sp, focus) { const r = _damage(m, dmg, sp, focus); if (m && m.dummy) { m.aggro = false; m.atkT = 99; showCast('Hit ' + dmg + ' · ' + m.D.n + '  ' + Math.max(0, Math.ceil(m.hp)) + ' HP'); } return r; }; }
+function drillLine() {
+  const d = TRAIN.drill;
+  if (!d) return '<b>Training</b>';
+  const n = Object.keys(d.who).length;
+  if (n >= 3) return `<b>Round ${d.round} clear</b> · Reset for the next`;
+  return `<b>Round ${d.round}</b> · ${d.hits} hits · ${d.dmg} dmg`;
+}
+{ const _damage = damage; damage = function (m, dmg, sp, focus) { const r = _damage(m, dmg, sp, focus); if (m && m.dummy) { m.aggro = false; m.atkT = 99; const left = Math.max(0, Math.ceil(m.hp)); showCast('Hit ' + dmg + ' · ' + m.D.n + '  ' + left + ' HP'); if (!TRAIN.drill) TRAIN.drill = { round: 1, hits: 0, dmg: 0, who: {}, said: false }; const dr = TRAIN.drill; dr.hits++; dr.dmg += dmg; dr.who[m.D.n] = true; const [q, rhex] = xyHex(m.x, m.y); if (!TRAIN.pulses) TRAIN.pulses = []; TRAIN.pulses.push({ q, r: rhex, col: (sp && sp.col) || '#ffd36a', t: 0 }); if (TRAIN.pulses.length > 6) TRAIN.pulses.shift(); if (Object.keys(dr.who).length >= 3 && !dr.said) { dr.said = true; showCast('Round ' + dr.round + ' clear · Reset for the next'); } AR.objT = null; } return r; }; }
 { const _lock = lockUpdate; lockUpdate = function (dt) { const n = FX.length; _lock(dt); if (TRAIN.on) { for (let i = FX.length - 1; i >= n; i--) if (FX[i].kind === 'text' && FX[i].txt === 'steady') FX.splice(i, 1); } }; }
 { const _cubes = cubesFor; cubesFor = function (m) { if (m && m.dummy) { const [X, Y, f] = proj(AR.cam, m.x, m.y); popText(X, Y - 36 * f, 'down', '#ffd36a', 16); SFX.cube(); return; } return _cubes(m); }; }
 { const _drawMob = drawArenaMob; drawArenaMob = function (m, T) { if (m && m.dummy) return drawDummy(m); return _drawMob(m, T); }; }
@@ -4561,7 +4594,7 @@ function drawFpFrame() {
   ctx.restore();
 }
 { const _vignette = vignette; vignette = function () { _vignette(); if (G.scene === 'arena') { drawFpFrame(); drawAimLayer(); drawDisc(); drawForearm(); drawHoldDemo(); } if (G.scene === 'map') drawDockHud(); }; }
-{ const _obj = arenaObjective; arenaObjective = function () { if (!TRAIN.on) return _obj(); const n = AR.mobs.filter(m => m.dummy && m.state === 'live').length; const t = `<b>Training</b> · ${n} dummies`; if (t !== AR.objT) { AR.objT = t; setObj(t); } }; }
+{ const _obj = arenaObjective; arenaObjective = function () { if (!TRAIN.on) return _obj(); const t = drillLine(); if (t !== AR.objT) { AR.objT = t; setObj(t); } }; }
 { const _setClass = setClass; setClass = function (c) { if (TRAIN.on && c !== GUN.cls) interruptCharge('Charge cancelled'); const r = _setClass(c); syncClassBtn(); const help = document.getElementById('trainHelp'); if (help && TRAIN.on) help.textContent = trainHelpText(); return r; }; }
 { const _manaUI = manaUI; manaUI = function () {
   _manaUI();
