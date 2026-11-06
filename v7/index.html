@@ -298,7 +298,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
 </div>
 <div class="modal" id="cmdM"><div class="sheet">
   <div class="sh-h"><div><small>Command board</small>Local staging</div><button class="x" data-close>×</button></div>
-  <div class="hint">Sprites, not meshes. Only Mage and Gunner can fight in this demo. A staged team is saved on this device and does not travel, fight, or pay rewards.</div>
+  <div class="hint">Sprites, not meshes. Only Mage and Gunner can fight in this demo. A staged team is stored in this browser only. It does not travel, fight, or pay rewards.</div>
   <div id="cmdList"></div>
   <div class="hint" id="cmdNote"></div>
 </div></div>
@@ -3690,7 +3690,7 @@ function discRot() {
   return aimAngle() - mid;
 }
 function discAnchor() {
-  if (TRAIN.view === 'fp') return [W * 0.5, Math.max(H * 0.72, H - 210)];
+  if (TRAIN.view === 'fp') return H < 520 ? [Math.min(W - 100, W * 0.82), H * 0.58] : [W * 0.5, Math.max(H * 0.72, H - 210)];
   const [px, py] = pPos();
   const P = proj(AR.cam, px, py);
   let x = SET.hand === 'left' ? 108 : W - 108, y = H - 210;
@@ -3731,7 +3731,17 @@ function syncViewBtns() {
   const note = document.getElementById('trainNote');
   if (note) note.textContent = (fp ? 'First person' : 'Tactical') + ' · practice view, not tracked AR · touch aim, not hand tracking';
 }
+function interruptCharge(msg) {
+  const held = !!(TRAIN.cap || AR.ptr);
+  TRAIN.cap = null;
+  TRAIN.drag = null;
+  AR.ptr = null;
+  TRAIN.charge = 0;
+  if (held && msg) showCast(msg);
+  return held;
+}
 function setTrainView(v) {
+  interruptCharge('Charge cancelled');
   const next = v === 'fp' ? 'fp' : 'tactical';
   TRAIN.view = next;
   if (next === 'tactical') layoutArenaCam();
@@ -3773,7 +3783,7 @@ function releaseMage() {
   const shown = Math.round(clamp(TRAIN.charge || 0, 0, 1) * 100);
   const power = 0.5 + clamp(TRAIN.charge || 0, 0, 1) * 1.15;
   TRAIN.charge = 0;
-  if (!TRAIN.aim) { const [px, py] = pPos(); TRAIN.aim = { x: px, y: py - 2.2 }; }
+  if (!TRAIN.aim || !Number.isFinite(TRAIN.aim.x) || !Number.isFinite(TRAIN.aim.y)) { const [px, py] = pPos(); TRAIN.aim = { x: px, y: py - 2.2 }; }
   let ok = false;
   if (rim.id === 'iceberg') ok = !!raiseWall();
   else if (rim.id === 'slash') ok = !!castSlash();
@@ -3792,8 +3802,9 @@ function releaseMage() {
   return ok;
 }
 function fireGun(power) {
+  power = Number.isFinite(power) ? power : 0.5;
   const aim = TRAIN.aim;
-  if (!aim) { popPlayer('drag to aim', '#ff8a9a'); return false; }
+  if (!aim || !Number.isFinite(aim.x) || !Number.isFinite(aim.y)) { popPlayer('drag to aim', '#ff8a9a'); showCast('No aim'); return false; }
   if (TRAIN.shotCd > 0) { popPlayer('reloading', '#ff8a9a'); return false; }
   const [px, py] = pPos();
   let hit = null, best = 0.7;
@@ -4050,6 +4061,7 @@ function startTrain() {
   setAct(null);
 }
 function resetTrain() {
+  interruptCharge();
   spawnDummies();
   FIELD.hex.clear(); FIELD.terr.clear(); FIELD.wall = null; FIELD.chunks = []; FIELD.fogs = [];
   FIELD.pslash = null; FIELD.mana = 100; FIELD.slashCD = 0; FIELD.wallCD = 0;
@@ -4062,6 +4074,7 @@ function resetTrain() {
   setAct(null);
 }
 function leaveTrain() {
+  interruptCharge();
   TRAIN.on = false; TRAIN.cap = null; TRAIN.drag = null;
   document.getElementById('trainHud').classList.add('hide');
   document.getElementById('castFeed').classList.add('hide');
@@ -4205,6 +4218,7 @@ function drawDockHud() {
   };
 }
 { const _arenaUpdate = arenaUpdate; arenaUpdate = function (dt) {
+  AR.shots = AR.shots.filter(s => s.mob && AR.mobs.includes(s.mob));
   if (TRAIN.on) for (const m of AR.mobs) if (m.dummy) { m.aggro = false; m.atkT = 99; }
   _arenaUpdate(dt);
   if (TRAIN.on) {
@@ -4247,7 +4261,7 @@ function drawFpFrame() {
 }
 { const _vignette = vignette; vignette = function () { _vignette(); if (G.scene === 'arena') { drawFpFrame(); drawAimLayer(); drawDisc(); } if (G.scene === 'map') drawDockHud(); }; }
 { const _obj = arenaObjective; arenaObjective = function () { if (!TRAIN.on) return _obj(); const n = AR.mobs.filter(m => m.dummy && m.state === 'live').length; const t = `<b>Training</b> · ${n} dummies`; if (t !== AR.objT) { AR.objT = t; setObj(t); } }; }
-{ const _setClass = setClass; setClass = function (c) { const r = _setClass(c); syncClassBtn(); const help = document.getElementById('trainHelp'); if (help && TRAIN.on) help.textContent = trainHelpText(); return r; }; }
+{ const _setClass = setClass; setClass = function (c) { if (TRAIN.on && c !== GUN.cls) interruptCharge('Charge cancelled'); const r = _setClass(c); syncClassBtn(); const help = document.getElementById('trainHelp'); if (help && TRAIN.on) help.textContent = trainHelpText(); return r; }; }
 { const _manaUI = manaUI; manaUI = function () {
   _manaUI();
   const sb = document.getElementById('slashBtn'), wb = document.getElementById('iceWall');
@@ -4283,7 +4297,15 @@ cv.addEventListener('pointermove', e => {
     pinchD = d;
   }
 }, true);
-function endMapPtr(e) { mapPtrs.delete(e.pointerId); if (mapPtrs.size < 2) pinchD = 0; if (TRAIN.cap && e.type === 'pointercancel') { TRAIN.cap = null; TRAIN.drag = null; } }
+function endMapPtr(e) { mapPtrs.delete(e.pointerId); if (mapPtrs.size < 2) pinchD = 0; if (e.type === 'pointercancel') interruptCharge('Charge cancelled'); }
+window.addEventListener('pointerup', e => {
+  if (!TRAIN.on || G.scene !== 'arena') return;
+  if (e.target === cv) return;
+  const ui = e.target.closest && e.target.closest('button, a, input, .modal');
+  if (ui) { interruptCharge('Charge cancelled'); return; }
+  if (TRAIN.cap) releaseDisc(e.clientX, e.clientY);
+  else if (GUN.cls === 'gunner' && AR.ptr) releaseGun(e.clientX, e.clientY);
+});
 cv.addEventListener('pointerup', endMapPtr, true);
 cv.addEventListener('pointercancel', endMapPtr, true);
 cv.addEventListener('wheel', e => {
@@ -4313,11 +4335,13 @@ layoutMapCam(); groundDirty = true;
 if (QS.has('train')) setTimeout(startTrain, 350);
 
 const BOARD = { staged: {} };
+try { const saved = JSON.parse(localStorage.getItem('aro7board') || '{}'); if (saved && saved.staged && typeof saved.staged === 'object') BOARD.staged = saved.staged; } catch (e) { }
+function saveBoard() { try { localStorage.setItem('aro7board', JSON.stringify({ staged: BOARD.staged })); } catch (e) { } }
 function boardNames() { return BONDS.filter(b => BOARD.staged[b.n]).map(b => b.n); }
 function boardNote() {
   const names = boardNames();
-  if (!names.length) return 'No companions staged. Saving a team does not deploy them.';
-  return 'Placeholder deployment. Nothing travels and no rewards are paid. Staged: ' + names.join(', ') + '.';
+  if (!names.length) return 'No companions staged. This list stays in this browser and does not deploy anyone.';
+  return 'Placeholder. Stored in this browser only. Nothing travels and no rewards are paid. Staged: ' + names.join(', ') + '.';
 }
 function renderCommand() {
   const gun = GUN.cls === 'gunner';
@@ -4340,8 +4364,8 @@ function renderCommand() {
   document.getElementById('cmdNote').textContent = boardNote();
   list.querySelectorAll('[data-cls]').forEach(b => b.onclick = () => { setClass(b.dataset.cls); renderCommand(); });
   list.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { TRAIN.sel[key] = +b.dataset.act; if (!gun && +b.dataset.act < 3) selSpell(+b.dataset.act); renderCommand(); });
-  list.querySelectorAll('[data-bond]').forEach(b => b.onclick = () => { const n = BONDS[+b.dataset.bond].n; BOARD.staged[n] = !BOARD.staged[n]; renderCommand(); });
-  document.getElementById('cmdStage').onclick = () => { document.getElementById('cmdNote').textContent = boardNote(); SFX.tap(); };
+  list.querySelectorAll('[data-bond]').forEach(b => b.onclick = () => { const n = BONDS[+b.dataset.bond].n; BOARD.staged[n] = !BOARD.staged[n]; saveBoard(); renderCommand(); });
+  document.getElementById('cmdStage').onclick = () => { saveBoard(); document.getElementById('cmdNote').textContent = boardNote(); SFX.tap(); };
 }
 function openCommand() { if (typeof closeRing === 'function') closeRing(); renderCommand(); openModal('cmdM'); }
 function syncMapNav() {
