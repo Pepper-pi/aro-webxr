@@ -408,6 +408,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
   </div>
   <button class="big gold" id="titleGo">Begin the day</button>
   <button class="big" id="titleTrain">Training arena</button>
+  <button class="big" id="titleKing">Gel King bout</button>
   <button class="big" id="titleMap">Open the map</button>
   <div class="hint" style="text-align:center">Best on a phone, held upright. Touch or mouse. This build does not track hands or a camera pose.</div>
 </div>
@@ -1895,8 +1896,8 @@ function renderArenaFloor() {
     const d = (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2; if (d > 4) continue; const [x, y] = hexXY(q, r);
     let col, lift = 5;
     if (AR.kind === 'raid') {
-      const station = TRAIN.on && ((q === -1 && r === -2) || (q === 1 && r === -2) || (q === 0 && r === -3));
-      const lane = TRAIN.on && Math.abs(q) <= 1 && r <= -1 && r >= -4;
+      const station = TRAIN.on && !TRAIN.king && ((q === -1 && r === -2) || (q === 1 && r === -2) || (q === 0 && r === -3));
+      const lane = TRAIN.on && !TRAIN.king && Math.abs(q) <= 1 && r <= -1 && r >= -4;
       if (station) { col = '#7a4e28'; lift = 6; }
       else if (lane) { col = '#2e1a36'; lift = 5; }
       else { col = d <= 1 ? '#2a1032' : d <= 2 ? '#1e0a26' : '#16071c'; if (d > 3) { col = '#0e0412'; lift = 2; } }
@@ -1905,7 +1906,7 @@ function renderArenaFloor() {
     const [, , f] = proj(c, x, y);
     if (lift) { g.save(); g.translate(0, lift * f); hexPath(c, x, y, .94, g); g.restore(); g.fillStyle = shade(col, -.5); g.fill(); }
     hexPath(c, x, y, .94, g); g.fillStyle = col; g.fill();
-    const station = TRAIN.on && AR.kind === 'raid' && ((q === -1 && r === -2) || (q === 1 && r === -2) || (q === 0 && r === -3));
+    const station = TRAIN.on && !TRAIN.king && AR.kind === 'raid' && ((q === -1 && r === -2) || (q === 1 && r === -2) || (q === 0 && r === -3));
     const seam = AR.kind === 'hack' ? (d <= 1 && AR.share > .5 ? '255,201,77' : '255,79,180') : (station ? '255,214,120' : d <= 2 ? '255,176,60' : '255,60,180'); // v7 heavy: gold core seams, magenta rim (north-star raid)
     g.strokeStyle = `rgba(${seam},.16)`; g.lineWidth = 6; g.stroke(); g.strokeStyle = `rgba(${seam},${d > 3 ? .45 : .8})`; g.lineWidth = 1.5; g.stroke();
     if (station) { hexPath(c, x, y, .7, g); g.strokeStyle = 'rgba(255,214,120,.95)'; g.lineWidth = 2.2; g.stroke(); }
@@ -3772,7 +3773,7 @@ const GUN_RIM = [
 const TRAIN = {
   on: false, view: 'tactical', helpOpen: false, aim: null, charge: 0, focus: 0, hb: 0, speed: 0, shotCd: 0,
   cap: null, drag: null, disc: null, sel: { mage: 0, gunner: 0 }, bolts: [], last: null, labels: [],
-  mx: 0, my: 0, moveT: 0, autoFull: true, spent: false, casts: 0, snap: 0, guide: 0.2, demo: false, demoT: 0,
+  mx: 0, my: 0, moveT: 0, autoFull: true, spent: false, casts: 0, snap: 0, guide: 0.2, demo: false, demoT: 0, king: false,
   drill: { round: 1, hits: 0, dmg: 0, who: {}, said: false }, pulses: [],
 };
 MAP.zoom = 1.2;
@@ -4344,6 +4345,43 @@ function drawDummy(m) {
   ctx.textAlign = 'center'; ctx.fillStyle = '#fff6d4'; ctx.fillText(label, lx, ly);
   ctx.textAlign = 'left';
 }
+function kingLine() {
+  if (AR.phase === 'clear') return '<b>Gel King down</b> · Retry or Back to the yard';
+  const m = AR.mobs.find(x => x.k === 'boss' && x.state !== 'gone');
+  const hp = m ? Math.max(0, Math.ceil(m.hp)) : 0;
+  const you = Math.max(0, Math.ceil(G.hp));
+  return `<b>Gel King</b> · ${hp} HP · you ${you}`;
+}
+function kingDown() {
+  AR.phase = 'clear';
+  AR.zones = []; AR.lines = [];
+  showCast('Gel King down · Retry or Back');
+  setObj(kingLine());
+}
+function kingRetry() {
+  G.hp = G.maxHp; renderHearts();
+  AR.phase = 'wave'; AR.floorDirty = true;
+  spawnWave(0);
+  const m = AR.mobs.find(x => x.k === 'boss');
+  if (m) m.tm = { p: 0.45, l: 0.55, s: 0.3 };
+  showCast('Gel King returns');
+  setObj(kingLine());
+}
+function startKing() {
+  startTrain();
+  TRAIN.king = true;
+  TRAIN.demo = false;
+  AR.kind = 'raid';
+  AR.waves = [[{ k: 'boss', at: [0, -3], full: 1 }]];
+  AR.wave = 0;
+  AR.phase = 'wave';
+  spawnWave(0);
+  AR.floorDirty = true;
+  G.hp = G.maxHp; renderHearts();
+  setObj(kingLine());
+  showCast('Step off red');
+  coach(null);
+}
 function startTrain() {
   audioInit();
   const title = document.getElementById('title');
@@ -4363,6 +4401,7 @@ function startTrain() {
   arenaV7Reset();
   TRAIN.view = 'tactical';
   TRAIN.on = true;
+  TRAIN.king = false;
   layoutArenaCam();
   G.scene = 'arena';
   TRAIN.charge = 0; TRAIN.aim = null; TRAIN.focus = 0; TRAIN.cap = null; TRAIN.drag = null; TRAIN.bolts = [];
@@ -4385,6 +4424,7 @@ function startTrain() {
   setAct(null);
 }
 function resetTrain() {
+  if (TRAIN.king) { interruptCharge(); kingRetry(); return; }
   interruptCharge();
   spawnDummies();
   FIELD.hex.clear(); FIELD.terr.clear(); FIELD.wall = null; FIELD.chunks = []; FIELD.fogs = [];
@@ -4548,13 +4588,14 @@ function drawDockHud() {
   AR.shots = AR.shots.filter(s => s.mob && AR.mobs.includes(s.mob));
   if (TRAIN.on) for (const m of AR.mobs) if (m.dummy) { m.aggro = false; m.atkT = 99; }
   _arenaUpdate(dt);
-  if (TRAIN.on) {
+  if (TRAIN.on && !TRAIN.king) {
     for (const m of AR.mobs) if (m.dummy && (m.state === 'gone' || m.state === 'dying' && m.st > 0.42)) reviveDummy(m);
     if (AR.phase !== 'wave') { AR.phase = 'wave'; setAct(null); }
   }
   trainUpdate(dt);
 }; }
-{ const _waveCleared = waveCleared; waveCleared = function () { if (TRAIN.on) return; return _waveCleared(); }; }
+{ const _waveCleared = waveCleared; waveCleared = function () { if (TRAIN.king) { kingDown(); return; } if (TRAIN.on) return; return _waveCleared(); }; }
+{ const _hurtP = hurtP; hurtP = function (n, tick) { if (TRAIN.king && G.hp - n <= 0) { showCast('Down · Retry brings the Gel King back'); kingRetry(); return; } return _hurtP(n, tick); }; }
 { const _tryAttack = tryAttack; tryAttack = function (m) { if (m && m.dummy) { m.aggro = false; m.atkT = 99; return; } return _tryAttack(m); }; }
 function drillLine() {
   const d = TRAIN.drill;
@@ -4594,7 +4635,7 @@ function drawFpFrame() {
   ctx.restore();
 }
 { const _vignette = vignette; vignette = function () { _vignette(); if (G.scene === 'arena') { drawFpFrame(); drawAimLayer(); drawDisc(); drawForearm(); drawHoldDemo(); } if (G.scene === 'map') drawDockHud(); }; }
-{ const _obj = arenaObjective; arenaObjective = function () { if (!TRAIN.on) return _obj(); const t = drillLine(); if (t !== AR.objT) { AR.objT = t; setObj(t); } }; }
+{ const _obj = arenaObjective; arenaObjective = function () { if (!TRAIN.on) return _obj(); const t = TRAIN.king ? kingLine() : drillLine(); if (t !== AR.objT) { AR.objT = t; setObj(t); } }; }
 { const _setClass = setClass; setClass = function (c) { if (TRAIN.on && c !== GUN.cls) interruptCharge('Charge cancelled'); const r = _setClass(c); syncClassBtn(); const help = document.getElementById('trainHelp'); if (help && TRAIN.on) help.textContent = trainHelpText(); return r; }; }
 { const _manaUI = manaUI; manaUI = function () {
   _manaUI();
@@ -4649,13 +4690,14 @@ cv.addEventListener('wheel', e => {
 }, { passive: false });
 
 document.getElementById('titleTrain').addEventListener('click', () => { SFX.tap(); startTrain(); });
+document.getElementById('titleKing').addEventListener('click', () => { SFX.tap(); startKing(); });
 document.getElementById('titleMap').addEventListener('click', () => { SFX.tap(); openMapNav(); });
 document.getElementById('navHome').addEventListener('click', () => goPlace(HOME.q, HOME.r));
 document.getElementById('navDome').addEventListener('click', () => goPlace(DOME.q, DOME.r));
 document.getElementById('navPond').addEventListener('click', () => goPlace(POI.q, POI.r));
 document.getElementById('navCmd').addEventListener('click', () => openCommand());
 document.getElementById('trainReset').addEventListener('click', e => { e.stopPropagation(); resetTrain(); });
-document.getElementById('trainBack').addEventListener('click', e => { e.stopPropagation(); leaveTrain(); });
+document.getElementById('trainBack').addEventListener('click', e => { e.stopPropagation(); if (TRAIN.king) { TRAIN.king = false; startTrain(); return; } leaveTrain(); });
 document.getElementById('trainClass').addEventListener('click', e => { e.stopPropagation(); setClass(GUN.cls === 'gunner' ? 'mage' : 'gunner'); });
 document.getElementById('viewTac').addEventListener('click', e => { e.stopPropagation(); setTrainView('tactical'); });
 document.getElementById('viewFp').addEventListener('click', e => { e.stopPropagation(); setTrainView('fp'); });
@@ -4870,6 +4912,7 @@ window.__train = {
   TRAIN, startTrain, resetTrain, leaveTrain, releaseMage, fireGun, raiseWall, shadowSlash,
   trainSelfTest, MAGE_RIM, GUN_RIM, applyZoom, layoutMapCam, setClass, setTrainView, slashUpdate,
   openMapNav, openCommand, goPlace, BOARD, boardNote, discPlate, discCenter, discRadius, discHit,
+  startKing, kingLine,
   trainUpdate, releaseDisc, interruptCharge,
   DISC_IDLE, DISC_CHARGED,
   stepArena: dt => arenaUpdate(dt),
