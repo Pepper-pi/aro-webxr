@@ -118,10 +118,14 @@ input[type=range]{accent-color:var(--pink);width:120px}
 #iceWall.cd{filter:saturate(.3);opacity:.7}
 #titleTrain{margin-top:10px;background:linear-gradient(180deg,#9af0ff,#3aa8cc);color:#06202a;box-shadow:0 5px 0 #1c6074}
 #trainHud{position:fixed;left:10px;right:10px;top:calc(74px + var(--sat));z-index:13;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+#trainHud .note{pointer-events:none;font-size:11px;font-weight:800;line-height:1.25;padding:6px 10px;border-radius:12px;background:rgba(16,6,20,.88);border:1px solid rgba(127,240,255,.5);color:#d9fbff}
 #trainHud p{margin:0;padding:8px 10px;border-radius:14px;background:rgba(16,6,20,.86);border:1px solid rgba(255,201,77,.55);font-size:12.5px;line-height:1.35;font-weight:700;pointer-events:none}
+#trainHud p.collapsed{display:none}
 #trainHud .rowb{display:flex;gap:8px;pointer-events:auto}
 #trainHud button{flex:1;padding:9px 8px;border-radius:12px;font-weight:900;font-size:13px;background:rgba(28,12,34,.92);border:1px solid rgba(255,79,180,.5);color:#fff}
 #trainHud button.gold{background:linear-gradient(180deg,#ffd978,#f0a92e);color:#3a1d05;border:0}
+#trainHud button.on{background:#ff4fb4;border-color:#ff9ad2;color:#fff}
+#trainHelpBtn{flex:none !important;padding:7px 10px !important;font-size:12px !important;pointer-events:auto}
 /* v7: wire view panel, danger edge, boss countdown, hp bar */
 img{image-rendering:pixelated}
 #wirePanel{position:fixed;left:12px;top:calc(96px + var(--sat));z-index:6;display:flex;flex-direction:column;gap:5px;align-items:flex-start}
@@ -265,12 +269,18 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
 </div>
 
 <div id="trainHud" class="hide">
-  <p id="trainHelp"></p>
+  <div class="note" id="trainNote">Practice views · not tracked AR · touch aim, not hand tracking</div>
+  <div class="rowb" id="trainViews">
+    <button type="button" id="viewTac" class="on">Tactical</button>
+    <button type="button" id="viewFp">First person</button>
+  </div>
   <div class="rowb">
     <button type="button" id="trainClass">Mage</button>
     <button type="button" id="trainReset" class="gold">Reset</button>
     <button type="button" id="trainBack">Back</button>
   </div>
+  <button type="button" id="trainHelpBtn">How to aim</button>
+  <p id="trainHelp" class="collapsed"></p>
 </div>
 <div id="ring">
   <button id="ringClose">tap anywhere to close</button>
@@ -3600,7 +3610,7 @@ const GUN_RIM = [
   { id: 'drone', name: 'Drone', col: '#7fd8ff', el: 'Cyan' },
 ];
 const TRAIN = {
-  on: false, aim: null, charge: 0, focus: 0, hb: 0, speed: 0, shotCd: 0,
+  on: false, view: 'tactical', helpOpen: false, aim: null, charge: 0, focus: 0, hb: 0, speed: 0, shotCd: 0,
   cap: null, drag: null, disc: null, sel: { mage: 0, gunner: 0 }, bolts: [], last: null,
   mx: 0, my: 0, moveT: 0,
 };
@@ -3652,6 +3662,7 @@ function discRot() {
   return aimAngle() - mid;
 }
 function discAnchor() {
+  if (TRAIN.view === 'fp') return [W * 0.5, Math.max(H * 0.72, H - 210)];
   const [px, py] = pPos();
   const P = proj(AR.cam, px, py);
   let x = SET.hand === 'left' ? 108 : W - 108, y = H - 210;
@@ -3662,6 +3673,43 @@ function discAnchor() {
     y = (H - 200) + dy / L * 28;
   }
   return [clamp(x, 84, Math.max(84, W - 84)), clamp(y, H * 0.58, Math.max(H * 0.58, H - 168))];
+}
+function applyFpCam() {
+  const c = AR.cam;
+  c.x = 0; c.y = 0.5; c.A = 0.22; c.D = H * 0.55; c.cy = H * 0.38; c.hz = 72;
+  AR.floorDirty = true;
+}
+function fpEye() { const [px, py] = pPos(); return [px, py + 0.2]; }
+function projFp(wx, wy) {
+  const [ex, ey] = fpEye();
+  const dist = Math.max(0.55, ey - wy);
+  const fpx = 320 / dist;
+  const horizon = H * 0.38;
+  return [W / 2 + (wx - ex) * fpx, horizon + (H * 0.5) / dist, clamp(fpx / 78, 0.42, 2.2)];
+}
+function unprojFp(X, Y) {
+  const [ex, ey] = fpEye();
+  const horizon = H * 0.38;
+  const drop = Math.max(14, Y - horizon);
+  const dist = (H * 0.5) / drop;
+  const fpx = 320 / Math.max(0.55, dist);
+  return [ex + (X - W / 2) / fpx, ey - dist];
+}
+function syncViewBtns() {
+  const fp = TRAIN.view === 'fp';
+  const tac = document.getElementById('viewTac'), bfp = document.getElementById('viewFp');
+  if (tac) tac.classList.toggle('on', !fp);
+  if (bfp) bfp.classList.toggle('on', fp);
+  const note = document.getElementById('trainNote');
+  if (note) note.textContent = (fp ? 'First person' : 'Tactical') + ' · practice view, not tracked AR · touch aim, not hand tracking';
+}
+function setTrainView(v) {
+  const next = v === 'fp' ? 'fp' : 'tactical';
+  TRAIN.view = next;
+  if (next === 'tactical') layoutArenaCam();
+  else applyFpCam();
+  syncViewBtns();
+  return next;
 }
 function discCenter() {
   if (!TRAIN.disc) { const a = discAnchor(); TRAIN.disc = { x: a[0], y: a[1] }; }
@@ -3805,6 +3853,7 @@ function trainUpdate(dt) {
   TRAIN.hb += dt * (gun ? 2.8 : 1.1);
   TRAIN.speed = (TRAIN.speed || 0) * Math.max(0, 1 - dt * 7);
   for (let i = TRAIN.bolts.length - 1; i >= 0; i--) { TRAIN.bolts[i].t += dt; if (TRAIN.bolts[i].t > TRAIN.bolts[i].life) TRAIN.bolts.splice(i, 1); }
+  if (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') applyFpCam();
   if (G.scene === 'arena') {
     const a = TRAIN.drag ? [TRAIN.drag.x, TRAIN.drag.y] : discAnchor();
     if (!TRAIN.disc) TRAIN.disc = { x: a[0], y: a[1] };
@@ -3924,6 +3973,7 @@ function startTrain() {
   setTimeout(() => title.classList.add('hide'), 420);
   document.getElementById('hud').classList.remove('hide');
   document.getElementById('wirePanel').classList.remove('hide');
+  document.getElementById('wirePanel').style.top = 'calc(250px + var(--sat))';
   document.getElementById('menuBtn').classList.add('dim');
   document.getElementById('hearts').classList.remove('hide');
   Object.assign(AR, {
@@ -3932,6 +3982,7 @@ function startTrain() {
     share: 0, claimK: 0, drops: [], firstLive: true, idleHint: true, onDone: null, block: null,
   });
   arenaV7Reset();
+  TRAIN.view = 'tactical';
   layoutArenaCam();
   G.scene = 'arena';
   TRAIN.on = true; TRAIN.charge = 0; TRAIN.aim = null; TRAIN.focus = 0; TRAIN.cap = null; TRAIN.drag = null; TRAIN.bolts = [];
@@ -3941,7 +3992,9 @@ function startTrain() {
   document.getElementById('wheel').classList.add('on');
   document.getElementById('trainHud').classList.remove('hide');
   document.getElementById('trainHelp').textContent = trainHelpText();
+  document.getElementById('trainHelp').classList.toggle('collapsed', !TRAIN.helpOpen);
   syncClassBtn();
+  syncViewBtns();
   setObj('<b>Training yard</b> · three dummies');
   banner('Training yard', 'Touch or mouse');
   coach(null);
@@ -3962,6 +4015,7 @@ function resetTrain() {
 function leaveTrain() {
   TRAIN.on = false; TRAIN.cap = null; TRAIN.drag = null;
   document.getElementById('trainHud').classList.add('hide');
+  document.getElementById('wirePanel').style.top = '';
   document.getElementById('wheel').classList.remove('on');
   document.getElementById('hearts').classList.add('hide');
   document.getElementById('bossCD').classList.add('hide');
@@ -4112,7 +4166,33 @@ function drawDockHud() {
 { const _damage = damage; damage = function (m, dmg, sp, focus) { const r = _damage(m, dmg, sp, focus); if (m && m.dummy) { m.aggro = false; m.atkT = 99; } return r; }; }
 { const _cubes = cubesFor; cubesFor = function (m) { if (m && m.dummy) { const [X, Y, f] = proj(AR.cam, m.x, m.y); popText(X, Y - 36 * f, 'down', '#ffd36a', 16); SFX.cube(); return; } return _cubes(m); }; }
 { const _drawMob = drawArenaMob; drawArenaMob = function (m, T) { if (m && m.dummy) return drawDummy(m); return _drawMob(m, T); }; }
-{ const _vignette = vignette; vignette = function () { _vignette(); if (G.scene === 'arena') { drawAimLayer(); drawDisc(); } if (G.scene === 'map') drawDockHud(); }; }
+{ const _av = drawAvatar; drawAvatar = function (g, x, y, s, o) { if (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') return; return _av(g, x, y, s, o); }; }
+{ const _buddy = drawChibiBuddy; drawChibiBuddy = function (g, x, y, s, t, k) { if (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') return; return _buddy(g, x, y, s, t, k); }; }
+{ const _proj = proj, _unproj = unproj;
+  proj = function (c, wx, wy) { return (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') ? projFp(wx, wy) : _proj(c, wx, wy); };
+  unproj = function (c, X, Y) { return (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') ? unprojFp(X, Y) : _unproj(c, X, Y); };
+}
+{ const _layoutArenaCam = layoutArenaCam; layoutArenaCam = function () { if (TRAIN.on && TRAIN.view === 'fp') { applyFpCam(); return; } _layoutArenaCam(); AR.cam.x = 0; }; }
+function drawFpFrame() {
+  if (!(TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena')) return;
+  ctx.save();
+  const hy = H * 0.38;
+  const g = ctx.createLinearGradient(0, hy - 18, 0, hy + 28);
+  g.addColorStop(0, 'rgba(180,230,255,0)');
+  g.addColorStop(0.45, 'rgba(190,236,255,.28)');
+  g.addColorStop(1, 'rgba(180,230,255,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, hy - 18, W, 46);
+  ctx.strokeStyle = 'rgba(214,246,255,.85)'; ctx.lineWidth = 2;
+  const m = 16, s = 22;
+  ctx.beginPath();
+  ctx.moveTo(m, m + s); ctx.lineTo(m, m); ctx.lineTo(m + s, m);
+  ctx.moveTo(W - m - s, m); ctx.lineTo(W - m, m); ctx.lineTo(W - m, m + s);
+  ctx.moveTo(m, H - m - s); ctx.lineTo(m, H - m); ctx.lineTo(m + s, H - m);
+  ctx.moveTo(W - m - s, H - m); ctx.lineTo(W - m, H - m); ctx.lineTo(W - m, H - m - s);
+  ctx.stroke();
+  ctx.restore();
+}
+{ const _vignette = vignette; vignette = function () { _vignette(); if (G.scene === 'arena') { drawFpFrame(); drawAimLayer(); drawDisc(); } if (G.scene === 'map') drawDockHud(); }; }
 { const _obj = arenaObjective; arenaObjective = function () { if (!TRAIN.on) return _obj(); const n = AR.mobs.filter(m => m.dummy && m.state === 'live').length; const t = `<b>Training</b> · ${n} dummies`; if (t !== AR.objT) { AR.objT = t; setObj(t); } }; }
 { const _setClass = setClass; setClass = function (c) { const r = _setClass(c); syncClassBtn(); const help = document.getElementById('trainHelp'); if (help && TRAIN.on) help.textContent = trainHelpText(); return r; }; }
 { const _manaUI = manaUI; manaUI = function () {
@@ -4163,6 +4243,14 @@ document.getElementById('titleTrain').addEventListener('click', () => { SFX.tap(
 document.getElementById('trainReset').addEventListener('click', e => { e.stopPropagation(); resetTrain(); });
 document.getElementById('trainBack').addEventListener('click', e => { e.stopPropagation(); leaveTrain(); });
 document.getElementById('trainClass').addEventListener('click', e => { e.stopPropagation(); setClass(GUN.cls === 'gunner' ? 'mage' : 'gunner'); });
+document.getElementById('viewTac').addEventListener('click', e => { e.stopPropagation(); setTrainView('tactical'); });
+document.getElementById('viewFp').addEventListener('click', e => { e.stopPropagation(); setTrainView('fp'); });
+document.getElementById('trainHelpBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  TRAIN.helpOpen = !TRAIN.helpOpen;
+  document.getElementById('trainHelp').classList.toggle('collapsed', !TRAIN.helpOpen);
+  e.currentTarget.textContent = TRAIN.helpOpen ? 'Hide aim help' : 'How to aim';
+});
 layoutMapCam(); groundDirty = true;
 if (QS.has('train')) setTimeout(startTrain, 350);
 
@@ -4207,7 +4295,7 @@ function trainSelfTest() {
 }
 window.__train = {
   TRAIN, startTrain, resetTrain, leaveTrain, releaseMage, fireGun, raiseWall, shadowSlash,
-  trainSelfTest, MAGE_RIM, GUN_RIM, applyZoom, layoutMapCam, setClass, slashUpdate,
+  trainSelfTest, MAGE_RIM, GUN_RIM, applyZoom, layoutMapCam, setClass, setTrainView, slashUpdate,
   markDirty: () => { groundDirty = true; },
 };
 
