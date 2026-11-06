@@ -133,6 +133,7 @@ input[type=range]{accent-color:var(--pink);width:120px}
 #cmdList button{text-align:left;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);font-weight:800;font-size:13px}
 #cmdList button.on{border-color:var(--gold);background:rgba(255,201,77,.14)}
 #cmdNote{margin-top:8px}
+#lookPreview{width:100%;height:140px;display:block;margin-top:6px;border-radius:12px;background:#120810}
 /* v7: wire view panel, danger edge, boss countdown, hp bar */
 img{image-rendering:pixelated}
 #wirePanel{position:fixed;left:12px;top:calc(96px + var(--sat));z-index:6;display:flex;flex-direction:column;gap:5px;align-items:flex-start}
@@ -381,6 +382,100 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
   <div class="hint" style="text-align:center">Best on a phone, held upright. Touch or mouse. This build does not track hands or a camera pose.</div>
 </div>
 <div id="dbg"></div>
+<script type="application/json" id="look-catalog">
+{
+  "schema": "aro.look-catalog.v1",
+  "rig": null,
+  "rigCompat": {
+    "id": "aro.humanoid-rig.future",
+    "present": false,
+    "boneMap": null,
+    "note": "No shared humanoid rig is in this repo. A future rig can be recorded here. This file does not claim one exists."
+  },
+  "faceLock": "These billboard faces are locked. Do not invent, redraw, or distort them. Code icons are not these faces.",
+  "slots": ["body", "outfit", "gear", "look"],
+  "entries": [
+    {
+      "id": "wayfarer",
+      "name": "Wayfarer",
+      "slot": "body",
+      "kind": "billboard",
+      "refs": { "front": "HEAVY.human.front", "q": "HEAVY.human.q", "back": "HEAVY.human.back" },
+      "stats": null,
+      "faceLocked": true,
+      "glb": null,
+      "available": true,
+      "equip": true,
+      "note": "Embedded adult billboard in v7. Sprite image, not a mesh."
+    },
+    {
+      "id": "boba",
+      "name": "Boba",
+      "slot": "body",
+      "kind": "billboard",
+      "refs": { "front": "HEAVY.slime.front", "q": "HEAVY.slime.q", "back": "HEAVY.slime.back" },
+      "stats": null,
+      "faceLocked": true,
+      "glb": null,
+      "available": true,
+      "equip": true,
+      "note": "Embedded adult billboard in v7. Sprite image, not a mesh."
+    },
+    {
+      "id": "gel-king",
+      "name": "Gel King",
+      "slot": "look",
+      "kind": "billboard",
+      "refs": { "front": "HEAVY.king" },
+      "stats": null,
+      "faceLocked": true,
+      "glb": null,
+      "available": true,
+      "equip": false,
+      "note": "Boss billboard in v7. View only. Not wearable and not a rig."
+    },
+    {
+      "id": "outfit-empty",
+      "name": "Outfit",
+      "slot": "outfit",
+      "kind": "empty",
+      "refs": {},
+      "stats": null,
+      "faceLocked": true,
+      "glb": null,
+      "available": false,
+      "equip": false,
+      "note": "No approved outfit render is in this repo."
+    },
+    {
+      "id": "gear-empty",
+      "name": "Gear",
+      "slot": "gear",
+      "kind": "empty",
+      "refs": {},
+      "stats": null,
+      "faceLocked": true,
+      "glb": null,
+      "available": false,
+      "equip": false,
+      "note": "No approved gear render is in this repo."
+    },
+    {
+      "id": "future-glb",
+      "name": "Shared-rig humanoid",
+      "slot": "body",
+      "kind": "future-glb",
+      "refs": {},
+      "stats": null,
+      "faceLocked": true,
+      "glb": null,
+      "available": false,
+      "equip": false,
+      "note": "Future slot. No GLB file is in this repo."
+    }
+  ]
+}
+</script>
 <script>
 'use strict';
 /* ===================== Aether Realms Online · demo v6 · core ===================== */
@@ -4343,6 +4438,66 @@ function boardNote() {
   if (!names.length) return 'No companions staged. This list stays in this browser and does not deploy anyone.';
   return 'Placeholder. Stored in this browser only. Nothing travels and no rewards are paid. Staged: ' + names.join(', ') + '.';
 }
+const LOOK = { body: null, viewOnly: null };
+try { const s = JSON.parse(localStorage.getItem('aro7look') || '{}'); if (s && typeof s.body === 'string') LOOK.body = s.body; } catch (e) { }
+function saveLook() { try { localStorage.setItem('aro7look', JSON.stringify({ body: LOOK.body })); } catch (e) { } }
+function heavyRef(ref) {
+  if (typeof ref !== 'string' || !ref.startsWith('HEAVY.')) return null;
+  const p = ref.split('.');
+  if (p.length === 2 && p[1] === 'king') return typeof HEAVY_SRC.king === 'string' && HEAVY_SRC.king.indexOf('data:image/') === 0 ? HEAVY.king : null;
+  if (p.length === 3 && HEAVY_SRC[p[1]] && typeof HEAVY_SRC[p[1]][p[2]] === 'string' && HEAVY_SRC[p[1]][p[2]].indexOf('data:image/') === 0) return HEAVY[p[1]][p[2]];
+  return null;
+}
+function validateLookCatalog(raw) {
+  const errors = [], entries = [], unavailable = [];
+  if (!raw || typeof raw !== 'object') return { ok: false, entries, unavailable, errors: ['No catalog. Nothing to show.'], rig: null, faceLock: '' };
+  if (raw.schema !== 'aro.look-catalog.v1') errors.push('Schema is not aro.look-catalog.v1.');
+  if (raw.rig != null) errors.push('Catalog claims a rig. This repo has none, so that claim is ignored.');
+  const slots = { body: 1, outfit: 1, gear: 1, look: 1 };
+  const list = Array.isArray(raw.entries) ? raw.entries : [];
+  if (!Array.isArray(raw.entries)) errors.push('entries is missing. No looks shown.');
+  list.forEach((e, i) => {
+    const id = e && typeof e.id === 'string' ? e.id : ('#' + i);
+    const bad = [];
+    if (!e || typeof e.id !== 'string') bad.push('missing id');
+    if (!e || !slots[e.slot]) bad.push('slot must be body, outfit, gear, or look');
+    if (e && e.stats != null) bad.push('stats are not allowed on a look');
+    if (e && e.faceLocked !== true) bad.push('faceLocked must be true');
+    if (e && e.glb != null && e.available === true) bad.push('a GLB cannot be marked available');
+    if (e && (e.kind === 'empty' || e.kind === 'future-glb') && e.available === true) bad.push(e.kind + ' cannot be marked available');
+    if (e && e.available === true) {
+      const refs = e.refs && typeof e.refs === 'object' ? e.refs : {};
+      const names = Object.keys(refs);
+      if (!names.length) bad.push('available look has no ref');
+      names.forEach(n => { if (!heavyRef(refs[n])) bad.push('missing art ' + refs[n]); });
+    }
+    if (bad.length) errors.push(id + ': ' + bad.join('; '));
+    else if (e.available === true) entries.push(e);
+    else unavailable.push(e);
+  });
+  return { ok: errors.length === 0, entries, unavailable, errors, rig: null, faceLock: typeof raw.faceLock === 'string' ? raw.faceLock : '' };
+}
+function readLookCatalog() {
+  const el = document.getElementById('look-catalog');
+  if (!el) return validateLookCatalog(null);
+  try { return validateLookCatalog(JSON.parse(el.textContent)); }
+  catch (e) { return { ok: false, entries: [], unavailable: [], errors: ['Catalog JSON did not parse. No looks shown.'], rig: null, faceLock: '' }; }
+}
+let LOOKS = readLookCatalog();
+function drawLookPreview() {
+  const c = document.getElementById('lookPreview'); if (!c) return;
+  const g = c.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height);
+  g.fillStyle = '#120810'; g.fillRect(0, 0, c.width, c.height);
+  const entry = LOOKS.entries.find(e => e.id === (LOOK.viewOnly || LOOK.body));
+  g.fillStyle = '#fff6d4'; g.font = '700 12px ui-rounded,system-ui'; g.textAlign = 'center';
+  if (!entry) { g.fillText(LOOKS.entries.length ? 'Select a look' : 'No approved look passed validation', c.width / 2, c.height / 2); return; }
+  const img = heavyRef(entry.refs.front || entry.refs[Object.keys(entry.refs)[0]]);
+  if (!img || !heavyOk(img)) { g.fillText(entry.name + ' is in the page and still decoding', c.width / 2, c.height / 2); return; }
+  const sc = Math.min((c.width - 16) / img.naturalWidth, (c.height - 28) / img.naturalHeight);
+  const w = img.naturalWidth * sc, h = img.naturalHeight * sc;
+  g.drawImage(img, (c.width - w) / 2, 8, w, h);
+  g.fillText(entry.name + ' · sprite, not a mesh', c.width / 2, c.height - 8);
+}
 function renderCommand() {
   const gun = GUN.cls === 'gunner';
   const kit = gun ? GUN_RIM : MAGE_RIM;
@@ -4360,12 +4515,30 @@ function renderCommand() {
     h += `<button type="button" data-bond="${i}" class="${on ? 'on' : ''}">${b.n} · ${b.who}${on ? ' · staged' : ''}</button>`;
   });
   h += '<button type="button" id="cmdStage" class="big">Save staged team</button>';
+  h += '<div class="hint"><b>Looks</b> · existing billboards only. Does not change yard damage.</div>';
+  h += '<canvas id="lookPreview" width="360" height="140"></canvas>';
+  if (!LOOKS.entries.length) h += '<div class="hint">No approved look passed validation.</div>';
+  LOOKS.entries.forEach(e => {
+    const on = e.equip !== false && LOOK.body === e.id;
+    const tag = e.equip === false ? ' · view only' : (on ? ' · previewing' : '');
+    h += `<button type="button" data-look="${e.id}">${e.name} · ${e.slot}${tag}</button>`;
+  });
+  LOOKS.unavailable.forEach(e => { h += `<div class="hint">${e.name}: ${e.note || 'Not available.'} Future / placeholder.</div>`; });
+  if (LOOKS.errors.length) h += `<div class="hint">Catalog held back ${LOOKS.errors.length} bad entr${LOOKS.errors.length === 1 ? 'y' : 'ies'}.</div>`;
+  h += `<div class="hint">${LOOKS.faceLock || ''} Shared rig: not in this repo.</div>`;
   list.innerHTML = h;
   document.getElementById('cmdNote').textContent = boardNote();
+  if (LOOK.body && !LOOKS.entries.some(e => e.id === LOOK.body && e.equip !== false)) LOOK.body = null;
   list.querySelectorAll('[data-cls]').forEach(b => b.onclick = () => { setClass(b.dataset.cls); renderCommand(); });
   list.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { TRAIN.sel[key] = +b.dataset.act; if (!gun && +b.dataset.act < 3) selSpell(+b.dataset.act); renderCommand(); });
   list.querySelectorAll('[data-bond]').forEach(b => b.onclick = () => { const n = BONDS[+b.dataset.bond].n; BOARD.staged[n] = !BOARD.staged[n]; saveBoard(); renderCommand(); });
   document.getElementById('cmdStage').onclick = () => { saveBoard(); document.getElementById('cmdNote').textContent = boardNote(); SFX.tap(); };
+  list.querySelectorAll('[data-look]').forEach(b => b.onclick = () => {
+    const e = LOOKS.entries.find(x => x.id === b.dataset.look); if (!e) return;
+    if (e.equip === false) { LOOK.viewOnly = e.id; } else { LOOK.body = e.id; LOOK.viewOnly = null; saveLook(); }
+    renderCommand();
+  });
+  drawLookPreview();
 }
 function openCommand() { if (typeof closeRing === 'function') closeRing(); renderCommand(); openModal('cmdM'); }
 function syncMapNav() {
@@ -4442,6 +4615,7 @@ window.__train = {
   openMapNav, openCommand, goPlace, BOARD, boardNote,
   markDirty: () => { groundDirty = true; },
 };
+window.__look = { validateLookCatalog, readLookCatalog, LOOK, get catalog() { return LOOKS; }, heavyRef, saveLook };
 
 </script>
 </body></html>
