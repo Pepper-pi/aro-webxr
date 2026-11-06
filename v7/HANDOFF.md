@@ -2,6 +2,8 @@
 
 Pull request, unmerged: https://github.com/Pepper-pi/aro-webxr/pull/2
 
+Acceptance commit: `3cdab504c8fdb2a5d9746f10df712698d707cca6` on `cursor/v7-mage-forearm-guide-6863`.
+
 Live `/v7/` on main is unchanged. Nothing here was merged or deployed.
 
 ## What you can do
