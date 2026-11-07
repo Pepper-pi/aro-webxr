@@ -1146,6 +1146,63 @@ await shot.evaluate(() => { window.__train.setTrainView('low'); window.__train.T
 await frame(shot, 'low_after.png');
 await shot.close();
 
+const yardLook = await open(390, 844);
+const look = await yardLook.evaluate(() => {
+  window.__aroFreeze = true;
+  window.__train.startTrain();
+  window.__train.setClass('mage');
+  window.__train.setTrainView('tactical');
+  const info = window.__train.yardFloorInfo();
+  const world = { x: Math.sqrt(3) * (2 + -2 / 2), y: 1.5 * -2 };
+  window.__train.TRAIN.aim = world;
+  window.__train.TRAIN.sel.mage = 0;
+  window.__train.TRAIN.cap = { part: 'center', aimed: true, i: 0, x0: 0, y0: 0 };
+  const before = { hex: window.__aro.FIELD.hex.size, terr: window.__aro.FIELD.terr.size };
+  const ember = window.__train.yardPreviewHexes().map(h => h.join(','));
+  window.__train.TRAIN.sel.mage = 4;
+  const slash = window.__train.yardPreviewHexes();
+  const afterPreview = { hex: window.__aro.FIELD.hex.size, terr: window.__aro.FIELD.terr.size };
+  const [px, py] = [window.__aro.AR.ppx, window.__aro.AR.ppy];
+  let dx = world.x - px, dy = world.y - py; const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L;
+  const x0 = px + dx * .9, y0 = py + dy * .9, x1 = world.x + dx * 1.6, y1 = world.y + dy * 1.6;
+  const expected = hexesOnLine(x0, y0, x1, y1).map(h => h.join(',')).sort();
+  const got = slash.map(h => h.join(',')).sort();
+  const dug = slashLine(x0, y0, x1, y1).map(h => h.join(',')).sort();
+  const terr = [...window.__aro.FIELD.terr.keys()].sort();
+  const hit = window.__aro.hexScreen(2, -2);
+  const w = unproj(window.__aro.AR.cam, hit.x, hit.y);
+  const backHex = xyHex(w[0], w[1]);
+  window.__aro.zoneTest('slam', [[0, 1], [1, 1]], { warn: 2, act: 2 });
+  return {
+    info, ember, expected, got, dug, terr,
+    before, afterPreview,
+    same: expected.join('|') === got.join('|') && expected.join('|') === dug.join('|') && expected.join('|') === terr.join('|'),
+    backHex, zones: window.__aro.AR.zones.length,
+  };
+});
+check('yard hides the idle grid without leaving the yard', look.info.yard && look.info.grid === 'hidden' && look.info.spare === false, JSON.stringify(look.info));
+check('aim preview names the hex and does not paint it', look.ember[0] === '2,-2' && look.before.hex === look.afterPreview.hex && look.before.terr === look.afterPreview.terr, JSON.stringify(look.ember));
+check('slash preview matches the real per-hex cut', look.same && look.expected.length >= 1, JSON.stringify({ n: look.expected.length, got: look.got, terr: look.terr }));
+check('hidden outlines still map a tap back to that hex', look.backHex && look.backHex[0] === 2 && look.backHex[1] === -2, JSON.stringify(look.backHex));
+check('a danger zone still exists to draw', look.zones === 1, JSON.stringify(look.zones));
+await yardLook.setViewport({ width: 844, height: 390, deviceScaleFactor: 1 });
+const spare = await yardLook.evaluate(() => { resize(); window.__aro.AR.floorDirty = true; return window.__train.yardFloorInfo(); });
+check('landscape yard uses the simpler surface', spare.yard && spare.spare === true && spare.grid === 'hidden', JSON.stringify(spare));
+const perf = await yardLook.evaluate(() => new Promise(res => {
+  window.__aroFreeze = false;
+  window.__aro.AR.zones = [];
+  let n = 0, worst = 0, prev = performance.now(), t0 = prev;
+  const tick = now => {
+    const dt = now - prev; prev = now; if (n && dt > worst) worst = dt; n++;
+    if (n < 45) requestAnimationFrame(tick);
+    else res({ frames: n, ms: Math.round(now - t0), worst: Math.round(worst), fps: Math.round(n / ((now - t0) / 1000)) });
+  };
+  requestAnimationFrame(tick);
+}));
+console.log('PERF yard desktop ' + JSON.stringify(perf));
+check('yard frames finish on this desktop', perf.frames === 45 && perf.worst < 1000, JSON.stringify(perf));
+await yardLook.close();
+
 await browser.close();
 console.log(fails.length ? '\n' + fails.length + ' failed' : '\nall passed');
 process.exit(fails.length ? 1 : 0);

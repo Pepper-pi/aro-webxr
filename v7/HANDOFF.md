@@ -6,6 +6,10 @@ Acceptance commit: `3cdab504c8fdb2a5d9746f10df712698d707cca6` on `cursor/v7-mage
 
 Live `/v7/` on main is unchanged. Nothing here was merged or deployed.
 
+## Training yard ground (unpublished test)
+
+The training yard, not the map and not a map raid, draws a brighter stone floor and leaves the idle hex outlines off. Landscape and far tiles use a flatter surface. The hex grid underneath is the same one. While a cast is aimed, the selected hex and the cells that spell will hit light up before release. The standing hex, danger zones, and live field colors stay visible. A slash still cuts one hex at a time: each cut shows a rim and a lit interior, and the step, lava, ice, mob block, timer, and reset rules are unchanged. This was checked in Chrome on the desktop, not on a phone.
+
 ## Casting disc in first person
 
 The training disc, including first person, draws the v3 mesh (5,020 triangles) when WebGL is available. Spell names and the charge percent stay drawn on top so the five game spells stay readable. The mesh itself has six gems, not those five names. If WebGL fails, the old sprite is still there.
