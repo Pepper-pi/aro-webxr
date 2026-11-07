@@ -1320,6 +1320,20 @@ check('portrait dodge chevrons are fully on screen and clickable', dodgeIn(dodge
 check('portrait dummy names stay apart, on screen, and off the posts and the avatar', dodgePort.labels >= 3 && dodgePort.labelHits.length === 0 && dodgePort.labelOff === 0 && dodgePort.onBody.length === 0 && dodgePort.onPost.length === 0, JSON.stringify(dodgePort));
 await lay.close();
 
+const nodePage = await open(390, 844);
+const nodeObj = await nodePage.evaluate(() => {
+  startArena('hack', () => {});
+  AR.phase = 'nodes';
+  AR.wave = 0;
+  AR.mobs = HACK_NODES.map((s, j) => mkMob(s, 0));
+  AR.mobs.forEach(m => { m.state = 'live'; });
+  AR.objT = null;
+  arenaObjective();
+  return document.getElementById('obj').textContent;
+});
+check('hack nodes are counted as nodes, not as wave 1 of 1', /3 nodes left/.test(nodeObj) && !/Wave 1\/1/.test(nodeObj), nodeObj);
+await nodePage.close();
+
 const core = await open(390, 844);
 const coreErr = [];
 core.on('pageerror', err => coreErr.push(String(err && err.message || err)));

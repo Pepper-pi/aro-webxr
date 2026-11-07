@@ -150,6 +150,21 @@ input[type=range]{accent-color:var(--pink);width:120px}
   #trainHud .note{display:none}
   #trainHud button{padding:6px 6px;font-size:12px}
   #castFeed{left:8px;right:auto;transform:none;top:auto;bottom:8px;max-width:42vw}
+  .sheet{padding:8px 12px calc(8px + var(--sab))}
+  #ballC{height:72px}
+  .slots{margin:4px 0}
+  .slot{width:46px;height:46px}
+  .ic{padding:3px 1px 3px}
+  .ic img{width:22px;height:22px}
+  .big{padding:9px;margin-top:6px}
+  #fishC{height:min(36vh,150px)}
+  #fishMsg{margin-top:4px;font-size:13px}
+  .sumgrid{gap:4px;margin:4px 0}
+  .sumgrid div{padding:2px 6px;font-size:11px}
+  .sumgrid b{font-size:13px}
+  #sumBody .steps,#sumBody .hint{display:none}
+  #sumM .sh-h{margin-bottom:2px;font-size:15px}
+  #sumM.on #again{position:fixed;left:12px;right:12px;bottom:8px;width:auto;z-index:40}
 }
 @media (max-height:519px) and (min-width:560px){
   #trainHud{left:8px;top:44px;width:232px;gap:3px}
@@ -1920,7 +1935,7 @@ function waveCleared() {
     AR.phase = 'between'; setTimeout(() => { AR.phase = 'wave'; spawnWave(AR.wave + 1); if (AR.kind === 'raid') setObj(`<b>Raid</b> · wave ${AR.wave + 1} of ${AR.waves.length}`); if (AR.kind === 'raid') coach(AR.wave === 1 ? 'A <b>Goblin Gunner</b> elite. A <b>thin red line</b> shows where its shot goes a beat before it fires: <b>step off the line</b>. Elites fire 2–3 in a row.' : 'The dome darkens… <b>boss incoming</b>. It loads piece by piece. Watch for big red slams and poison rain.', 8000); }, 1100);
   } else if (AR.kind === 'raid') {
     AR.phase = 'clear'; SFX.win(); banner('Floor cleared!', 'loot pops into your bag'); G.day.raidT = AR.t;
-    setObj('<b>Raid</b> · cleared'); coach(`You calmed every mob. Drops: <b>${summarizeDrops()}</b>. Take the cash-out block to leave.`);
+    setObj('<b>Raid</b> · cleared'); coach(`You calmed every mob. Drops: <b>${summarizeDrops()}</b>. Tap <b>Take loot & head out</b>.`);
     setAct('Take loot & head out', () => endArena(), true);
   } else {
     AR.phase = 'spike'; AR.spike = { x: 0, y: -.4, k: 0 }; coach('Guard down. <b>Tap the hack spike</b> to start pushing your colour onto the spot. Nodes will fight back.'); setObj('<b>Hack</b> · tap the spike');
@@ -2984,10 +2999,14 @@ function mobHitWall(m, dt) { if (m.root > 0) return;
 /* ---------- objective banner follows the fight ---------- */
 function arenaObjective() {
   let t, b;
+  const left = () => AR.mobs.filter(m => m.state === 'live' || m.state === 'load' || m.state === 'skin' || m.state === 'panel').length;
   if (AR.block && !AR.block.k) t = '<b>Raid</b> · punch the honey block';
   else if (AR.phase === 'clear') t = '<b>Clear!</b> · grab the loot';
+  else if (AR.phase === 'spike') t = '<b>Hack</b> · tap the spike';
+  else if (AR.phase === 'nodes') { const n = left(); t = n ? `<b>Hack</b> · ${n} node${n === 1 ? '' : 's'} left` : '<b>Hack</b> · nodes down'; }
+  else if (AR.phase === 'claim') t = '<b>Hack</b> · the pond spot is yours';
   else if ((b = AR.mobs.find(m => m.tier === 'boss' && m.state !== 'dying' && m.state !== 'gone'))) t = b.state === 'live' ? `<b>Boss</b> · ${b.D.n}: dodge, then break it` : `<b>Boss</b> · ${b.D.n} incoming`;
-  else { const n = AR.mobs.filter(m => m.state === 'live' || m.state === 'load' || m.state === 'skin' || m.state === 'panel').length; const waves = AR.waves && AR.waves.length; t = n && waves ? `<b>Wave ${AR.wave + 1}/${waves}</b> · ${n} left` : n ? `<b>Wave</b> · ${n} left` : null; }
+  else { const n = left(); const waves = AR.waves && AR.waves.length; t = n && waves ? `<b>Wave ${AR.wave + 1}/${waves}</b> · ${n} left` : n ? `<b>Wave</b> · ${n} left` : null; }
   if (t && t !== AR.objT) { AR.objT = t; setObj(t); }
 }
 
@@ -3703,10 +3722,10 @@ function onArrive(t) {
   else if (G.step === 4 && t.ter === 'poi') { setObj('<b>Pond spot</b> · guarded'); coach('Your <b>pond spot</b>. A goblin scout guards it. Same fight rules as the raid, just smaller.'); setAct('Face the guard & hack', () => startArena('hack', afterHack)); }
   else if (G.step === 4 && G.day.hack === false && objectiveTile()) setAct(null);
 }
-function afterRaid() { G.step = 4; setTime(.48); setObj('<b>Walk</b> · to the pond spot'); coach('Next, the <b>pond spot</b> by the water. A goblin scout guards it. Walk there.', 5000); setAct(null); }
+function afterRaid() { G.step = 4; setTime(.48); setObj('<b>Pond</b> · follow the gold dots, or tap Pond'); coach('Next, the <b>pond spot</b>. A goblin scout guards it. Follow the gold dots, or tap <b>Pond</b>.', 7000); setAct(null); }
 function afterHack() {
-  G.step = 5; setTime(.6); setObj('<b>Craft</b> · menu → Craft'); MAP.avOut = true; MAP.avT = 1;
-  coach('Your raid drops can become bait. Tap the <b>glowing hex</b> at the bottom, then <b>Craft</b>. Settings sit on the outer edge of that ring.');
+  G.step = 5; setTime(.6); setObj('<b>Craft</b> · menu → Craft · Gel + Pollen'); MAP.avOut = true; MAP.avT = 1;
+  coach('Tap the <b>glowing hex</b>, then <b>Craft</b>. <b>Slime Gel + Pollen</b> makes Honey Bait.');
   $('#menuBtn').classList.add('pointer');
 }
 function flowAfterCraft() {
