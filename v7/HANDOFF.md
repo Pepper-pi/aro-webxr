@@ -123,7 +123,13 @@ One button on the right of the yard. **Load cell** arms a fire bolt from a dummy
 
 **Amendment, Bryce, 4:53 PM PT.** The faces settle a little past flat. The three outer tips stay on the field, and that props the central triangle up, the way a shallow trap sits. The lift comes only from that hinge angle. It does not bob, and nothing goes through the ground. On this camera, 24 degrees read as a tall tent and 12 degrees still read as a raised pyramid, so the yard uses 8 degrees. The center sits about a tenth of the way out to a point. `pastFlat` is not a locked number. The on-screen label **Finish provisional** is about the gold color only.
 
-The yard button is the drill control. It is not on the spell wheel. **Reset** and **Back** clear a stored charge and an in-progress catch. Switching Tactical, Low, or First person keeps that one charge. A missed bolt arms another attack and does not store a charge. After **Spent**, another load waits for Reset. `loadCell`, `startCellBolt`, `kickCell`, `cancelCell`, and `spendCell` are the calls a later item list can use. They do not know about a menu.
+The yard button is the drill control. It is not on the spell wheel. While a bolt is in the air, a short flick on the field aims the skid and the avatar lunges that way. That is the kick. It is not a tracked foot. A small release does not kick, step, or cast. **Kick fallback** is the button for the same kick toward the nearest dummy. **Cancel**, **Reset**, and **Back** still drop the catch. Switching Tactical, Low, or First person keeps one stored charge. A missed bolt arms another attack and does not store a charge. After **Spent**, another load waits for Reset. `loadCell`, `startCellBolt`, `kickCell`, `cancelCell`, and `spendCell` are the calls a later item list can use. They do not know about a menu.
+
+![Flick to kick](handoff/cell_flick_ready.png)
+
+![Aim preview](handoff/cell_flick_aim.png)
+
+![Avatar kick](handoff/cell_flick_kick.png)
 
 **Item line, Bryce, 5:23 PM PT, and the choice he left at 5:24 PM PT.** Cells belong on one ordered item line with potions, opened from the character command board, not the spell wheel. He said to decide the grab. The yard now does this: a screen button stands in for the bubble and is labeled **Not tracked**. Popping a potion calls the existing mana potion (one dose, +60 mana, 20 second cooldown). Popping a cell loads it and starts the incoming bolt. It does not kick. Kick stays the separate button. The lineup in the page is potion, then cell, then potion. That length is not a locked capacity, and nothing is saved.
 

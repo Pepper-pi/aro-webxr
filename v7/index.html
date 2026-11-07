@@ -4718,11 +4718,12 @@ const CELL_ELEMENTS = ['fire', 'water', 'electric', 'aether'];
 const CELL_COL = { fire: '#ff6a2a', water: '#4ec3ff', electric: '#ffe14a', aether: '#d7a6ff' };
 const CELL_TOPOLOGY = 'tetrahedron-3';
 const CELL_CLOSED_ANGLE = Math.acos(-1 / 3);
-const CELL_TUNABLE = { arm: 0.45, boltLife: 0.9, kickOpen: 0.12, kick: 0.28, fold: 0.32, beam: 0.4, snap: 0.2, rattle: 0.4, radius: 0.48, pastFlat: 8 * Math.PI / 180 };
-const CELL = { loaded: false, charge: null, phase: 'idle', t: 0, arm: 0, bolt: null, puzzle: null, catches: 0, spends: 0, cancels: 0 };
+const CELL_TUNABLE = { arm: 0.45, boltLife: 0.9, kickOpen: 0.12, kick: 0.28, fold: 0.32, beam: 0.4, snap: 0.2, rattle: 0.4, radius: 0.48, pastFlat: 8 * Math.PI / 180, flick: 36 };
+const CELL = { loaded: false, charge: null, phase: 'idle', t: 0, arm: 0, bolt: null, puzzle: null, catches: 0, spends: 0, cancels: 0, aim: null, kickFrom: null };
 function resetCell() {
   CELL.loaded = false; CELL.charge = null; CELL.phase = 'idle'; CELL.t = 0; CELL.arm = 0;
   CELL.bolt = null; CELL.puzzle = null; CELL.catches = 0; CELL.spends = 0; CELL.cancels = 0;
+  CELL.aim = null; CELL.kickFrom = null;
   cellSyncBtn();
 }
 function cellDummy() {
@@ -4750,10 +4751,26 @@ function startCellBolt(element) {
   cellSyncBtn();
   return true;
 }
+function cellReady() {
+  return !!(TRAIN.on && !TRAIN.king && G.scene === 'arena' && CELL.loaded && CELL.bolt && CELL.phase === 'idle' && !CELL.charge);
+}
+function cellOwns() {
+  if (!TRAIN.on || TRAIN.king || G.scene !== 'arena' || CELL.charge) return false;
+  if (CELL.phase !== 'idle') return true;
+  return cellReady();
+}
 function kickCell() {
   const b = CELL.bolt;
   if (!b || CELL.phase !== 'idle' || CELL.charge) return false;
   if (b.t < CELL_TUNABLE.kickOpen || b.t > CELL_TUNABLE.boltLife) return false;
+  if (!CELL.aim) {
+    const d = cellDummy();
+    const [px, py] = pPos();
+    const dx = (d ? d.x : px) - px, dy = (d ? d.y : py - 1) - py;
+    const len = Math.hypot(dx, dy) || 1;
+    CELL.aim = { x: dx / len, y: dy / len };
+    CELL.kickFrom = 'fallback';
+  }
   CELL.phase = 'kick'; CELL.t = 0;
   cellSyncBtn();
   return true;
@@ -4761,9 +4778,22 @@ function kickCell() {
 function cancelCell() {
   if (CELL.charge) return false;
   if (CELL.phase === 'idle' && !CELL.bolt) return false;
-  CELL.phase = 'idle'; CELL.t = 0; CELL.bolt = null; CELL.arm = 0; CELL.cancels++;
+  CELL.phase = 'idle'; CELL.t = 0; CELL.bolt = null; CELL.arm = 0; CELL.aim = null; CELL.kickFrom = null; CELL.cancels++;
   cellSyncBtn();
   return true;
+}
+function cellAimUp(X, Y) {
+  const p = AR.ptr;
+  AR.ptr = null;
+  if (!p || !p.cellAim || !cellReady()) return false;
+  const travel = Math.hypot(X - p.x0, Y - p.y0);
+  if (travel < CELL_TUNABLE.flick) return false;
+  const a = unproj(AR.cam, p.x0, p.y0), b = unproj(AR.cam, X, Y);
+  const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
+  if (len < 1e-4) return false;
+  CELL.aim = { x: dx / len, y: dy / len };
+  CELL.kickFrom = 'flick';
+  return kickCell();
 }
 function spendCell() {
   if (!CELL.charge || CELL.puzzle) return false;
@@ -4800,6 +4830,8 @@ function cellUpdate(dt) {
         CELL.charge = { element: CELL.bolt ? CELL.bolt.element : 'fire' };
         CELL.bolt = null;
         CELL.phase = 'idle';
+        CELL.aim = null;
+        CELL.kickFrom = null;
         CELL.catches++;
         showCast('Cell charged · ' + CELL.charge.element);
       }
@@ -4816,7 +4848,7 @@ function cellSyncBtn() {
   if (!show) return;
   if (CELL.charge) b.textContent = 'Spend ' + CELL.charge.element;
   else if (CELL.phase !== 'idle') b.textContent = 'Cancel';
-  else if (CELL.bolt) b.textContent = 'Kick cell';
+  else if (CELL.bolt) b.textContent = 'Kick fallback';
   else if (CELL.loaded) b.textContent = 'Cell ready';
   else if (CELL.puzzle) b.textContent = 'Spent';
   else b.textContent = 'Load cell';
@@ -4879,9 +4911,45 @@ function cellAnchor() {
   const d = cellDummy();
   const [px, py] = pPos();
   const tx = d ? d.x : 0, ty = d ? d.y : -2;
-  const along = CELL.phase === 'kick' ? Math.max(0, Math.min(1, CELL.t / CELL_TUNABLE.kick)) : (CELL.phase === 'idle' ? 0.12 : 1);
   const wobble = CELL.phase === 'rattle' ? Math.sin(CELL.t * 46) * 0.03 : 0;
+  if (CELL.aim && CELL.phase !== 'idle') {
+    const along = CELL.phase === 'kick' ? Math.max(0, Math.min(1, CELL.t / CELL_TUNABLE.kick)) : 1;
+    return { x: px + CELL.aim.x * 1.2 * along + wobble, y: py + CELL.aim.y * 1.2 * along, tx, ty };
+  }
+  const along = CELL.phase === 'kick' ? Math.max(0, Math.min(1, CELL.t / CELL_TUNABLE.kick)) : (CELL.phase === 'idle' ? 0.12 : 1);
   return { x: px + (tx - px) * along * 0.9 + wobble, y: py + (ty - py) * along * 0.9, tx, ty };
+}
+function drawCellAim() {
+  if (!cellReady() || G.scene !== 'arena') return;
+  const [px, py] = pPos();
+  const [X, Y] = proj(AR.cam, px, py);
+  const p = AR.ptr;
+  ctx.save();
+  ctx.font = '700 12px ui-rounded,system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffe7a4';
+  ctx.strokeStyle = '#2a1608';
+  ctx.lineWidth = 3;
+  if (!p || !p.cellAim) {
+    ctx.strokeText('Flick to kick', X, Y - 78);
+    ctx.fillText('Flick to kick', X, Y - 78);
+    ctx.restore();
+    return;
+  }
+  const dx = p.x - p.x0, dy = p.y - p.y0, travel = Math.hypot(dx, dy);
+  ctx.strokeText(travel >= CELL_TUNABLE.flick ? 'Release to kick' : 'Flick to kick', X, Y - 86);
+  ctx.fillText(travel >= CELL_TUNABLE.flick ? 'Release to kick' : 'Flick to kick', X, Y - 86);
+  if (travel > 6) {
+    const ux = dx / travel, uy = dy / travel, len = Math.min(78, 16 + travel * 0.5);
+    ctx.strokeStyle = '#ffe7a4'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(X, Y - 18); ctx.lineTo(X + ux * len, Y - 18 + uy * len); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(X + ux * len, Y - 18 + uy * len);
+    ctx.lineTo(X + ux * len - uy * 7 - ux * 10, Y - 18 + uy * len + ux * 7 - uy * 10);
+    ctx.lineTo(X + ux * len + uy * 7 - ux * 10, Y - 18 + uy * len - ux * 7 - uy * 10);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
 }
 function cellNet(fold, radius) {
   const R = radius == null ? CELL_TUNABLE.radius : radius;
@@ -5109,6 +5177,10 @@ function drawDockHud() {
 
 { const _arenaDown = arenaDown, _arenaMove = arenaMove, _arenaUp = arenaUp;
   arenaDown = function (X, Y) {
+    if (typeof cellOwns === 'function' && cellOwns()) {
+      AR.ptr = { x0: X, y0: Y, x: X, y: Y, t0: performance.now(), swiped: false, held: 0, cellAim: true, maxTravel: 0 };
+      return;
+    }
     const hit = discHit(X, Y);
     if (hit) { beginDisc(X, Y, hit); return; }
     const r = _arenaDown(X, Y);
@@ -5116,6 +5188,11 @@ function drawDockHud() {
     return r;
   };
   arenaMove = function (X, Y) {
+    if (AR.ptr && AR.ptr.cellAim) {
+      AR.ptr.x = X; AR.ptr.y = Y;
+      AR.ptr.maxTravel = Math.max(AR.ptr.maxTravel || 0, Math.hypot(X - AR.ptr.x0, Y - AR.ptr.y0));
+      return;
+    }
     if (TRAIN.cap) { dragDisc(X, Y); return; }
     if (G.scene === 'arena' && GUN.cls === 'gunner' && AR.ptr) {
       const now = performance.now(), dt = Math.max(0.008, (now - (TRAIN.moveT || now)) / 1000);
@@ -5130,6 +5207,7 @@ function drawDockHud() {
     return _arenaMove(X, Y);
   };
   arenaUp = function (X, Y) {
+    if (AR.ptr && AR.ptr.cellAim) return cellAimUp(X, Y);
     if (TRAIN.cap) { releaseDisc(X, Y); return; }
     if (G.scene === 'arena' && GUN.cls === 'gunner' && AR.ptr && !AR.ptr.swiped) { releaseGun(X, Y); return; }
     return _arenaUp(X, Y);
@@ -5159,7 +5237,16 @@ function drillLine() {
 { const _lock = lockUpdate; lockUpdate = function (dt) { const n = FX.length; _lock(dt); if (TRAIN.on) { for (let i = FX.length - 1; i >= n; i--) if (FX[i].kind === 'text' && FX[i].txt === 'steady') FX.splice(i, 1); } }; }
 { const _cubes = cubesFor; cubesFor = function (m) { if (m && m.dummy) { const [X, Y, f] = proj(AR.cam, m.x, m.y); popText(X, Y - 36 * f, 'down', '#ffd36a', 16); SFX.cube(); return; } return _cubes(m); }; }
 { const _drawMob = drawArenaMob; drawArenaMob = function (m, T) { if (m && m.dummy) return drawDummy(m); return _drawMob(m, T); }; }
-{ const _av = drawAvatar; drawAvatar = function (g, x, y, s, o) { if (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') return; return _av(g, x, y, s, o); }; }
+{ const _av = drawAvatar; drawAvatar = function (g, x, y, s, o) {
+  if (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') return;
+  if (CELL.phase === 'kick' && CELL.aim && G.scene === 'arena') {
+    const k = Math.sin(Math.min(1, CELL.t / CELL_TUNABLE.kick) * Math.PI);
+    const [px, py] = pPos();
+    const here = proj(AR.cam, px, py), there = proj(AR.cam, px + CELL.aim.x * 0.42, py + CELL.aim.y * 0.42);
+    return _av(g, x + (there[0] - here[0]) * k, y + (there[1] - here[1]) * k, s, o);
+  }
+  return _av(g, x, y, s, o);
+}; }
 { const _buddy = drawChibiBuddy; drawChibiBuddy = function (g, x, y, s, t, k) { if (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') return; return _buddy(g, x, y, s, t, k); }; }
 { const _proj = proj, _unproj = unproj;
   proj = function (c, wx, wy) { return (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') ? projFp(wx, wy) : _proj(c, wx, wy); };
@@ -5185,7 +5272,7 @@ function drawFpFrame() {
   ctx.stroke();
   ctx.restore();
 }
-{ const _vignette = vignette; vignette = function () { _vignette(); if (G.scene === 'arena') { drawFpFrame(); drawAimLayer(); drawDisc(); drawForearm(); drawHoldDemo(); if (typeof drawCellRig === 'function') drawCellRig(); } if (G.scene === 'map') drawDockHud(); }; }
+{ const _vignette = vignette; vignette = function () { _vignette(); if (G.scene === 'arena') { drawFpFrame(); drawAimLayer(); drawDisc(); drawForearm(); drawHoldDemo(); if (typeof drawCellRig === 'function') drawCellRig(); if (typeof drawCellAim === 'function') drawCellAim(); } if (G.scene === 'map') drawDockHud(); }; }
 { const _obj = arenaObjective; arenaObjective = function () { if (!TRAIN.on) return _obj(); const t = TRAIN.king ? kingLine() : drillLine(); if (t !== AR.objT) { AR.objT = t; setObj(t); } }; }
 { const _setClass = setClass; setClass = function (c) { if (TRAIN.on && c !== GUN.cls) interruptCharge('Charge cancelled'); const r = _setClass(c); syncClassBtn(); const help = document.getElementById('trainHelp'); if (help && TRAIN.on) help.textContent = trainHelpText(); return r; }; }
 { const _manaUI = manaUI; manaUI = function () {

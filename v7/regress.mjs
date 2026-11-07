@@ -319,6 +319,85 @@ check('the board reaches one item and a potion pop uses the existing dose once',
 check('a spell tap does not pop the line, and a cell pop only readies the kick', queue.afterSpell.kind === 'cell' && queue.afterSpell.pots === 1 && queue.cellPop === 'cell' && queue.earlyKick === false && queue.readied.loaded && queue.readied.bolt && queue.readied.phase === 'idle' && !queue.readied.charge && queue.kick === true, JSON.stringify({ spell: queue.afterSpell, readied: queue.readied, kick: queue.kick }));
 check('the next item waits out the potion cooldown, then reset and Back stay single', queue.blocked === false && queue.secondPotion === 'potion' && queue.empty === false && queue.afterView && !queue.afterReset.charge && queue.afterReset.at === 3 && queue.hidden && queue.afterBack.at === 0 && !queue.afterBack.charge, JSON.stringify(queue));
 
+async function readyCell(p, view) {
+  return p.evaluate((view) => {
+    window.__train.startTrain();
+    window.__train.resetTrain();
+    window.__train.setTrainView(view);
+    window.__train.setClass('mage');
+    window.__train.TRAIN.demo = false;
+    window.__train.TRAIN.casts = 0;
+    window.__train.loadCell({ hold: true });
+    window.__train.startCellBolt('fire');
+    for (let i = 0; i < 12; i++) window.__train.stepArena(1 / 60);
+    const cv = document.getElementById('cv');
+    const candidates = [[innerWidth * 0.62, innerHeight * 0.48], [innerWidth * 0.72, innerHeight * 0.42], [innerWidth * 0.5, innerHeight * 0.55]];
+    let spot = candidates[candidates.length - 1];
+    for (const pair of candidates) { if (document.elementFromPoint(pair[0], pair[1]) === cv) { spot = pair; break; } }
+    return { x: spot[0], y: spot[1], q: window.__aro.AR.ph.q, phase: window.__train.CELL.phase, btn: document.getElementById('cellBtn').textContent, casts: window.__aro.G.day.casts };
+  }, view);
+}
+async function cellRead(p) {
+  return p.evaluate(() => ({
+    q: window.__aro.AR.ph.q,
+    phase: window.__train.CELL.phase,
+    from: window.__train.CELL.kickFrom,
+    aim: window.__train.CELL.aim,
+    casts: window.__aro.G.day.casts,
+    bolt: !!window.__train.CELL.bolt,
+  }));
+}
+async function cellMouse(p, view, flick) {
+  const spot = await readyCell(p, view);
+  await p.mouse.move(spot.x, spot.y);
+  await p.mouse.down();
+  await p.mouse.move(spot.x + (flick ? 64 : 8), spot.y - (flick ? 12 : 2), { steps: 3 });
+  await p.mouse.up();
+  const after = await cellRead(p);
+  return { spot, after };
+}
+for (const [w, h] of [[320, 568], [390, 844], [844, 390]]) {
+  for (const view of ['tactical', 'low']) {
+    const p = await open(w, h);
+    const tap = await cellMouse(p, view, false);
+    check('cell tap ' + w + 'x' + h + ' ' + view + ' does not kick, step, or cast', tap.after.phase === 'idle' && tap.after.q === tap.spot.q && tap.after.casts === tap.spot.casts && tap.after.bolt && tap.spot.btn === 'Kick fallback', JSON.stringify(tap.after));
+    const flung = await cellMouse(p, view, true);
+    check('cell flick ' + w + 'x' + h + ' ' + view + ' is an avatar kick', flung.after.phase === 'kick' && flung.after.from === 'flick' && flung.after.q === flung.spot.q && flung.after.casts === flung.spot.casts && flung.after.aim && flung.after.aim.x > 0, JSON.stringify(flung.after));
+    await p.close();
+  }
+}
+{
+  const p = await open(390, 844);
+  const spot = await readyCell(p, 'fp');
+  await p.mouse.move(spot.x, spot.y);
+  await p.mouse.down();
+  await p.mouse.move(spot.x + 70, spot.y + 20, { steps: 3 });
+  await p.mouse.up();
+  const after = await cellRead(p);
+  check('cell flick in first person kicks and does not cast', after.phase === 'kick' && after.from === 'flick' && after.casts === spot.casts && after.q === spot.q, JSON.stringify(after));
+  await p.close();
+}
+{
+  const p = await open(390, 844);
+  await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, hasTouch: true });
+  const touch = await touchApi(p);
+  for (const view of ['tactical', 'low']) {
+    const spot = await readyCell(p, view);
+    const id = await touch.down(spot.x, spot.y);
+    await touch.move(id, spot.x + 70, spot.y - 16);
+    await touch.up(id, spot.x + 70, spot.y - 16);
+    const after = await cellRead(p);
+    check('cell touch flick ' + view + ' kicks without a step or a cast', after.phase === 'kick' && after.from === 'flick' && after.q === spot.q && after.casts === spot.casts, JSON.stringify(after));
+    const spot2 = await readyCell(p, view);
+    const id2 = await touch.down(spot2.x, spot2.y);
+    await touch.move(id2, spot2.x + 10, spot2.y);
+    await touch.cancel();
+    const cancelled = await cellRead(p);
+    check('cell touch cancel ' + view + ' does not kick', cancelled.phase === 'idle' && cancelled.q === spot2.q && cancelled.casts === spot2.casts && cancelled.bolt, JSON.stringify(cancelled));
+  }
+  await p.close();
+}
+
 const gun = await page.evaluate(() => {
   window.__train.resetTrain();
   window.__train.setClass('gunner');
