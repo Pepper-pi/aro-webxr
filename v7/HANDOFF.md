@@ -6,6 +6,12 @@ Acceptance commit: `3cdab504c8fdb2a5d9746f10df712698d707cca6` on `cursor/v7-mage
 
 Live `/v7/` on main is unchanged. Nothing here was merged or deployed.
 
+## Casting disc in first person
+
+The training disc, including first person, draws the v3 mesh (5,020 triangles) when WebGL is available. Spell names and the charge percent stay drawn on top so the five game spells stay readable. The mesh itself has six gems, not those five names. If WebGL fails, the old sprite is still there.
+
+The file does not contain a roughness number on the gold, so the page sets gold roughness to 0.22 and metal to 1 while drawing. That is not in the GLB. There are no textures. The charged halo in the Blender stills was not exported. The page brightens the mesh’s own glow with charge and adds a soft circle behind the disc. That circle is not the Blender halo. Clearcoat and transmission from the file are not shaded. The gold will look simpler than the Cycles picture.
+
 ## What you can do
 
 - Mage: press the center, drag to aim, hold. **Full fires once** casts at full charge and the lift does not cast again. An early release is one weaker cast. Switching view, class, Reset, or Back drops the charge and does not cast. The forearm mark says **Not tracked**.

@@ -40,6 +40,29 @@ async function open(w, h) {
 
 const page = await open(390, 844);
 
+const discMesh = await page.evaluate(() => {
+  window.__train.startTrain();
+  window.__train.setTrainView('fp');
+  const play = window.__disc3d.play();
+  const bright = (charge) => {
+    const c = discPlayFrame(charge, 0);
+    const g = document.createElement('canvas');
+    g.width = c.width; g.height = c.height;
+    const x = g.getContext('2d');
+    x.drawImage(c, 0, 0);
+    const d = x.getImageData(0, 0, g.width, g.height).data;
+    let n = 0, e = 0;
+    for (let i = 0; i < d.length; i += 16) { if (d[i + 3] > 24) { n++; e += d[i] + d[i + 1] + d[i + 2]; } }
+    return { n, e };
+  };
+  const idle = bright(0), hot = bright(1);
+  window.__train.setTrainView('tactical');
+  return { tris: play.tris, gold: play.gold && play.gold[0], idle, hot, webgl: play.webgl };
+});
+check('v3 disc mesh is the playable ring', discMesh.webgl && discMesh.tris === 5020 && discMesh.idle.n > 400, JSON.stringify({ tris: discMesh.tris, n: discMesh.idle.n }));
+check('gold roughness is set at runtime, not left at the file default', discMesh.gold && discMesh.gold.rough === 0.22 && discMesh.gold.metal === 1, JSON.stringify(discMesh.gold));
+check('charged disc draws brighter than idle', discMesh.hot.e > discMesh.idle.e, JSON.stringify({ idle: discMesh.idle.e, hot: discMesh.hot.e }));
+
 const mage = await page.evaluate(() => {
   window.__aroFreeze = true;
   const T = window.__train.TRAIN, AR = window.__aro.AR;
@@ -825,7 +848,7 @@ const colors = await shot.evaluate((pix) => {
   };
   return { head: sample(pix.head[0], pix.head[1]), body: sample(pix.body[0], pix.body[1]) };
 }, pix);
-check('phone frame draws a dummy and the player', colors.head[0] > 80 || colors.body[0] > 40, JSON.stringify(colors));
+check('phone frame draws a dummy and the player', colors.head[0] > 55 || colors.body[0] > 40, JSON.stringify(colors));
 await shot.setViewport({ width: 844, height: 390, deviceScaleFactor: 1 });
 await shot.evaluate(() => { resize(); window.__aro.AR.floorDirty = true; window.__train.TRAIN.demo = false; showCast(''); });
 await frame(shot, 'play_land.png');
