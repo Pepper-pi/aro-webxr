@@ -1240,11 +1240,39 @@ const yardLay = await lay.evaluate(async () => {
   const seam = pix((a.x + b.x) / 2, (a.y + b.y) / 2);
   document.getElementById('trainReset').click();
   const resetLine = document.getElementById('castFeed').textContent;
+  showCast('Hold the center · full fires once · the message stays beside the ring');
+  const longFeed = box('castFeed');
+  const disc = window.__train.discCenter(), R = window.__train.discRadius();
+  const nearDisc = (b) => {
+    if (!b) return false;
+    const cx = Math.max(b.l, Math.min(disc.x, b.r)), cy = Math.max(b.t, Math.min(disc.y, b.b));
+    return (cx - disc.x) ** 2 + (cy - disc.y) ** 2 < (R + 6) ** 2;
+  };
+  const longHits = nodes.filter(n => n.id !== 'castFeed' && longFeed && area(n, longFeed) > 12).map(n => n.id);
   const ds = window.__aro.AR.mobs.filter(m => m.dummy);
   window.__aro.shadowSlash({ x: ds[0].x, y: ds[0].y });
   for (let i = 0; i < 30; i++) window.__train.stepArena(0.05);
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-  return { overlaps, off, covering, feedOnDodge: feed && dodge ? area(feed, dodge) : -1, seam, n: nodes.length, feed: resetLine, terr: window.__aro.FIELD.terr.size };
+  const labels = (window.__train.TRAIN.labels || []).map(b => ({ x: b.x, y: b.y, w: b.w, h: b.h || 16, n: b.n || '' }));
+  const labelHits = [];
+  for (let i = 0; i < labels.length; i++) for (let j = i + 1; j < labels.length; j++) {
+    const A = labels[i], B = labels[j];
+    if (Math.abs(A.x - B.x) < (A.w + B.w) / 2 + 4 && Math.abs(A.y - B.y) < (A.h + B.h) / 2) labelHits.push(i + ':' + j);
+  }
+  const labelOff = labels.filter(b => b.x - b.w / 2 < 2 || b.x + b.w / 2 > innerWidth - 2 || b.y - 14 < 2 || b.y > innerHeight - 2);
+  const boxHits = (b, L, T, R, B) => (b.x + b.w / 2) > L && (b.x - b.w / 2) < R && (b.y + 4) > T && (b.y - 14) < B;
+  const player = window.__train.playerMark();
+  const onBody = labels.filter(b => boxHits(b, player.x - player.h * 0.42, player.y - player.h - 34, player.x + player.h * 0.42, player.y + 4)).map(b => b.n);
+  const onPost = [];
+  for (const b of labels) for (const m of window.__train.dummyMarks()) {
+    const left = b.x - b.w / 2, right = b.x + b.w / 2, top = b.y - 14, bot = b.y + 4;
+    const qx = Math.max(left, Math.min(right, m.x)), qy = Math.max(top, Math.min(bot, m.y));
+    if ((qx - m.x) ** 2 + (qy - m.y) ** 2 < m.r * m.r) onPost.push(b.n + '@' + m.n);
+  }
+  const ob = document.getElementById('obj').getBoundingClientRect();
+  const onBanner = labels.filter(b => boxHits(b, ob.left, ob.top, ob.right, ob.bottom)).map(b => b.n);
+  const onFeed = labels.filter(b => longFeed && boxHits(b, longFeed.l, longFeed.t, longFeed.r, longFeed.b)).map(b => b.n);
+  return { overlaps, off, covering, feedOnDodge: feed && dodge ? area(feed, dodge) : -1, seam, n: nodes.length, feed: resetLine, terr: window.__aro.FIELD.terr.size, longHits, onRing: nearDisc(longFeed), labels: labels.length, labelHits, labelOff: labelOff.length, onBody, onPost, onBanner, onFeed };
 });
 check('landscape controls stay on screen and off each other', yardLay.off.length === 0 && yardLay.overlaps.length === 0 && yardLay.n >= 14, JSON.stringify({ off: yardLay.off, overlaps: yardLay.overlaps, n: yardLay.n }));
 check('landscape cast line does not cover the dodge', yardLay.feedOnDodge === 0, JSON.stringify(yardLay.feedOnDodge));
@@ -1252,6 +1280,44 @@ check('landscape center of the field is not a button', yardLay.covering.length =
 check('landscape reset still writes the cast line', /Dummies reset|Round/.test(yardLay.feed), yardLay.feed);
 check('yard seam reads as stone rather than a black gap', yardLay.seam[0] > 55 && yardLay.seam[1] > 40, JSON.stringify(yardLay.seam));
 check('a negative-column slash does not throw while drawing', layErrors.length === 0 && yardLay.terr > 0, JSON.stringify(layErrors));
+check('landscape cast line stays off the spell ring and the other controls', yardLay.onRing === false && yardLay.longHits.length === 0, JSON.stringify({ onRing: yardLay.onRing, longHits: yardLay.longHits }));
+check('dummy names stay apart and on screen', yardLay.labels >= 3 && yardLay.labelHits.length === 0 && yardLay.labelOff === 0, JSON.stringify(yardLay));
+check('dummy names stay off the posts, the avatar, and the round banner', yardLay.onBody.length === 0 && yardLay.onPost.length === 0 && yardLay.onBanner.length === 0 && yardLay.onFeed.length === 0, JSON.stringify({ onBody: yardLay.onBody, onPost: yardLay.onPost, onBanner: yardLay.onBanner, onFeed: yardLay.onFeed }));
+await lay.setViewport({ width: 390, height: 844, deviceScaleFactor: 1 });
+const dodgePort = await lay.evaluate(async () => {
+  resize();
+  for (let i = 0; i < 24; i++) {
+    await new Promise(r => setTimeout(r, 80));
+    const d = document.getElementById('dodgeL').getBoundingClientRect();
+    if (d.left >= 0 && d.right <= innerWidth) break;
+  }
+  const read = id => {
+    const el = document.getElementById(id), r = el.getBoundingClientRect();
+    const hit = document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2);
+    return { id, l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height, click: !!(hit && (hit.id === id || hit.closest('#' + id))) };
+  };
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const labels = (window.__train.TRAIN.labels || []).map(b => ({ x: b.x, y: b.y, w: b.w, h: b.h || 16, n: b.n || '' }));
+  const labelHits = [];
+  for (let i = 0; i < labels.length; i++) for (let j = i + 1; j < labels.length; j++) {
+    const A = labels[i], B = labels[j];
+    if (Math.abs(A.x - B.x) < (A.w + B.w) / 2 + 4 && Math.abs(A.y - B.y) < (A.h + B.h) / 2) labelHits.push(i + ':' + j);
+  }
+  const labelOff = labels.filter(b => b.x - b.w / 2 < 2 || b.x + b.w / 2 > innerWidth - 2 || b.y - 14 < 2 || b.y > innerHeight - 2);
+  const boxHits = (b, L, T, R, B) => (b.x + b.w / 2) > L && (b.x - b.w / 2) < R && (b.y + 4) > T && (b.y - 14) < B;
+  const player = window.__train.playerMark();
+  const onBody = labels.filter(b => boxHits(b, player.x - player.h * 0.42, player.y - player.h - 34, player.x + player.h * 0.42, player.y + 4)).map(b => b.n);
+  const onPost = [];
+  for (const b of labels) for (const m of window.__train.dummyMarks()) {
+    const left = b.x - b.w / 2, right = b.x + b.w / 2, top = b.y - 14, bot = b.y + 4;
+    const qx = Math.max(left, Math.min(right, m.x)), qy = Math.max(top, Math.min(bot, m.y));
+    if ((qx - m.x) ** 2 + (qy - m.y) ** 2 < m.r * m.r) onPost.push(b.n + '@' + m.n);
+  }
+  return { W: innerWidth, H: innerHeight, L: read('dodgeL'), R: read('dodgeR'), labels: labels.length, labelHits, labelOff: labelOff.length, onBody, onPost };
+});
+const dodgeIn = (d, W, H) => d.l >= 0 && d.r <= W + 0.5 && d.t >= 0 && d.b <= H + 0.5 && d.w >= 44 && d.h >= 44 && d.click;
+check('portrait dodge chevrons are fully on screen and clickable', dodgeIn(dodgePort.L, dodgePort.W, dodgePort.H) && dodgeIn(dodgePort.R, dodgePort.W, dodgePort.H), JSON.stringify(dodgePort));
+check('portrait dummy names stay apart, on screen, and off the posts and the avatar', dodgePort.labels >= 3 && dodgePort.labelHits.length === 0 && dodgePort.labelOff === 0 && dodgePort.onBody.length === 0 && dodgePort.onPost.length === 0, JSON.stringify(dodgePort));
 await lay.close();
 
 await browser.close();
