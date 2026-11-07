@@ -211,6 +211,13 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
 /* ---------- v7 character menu (Gear · Skills · Bonds), phone portrait ---------- */
 #charBtn{position:fixed;right:12px;top:calc(96px + var(--sat));z-index:6;font-weight:800;font-size:12px;line-height:1;color:#ffe9b8;background:rgba(26,8,32,.82);border:1.5px solid var(--gold);border-radius:12px;padding:7px 10px;display:flex;gap:6px;align-items:center;box-shadow:0 0 10px rgba(255,201,77,.3)}
 #roomLow{position:fixed;right:12px;top:calc(96px + var(--sat));z-index:12;padding:7px 10px;border-radius:12px;background:rgba(12,8,20,.88);border:1px solid rgba(140,200,230,.4);color:#d7f4ff;font-weight:900;font-size:12px}
+#cellBtn{position:fixed;right:12px;top:calc(348px + var(--sat));z-index:14;padding:8px 10px;border-radius:12px;font-weight:900;font-size:12px;background:rgba(18,10,24,.9);border:1px solid rgba(255,214,130,.7);color:#ffe7a4;white-space:nowrap}
+@media (max-height:640px) and (max-width:500px){
+  #cellBtn{top:calc(162px + var(--sat));bottom:auto}
+}
+@media (max-height:519px){
+  #cellBtn{top:calc(12px + var(--sat));bottom:auto}
+}
 #roomLow.on{background:#1c3c48;border-color:#9fdfff}
 #charBtn i{width:12px;height:13px;background:var(--gold);clip-path:polygon(35% 0,65% 0,75% 22%,65% 42%,100% 60%,100% 100%,0 100%,0 60%,35% 42%,25% 22%)}
 #charM{position:fixed;inset:0;z-index:40;background:radial-gradient(120% 60% at 50% 28%,#3a1842 0%,#1d0c23 55%,#120716 100%);display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity .22s}
@@ -318,6 +325,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
   </div>
   <p id="trainHelp" class="collapsed"></p>
 </div>
+<button type="button" id="cellBtn" class="hide">Load cell</button>
 <div id="castFeed" class="hide"></div>
 <div id="mapNav" class="hide">
   <button type="button" id="navHome">Home</button>
@@ -4313,6 +4321,7 @@ function trainUpdate(dt) {
     showCast('Charging ' + rim.name + ' ' + Math.round((TRAIN.charge || 0) * 100) + '% · release to fire');
   }
   for (let i = TRAIN.bolts.length - 1; i >= 0; i--) { TRAIN.bolts[i].t += dt; if (TRAIN.bolts[i].t > TRAIN.bolts[i].life) TRAIN.bolts.splice(i, 1); }
+  if (typeof cellUpdate === 'function') cellUpdate(dt);
   if (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') applyFpCam();
   if (G.scene === 'arena') {
     const a = TRAIN.drag ? [TRAIN.drag.x, TRAIN.drag.y] : discAnchor();
@@ -4669,6 +4678,7 @@ function startTrain() {
   showCast(TRAIN.autoFull ? 'Hold the center · full fires once' : 'Hold the center · release to cast');
   coach(null);
   setAct(null);
+  if (typeof resetCell === 'function') resetCell();
 }
 function resetTrain() {
   if (TRAIN.king) { interruptCharge(); kingRetry(); return; }
@@ -4686,6 +4696,160 @@ function resetTrain() {
   coach(null);
   showCast(next > was.round ? 'Round ' + next + ' · dummies ready' : 'Dummies reset · HP restored');
   setAct(null);
+  if (typeof resetCell === 'function') resetCell();
+}
+// Tunable. Not a design lock. Durations, window, and charge size are not approved facts.
+const CELL_ELEMENTS = ['fire', 'water', 'electric', 'aether'];
+const CELL_COL = { fire: '#ff6a2a', water: '#4ec3ff', electric: '#ffe14a', aether: '#d7a6ff' };
+const CELL_TUNABLE = { arm: 0.45, boltLife: 0.9, kickOpen: 0.12, kick: 0.28, fold: 0.32, beam: 0.4, snap: 0.2, rattle: 0.4 };
+const CELL = { loaded: false, charge: null, phase: 'idle', t: 0, arm: 0, bolt: null, puzzle: null, catches: 0, spends: 0, cancels: 0 };
+function resetCell() {
+  CELL.loaded = false; CELL.charge = null; CELL.phase = 'idle'; CELL.t = 0; CELL.arm = 0;
+  CELL.bolt = null; CELL.puzzle = null; CELL.catches = 0; CELL.spends = 0; CELL.cancels = 0;
+  cellSyncBtn();
+}
+function cellDummy() {
+  const live = (AR.mobs || []).filter(m => m.dummy && m.state !== 'gone');
+  if (!live.length) return null;
+  const [px, py] = pPos();
+  live.sort((a, b) => ((a.x - px) ** 2 + (a.y - py) ** 2) - ((b.x - px) ** 2 + (b.y - py) ** 2));
+  return live[0];
+}
+function loadCell(opts) {
+  if (!TRAIN.on || TRAIN.king) return false;
+  if (CELL.loaded || CELL.charge || CELL.phase !== 'idle' || CELL.bolt) return false;
+  CELL.loaded = true;
+  if (!opts || !opts.hold) CELL.arm = CELL_TUNABLE.arm;
+  cellSyncBtn();
+  return true;
+}
+function startCellBolt(element) {
+  if (!CELL_ELEMENTS.includes(element)) element = 'fire';
+  if (!CELL.loaded || CELL.charge || CELL.bolt || CELL.phase !== 'idle') return false;
+  const d = cellDummy();
+  const [px, py] = pPos();
+  CELL.bolt = { t: 0, element, x0: d ? d.x : 0, y0: d ? d.y : -2, x1: px, y1: py - 0.55 };
+  CELL.arm = 0;
+  cellSyncBtn();
+  return true;
+}
+function kickCell() {
+  const b = CELL.bolt;
+  if (!b || CELL.phase !== 'idle' || CELL.charge) return false;
+  if (b.t < CELL_TUNABLE.kickOpen || b.t > CELL_TUNABLE.boltLife) return false;
+  CELL.phase = 'kick'; CELL.t = 0;
+  cellSyncBtn();
+  return true;
+}
+function cancelCell() {
+  if (CELL.charge) return false;
+  if (CELL.phase === 'idle' && !CELL.bolt) return false;
+  CELL.phase = 'idle'; CELL.t = 0; CELL.bolt = null; CELL.arm = 0; CELL.cancels++;
+  cellSyncBtn();
+  return true;
+}
+function spendCell() {
+  if (!CELL.charge || CELL.puzzle) return false;
+  CELL.puzzle = CELL.charge.element;
+  CELL.charge = null;
+  CELL.loaded = false;
+  CELL.spends++;
+  cellSyncBtn();
+  showCast('Charge spent · ' + CELL.puzzle + ' · once');
+  return true;
+}
+function cellUpdate(dt) {
+  if (!TRAIN.on || TRAIN.king) { cellSyncBtn(); return; }
+  if (CELL.arm > 0 && CELL.phase === 'idle' && !CELL.bolt && !CELL.charge) {
+    CELL.arm -= dt;
+    if (CELL.arm <= 0) startCellBolt('fire');
+  }
+  if (CELL.bolt && CELL.phase === 'idle') {
+    CELL.bolt.t += dt;
+    if (CELL.bolt.t > CELL_TUNABLE.boltLife) CELL.bolt = null;
+  }
+  if (CELL.phase !== 'idle') {
+    CELL.t += dt;
+    const order = ['kick', 'fold', 'beam', 'snap', 'rattle'];
+    const dur = CELL_TUNABLE[CELL.phase];
+    if (CELL.t >= dur) {
+      CELL.t = 0;
+      const i = order.indexOf(CELL.phase);
+      if (i < order.length - 1) CELL.phase = order[i + 1];
+      else {
+        CELL.charge = { element: CELL.bolt ? CELL.bolt.element : 'fire' };
+        CELL.bolt = null;
+        CELL.phase = 'idle';
+        CELL.catches++;
+        showCast('Cell charged · ' + CELL.charge.element);
+      }
+    }
+  }
+  cellSyncBtn();
+}
+function cellSyncBtn() {
+  const b = document.getElementById('cellBtn');
+  if (!b) return;
+  const show = !!(TRAIN.on && !TRAIN.king);
+  b.classList.toggle('hide', !show);
+  if (!show) return;
+  if (CELL.charge) b.textContent = 'Spend ' + CELL.charge.element;
+  else if (CELL.phase !== 'idle') b.textContent = 'Cancel';
+  else if (CELL.bolt) b.textContent = 'Kick cell';
+  else if (CELL.loaded) b.textContent = 'Cell ready';
+  else if (CELL.puzzle) b.textContent = 'Spent';
+  else b.textContent = 'Load cell';
+}
+function cellPress() {
+  if (CELL.charge) { spendCell(); return; }
+  if (CELL.phase !== 'idle' || CELL.bolt) {
+    if (CELL.bolt && CELL.phase === 'idle') { kickCell(); return; }
+    if (CELL.phase !== 'idle') { cancelCell(); return; }
+  }
+  if (!CELL.loaded) loadCell();
+}
+function drawCellRig() {
+  if (!TRAIN.on || TRAIN.king || G.scene !== 'arena') return;
+  if (!CELL.loaded && !CELL.charge && !CELL.puzzle && CELL.phase === 'idle' && !CELL.bolt) return;
+  const d = cellDummy();
+  const [px, py] = pPos();
+  const tx = d ? d.x : 0, ty = d ? d.y : -2;
+  const moving = CELL.phase !== 'idle' || CELL.bolt;
+  const along = CELL.phase === 'kick' ? CELL.t / CELL_TUNABLE.kick : (CELL.phase === 'idle' ? 0.12 : 1);
+  const x = px + (tx - px) * along * 0.82, y = py + (ty - py) * along * 0.82;
+  const fold = CELL.phase === 'fold' ? CELL.t / CELL_TUNABLE.fold : (CELL.phase === 'beam' ? 1 : (CELL.phase === 'snap' ? 1 - CELL.t / CELL_TUNABLE.snap : 0));
+  const shake = CELL.phase === 'rattle' ? Math.sin(CELL.t * 46) * 5 : 0;
+  const [X, Y] = proj(AR.cam, x, y);
+  const el = (CELL.charge && CELL.charge.element) || (CELL.bolt && CELL.bolt.element) || CELL.puzzle || 'aether';
+  ctx.save();
+  ctx.translate(X + shake, Y);
+  ctx.strokeStyle = '#e7c56a'; ctx.fillStyle = 'rgba(90,62,18,.45)'; ctx.lineWidth = 1.6;
+  const s = 16, o = 10 * fold;
+  ctx.beginPath(); ctx.moveTo(0, s * 0.55); ctx.lineTo(-s, -s * 0.25); ctx.lineTo(s, -s * 0.25); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-s, -s * 0.25); ctx.lineTo(-s - o, -s * 0.25 - o); ctx.lineTo(0, -s * 0.9 - o); ctx.closePath(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(s, -s * 0.25); ctx.lineTo(s + o, -s * 0.25 - o); ctx.lineTo(0, -s * 0.9 - o); ctx.closePath(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-s * 0.15, s * 0.55); ctx.lineTo(s * 0.15, s * 0.55); ctx.lineTo(0, s * 0.55 + o); ctx.closePath(); ctx.stroke();
+  ctx.restore();
+  ctx.font = '700 11px ui-rounded,system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = '#ffe7a4';
+  const label = 'Temporary · not final capsule';
+  const half = ctx.measureText(label).width / 2;
+  const lx = Math.max(half + 8, Math.min(innerWidth - half - 8, X));
+  ctx.fillText(label, lx, Math.max(28, Y - 36));
+  if (CELL.phase === 'beam' && CELL.bolt) {
+    const [DX, DY] = proj(AR.cam, tx, ty);
+    ctx.strokeStyle = CELL_COL[el]; ctx.lineWidth = 3; ctx.globalAlpha = 0.9;
+    ctx.beginPath(); ctx.moveTo(X, Y); ctx.lineTo(DX, DY - 36); ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  if (CELL.bolt && CELL.phase === 'idle') {
+    const u = clamp(CELL.bolt.t / CELL_TUNABLE.boltLife, 0, 1);
+    const bx = CELL.bolt.x0 + (CELL.bolt.x1 - CELL.bolt.x0) * u, by = CELL.bolt.y0 + (CELL.bolt.y1 - CELL.bolt.y0) * u;
+    const [BX, BY] = proj(AR.cam, bx, by);
+    ctx.fillStyle = CELL_COL[CELL.bolt.element]; ctx.beginPath(); ctx.arc(BX, BY, 6, 0, TAU); ctx.fill();
+  }
+  if (CELL.puzzle) {
+    const [QX, QY] = proj(AR.cam, px + 1.1, py);
+    ctx.fillStyle = CELL_COL[CELL.puzzle]; ctx.fillText('Lock · ' + CELL.puzzle, QX, QY - 18);
+  }
 }
 function leaveTrain() {
   interruptCharge();
@@ -4881,7 +5045,7 @@ function drawFpFrame() {
   ctx.stroke();
   ctx.restore();
 }
-{ const _vignette = vignette; vignette = function () { _vignette(); if (G.scene === 'arena') { drawFpFrame(); drawAimLayer(); drawDisc(); drawForearm(); drawHoldDemo(); } if (G.scene === 'map') drawDockHud(); }; }
+{ const _vignette = vignette; vignette = function () { _vignette(); if (G.scene === 'arena') { drawFpFrame(); drawAimLayer(); drawDisc(); drawForearm(); drawHoldDemo(); if (typeof drawCellRig === 'function') drawCellRig(); } if (G.scene === 'map') drawDockHud(); }; }
 { const _obj = arenaObjective; arenaObjective = function () { if (!TRAIN.on) return _obj(); const t = TRAIN.king ? kingLine() : drillLine(); if (t !== AR.objT) { AR.objT = t; setObj(t); } }; }
 { const _setClass = setClass; setClass = function (c) { if (TRAIN.on && c !== GUN.cls) interruptCharge('Charge cancelled'); const r = _setClass(c); syncClassBtn(); const help = document.getElementById('trainHelp'); if (help && TRAIN.on) help.textContent = trainHelpText(); return r; }; }
 { const _manaUI = manaUI; manaUI = function () {
@@ -4947,6 +5111,7 @@ document.getElementById('navDome').addEventListener('click', () => goPlace(DOME.
 document.getElementById('navPond').addEventListener('click', () => goPlace(POI.q, POI.r));
 document.getElementById('navCmd').addEventListener('click', () => openCommand());
 document.getElementById('trainReset').addEventListener('click', e => { e.stopPropagation(); resetTrain(); });
+document.getElementById('cellBtn').addEventListener('click', e => { e.stopPropagation(); cellPress(); });
 document.getElementById('trainBack').addEventListener('click', e => { e.stopPropagation(); if (TRAIN.king) { TRAIN.king = false; startTrain(); return; } leaveTrain(); });
 document.getElementById('trainClass').addEventListener('click', e => { e.stopPropagation(); setClass(GUN.cls === 'gunner' ? 'mage' : 'gunner'); });
 document.getElementById('viewTac').addEventListener('click', e => { e.stopPropagation(); setTrainView('tactical'); });
@@ -5168,6 +5333,7 @@ window.__train = {
   trainUpdate, releaseDisc, interruptCharge, aimedOwnWall,
   DISC_IDLE, DISC_CHARGED,
   stepArena: dt => arenaUpdate(dt),
+  CELL, CELL_TUNABLE, CELL_ELEMENTS, loadCell, startCellBolt, kickCell, cancelCell, spendCell, resetCell,
   markDirty: () => { groundDirty = true; },
 };
 window.__look = { validateLookCatalog, readLookCatalog, LOOK, get catalog() { return LOOKS; }, heavyRef, saveLook };

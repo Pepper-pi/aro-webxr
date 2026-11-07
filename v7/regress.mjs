@@ -136,6 +136,47 @@ check('mage lift after full does not cast again', mage.afterLift === 1, 'casts '
 check('view switch cancels and does not cast', mage.cancelCasts === 0 && !mage.cancelCap, 'casts ' + mage.cancelCasts);
 check('aim angle unchanged', Math.abs(mage.A - 0.8) < 1e-6, String(mage.A));
 
+const cell = await page.evaluate(() => {
+  window.__train.startTrain();
+  window.__train.resetTrain();
+  const step = n => { for (let i = 0; i < n; i++) window.__train.stepArena(0.05); };
+  const snap = () => JSON.parse(JSON.stringify(window.__train.CELL));
+  const load = window.__train.loadCell({ hold: true });
+  const bolt = window.__train.startCellBolt('fire');
+  step(6);
+  const kick = window.__train.kickCell();
+  const dupKick = window.__train.kickCell();
+  step(40);
+  const charged = snap();
+  const spend1 = window.__train.spendCell();
+  const spend2 = window.__train.spendCell();
+  const spent = snap();
+  window.__train.resetTrain();
+  const reset = snap();
+  window.__train.loadCell({ hold: true });
+  window.__train.startCellBolt('water');
+  step(6);
+  window.__train.kickCell();
+  step(8);
+  const cancel = window.__train.cancelCell();
+  const cancelled = snap();
+  window.__train.resetTrain();
+  const noBolt = window.__train.kickCell();
+  window.__train.loadCell({ hold: true });
+  window.__train.startCellBolt('aether');
+  step(6);
+  window.__train.kickCell();
+  step(40);
+  const secondBolt = window.__train.startCellBolt('fire');
+  const held = snap();
+  return { load, bolt, kick, dupKick, charged, spend1, spend2, spent, reset, cancel, cancelled, noBolt, secondBolt, held };
+});
+check('cell catches one attack into a charge', cell.load && cell.bolt && cell.kick && !cell.dupKick && cell.charged.charge && cell.charged.charge.element === 'fire' && cell.charged.catches === 1, JSON.stringify(cell.charged));
+check('cell charge spends once', cell.spend1 && !cell.spend2 && cell.spent.puzzle === 'fire' && cell.spent.spends === 1 && !cell.spent.charge, JSON.stringify(cell.spent));
+check('cell reset clears the charge', !cell.reset.loaded && !cell.reset.charge && !cell.reset.puzzle && cell.reset.catches === 0, JSON.stringify(cell.reset));
+check('cell cancel stores nothing', cell.cancel && !cell.cancelled.charge && cell.cancelled.cancels === 1, JSON.stringify(cell.cancelled));
+check('cell does not catch twice or without a bolt', cell.noBolt === false && cell.secondBolt === false && cell.held.charge && cell.held.charge.element === 'aether' && cell.held.catches === 1, JSON.stringify(cell.held));
+
 const gun = await page.evaluate(() => {
   window.__train.resetTrain();
   window.__train.setClass('gunner');

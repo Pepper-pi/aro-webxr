@@ -115,6 +115,16 @@ After the aimed Ember holds. Shattered, player and slime still there:
 
 A second finger no longer replaces the press or fires it. The spell wheel, the Low button, Back, and a resize or turn of the phone drop the press, so the lift does not cast the old aim. `pointercancel` and `touchcancel` drop it too. The spell wheel and the dodge buttons are unchanged.
 
+## Cell drill (training yard only)
+
+One button on the right of the yard. **Load cell** arms a fire bolt from a dummy. **Kick cell** while it is in the air. The temporary tetrahedron skids under the dummy, folds flat, sends a beam up, snaps shut, and rattles. The label on it says **Temporary · not final capsule**. Then **Spend fire** (or water, electric, or aether if a test names that bolt) lights one lock and the same charge cannot be spent again. **Cancel** during the motion stores nothing. **Reset** clears the charge and the lock.
+
+Those times are in `CELL_TUNABLE` and are not approved durations. The names fire, water, electric, and aether are the locked launch names. This is not pet capture. There is no inventory, ownership, HP gate, or boss rule. The rainbow siphon, floating diamond, and tether are not drawn. Whether the real capsule opens on three points or four is still unresolved, so this tetrahedron is a placeholder that can be swapped.
+
+![Cell beam, temporary](handoff/cell_beam.png)
+
+![Cell charge spent once](handoff/cell_spent.png)
+
 ## Still open
 
 - No phone in hand. iOS Safari can cancel a touch on rotation at a different moment than this Chrome. The events here were synthesized touches, and they did arrive as `pointerType: "touch"`.
