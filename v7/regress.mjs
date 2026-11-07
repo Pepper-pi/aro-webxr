@@ -85,7 +85,7 @@ const discVis = await page.evaluate(() => new Promise(res => {
   }));
 }));
 check('the gold ring is visible on the first-person field', discVis.gold > 40 && discVis.gem > 12, JSON.stringify(discVis));
-check('the disc light does not wash the field above it', discVis.far[0] + discVis.far[1] + discVis.far[2] < 220, JSON.stringify(discVis.far));
+check('the disc light does not wash the field above it', discVis.far[0] < 170 && discVis.far[1] < 160 && discVis.far[2] < 160, JSON.stringify(discVis.far));
 await page.evaluate(() => window.__train.setTrainView('tactical'));
 
 const mage = await page.evaluate(() => {

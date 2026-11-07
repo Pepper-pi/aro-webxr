@@ -2074,8 +2074,10 @@ function renderArenaFloor() {
       const n = hsh(q * 9 + 2, r * 5 + 1);
       if (yardStage()) {
         const spare = W > H || d > 2;
-        col = spare ? (n > .6 ? '#6b625c' : '#5e564f') : (station ? '#7a6e66' : lane ? (n > .5 ? '#73675f' : '#655c54') : (n > .72 ? '#6e645c' : n > .38 ? '#5f564f' : '#524b45'));
-        lift = spare ? 1.6 : 3.4;
+        const wetStone = hsh(q * 3 + 8, r * 11 + 2) > (spare ? .78 : .58);
+        const warmStone = hsh(q + 4, r * 2 + 1) > .5;
+        col = wetStone ? (spare ? '#5c686c' : '#4d666e') : warmStone ? (spare ? '#7b6a58' : '#8d7058') : (n > .55 ? '#74685e' : '#62584f');
+        lift = spare ? 1.8 : 3.6;
       } else if (station) { col = '#322838'; lift = 7; }
       else if (lane) { col = n > .5 ? '#241c2a' : '#1a141f'; lift = 6; }
       else { col = n > .72 ? '#2c2432' : n > .38 ? '#1c1622' : '#121016'; lift = d > 3 ? 3 : 5.5 + n * 2.2; }
@@ -2098,11 +2100,32 @@ function renderArenaFloor() {
     const station = TRAIN.on && !TRAIN.king && AR.kind === 'raid' && ((q === -1 && r === -2) || (q === 1 && r === -2) || (q === 0 && r === -3));
     if (yardStage()) {
       const spare = W > H || d > 2, n = hsh(q * 9 + 2, r * 5 + 1);
-      if (!spare && n > .66) {
-        const [X, Y] = proj(c, x, y);
-        g.strokeStyle = 'rgba(42,32,28,.45)'; g.lineWidth = 1;
-        g.beginPath(); g.moveTo(X - 10, Y - 2); g.lineTo(X + 2, Y + 5); g.lineTo(X + 12, Y + 1); g.stroke();
+      const wetStone = hsh(q * 3 + 8, r * 11 + 2) > (spare ? .78 : .58);
+      const [X, Y] = proj(c, x, y);
+      g.save();
+      hexPath(c, x, y, .9, g); g.clip();
+      const cracks = spare ? 1 : 3;
+      for (let i = 0; i < cracks; i++) {
+        if (spare && hsh(q + i * 5, r + 2) < .5) continue;
+        const a = hsh(q * 5 + i, r * 3 + i) * TAU, len = (spare ? 9 : 16) * Math.max(.7, f);
+        g.strokeStyle = i % 2 ? 'rgba(36,28,24,.62)' : 'rgba(214,196,176,.28)';
+        g.lineWidth = spare ? 1 : 1.35;
+        g.beginPath();
+        g.moveTo(X + Math.cos(a) * 3, Y + Math.sin(a) * 2);
+        g.lineTo(X + Math.cos(a + .4) * len, Y + Math.sin(a + .2) * len * .42);
+        g.stroke();
       }
+      if (!spare || n > .72) {
+        g.fillStyle = 'rgba(42,34,30,.5)';
+        g.beginPath(); g.ellipse(X + (n - .5) * 18, Y + 3, (spare ? 3.5 : 6) * f, (spare ? 2 : 3.4) * f, n * 3, 0, TAU); g.fill();
+        g.fillStyle = 'rgba(196,178,160,.32)';
+        g.beginPath(); g.ellipse(X + (n - .5) * 16, Y + 1, (spare ? 1.4 : 2.4) * f, (spare ? .8 : 1.3) * f, n, 0, TAU); g.fill();
+      }
+      if (wetStone) {
+        g.fillStyle = spare ? 'rgba(176,220,228,.22)' : 'rgba(186,232,240,.38)';
+        g.beginPath(); g.ellipse(X - 6 * f, Y - 3 * f, (spare ? 8 : 14) * f, (spare ? 3 : 5) * f, -.35, 0, TAU); g.fill();
+      }
+      g.restore();
     } else {
       const seam = AR.kind === 'hack' ? (d <= 1 && AR.share > .5 ? '255,201,77' : '255,79,180') : (station ? '140,220,255' : d <= 2 ? '80,200,255' : '176,96,220');
       const lowSeam = raidViewLow();
@@ -2144,7 +2167,7 @@ function drawArena(T) {
   if (AR.kind === 'raid') {
     // The pink underworld reads as hot seams once the floor is translucent. Raid plates stay opaque; gaps are a dim cyan lattice.
     // Training yard keeps that lattice off. The hex math is unchanged; cues draw only while aiming.
-    ctx.fillStyle = yardStage() ? '#3a342f' : '#07060c'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = yardStage() ? '#2a2624' : '#07060c'; ctx.fillRect(0, 0, W, H);
     if (!yardStage()) {
       ctx.strokeStyle = 'rgba(110,160,200,.16)'; ctx.lineWidth = 1; ctx.beginPath();
       for (const t of AHEX) if (t.d <= 5) addHex(c, t.x, t.y, .99, ctx);
@@ -2524,16 +2547,18 @@ function drawYardCues(c, T) {
 function drawYardPit(c, e, x, y, X, Y, f, k, st, T) {
   ctx.save();
   ctx.globalAlpha = Math.min(1, k);
-  hexPath(c, x, y, .62);
-  const g = ctx.createRadialGradient(X, Y, 2 * f, X, Y, 34 * f);
-  if (st === 'fire') { g.addColorStop(0, 'rgba(255,196,90,.95)'); g.addColorStop(.5, 'rgba(190,48,16,.8)'); g.addColorStop(1, 'rgba(40,10,8,.15)'); }
-  else if (st === 'ice') { g.addColorStop(0, 'rgba(230,252,255,.9)'); g.addColorStop(1, 'rgba(70,150,190,.2)'); }
-  else { g.addColorStop(0, 'rgba(150,235,255,.8)'); g.addColorStop(.42, 'rgba(210,70,160,.5)'); g.addColorStop(1, 'rgba(20,10,16,0)'); }
+  hexPath(c, x, y, .74);
+  ctx.fillStyle = st === 'fire' ? '#ff6a1a' : st === 'ice' ? '#e7f8ff' : '#0e6e78';
+  ctx.fill();
+  const g = ctx.createRadialGradient(X, Y - 4 * f, 2 * f, X, Y, 26 * f);
+  if (st === 'fire') { g.addColorStop(0, 'rgba(255,244,190,.95)'); g.addColorStop(1, 'rgba(160,30,0,0)'); }
+  else if (st === 'ice') { g.addColorStop(0, 'rgba(255,255,255,.9)'); g.addColorStop(1, 'rgba(90,180,220,0)'); }
+  else { g.addColorStop(0, 'rgba(190,255,255,.85)'); g.addColorStop(.5, 'rgba(200,70,160,.4)'); g.addColorStop(1, 'rgba(0,0,0,0)'); }
   ctx.fillStyle = g; ctx.fill();
+  hexPath(c, x, y, .9);
+  ctx.strokeStyle = st === 'fire' ? '#ffe0b0' : st === 'ice' ? '#f7fdff' : '#b8fbff';
+  ctx.lineWidth = 2.6; ctx.stroke();
   ctx.restore();
-  hexPath(c, x, y, .94);
-  ctx.strokeStyle = st === 'fire' ? 'rgba(255,170,80,.95)' : 'rgba(210,240,255,.9)';
-  ctx.lineWidth = 2.2; ctx.stroke();
 }
 function drawZones(c, T) {
   for (const z of AR.zones) {
@@ -2943,7 +2968,15 @@ function drawTerrain(c, T) {
   const es = [...FIELD.terr.values()].sort((a, b) => a.r - b.r);
   for (const e of es) { const k = terrK(e); if (k <= 0) continue; const [x, y] = hexXY(e.q, e.r), [X, Y, f] = proj(c, x, y), st = hexState(e.q, e.r);
     if (e.shape === 'berm') drawBerm(c, e, x, y, X, Y, f, k, st, T);
-    else { drawGully(c, e, x, y, X, Y, f, k, st, T); if (yardStage()) drawYardPit(c, e, x, y, X, Y, f, k, st, T); } }
+    else drawGully(c, e, x, y, X, Y, f, k, st, T);
+  }
+  if (!yardStage()) return;
+  for (const e of es) {
+    if (e.shape === 'berm') continue;
+    const k = terrK(e); if (k <= 0) continue;
+    const [x, y] = hexXY(e.q, e.r), [X, Y, f] = proj(c, x, y), st = hexState(e.q, e.r);
+    drawYardPit(c, e, x, y, X, Y, f, k, st, T);
+  }
 }
 function hexPts(c, x, y, s, lift) { return HEXC.map(p => { const P = proj(c, x + p[0] * s, y + p[1] * s); return [P[0], P[1] - lift(p)]; }); }
 function drawBerm(c, e, x, y, X, Y, f, k, st, T) { // low grassy berm: gentle heave, green top, lit crest
@@ -2996,7 +3029,7 @@ function drawGully(c, e, x, y, X, Y, f, k, st, T) {
   ctx.strokeStyle = 'rgba(180,196,210,.75)'; ctx.lineWidth = 1.7; pathPts(rim); ctx.stroke();
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = `rgba(130,220,255,${.4 + .15 * fl})`; ctx.lineWidth = 1.3; pathPts(rim); ctx.stroke(); ctx.restore();
   for (let n = 0; n < 3; n++) {
-    const i = (e.q + n * 2 + e.r * 3) % 6, p = rim[i], s = (5 + hsh(e.q + n, e.r * 2) * 6) * f;
+    const i = ((e.q + n * 2 + e.r * 3) % 6 + 6) % 6, p = rim[i], s = (5 + hsh(e.q + n, e.r * 2) * 6) * f;
     ctx.fillStyle = n % 2 ? '#241c2c' : '#3a4450'; ctx.beginPath(); ctx.moveTo(p[0] - s, p[1] + 2); ctx.lineTo(p[0] - s * .15, p[1] - s * 1.35); ctx.lineTo(p[0] + s, p[1] - s * .2); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = 'rgba(130,220,255,.55)'; ctx.lineWidth = 1; ctx.stroke();
   }
