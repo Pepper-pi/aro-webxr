@@ -117,13 +117,25 @@ A second finger no longer replaces the press or fires it. The spell wheel, the L
 
 ## Cell drill (training yard only)
 
-One button on the right of the yard. **Load cell** arms a fire bolt from a dummy. **Kick cell** while it is in the air. The temporary tetrahedron skids under the dummy, folds flat, sends a beam up, snaps shut, and rattles. The label on it says **Temporary · not final capsule**. Then **Spend fire** (or water, electric, or aether if a test names that bolt) lights one lock and the same charge cannot be spent again. **Cancel** during the motion stores nothing. **Reset** clears the charge and the lock.
+One button on the right of the yard. **Load cell** arms a fire bolt from a dummy. **Kick cell** while it is in the air. The device skids under the dummy, opens, sends a beam up, snaps shut, and rattles. Then **Spend fire** (or water, electric, or aether if a test names that bolt) lights one lock and the same charge cannot be spent again. **Cancel** during the motion stores nothing. **Reset** clears the charge and the lock.
 
-Those times are in `CELL_TUNABLE` and are not approved durations. The names fire, water, electric, and aether are the locked launch names. This is not pet capture. There is no inventory, ownership, HP gate, or boss rule. The rainbow siphon, floating diamond, and tether are not drawn. Whether the real capsule opens on three points or four is still unresolved, so this tetrahedron is a placeholder that can be swapped.
+**Shape lock, Bryce, 4:52 PM PT on 2026-11-06.** This replaces the earlier note that three points versus four was unresolved. The device is a closed tetrahedron. All three side faces hinge on the central triangular base, open outward from the center, and drop into a three-point star. It is not the four-point concept and it is not an octahedron. The same three faces stay attached to the same three edges the whole way.
 
-![Cell beam, temporary](handoff/cell_beam.png)
+**Amendment, Bryce, 4:53 PM PT.** The faces settle a hair past flat. The three outer tips stay on the field, and that props the central triangle up a little, the way a trap sits. The lift comes only from that hinge angle. It does not bob, it does not add a pedestal, and nothing goes through the ground. `pastFlat` is how many degrees past flat the open pose uses. That degree is not a locked number. The on-screen label **Finish provisional** is about the gold color only.
 
-![Cell charge spent once](handoff/cell_spent.png)
+Those times are in `CELL_TUNABLE` and are not approved durations. The names fire, water, electric, and aether are the locked launch names. This is not pet capture. There is no inventory, ownership, HP gate, or boss rule. The rainbow siphon, floating diamond, and tether are not drawn.
+
+![Closed](handoff/cell_closed.png)
+
+![Opening](handoff/cell_opening.png)
+
+![Open, tactical](handoff/cell_open.png)
+
+![Open, low angle](handoff/cell_open_low.png)
+
+![Beam](handoff/cell_beam.png)
+
+![Snapped closed](handoff/cell_snapped.png)
 
 ## Still open
 

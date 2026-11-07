@@ -4698,10 +4698,17 @@ function resetTrain() {
   setAct(null);
   if (typeof resetCell === 'function') resetCell();
 }
-// Tunable. Not a design lock. Durations, window, and charge size are not approved facts.
+// Design lock, Bryce, 4:52 PM PT on 2026-11-06. Supersedes the earlier three-versus-four question.
+// Closed tetrahedron. All three side faces hinge on the central triangular base, open outward,
+// and form a three-point star. Not a four-point shape. Not an octahedron. Finish stays provisional.
+// Amendment, Bryce, 4:53 PM PT: the faces settle a hair past coplanar. Outer tips stay on the field
+// and prop the central triangle up a little, like a shallow trap. The lift is the hinge. It does not bob.
+// Durations, the catch window, the radius, and pastFlat degrees are not locked numbers.
 const CELL_ELEMENTS = ['fire', 'water', 'electric', 'aether'];
 const CELL_COL = { fire: '#ff6a2a', water: '#4ec3ff', electric: '#ffe14a', aether: '#d7a6ff' };
-const CELL_TUNABLE = { arm: 0.45, boltLife: 0.9, kickOpen: 0.12, kick: 0.28, fold: 0.32, beam: 0.4, snap: 0.2, rattle: 0.4 };
+const CELL_TOPOLOGY = 'tetrahedron-3';
+const CELL_CLOSED_ANGLE = Math.acos(-1 / 3);
+const CELL_TUNABLE = { arm: 0.45, boltLife: 0.9, kickOpen: 0.12, kick: 0.28, fold: 0.32, beam: 0.4, snap: 0.2, rattle: 0.4, radius: 0.48, pastFlat: 24 * Math.PI / 180 };
 const CELL = { loaded: false, charge: null, phase: 'idle', t: 0, arm: 0, bolt: null, puzzle: null, catches: 0, spends: 0, cancels: 0 };
 function resetCell() {
   CELL.loaded = false; CELL.charge = null; CELL.phase = 'idle'; CELL.t = 0; CELL.arm = 0;
@@ -4808,45 +4815,111 @@ function cellPress() {
   }
   if (!CELL.loaded) loadCell();
 }
-function drawCellRig() {
-  if (!TRAIN.on || TRAIN.king || G.scene !== 'arena') return;
-  if (!CELL.loaded && !CELL.charge && !CELL.puzzle && CELL.phase === 'idle' && !CELL.bolt) return;
+function cellFold() {
+  if (CELL.phase === 'fold') return Math.max(0, Math.min(1, CELL.t / CELL_TUNABLE.fold));
+  if (CELL.phase === 'beam') return 1;
+  if (CELL.phase === 'snap') return Math.max(0, Math.min(1, 1 - CELL.t / CELL_TUNABLE.snap));
+  return 0;
+}
+function cellAnchor() {
   const d = cellDummy();
   const [px, py] = pPos();
   const tx = d ? d.x : 0, ty = d ? d.y : -2;
-  const moving = CELL.phase !== 'idle' || CELL.bolt;
-  const along = CELL.phase === 'kick' ? CELL.t / CELL_TUNABLE.kick : (CELL.phase === 'idle' ? 0.12 : 1);
-  const x = px + (tx - px) * along * 0.82, y = py + (ty - py) * along * 0.82;
-  const fold = CELL.phase === 'fold' ? CELL.t / CELL_TUNABLE.fold : (CELL.phase === 'beam' ? 1 : (CELL.phase === 'snap' ? 1 - CELL.t / CELL_TUNABLE.snap : 0));
-  const shake = CELL.phase === 'rattle' ? Math.sin(CELL.t * 46) * 5 : 0;
-  const [X, Y] = proj(AR.cam, x, y);
+  const along = CELL.phase === 'kick' ? Math.max(0, Math.min(1, CELL.t / CELL_TUNABLE.kick)) : (CELL.phase === 'idle' ? 0.12 : 1);
+  const wobble = CELL.phase === 'rattle' ? Math.sin(CELL.t * 46) * 0.03 : 0;
+  return { x: px + (tx - px) * along * 0.9 + wobble, y: py + (ty - py) * along * 0.9, tx, ty };
+}
+function cellNet(fold, radius) {
+  const R = radius == null ? CELL_TUNABLE.radius : radius;
+  const faceAlt = 1.5 * R;
+  const t = Math.max(0, Math.min(1, fold));
+  const theta = CELL_CLOSED_ANGLE * (1 - t) - CELL_TUNABLE.pastFlat * t;
+  const ct = Math.cos(theta), st = Math.sin(theta);
+  const base = [];
+  for (let i = 0; i < 3; i++) {
+    const a = -Math.PI / 2 + i * (2 * Math.PI / 3);
+    base.push([Math.cos(a) * R, Math.sin(a) * R, 0]);
+  }
+  const faces = [];
+  let tipZ = 0;
+  for (let i = 0; i < 3; i++) {
+    const bi = base[i], bj = base[(i + 1) % 3];
+    const mx = (bi[0] + bj[0]) / 2, my = (bi[1] + bj[1]) / 2;
+    const len = Math.hypot(mx, my) || 1;
+    const tip = [mx + (mx / len) * faceAlt * ct, my + (my / len) * faceAlt * ct, faceAlt * st];
+    tipZ = tip[2];
+    faces.push({ hinge: [bi, bj], tip });
+  }
+  let lift = 0;
+  if (tipZ < 0) {
+    lift = -tipZ;
+    for (const b of base) b[2] = lift;
+    for (const f of faces) f.tip[2] = 0;
+  }
+  return { base, faces, lift, theta, radius: R, fold: t, faceAlt };
+}
+function projUp(c, wx, wy, h) {
+  const u = (wx - c.x) * c.hz, v = (wy - c.y) * c.hz, hh = h * c.hz;
+  const sA = Math.sin(c.A), cA = Math.cos(c.A);
+  let depth = c.D - v * sA - hh * cA;
+  if (depth < c.D * 0.3) depth = c.D * 0.3;
+  const f = c.D / depth;
+  return [W / 2 + u * f, c.cy + v * cA * f - hh * sA * f];
+}
+function drawCellRig() {
+  if (!TRAIN.on || TRAIN.king || G.scene !== 'arena') return;
+  if (!CELL.loaded && !CELL.charge && !CELL.puzzle && CELL.phase === 'idle' && !CELL.bolt) return;
+  const anchor = cellAnchor();
+  const net = cellNet(cellFold());
   const el = (CELL.charge && CELL.charge.element) || (CELL.bolt && CELL.bolt.element) || CELL.puzzle || 'aether';
-  ctx.save();
-  ctx.translate(X + shake, Y);
-  ctx.strokeStyle = '#e7c56a'; ctx.fillStyle = 'rgba(90,62,18,.45)'; ctx.lineWidth = 1.6;
-  const s = 16, o = 10 * fold;
-  ctx.beginPath(); ctx.moveTo(0, s * 0.55); ctx.lineTo(-s, -s * 0.25); ctx.lineTo(s, -s * 0.25); ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(-s, -s * 0.25); ctx.lineTo(-s - o, -s * 0.25 - o); ctx.lineTo(0, -s * 0.9 - o); ctx.closePath(); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(s, -s * 0.25); ctx.lineTo(s + o, -s * 0.25 - o); ctx.lineTo(0, -s * 0.9 - o); ctx.closePath(); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(-s * 0.15, s * 0.55); ctx.lineTo(s * 0.15, s * 0.55); ctx.lineTo(0, s * 0.55 + o); ctx.closePath(); ctx.stroke();
-  ctx.restore();
+  const P = (v) => projUp(AR.cam, anchor.x + v[0], anchor.y + v[1], v[2]);
+  const ground = projUp(AR.cam, anchor.x, anchor.y, 0);
+  const gx = projUp(AR.cam, anchor.x + net.radius, anchor.y, 0);
+  const gy = projUp(AR.cam, anchor.x, anchor.y + net.radius, 0);
+  ctx.fillStyle = 'rgba(0,0,0,.38)';
+  ctx.beginPath();
+  ctx.ellipse(ground[0], ground[1], Math.hypot(gx[0] - ground[0], gx[1] - ground[1]) * 1.15, Math.max(4, Math.hypot(gy[0] - ground[0], gy[1] - ground[1]) * 1.15), 0, 0, TAU);
+  ctx.fill();
+  const fills = ['rgba(168,96,36,.96)', 'rgba(214,156,58,.96)', 'rgba(236,196,96,.96)'];
+  const order = net.faces.map((f, i) => ({ f, i, y: f.hinge[0][1] + f.hinge[1][1] + f.tip[1] })).sort((a, b) => a.y - b.y);
+  const path = (pts) => {
+    ctx.beginPath();
+    pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
+    ctx.closePath();
+  };
+  const facePts = (f) => [P(f.hinge[0]), P(f.hinge[1]), P(f.tip)];
+  const basePts = net.base.map(P);
+  const paint = (pts, fill) => { path(pts); ctx.fillStyle = fill; ctx.fill(); };
+  if (net.lift > 0.02) {
+    order.forEach(o => paint(facePts(o.f), fills[o.i]));
+    paint(basePts, 'rgba(255,228,160,.98)');
+  } else {
+    paint(basePts, 'rgba(120,78,28,.96)');
+    order.forEach(o => paint(facePts(o.f), fills[o.i]));
+  }
+  ctx.strokeStyle = '#2a1608'; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+  path(basePts); ctx.stroke();
+  order.forEach(o => { path(facePts(o.f)); ctx.stroke(); });
+  let top = ground[1];
+  basePts.concat(order.map(o => facePts(o.f)).flat()).forEach(p => { if (p[1] < top) top = p[1]; });
   ctx.font = '700 11px ui-rounded,system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = '#ffe7a4';
-  const label = 'Temporary · not final capsule';
+  const label = 'Finish provisional';
   const half = ctx.measureText(label).width / 2;
-  const lx = Math.max(half + 8, Math.min(innerWidth - half - 8, X));
-  ctx.fillText(label, lx, Math.max(28, Y - 36));
-  if (CELL.phase === 'beam' && CELL.bolt) {
-    const [DX, DY] = proj(AR.cam, tx, ty);
+  ctx.fillText(label, Math.max(half + 8, Math.min(innerWidth - half - 8, ground[0])), Math.max(28, top - 12));
+  if (CELL.phase === 'beam') {
+    const from = projUp(AR.cam, anchor.x, anchor.y, net.lift);
+    const to = projUp(AR.cam, anchor.x, anchor.y, net.lift + 1.35);
     ctx.strokeStyle = CELL_COL[el]; ctx.lineWidth = 3; ctx.globalAlpha = 0.9;
-    ctx.beginPath(); ctx.moveTo(X, Y); ctx.lineTo(DX, DY - 36); ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.moveTo(from[0], from[1]); ctx.lineTo(to[0], to[1]); ctx.stroke();
+    ctx.globalAlpha = 1;
   }
   if (CELL.bolt && CELL.phase === 'idle') {
     const u = clamp(CELL.bolt.t / CELL_TUNABLE.boltLife, 0, 1);
-    const bx = CELL.bolt.x0 + (CELL.bolt.x1 - CELL.bolt.x0) * u, by = CELL.bolt.y0 + (CELL.bolt.y1 - CELL.bolt.y0) * u;
-    const [BX, BY] = proj(AR.cam, bx, by);
+    const [BX, BY] = proj(AR.cam, CELL.bolt.x0 + (CELL.bolt.x1 - CELL.bolt.x0) * u, CELL.bolt.y0 + (CELL.bolt.y1 - CELL.bolt.y0) * u);
     ctx.fillStyle = CELL_COL[CELL.bolt.element]; ctx.beginPath(); ctx.arc(BX, BY, 6, 0, TAU); ctx.fill();
   }
   if (CELL.puzzle) {
+    const [px, py] = pPos();
     const [QX, QY] = proj(AR.cam, px + 1.1, py);
     ctx.fillStyle = CELL_COL[CELL.puzzle]; ctx.fillText('Lock · ' + CELL.puzzle, QX, QY - 18);
   }
@@ -5333,7 +5406,7 @@ window.__train = {
   trainUpdate, releaseDisc, interruptCharge, aimedOwnWall,
   DISC_IDLE, DISC_CHARGED,
   stepArena: dt => arenaUpdate(dt),
-  CELL, CELL_TUNABLE, CELL_ELEMENTS, loadCell, startCellBolt, kickCell, cancelCell, spendCell, resetCell,
+  CELL, CELL_TUNABLE, CELL_ELEMENTS, CELL_TOPOLOGY, loadCell, startCellBolt, kickCell, cancelCell, spendCell, resetCell, cellNet, cellFold, cellAnchor,
   markDirty: () => { groundDirty = true; },
 };
 window.__look = { validateLookCatalog, readLookCatalog, LOOK, get catalog() { return LOOKS; }, heavyRef, saveLook };

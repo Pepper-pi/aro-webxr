@@ -177,6 +177,31 @@ check('cell reset clears the charge', !cell.reset.loaded && !cell.reset.charge &
 check('cell cancel stores nothing', cell.cancel && !cell.cancelled.charge && cell.cancelled.cancels === 1, JSON.stringify(cell.cancelled));
 check('cell does not catch twice or without a bolt', cell.noBolt === false && cell.secondBolt === false && cell.held.charge && cell.held.charge.element === 'aether' && cell.held.catches === 1, JSON.stringify(cell.held));
 
+const topo = await page.evaluate(() => {
+  const net = window.__train.cellNet;
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  const closed = net(0), mid = net(0.42), open = net(1);
+  const side = dist(closed.base[0], closed.base[1]);
+  const rigid = pose => pose.faces.every(f => Math.abs(dist(f.hinge[0], f.hinge[1]) - side) < 1e-6 && Math.abs(dist(f.hinge[0], f.tip) - side) < 1e-4 && Math.abs(dist(f.hinge[1], f.tip) - side) < 1e-4);
+  const hinged = pose => pose.faces.length === 3 && pose.base.length === 3 && pose.faces.every((f, i) => f.hinge[0] === pose.base[i] && f.hinge[1] === pose.base[(i + 1) % 3]);
+  const clear = pose => pose.base.every(b => b[2] >= -1e-6) && pose.faces.every(f => f.tip[2] >= -1e-6);
+  const meet = dist(closed.faces[0].tip, closed.faces[1].tip) < 1e-6 && dist(closed.faces[0].tip, closed.faces[2].tip) < 1e-6 && closed.faces[0].tip[2] > closed.radius && closed.lift === 0;
+  const midAir = mid.lift === 0 && mid.faces.every(f => f.tip[2] > 0.05 && f.tip[2] < closed.faces[0].tip[2] - 0.02);
+  const tipsDown = open.faces.every(f => f.tip[2] < 1e-6);
+  const centerUp = open.lift > open.radius * 0.18 && open.lift < open.radius * 0.7;
+  const star = open.faces.every(f => { const r = Math.hypot(f.tip[0], f.tip[1]); return r > open.radius * 1.7 && r < open.radius * 2.05; });
+  window.__train.CELL.phase = 'beam';
+  const beam = window.__train.cellFold();
+  window.__train.CELL.phase = 'snap';
+  window.__train.CELL.t = window.__train.CELL_TUNABLE.snap;
+  const shut = window.__train.cellFold();
+  window.__train.resetCell();
+  return { topology: window.__train.CELL_TOPOLOGY, rigid: rigid(closed) && rigid(mid) && rigid(open), hinged: hinged(closed) && hinged(mid) && hinged(open), clear: clear(closed) && clear(mid) && clear(open), meet, midAir, tipsDown, centerUp, star, beam, shut, lift: open.lift, radius: open.radius };
+});
+check('cell is a three-face tetrahedron on shared hinges', topo.topology === 'tetrahedron-3' && topo.rigid && topo.hinged && topo.clear, JSON.stringify(topo));
+check('cell opens from a closed apex through the air', topo.meet && topo.midAir, JSON.stringify(topo));
+check('open star keeps its tips on the ground and lifts the center a little', topo.tipsDown && topo.centerUp && topo.star && topo.beam === 1 && topo.shut === 0, JSON.stringify(topo));
+
 const gun = await page.evaluate(() => {
   window.__train.resetTrain();
   window.__train.setClass('gunner');
