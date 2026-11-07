@@ -4402,22 +4402,22 @@ function drawDisc() {
   ctx.save();
   ctx.translate(x, y);
   if (mesh) {
-    if (ch > 0.02) {
-      // The GLB has no charged halo. This soft disc is drawn here, not read from the file.
-      const hg = ctx.createRadialGradient(0, 0, R * 0.15, 0, 0, R * 1.45);
-      hg.addColorStop(0, `rgba(255,214,150,${0.16 * ch})`);
-      hg.addColorStop(0.5, `rgba(170,80,230,${0.2 * ch})`);
+    if (ch > 0.04) {
+      // The file has no halo mesh. A short, soft fringe only, not a plate over the floor.
+      const hg = ctx.createRadialGradient(0, 0, R * 0.72, 0, 0, R * 1.22);
+      hg.addColorStop(0, `rgba(255,210,140,0)`);
+      hg.addColorStop(0.55, `rgba(210,140,255,${0.12 * ch})`);
       hg.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(0, 0, R * 1.45, 0, TAU); ctx.fill();
+      ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(0, 0, R * 1.22, 0, TAU); ctx.fill();
     }
-    const dw = R * 2.45;
-    ctx.drawImage(mesh, -dw / 2, -dw / 2 + R * 0.02, dw, dw);
+    const dw = R * 2.9;
+    ctx.drawImage(mesh, -dw / 2, -dw / 2, dw, dw);
   } else if (custom) drawDiscSprite(custom, R);
   else if (idle || hot) {
     if (idle) drawDiscSprite(idle, R);
     if (hot && ch > 0) { ctx.save(); ctx.globalAlpha = ch; drawDiscSprite(hot, R); ctx.restore(); }
   }
-  if (!skinned) {
+  if (!skinned && !mesh) {
     ctx.fillStyle = 'rgba(14,6,20,.84)';
     ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.fill();
   }
@@ -4428,10 +4428,12 @@ function drawDisc() {
   }
   for (let i = 0; i < n; i++) {
     const a0 = -Math.PI / 2 + i * TAU / n + rot, a1 = a0 + TAU / n, am = (a0 + a1) / 2;
-    ctx.beginPath(); ctx.arc(0, 0, R - 6, a0 + 0.08, a1 - 0.08);
-    ctx.strokeStyle = i === sel ? rim[i].col : 'rgba(255,255,255,.55)';
-    ctx.lineWidth = i === sel ? 8 : 4; ctx.stroke();
-    const lx = Math.cos(am) * (R * 0.62), ly = Math.sin(am) * (R * 0.62);
+    if (!mesh) {
+      ctx.beginPath(); ctx.arc(0, 0, R - 6, a0 + 0.08, a1 - 0.08);
+      ctx.strokeStyle = i === sel ? rim[i].col : 'rgba(255,255,255,.55)';
+      ctx.lineWidth = i === sel ? 8 : 4; ctx.stroke();
+    }
+    const lx = Math.cos(am) * (R * (mesh ? 0.5 : 0.62)), ly = Math.sin(am) * (R * (mesh ? 0.5 : 0.62));
     ctx.font = '800 11px ui-rounded,system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const tw = ctx.measureText(rim[i].name).width;
     ctx.fillStyle = 'rgba(12,6,16,.84)';
@@ -5313,7 +5315,7 @@ function disc3dBuild() {
   catch (e) { disc3dFallback('The disc mesh did not load. Showing the rendered sprite. That picture is not the mesh.'); return false; }
   if (!parsed || !parsed.parts.length) { disc3dFallback('The disc mesh was empty. Showing the rendered sprite. That picture is not the mesh.'); return false; }
   const vs = 'attribute vec3 aPos;attribute vec3 aNrm;uniform mat4 uMVP;uniform mat4 uModel;uniform mat3 uN;varying vec3 vN;varying vec3 vP;void main(){vec4 w=uModel*vec4(aPos,1.0);vP=w.xyz;vN=uN*aNrm;gl_Position=uMVP*vec4(aPos,1.0);}';
-  const fs = 'precision mediump float;varying vec3 vN;varying vec3 vP;uniform vec4 uBase;uniform vec3 uEmit;uniform float uStr;uniform float uMetal;uniform float uRough;uniform float uCharge;uniform vec3 uLight;uniform vec3 uEye;void main(){vec3 n=normalize(vN);vec3 l=normalize(uLight);vec3 e=normalize(uEye-vP);float nd=abs(dot(n,l));float shine=mix(64.0,10.0,clamp(uRough,0.0,1.0));float spec=pow(abs(dot(n,normalize(l+e))),shine)*(1.0-uRough);vec3 specCol=mix(vec3(1.0),uBase.rgb,clamp(uMetal,0.0,1.0));vec3 lit=uBase.rgb*mix(0.42+nd*0.85,0.08+nd*0.55,uMetal);vec3 c=lit+specCol*spec*mix(0.28,0.9,uMetal)+uEmit*uStr*(0.55+uCharge*2.1);gl_FragColor=vec4(min(c,vec3(1.0)),uBase.a);}';
+  const fs = 'precision mediump float;varying vec3 vN;varying vec3 vP;uniform vec4 uBase;uniform vec3 uEmit;uniform float uStr;uniform float uMetal;uniform float uRough;uniform float uCharge;uniform vec3 uLight;uniform vec3 uEye;void main(){vec3 n=normalize(vN);vec3 l=normalize(uLight);vec3 e=normalize(uEye-vP);float nd=max(dot(n,l),0.0);float wrap=nd*0.62+0.38;float fill=max(dot(n,normalize(vec3(-0.55,0.45,0.35))),0.0);float shine=mix(42.0,14.0,clamp(uRough,0.0,1.0));float spec=pow(max(dot(n,normalize(l+e)),0.0),shine);vec3 specCol=mix(vec3(1.0),vec3(1.0,0.84,0.5),clamp(uMetal,0.0,1.0));vec3 lit=uBase.rgb*mix(0.5+wrap*0.65,0.28+wrap*0.9,uMetal)+uBase.rgb*fill*mix(0.12,0.22,uMetal);vec3 c=lit+specCol*spec*mix(0.22,0.62,uMetal)+uEmit*uStr*(0.85+uCharge*1.35);gl_FragColor=vec4(min(c,vec3(1.0)),uBase.a);}';
   function sh(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
   let prog;
   try {
@@ -5445,7 +5447,7 @@ function discPlayBuild() {
   try { parsed = disc3dParse(disc3dBytes()); }
   catch (e) { DISCPLAY.fail = 'parse'; return false; }
   const vs = 'attribute vec3 aPos;attribute vec3 aNrm;uniform mat4 uMVP;uniform mat4 uModel;uniform mat3 uN;varying vec3 vN;varying vec3 vP;void main(){vec4 w=uModel*vec4(aPos,1.0);vP=w.xyz;vN=uN*aNrm;gl_Position=uMVP*vec4(aPos,1.0);}';
-  const fs = 'precision mediump float;varying vec3 vN;varying vec3 vP;uniform vec4 uBase;uniform vec3 uEmit;uniform float uStr;uniform float uMetal;uniform float uRough;uniform float uCharge;uniform vec3 uLight;uniform vec3 uEye;void main(){vec3 n=normalize(vN);vec3 l=normalize(uLight);vec3 e=normalize(uEye-vP);float nd=abs(dot(n,l));float shine=mix(64.0,10.0,clamp(uRough,0.0,1.0));float spec=pow(abs(dot(n,normalize(l+e))),shine)*(1.0-uRough);vec3 specCol=mix(vec3(1.0),uBase.rgb,clamp(uMetal,0.0,1.0));vec3 lit=uBase.rgb*mix(0.42+nd*0.85,0.08+nd*0.55,uMetal);vec3 c=lit+specCol*spec*mix(0.28,0.9,uMetal)+uEmit*uStr*(0.55+uCharge*2.1);gl_FragColor=vec4(min(c,vec3(1.0)),uBase.a);}';
+  const fs = 'precision mediump float;varying vec3 vN;varying vec3 vP;uniform vec4 uBase;uniform vec3 uEmit;uniform float uStr;uniform float uMetal;uniform float uRough;uniform float uCharge;uniform vec3 uLight;uniform vec3 uEye;void main(){vec3 n=normalize(vN);vec3 l=normalize(uLight);vec3 e=normalize(uEye-vP);float nd=max(dot(n,l),0.0);float wrap=nd*0.62+0.38;float fill=max(dot(n,normalize(vec3(-0.55,0.45,0.35))),0.0);float shine=mix(42.0,14.0,clamp(uRough,0.0,1.0));float spec=pow(max(dot(n,normalize(l+e)),0.0),shine);vec3 specCol=mix(vec3(1.0),vec3(1.0,0.84,0.5),clamp(uMetal,0.0,1.0));vec3 lit=uBase.rgb*mix(0.5+wrap*0.65,0.28+wrap*0.9,uMetal)+uBase.rgb*fill*mix(0.12,0.22,uMetal);vec3 c=lit+specCol*spec*mix(0.22,0.62,uMetal)+uEmit*uStr*(0.85+uCharge*1.35);gl_FragColor=vec4(min(c,vec3(1.0)),uBase.a);}';
   function sh(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
   let prog;
   try {

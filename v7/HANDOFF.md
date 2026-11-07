@@ -10,7 +10,9 @@ Live `/v7/` on main is unchanged. Nothing here was merged or deployed.
 
 The training disc, including first person, draws the v3 mesh (5,020 triangles) when WebGL is available. Spell names and the charge percent stay drawn on top so the five game spells stay readable. The mesh itself has six gems, not those five names. If WebGL fails, the old sprite is still there.
 
-The file does not contain a roughness number on the gold, so the page sets gold roughness to 0.22 and metal to 1 while drawing. That is not in the GLB. There are no textures. The charged halo in the Blender stills was not exported. The page brightens the mesh’s own glow with charge and adds a soft circle behind the disc. That circle is not the Blender halo. Clearcoat and transmission from the file are not shaded. The gold will look simpler than the Cycles picture.
+The first composite looked like a dark plate because the old flat-disc fill was still painted on top of the mesh, covering the gold and the gems and leaving a thin arc. That fill is skipped when the mesh is showing. The metal is lit from above with a second fill so the ring is not a black silhouette. It is still not the Cycles picture.
+
+The file does not contain a roughness number on the gold, so the page sets gold roughness to 0.22 and metal to 1 while drawing. That is not in the GLB. There are no textures. The charged halo in the Blender stills was not exported. The page brightens the mesh’s own glow with charge and adds a short soft fringe, not a plate over the floor. Clearcoat and transmission from the file are not shaded. The gold will look simpler than the Cycles picture.
 
 ## What you can do
 

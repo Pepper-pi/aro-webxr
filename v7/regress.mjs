@@ -62,6 +62,31 @@ const discMesh = await page.evaluate(() => {
 check('v3 disc mesh is the playable ring', discMesh.webgl && discMesh.tris === 5020 && discMesh.idle.n > 400, JSON.stringify({ tris: discMesh.tris, n: discMesh.idle.n }));
 check('gold roughness is set at runtime, not left at the file default', discMesh.gold && discMesh.gold.rough === 0.22 && discMesh.gold.metal === 1, JSON.stringify(discMesh.gold));
 check('charged disc draws brighter than idle', discMesh.hot.e > discMesh.idle.e, JSON.stringify({ idle: discMesh.idle.e, hot: discMesh.hot.e }));
+await new Promise(r => setTimeout(r, 350));
+const discVis = await page.evaluate(() => new Promise(res => {
+  window.__train.setTrainView('fp');
+  window.__train.TRAIN.charge = 0;
+  window.__train.TRAIN.demo = false;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const cv = document.getElementById('cv'), g = cv.getContext('2d'), dpr = cv.width / innerWidth;
+    const d = window.__train.discCenter(), R = window.__train.discRadius();
+    const img = g.getImageData(0, 0, cv.width, cv.height).data;
+    let gold = 0, gem = 0;
+    const x0 = Math.max(0, (d.x - R * 1.35) * dpr | 0), x1 = Math.min(cv.width, (d.x + R * 1.35) * dpr | 0);
+    const y0 = Math.max(0, (d.y - R * 1.35) * dpr | 0), y1 = Math.min(cv.height, (d.y + R * 1.35) * dpr | 0);
+    for (let y = y0; y < y1; y += 2) for (let x = x0; x < x1; x += 2) {
+      const i = (y * cv.width + x) * 4, r = img[i], gc = img[i + 1], b = img[i + 2];
+      if (r > 130 && gc > 70 && gc < 190 && b < 110 && r > b + 35) gold++;
+      else if ((gc > 140 && r < 130 && b < 140) || (b > 150 && gc > 90 && r < 140) || (r > 170 && gc < 90 && b < 120)) gem++;
+    }
+    const fx = (d.x * dpr) | 0, fy = Math.max(0, ((d.y - R * 2.4) * dpr) | 0);
+    const fi = (fy * cv.width + fx) * 4;
+    res({ gold, gem, far: [img[fi], img[fi + 1], img[fi + 2]], R });
+  }));
+}));
+check('the gold ring is visible on the first-person field', discVis.gold > 40 && discVis.gem > 12, JSON.stringify(discVis));
+check('the disc light does not wash the field above it', discVis.far[0] + discVis.far[1] + discVis.far[2] < 220, JSON.stringify(discVis.far));
+await page.evaluate(() => window.__train.setTrainView('tactical'));
 
 const mage = await page.evaluate(() => {
   window.__aroFreeze = true;
