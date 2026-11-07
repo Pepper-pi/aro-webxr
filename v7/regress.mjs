@@ -1320,6 +1320,72 @@ check('portrait dodge chevrons are fully on screen and clickable', dodgeIn(dodge
 check('portrait dummy names stay apart, on screen, and off the posts and the avatar', dodgePort.labels >= 3 && dodgePort.labelHits.length === 0 && dodgePort.labelOff === 0 && dodgePort.onBody.length === 0 && dodgePort.onPost.length === 0, JSON.stringify(dodgePort));
 await lay.close();
 
+const core = await open(390, 844);
+const coreErr = [];
+core.on('pageerror', err => coreErr.push(String(err && err.message || err)));
+const day = await core.evaluate(async () => {
+  const bag = () => JSON.parse(JSON.stringify(window.__aro.G.bag));
+  const snap = () => ({ bag: bag(), aether: window.__aro.G.aether, caps: window.__aro.G.caps, mobs: window.__aro.G.day.mobs, fish: window.__aro.G.bag.fish || 0 });
+  startDay();
+  const pollenBefore = bag().pollen;
+  wakeUp();
+  wakeUp();
+  const wokeOnce = window.__aro.G.step === 2 && bag().pollen === pollenBefore && window.__aro.G.day.woke === true;
+  const dome = tileAt(1, -3);
+  window.__aro.MAP.house.q = dome.q; window.__aro.MAP.house.r = dome.r;
+  onArrive(dome);
+  syncMapNav();
+  const enter = document.getElementById('act').textContent;
+  const actBox = document.getElementById('act').getBoundingClientRect();
+  const navBox = document.getElementById('mapNav').getBoundingClientRect();
+  const actClear = actBox.left >= navBox.right - 1 && actBox.right <= innerWidth + 1 && actBox.bottom <= innerHeight + 1;
+  const actHit = document.elementFromPoint((actBox.left + actBox.right) / 2, (actBox.top + actBox.bottom) / 2);
+  startArena('raid', afterRaid);
+  await new Promise(r => setTimeout(r, 1400));
+  punchBlock();
+  const killWave = async () => {
+    for (let n = 0; n < 8; n++) {
+      for (const m of window.__aro.AR.mobs) if (m.state !== 'gone' && m.state !== 'dying') { m.hp = 0; m.state = 'dying'; m.st = 0.4; }
+      window.__train.stepArena(0.05);
+      await new Promise(r => setTimeout(r, 40));
+      if (window.__aro.AR.phase === 'clear') return;
+      if (window.__aro.AR.phase === 'between') await new Promise(r => setTimeout(r, 1200));
+    }
+  };
+  await killWave();
+  const cleared = snap();
+  const obj = document.getElementById('obj').textContent;
+  const phaseClear = window.__aro.AR.phase;
+  rewind();
+  await killWave();
+  const afterRewind = snap();
+  const sameLoot = JSON.stringify(cleared) === JSON.stringify(afterRewind);
+  document.getElementById('act').click();
+  const afterLeave = { step: window.__aro.G.step, scene: window.__aro.G.scene, phase: window.__aro.AR.phase };
+  const caps0 = window.__aro.G.caps, ae0 = window.__aro.G.aether, spot0 = window.__aro.G.bag.spot || 0;
+  claimEnd(); claimEnd();
+  const claimOnce = window.__aro.G.caps === caps0 + 1 && window.__aro.G.aether === ae0 + 3 && (window.__aro.G.bag.spot || 0) === spot0 + 1;
+  const fish0 = snap();
+  openFish();
+  FI.grade = 'Good'; FI.hits = 3; FI.phase = 'reel';
+  landFish(); landFish();
+  const fishOnce = (window.__aro.G.bag.fish || 0) === (fish0.fish + 1) && window.__aro.G.aether === fish0.aether + 3;
+  const summaryFish = document.getElementById('sumBody') ? '' : '';
+  endDay();
+  await new Promise(r => setTimeout(r, 1000));
+  const sum = document.getElementById('sumM').classList.contains('on');
+  const sumText = document.getElementById('sumBody').textContent;
+  const again = document.getElementById('again').textContent;
+  return { wokeOnce, enter, actClear, actHit: actHit && (actHit.id || actHit.tagName), phaseClear, obj, cleared, afterRewind, sameLoot, afterLeave, claimOnce, fishOnce, sum, sumText: sumText.slice(0, 280), again, waves: window.__aro.AR.waves.length };
+});
+check('the day wakes once and the dome button is clear of the map shortcuts', day.wokeOnce && /Enter the raid dome/.test(day.enter) && day.actClear && day.actHit === 'act', JSON.stringify({ woke: day.wokeOnce, enter: day.enter, actClear: day.actClear, hit: day.actHit }));
+check('one raid clear pays each mob once and a rewind does not pay again', day.phaseClear === 'clear' && day.sameLoot && day.cleared.mobs >= 5 && day.cleared.bag.gel >= 5 && /Clear/.test(day.obj), JSON.stringify({ phase: day.phaseClear, obj: day.obj, cleared: day.cleared, after: day.afterRewind }));
+check('leaving a cleared raid continues the day', day.afterLeave.step === 4 && day.afterLeave.scene === 'map', JSON.stringify(day.afterLeave));
+check('a hack claim and a pond fish each pay once', day.claimOnce && day.fishOnce, JSON.stringify({ claim: day.claimOnce, fish: day.fishOnce }));
+check('the day can finish and names the pond fish, not a creature', day.sum && /Fish/.test(day.sumText) && /pond/.test(day.sumText) && !/Catch/.test(day.sumText) && /Play the day again/.test(day.again), JSON.stringify({ sum: day.sum, again: day.again, text: day.sumText }));
+check('the day flow does not throw', coreErr.length === 0, JSON.stringify(coreErr));
+await core.close();
+
 await browser.close();
 console.log(fails.length ? '\n' + fails.length + ' failed' : '\nall passed');
 process.exit(fails.length ? 1 : 0);

@@ -34,7 +34,7 @@ font-size:14.5px;line-height:1.35;box-shadow:0 8px 30px rgba(0,0,0,.45),0 0 18px
 #coach .who{font-size:11px;letter-spacing:.12em;color:var(--pink);font-weight:900;text-transform:uppercase;margin-bottom:3px}
 #coach b{color:var(--gold)}
 /* ---------- one contextual action + one glowing hex menu button ---------- */
-#act{position:fixed;left:50%;bottom:calc(104px + var(--sab));transform:translateX(-50%);z-index:8;min-width:210px;padding:14px 22px;border-radius:18px;
+#act{position:fixed;left:50%;bottom:calc(104px + var(--sab));transform:translateX(-50%);z-index:12;min-width:210px;padding:14px 22px;border-radius:18px;
 background:linear-gradient(180deg,#ff6fc4,#d93d98);color:#fff;font-weight:900;font-size:17px;letter-spacing:.01em;box-shadow:0 6px 0 #8f1f62,0 10px 26px rgba(255,79,180,.45);transition:transform .08s}
 #act:active{transform:translateX(-50%) translateY(3px);box-shadow:0 3px 0 #8f1f62,0 6px 18px rgba(255,79,180,.45)}
 #act.gold{background:linear-gradient(180deg,#ffd978,#f0a92e);color:#3a1d05;box-shadow:0 6px 0 #9a5f12,0 10px 26px rgba(255,201,77,.45)}
@@ -128,6 +128,10 @@ input[type=range]{accent-color:var(--pink);width:120px}
 #trainHud button.on{background:#ff4fb4;border-color:#ff9ad2;color:#fff}
 #trainHelpBtn{flex:none !important;padding:7px 10px !important;font-size:12px !important;pointer-events:auto}
 #castFeed{position:fixed;left:10px;right:auto;transform:none;top:calc(258px + var(--sat));bottom:auto;z-index:14;max-width:68vw;pointer-events:none;background:rgba(12,6,16,.92);border:1px solid rgba(255,201,77,.75);border-radius:12px;padding:6px 12px;font-weight:900;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:520px){
+  body:has(#mapNav:not(.hide)) #act:not(.hide){left:136px;right:8px;width:auto;min-width:0;transform:none;text-align:center}
+  body:has(#mapNav:not(.hide)) #act:not(.hide):active{transform:translateY(3px)}
+}
 @media (max-width:430px){
   #wheel{gap:4px;padding:0 4px}
   .dodge{width:46px;height:46px;font-size:18px;margin-bottom:2px}
@@ -1801,6 +1805,8 @@ function startArena(kind, onDone) {
   Object.assign(AR, { kind, t: 0, phase: 'intro', wave: 0, mobs: [], shots: [], teles: [], lane: 1, px: 0, hurt: 0, castT: 0, cds: [0, 0, 0], ptr: null, novaT: -1, shake: 0, floorDirty: true, share: 0, claimK: 0, drops: [], firstLive: false, idleHint: false, onDone, block: null });
   AR.waves = kind === 'raid' ? RAID_WAVES : HACK_GUARD;
   arenaV7Reset();
+  AR.paid = new Set();
+  AR.claimed = false;
   AR.roomLow = false;
   layoutArenaCam(); G.scene = 'arena';
   syncRoomLow();
@@ -1883,6 +1889,7 @@ function rewind() {
   G.hp = G.maxHp; AR.hpShown = G.hp; renderHearts(); AR.teles = []; AR.shots = []; AR.zones = []; AR.lines = []; AR.inZ = 0; $('#bossCD').classList.add('hide');
   if (AR.phase === 'nodes') { AR.mobs = HACK_NODES.map((s, j) => mkMob(s, j * .35)); AR.share = 0; AR.floorDirty = true; }
   else spawnWave(AR.wave);
+  AR.objT = null;
 }
 function damage(m, dmg, sp, focus) {
   m.hp -= dmg; m.fl = 1; if (sp && sp.slow) m.slow = sp.slow; if (!m.aggro) { m.aggro = true; m.atkT = 1.1 * PACE(); }
@@ -1891,9 +1898,19 @@ function damage(m, dmg, sp, focus) {
   wirePulse(m.x, m.y, .6, 'arena');
   if (m.hp <= 0) { m.state = 'dying'; m.st = 0; AR.zones = AR.zones.filter(z => z.mob !== m || z.t >= z.warn); AR.lines = AR.lines.filter(l => l.mob !== m || l.fired); if (AR.lock === m) AR.lock = null; if (AR.boss === m) AR.boss = null; }
 }
+function payKey(m) {
+  const at = m.spec && m.spec.at ? m.spec.at.join(',') : m.k;
+  return (AR.kind || '') + ':' + AR.wave + ':' + m.k + ':' + at;
+}
 function cubesFor(m) {
   const [X, Y, f] = proj(AR.cam, m.x, m.y), h = MOBART[m.art].h * m.D.r * AR.cam.hz * f * 1.6;
-  cyberBurst(X, Y, h, f, mobElem(m)); // Tron-style neon cybercube (was: black drawCube fx)
+  cyberBurst(X, Y, h, f, mobElem(m));
+  if (m.dummy || m.paid) return;
+  m.paid = true;
+  if (!AR.paid) AR.paid = new Set();
+  const key = payKey(m);
+  if (AR.paid.has(key)) return;
+  AR.paid.add(key);
   SFX.cube(); buzz(15); G.day.mobs++;
   m.D.drop.forEach((d, i) => { addItem(d); popText(X, Y - h - 16 - i * 16, '+' + ITEMS[d].n, RAR[ITEMS[d].r], 14); AR.drops.push(d); lootPop(X, Y - h * .5, d, i); });
   addAether(2);
@@ -1918,6 +1935,7 @@ function startNodes() {
 }
 function hackDone() { AR.phase = 'claim'; AR.claimK = 0; AR.claimed = false; AR.share = 1; AR.floorDirty = true; SFX.spawn(); }
 function claimEnd() {
+  if (AR.claimed) return;
   AR.claimed = true; SFX.win(); banner('Spot hacked!', 'blue · fills in over time'); G.day.hack = true; G.hackFill = .35; addItem('spot'); G.caps += 1; addAether(3);
   toast('+1 bottle cap (hack bonus)', 'cap'); setObj('<b>Hack</b> · the pond spot is yours');
   coach('The spot skins in <b>your colour</b>, starting faint and filling over time. Fish it later with bait.');
@@ -2029,7 +2047,7 @@ function punchBlock() {
   const b = AR.block; b.k = .001; SFX.punch(); buzz([30, 20, 30]); AR.shake = SET.cozy ? 0 : .4;
   const [X, Y, f] = proj(AR.cam, b.x, b.y);
   for (let i = 0; i < 16; i++) fx({ kind: 'shard', x: X, y: Y - 40 * f, vx: (Math.random() - .5) * 360, vy: -100 - Math.random() * 260, g: 520, col: i % 2 ? '#ffc94d' : RAR[b.rar], size: (5 + Math.random() * 5) * f, rot: Math.random() * 3, vr: (Math.random() - .5) * 10, life: 1.2 });
-  AR.phase = 'wave'; spawnWave(0); setObj('<b>Raid</b> · wave 1 of 2');
+  AR.phase = 'wave'; spawnWave(0); AR.objT = null;
   coach('Honey rains onto the floor panels. <b>Bright</b> panels = mobs that come at you. <b>Dim</b> panel = an idle mob you can pull later. Wireframes can’t be hit yet.', 7500);
 }
 
@@ -2966,9 +2984,10 @@ function mobHitWall(m, dt) { if (m.root > 0) return;
 /* ---------- objective banner follows the fight ---------- */
 function arenaObjective() {
   let t, b;
-  if (AR.block) t = '<b>Raid</b> · punch the honey block';
+  if (AR.block && !AR.block.k) t = '<b>Raid</b> · punch the honey block';
+  else if (AR.phase === 'clear') t = '<b>Clear!</b> · grab the loot';
   else if ((b = AR.mobs.find(m => m.tier === 'boss' && m.state !== 'dying' && m.state !== 'gone'))) t = b.state === 'live' ? `<b>Boss</b> · ${b.D.n}: dodge, then break it` : `<b>Boss</b> · ${b.D.n} incoming`;
-  else { const n = AR.mobs.filter(m => m.state === 'live' || m.state === 'load' || m.state === 'skin' || m.state === 'panel').length; t = AR.phase === 'clear' ? '<b>Clear!</b> · grab the loot' : n ? `<b>Wave</b> · ${n} left` : null; }
+  else { const n = AR.mobs.filter(m => m.state === 'live' || m.state === 'load' || m.state === 'skin' || m.state === 'panel').length; const waves = AR.waves && AR.waves.length; t = n && waves ? `<b>Wave ${AR.wave + 1}/${waves}</b> · ${n} left` : n ? `<b>Wave</b> · ${n} left` : null; }
   if (t && t !== AR.objT) { AR.objT = t; setObj(t); }
 }
 
@@ -3441,7 +3460,9 @@ function renderCraftUI() {
   $('#craftHint').innerHTML = G.bag.gel && G.bag.pollen ? 'Try <b>Slime Gel + Pollen</b> → Honey Bait. Fish bite faster and rarer.' : 'Pick two ingredients from your bag. Unknown pairs make <b>Aether Mush</b>.';
 }
 function brewDone() {
+  if (CR.sel.length !== 2) return;
   const [a, b] = CR.sel, res = recipeFor(a, b);
+  if ((G.bag[a] || 0) < 1 || (G.bag[b] || 0) < 1 || G.aether < 2) return;
   G.bag[a]--; G.bag[b]--; addItem(res); G.aether -= 2; addAether(0, true); G.day.crafted = res; CR.pop = 1; CR.sel = []; CR.brewing = false; CR.k = 0;
   SFX.win(); buzz(30); toast(`Crafted ${ITEMS[res].n}`, res); renderCraftUI();
   $('#craftHint').innerHTML = `<b>${ITEMS[res].n}</b> crafted! ${res === 'bait' ? 'It is now on your line.' : ''} Close the Cook Nook when you’re ready.`;
@@ -3473,7 +3494,7 @@ function drawBall(T, dt) {
 
 /* ===================== fishing: one cast ===================== */
 const FI = { phase: 'aim', t: 0, power: 0, grade: '', bx: 0, by: 0, biteAt: 0, nib: false, beat: 0, hits: 0, ring: 0, rt: 0, fish: null, msg: '', win: 0 };
-function openFish() { Object.assign(FI, { phase: 'aim', t: 0, power: 0, pw: 0, charging: false, ct: 0, grade: '', beat: 0, hits: 0, fish: null }); $('#fishBtn').classList.add('hide'); fishMsg('<b>Hold</b> to charge your cast, <b>release</b> in the <b style="color:var(--gold)">gold zone</b>'); $('#fishTitle').textContent = G.fishBait === 'bait' ? 'Fishing · Honey Bait on' : 'Fishing'; openModal('fishM'); }
+function openFish() { Object.assign(FI, { phase: 'aim', t: 0, power: 0, pw: 0, charging: false, ct: 0, grade: '', beat: 0, hits: 0, fish: null, paid: false }); $('#fishBtn').classList.add('hide'); fishMsg('<b>Hold</b> to charge your cast, <b>release</b> in the <b style="color:var(--gold)">gold zone</b>'); $('#fishTitle').textContent = G.fishBait === 'bait' ? 'Fishing · Honey Bait on' : 'Fishing'; openModal('fishM'); }
 function fishMsg(h) { $('#fishMsg').innerHTML = h; }
 const SWEET = .7;
 // v7 field slice: hold-to-charge cast (the standard confirm). the needle fills while held, eases back if over-held
@@ -3497,12 +3518,15 @@ function nextBeat(word) {
   else FI.rt = -.6;
 }
 function landFish() {
+  if (FI.paid || FI.phase === 'catch') return;
+  FI.paid = true;
   const gs = { Perfect: 2, Great: 1, Good: 0 }[FI.grade] || 0, sc = gs + (G.fishBait === 'bait' ? 1.5 : 0) + (FI.hits - 2) + rng() * 1.5;
   const r = sc >= 4.2 ? 3 : sc >= 2.6 ? 2 : sc >= 1.1 ? 1 : 0;
   const names = ['Minnow Pip', 'Honeyfin Koi', 'Aether Betta', 'Sunscale Carp'];
   const cap = r >= 2 || rng() < .25;
   FI.fish = { n: names[r], r, cm: Math.round(18 + r * 9 + rng() * 8), cap };
   FI.phase = 'catch'; FI.t = 0; SFX.win(); buzz([20, 30, 60]);
+  if (!G.day.castGrade && FI.grade) G.day.castGrade = FI.grade;
   if (G.fishBait === 'bait') { G.bag.bait = Math.max(0, (G.bag.bait || 0) - 1); }
   addItem('fish'); G.day.fish = FI.fish; addAether(3); if (cap) { G.caps++; toast('The fish was holding a bottle cap!', 'cap'); }
   fishMsg(`<span style="color:${RAR[r]}">${RARN[r]}</span> · <b>${FI.fish.n}</b> · ${FI.fish.cm} cm · kept the pond's blue grid colour`);
@@ -3621,11 +3645,13 @@ function applyHand() { $('#wheel').classList.toggle('left', SET.hand === 'left')
 function startDay() {
   audioInit(); $('#title').classList.add('out'); setTimeout(() => $('#title').classList.add('hide'), 600);
   $('#hud').classList.remove('hide'); $('#wirePanel').classList.remove('hide'); $('#menuBtn').classList.remove('hide'); addAether(0, true);
-  G.scene = 'map'; G.step = 1; G.day.wakeT = 0; setTime(0); G.day.aStart = G.aether;
+  G.scene = 'map'; G.step = 1; G.day.wakeT = 0; G.day.woke = false; setTime(0); G.day.aStart = G.aether;
   setObj('<b>Dawn</b> · wake up at home');
   setTimeout(() => { coach('Good morning! You wake in your <b>home hex</b>, the hub of your day. The bees left you <b>Pollen</b>. Your house stays put as your <b>fast-travel home</b>; today you go on foot.'); setAct('Step outside', wakeUp, true); }, 700);
 }
 function wakeUp() {
+  if (G.day.woke) return;
+  G.day.woke = true;
   MAP.avOut = true; MAP.avT = 0; SFX.hop(); ripple(tileAt(0, 0)); wirePulse(0, 0, 1.2, 'map'); toast('+1 Pollen from the hive', 'pollen'); MAP.trail.add(tkey(0, 0));
   G.step = 2; setTime(.15); setObj('<b>Walk</b> · to the Raid Dome');
   coach('<b>Tap a tile</b> to walk there, <b>drag</b> from yourself to step one hex, or use the <b>arrow keys</b>. Follow the gold dots to the dome. The wire grid underfoot pulses as you go.', 7000);
@@ -3706,7 +3732,7 @@ function endDay() {
    <div>Dodges<b>${d.dodges}</b>${d.lineDodges} bullet lines · ${d.zoneTime.toFixed(1)}s in red${d.rewinds ? ` · ${d.rewinds} Return by Death` : ''}</div>
    <div>Pond spot<b>${d.hack ? 'Hacked' : '—'}</b>fills to ${fill}% by tomorrow</div>
    <div>Crafted<b>${d.crafted ? ITEMS[d.crafted].n : '—'}</b>in the Cook Nook</div>
-   <div>Catch<b style="color:${f ? RAR[f.r] : '#fff'}">${f ? f.n : '—'}</b>${f ? `${RARN[f.r]} · ${f.cm} cm · ${d.castGrade} cast` : ''}</div>
+   <div>Fish<b style="color:${f ? RAR[f.r] : '#fff'}">${f ? f.n : '—'}</b>${f ? `pond · ${RARN[f.r]} · ${f.cm} cm · ${d.castGrade} cast` : 'pond cast, not a creature'}</div>
    <div>Aether<b>${G.aether}</b>${G.aether - d.aStart >= 0 ? '+' : ''}${G.aether - d.aStart} today · bees refill overnight</div>
    <div>Bottle caps<b>${G.caps}</b>rare second currency</div>
   </div>
