@@ -1203,6 +1203,57 @@ console.log('PERF yard desktop ' + JSON.stringify(perf));
 check('yard frames finish on this desktop', perf.frames === 45 && perf.worst < 1000, JSON.stringify(perf));
 await yardLook.close();
 
+const lay = await open(844, 390);
+const layErrors = [];
+lay.on('pageerror', err => layErrors.push(String(err && err.message || err)));
+const yardLay = await lay.evaluate(async () => {
+  window.__train.startTrain();
+  window.__train.resetTrain();
+  window.__train.setClass('mage');
+  window.__train.setTrainView('tactical');
+  resize();
+  for (let i = 0; i < 24; i++) {
+    await new Promise(r => setTimeout(r, 80));
+    const dodge = document.getElementById('dodgeL').getBoundingClientRect();
+    if (dodge.top >= 0 && dodge.bottom <= innerHeight + 1) break;
+  }
+  const box = id => {
+    const el = typeof id === 'string' ? document.getElementById(id) : id;
+    if (!el || el.classList.contains('hide')) return null;
+    const r = el.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) return null;
+    const pe = getComputedStyle(el).pointerEvents;
+    return { id: el.id || 'spell', l: r.left, t: r.top, r: r.right, b: r.bottom, pe };
+  };
+  const nodes = ['viewTac', 'viewLow', 'viewFp', 'trainClass', 'trainReset', 'trainBack', 'trainAuto', 'trainDemo', 'trainHelpBtn', 'cellBtn', 'itemBoard', 'dodgeL', 'dodgeR', 'iceWall', 'castFeed'].map(box).filter(Boolean);
+  document.querySelectorAll('#spells .sp').forEach((el, i) => { const b = box(el); if (b) { b.id = 'spell' + i; nodes.push(b); } });
+  const area = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l)) * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
+  const overlaps = [];
+  for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) if (area(nodes[i], nodes[j]) > 12) overlaps.push(nodes[i].id + ' x ' + nodes[j].id);
+  const off = nodes.filter(n => n.l < -1 || n.t < -1 || n.r > innerWidth + 1 || n.b > innerHeight + 1).map(n => n.id);
+  const cx = innerWidth / 2, cy = innerHeight * 0.4;
+  const covering = nodes.filter(n => n.pe !== 'none' && cx >= n.l && cx <= n.r && cy >= n.t && cy <= n.b).map(n => n.id);
+  const feed = nodes.find(n => n.id === 'castFeed'), dodge = nodes.find(n => n.id === 'dodgeL');
+  const cv = document.getElementById('cv'), dpr = cv.width / innerWidth, g = cv.getContext('2d');
+  const pix = (x, y) => { const d = g.getImageData(Math.max(0, Math.min(cv.width - 1, x * dpr | 0)), Math.max(0, Math.min(cv.height - 1, y * dpr | 0)), 1, 1).data; return [d[0], d[1], d[2]]; };
+  const a = window.__aro.hexScreen(0, 0), b = window.__aro.hexScreen(1, 0);
+  const seam = pix((a.x + b.x) / 2, (a.y + b.y) / 2);
+  document.getElementById('trainReset').click();
+  const resetLine = document.getElementById('castFeed').textContent;
+  const ds = window.__aro.AR.mobs.filter(m => m.dummy);
+  window.__aro.shadowSlash({ x: ds[0].x, y: ds[0].y });
+  for (let i = 0; i < 30; i++) window.__train.stepArena(0.05);
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  return { overlaps, off, covering, feedOnDodge: feed && dodge ? area(feed, dodge) : -1, seam, n: nodes.length, feed: resetLine, terr: window.__aro.FIELD.terr.size };
+});
+check('landscape controls stay on screen and off each other', yardLay.off.length === 0 && yardLay.overlaps.length === 0 && yardLay.n >= 14, JSON.stringify({ off: yardLay.off, overlaps: yardLay.overlaps, n: yardLay.n }));
+check('landscape cast line does not cover the dodge', yardLay.feedOnDodge === 0, JSON.stringify(yardLay.feedOnDodge));
+check('landscape center of the field is not a button', yardLay.covering.length === 0, JSON.stringify(yardLay.covering));
+check('landscape reset still writes the cast line', /Dummies reset|Round/.test(yardLay.feed), yardLay.feed);
+check('yard seam reads as stone rather than a black gap', yardLay.seam[0] > 55 && yardLay.seam[1] > 40, JSON.stringify(yardLay.seam));
+check('a negative-column slash does not throw while drawing', layErrors.length === 0 && yardLay.terr > 0, JSON.stringify(layErrors));
+await lay.close();
+
 await browser.close();
 console.log(fails.length ? '\n' + fails.length + ' failed' : '\nall passed');
 process.exit(fails.length ? 1 : 0);
