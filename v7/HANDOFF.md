@@ -121,7 +121,17 @@ One button on the right of the yard. **Load cell** arms a fire bolt from a dummy
 
 **Shape lock, Bryce, 4:52 PM PT on 2026-11-06.** This replaces the earlier note that three points versus four was unresolved. The device is a closed tetrahedron. All three side faces hinge on the central triangular base, open outward from the center, and drop into a three-point star. It is not the four-point concept and it is not an octahedron. The same three faces stay attached to the same three edges the whole way.
 
-**Amendment, Bryce, 4:53 PM PT.** The faces settle a hair past flat. The three outer tips stay on the field, and that props the central triangle up a little, the way a trap sits. The lift comes only from that hinge angle. It does not bob, it does not add a pedestal, and nothing goes through the ground. `pastFlat` is how many degrees past flat the open pose uses. That degree is not a locked number. The on-screen label **Finish provisional** is about the gold color only.
+**Amendment, Bryce, 4:53 PM PT.** The faces settle a little past flat. The three outer tips stay on the field, and that props the central triangle up, the way a shallow trap sits. The lift comes only from that hinge angle. It does not bob, and nothing goes through the ground. On this camera, 24 degrees read as a tall tent and 12 degrees still read as a raised pyramid, so the yard uses 8 degrees. The center sits about a tenth of the way out to a point. `pastFlat` is not a locked number. The on-screen label **Finish provisional** is about the gold color only.
+
+The yard button is the drill control. It is not on the spell wheel. **Reset** and **Back** clear a stored charge and an in-progress catch. Switching Tactical, Low, or First person keeps that one charge. A missed bolt arms another attack and does not store a charge. After **Spent**, another load waits for Reset. `loadCell`, `startCellBolt`, `kickCell`, `cancelCell`, and `spendCell` are the calls a later item list can use. They do not know about a menu.
+
+**Item line, Bryce, 5:23 PM PT, and the choice he left at 5:24 PM PT.** Cells belong on one ordered item line with potions, opened from the character command board, not the spell wheel. He said to decide the grab. The yard now does this: a screen button stands in for the bubble and is labeled **Not tracked**. Popping a potion calls the existing mana potion (one dose, +60 mana, 20 second cooldown). Popping a cell loads it and starts the incoming bolt. It does not kick. Kick stays the separate button. The lineup in the page is potion, then cell, then potion. That length is not a locked capacity, and nothing is saved.
+
+A second tap uses the next item, not the same one again. If the mana potion is empty or cooling down, that pop does nothing and the line stays put. Reset and Back clear the cell. Back also drops the floating item. Changing view does not. The spell wheel does not pop the line.
+
+![Item line on the command board](handoff/item_board.png)
+
+![Potion bubble, not tracked](handoff/item_bubble.png)
 
 Those times are in `CELL_TUNABLE` and are not approved durations. The names fire, water, electric, and aether are the locked launch names. This is not pet capture. There is no inventory, ownership, HP gate, or boss rule. The rainbow siphon, floating diamond, and tether are not drawn.
 
