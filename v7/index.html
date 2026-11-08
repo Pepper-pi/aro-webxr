@@ -165,6 +165,12 @@ input[type=range]{accent-color:var(--pink);width:120px}
   #sumBody .steps,#sumBody .hint{display:none}
   #sumM .sh-h{margin-bottom:2px;font-size:15px}
   #sumM.on #again{position:fixed;left:12px;right:12px;bottom:8px;width:auto;z-index:40}
+  /* Short landscape was clipping Gel King and Open the map. The title can scroll,
+     and the race cards shrink so the four actions fit without a hidden overflow. */
+  #title{justify-content:flex-start;overflow-y:auto;touch-action:pan-y}
+  #title .race canvas{height:88px}
+  #title .logo{font-size:22px}
+  #title .sub{margin:2px 0 6px}
 }
 @media (max-height:519px) and (min-width:560px){
   #trainHud{left:8px;top:44px;width:232px;gap:3px}

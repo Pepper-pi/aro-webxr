@@ -167,6 +167,10 @@ On that paired run the landscape pond was the outlier: median 166.7 ms, mean 170
 
 The change caches the still-camera plum field and the outer hex seam, and it skips inner dashes the opaque ground already covers. The seam bitmap is used only when 90 or more hexes are on screen. Landscape pond shows about 136. Portrait shows about 55, and a raid seam is about 61, where a full-canvas blit was slower than stroking them. One frozen pond frame against the old painter differed in 16,903 of 329,160 pixels: 16,413 by one level, 480 by two, 10 by three. Aim, hitboxes, timers, damage, and the CELL rules were not retuned. Nothing here is phone-ready, and this is not a performance pass. Commit `c921c8f`. On that commit `node v7/regress.mjs` passed, including rewards, rewind, CELL, aim, cancel, and own-wall. Its yard finish sample was 45 frames / 3056 ms, worst 450 ms. The threshold was not edited. Touch emulation, not a phone, finished the day at 390×844 and at 844×390, summary and replay title both up.
 
+## Short landscape title
+
+At 844×390 the title block was 479px tall in a 390px frame. The page body does not scroll. Gel King sat partly past the bottom and Open the map was fully past it, so a touch could not land on it. On a short screen the race cards are shorter and the title itself can be dragged. After that, Begin the day, Training arena, Gel King bout, and Open the map all sit inside 844×390 and each took a touch. A drag reaches the one-line hint under them. Portrait 390×844 is taller than this rule and was already fully on screen. This does not change what those buttons do.
+
 ## Still open
 
 - No phone in hand. iOS Safari can cancel a touch on rotation at a different moment than this Chrome. The events here were synthesized touches, and they did arrive as `pointerType: "touch"`.
