@@ -57,9 +57,10 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 #ring.on{opacity:1}
 #ring,#ring *{pointer-events:none}
 #ring.on #ringHead,#ring.on #ringHead *,#ring.on #ringRail,#ring.on #ringRail *,#ring.on #ringHome,#ring.on #ringHome *{pointer-events:auto}
-#ringBack{position:absolute;z-index:0;pointer-events:none;clip-path:polygon(50% 0,100% 12%,100% 88%,50% 100%,0 88%,0 12%);background:linear-gradient(180deg,rgba(244,150,210,.78),rgba(104,40,158,.66))}
+#ringBack{position:absolute;z-index:0;pointer-events:none;clip-path:polygon(50% 0,100% 14%,100% 86%,50% 100%,0 86%,0 14%);background:linear-gradient(180deg,rgba(255,168,214,.48),rgba(128,48,176,.34))}
+#ringBack::before{content:"";position:absolute;inset:7%;pointer-events:none;clip-path:polygon(50% 0,100% 16%,100% 84%,50% 100%,0 84%,0 16%);box-shadow:inset 0 0 0 2px rgba(255,220,245,.45)}
 #ringFrame{position:absolute;z-index:1;display:flex;flex-direction:column;min-width:0;background:transparent;border:0}
-#ringHead{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 8px;flex:none;background:rgba(8,14,24,.78)}
+#ringHead{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 8px;flex:none;background:rgba(8,14,24,.42)}
 #ringTitle{flex:1;font-weight:900;font-size:16px}
 #sectionsBtn,#sectionsClose,#ringX{min-height:48px;padding:8px 12px;font-weight:900;font-size:16px;color:#f4fbff;background:rgba(16,27,42,.94);border:1px solid rgba(127,240,255,.8)}
 #sectionsBtn,#sectionsClose{display:none}
@@ -69,16 +70,21 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 #ringStage{flex:1;min-width:0;min-height:0;position:relative;pointer-events:none}
 #ringHome{height:100%;overflow:auto;padding:16px;background:rgba(16,27,42,.96);color:#f4fbff;font-size:16px;line-height:1.4}
 #ringHome p{margin:0 0 12px}
-#ring .hx{--pane:rgba(122,223,240,.95);--tint:rgba(122,223,240,.18);position:relative;display:block;width:100%;height:56px;min-height:56px;max-height:56px;padding:0;overflow:hidden;color:#f7fbff;clip-path:polygon(14px 0,calc(100% - 14px) 0,100% 50%,calc(100% - 14px) 100%,14px 100%,0 50%);background:var(--tint);box-shadow:inset 0 0 0 4px var(--pane),inset 0 -4px 0 rgba(0,0,0,.28)}
+#ring .hx{--pane:rgba(122,223,240,.95);--tint:rgba(122,223,240,.18);position:relative;display:block;width:100%;height:56px;min-height:56px;max-height:56px;padding:0;overflow:hidden;color:#f7fbff;clip-path:polygon(16px 0,calc(100% - 16px) 0,100% 50%,calc(100% - 16px) 100%,16px 100%,0 50%);background:var(--tint);box-shadow:inset 0 0 0 2px rgba(255,255,255,.35),inset 0 0 0 6px var(--pane),inset 0 -4px 0 rgba(0,0,0,.28)}
 #ring .hx:nth-child(3n+2){--pane:rgba(187,166,244,.92);--tint:rgba(187,166,244,.16)}
 #ring .hx:nth-child(3n){--pane:rgba(244,207,133,.92);--tint:rgba(244,207,133,.16)}
-#ring .hx:nth-child(even){margin-left:12px;width:calc(100% - 12px)}
+#ring .hx:nth-child(even){margin-left:18px;width:calc(100% - 18px)}
+#ring.tight .hx{clip-path:polygon(12px 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,12px 100%,0 50%)}
+#ring.tight .hx:nth-child(even){margin-left:8px;width:calc(100% - 8px)}
+#ring.tight .hx .hx-plane{padding:0 10px;gap:6px}
+#ring.tight .hx .hx-mark{width:30px;height:30px}
+#ring.tight .hx .hx-frost{width:26px;height:26px}
 #ring .hx .hx-plane{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;height:100%;padding:0 16px;pointer-events:none;background:transparent}
 #ring .hx .hx-mark{position:relative;width:40px;height:40px;display:grid;place-items:center;pointer-events:none;flex:none}
 #ring .hx .hx-glow{position:absolute;left:50%;top:50%;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:radial-gradient(circle,var(--pane) 0%,transparent 72%);opacity:.4;pointer-events:none}
 #ring .hx .hx-frost{position:relative;width:36px;height:36px;display:block}
 #ring .hx .hx-name{font-weight:800;font-size:16px;line-height:1.05;text-align:center;color:#f7fbff;text-shadow:0 1px 2px rgba(0,0,0,.85)}
-#ring .hx.sel{box-shadow:inset 0 0 0 3px #ffe7a2}
+#ring .hx.sel{box-shadow:inset 0 0 0 2px rgba(255,255,255,.45),inset 0 0 0 6px #ffe7a2,inset 0 -4px 0 rgba(0,0,0,.28)}
 #ring .hx:focus{outline:none}
 #ring .hx:focus-visible{outline:3px dashed #ffffff;outline-offset:3px}
 #ring .hx.soon .hx-name{color:#f7fbff}
@@ -116,12 +122,12 @@ body.out-combat #mapNav,body.out-combat #wirePanel,body.out-combat #charBtn{disp
 body:has(.modal.on) #coach,body:has(.modal.on) #mapNav,body:has(.modal.on) #act,body:has(.modal.on) #menuBtn,body:has(.modal.on) #obj,body:has(.modal.on) #wirePanel,body:has(.modal.on) #charBtn,body:has(.modal.on) #banner,body:has(.modal.on) #toasts,body.menu-open #coach,body.menu-open #mapNav,body.menu-open #wirePanel,body.menu-open #charBtn,body.menu-open #obj,body.menu-open #act{visibility:hidden!important;pointer-events:none!important}
 body.menu-open .modal.on:not(#sumM){z-index:31;background:transparent;pointer-events:none;padding:0}
 body.menu-open:has(#ring.drawer.rail-open) .modal.on:not(#sumM){z-index:19}
-body.menu-open .modal.on:not(#sumM) .sheet{pointer-events:auto;position:fixed;margin:0;max-width:none;width:auto;border-radius:2px;box-shadow:none;padding:10px 12px;background:rgba(12,18,32,.92);color:#f7fbff}
+body.menu-open .modal.on:not(#sumM) .sheet{pointer-events:auto;position:fixed;margin:0;max-width:none;width:auto;border-radius:0;box-shadow:inset 0 0 0 2px rgba(170,214,255,.55);padding:18px 22px 28px;background:rgba(10,22,48,.62);color:#f7fbff;clip-path:polygon(7% 0,93% 0,100% 12%,100% 88%,93% 100%,7% 100%,0 88%,0 12%)}
 body.menu-open .sheet .row div,body.menu-open .sheet .sh-h,body.menu-open .sheet .spell b{color:#f7fbff}
 body.menu-open .sheet .row small,body.menu-open .sheet .hint,body.menu-open .sheet .spell small{color:#d7ecf8;font-size:16px}
 body.menu-open .sheet .tg{background:rgba(255,255,255,.55)}
 body.menu-open .sheet .tg.on{background:#ff4fb4}
-body.menu-open #ringHome{background:rgba(12,18,32,.92);color:#f7fbff;box-shadow:none;padding:12px 14px}
+body.menu-open #ringHome{background:rgba(10,22,48,.62);color:#f7fbff;box-shadow:inset 0 0 0 2px rgba(170,214,255,.55);padding:18px 22px 28px;clip-path:polygon(7% 0,93% 0,100% 12%,100% 88%,93% 100%,7% 100%,0 88%,0 12%)}
 body.menu-open .sheet .row{flex-direction:column;align-items:stretch}
 body.menu-open .sheet .row div,body.menu-open .sheet .hint,body.menu-open #ringHome{font-size:16px}
 body.menu-open .sheet .chips{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -4236,7 +4242,7 @@ function layoutMenu() {
   const availW = innerWidth / z, availH = innerHeight / z;
   const land = availW > availH;
   const drawer = z >= 2 || availW < 104 + 12 + 224;
-  const top = (land ? 16 : 72) / z, side = 8 / z, bottom = (land ? 118 : 100) / z;
+  const top = (land ? 48 : 72) / z, side = 8 / z, bottom = (land ? 118 : 100) / z;
   const frame = $('#ringFrame');
   frame.style.left = side + 'px';
   frame.style.top = top + 'px';
@@ -4244,8 +4250,9 @@ function layoutMenu() {
   frame.style.height = Math.max(160, availH - top - bottom) + 'px';
   ring.classList.toggle('drawer', drawer);
   ring.classList.toggle('head-stack', drawer && !land);
+  ring.classList.toggle('tight', !land && !drawer);
   const rail = $('#ringRail');
-  rail.style.width = drawer ? '' : (land ? 228 : 158) + 'px';
+  rail.style.width = drawer ? '' : (land ? 300 : 168) + 'px';
   rail.style.maxHeight = drawer ? '' : '420px';
   const back = $('#ringBack');
   if (back) {
