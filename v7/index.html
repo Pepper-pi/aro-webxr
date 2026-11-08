@@ -1862,6 +1862,7 @@ function drawSuperHexes(c, h) {
   ctx.restore();
 }
 const MARK_LABELS = [];
+const MARK_CHEVRONS = [];
 function paintMarkLabel(name, col, X, Y, tw) {
   const box = { l: X - tw / 2 - 8, r: X + tw / 2 + 8, t: Y - 14, b: Y + 14 };
   ctx.fillStyle = 'rgba(10,6,16,.88)';
@@ -1879,14 +1880,25 @@ function markHitsRoute(box) {
   if (MAP.prev) for (const t of MAP.prev) { const [x, y] = proj(MAP.cam, t.x, t.y); if (near(x, y)) return true; }
   return false;
 }
+function markHitsAvatar(box) {
+  if (!MAP.avOut) return false;
+  const [px, py, f] = proj(MAP.cam, MAP.house.x, MAP.house.y);
+  const sc = f * MAP.cam.hz / 42;
+  const Hh = 58 * sc * (G.fieldAvatar === 'gold' ? 1.25 : 1.4);
+  return boxesOverlap(box, { l: px - 34 * sc, r: px + 34 * sc, t: py - Hh - 8, b: py + 14 });
+}
+function unionBox(a, b) {
+  return { l: Math.min(a.l, b.l), r: Math.max(a.r, b.r), t: Math.min(a.t, b.t), b: Math.max(a.b, b.b) };
+}
 function drawSuperHexNames(c, h) {
   MARK_LABELS.length = 0;
+  MARK_CHEVRONS.length = 0;
   if (window.__noHolo || G.scene !== 'map') return;
   ctx.save();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.font = '800 16px ui-rounded,system-ui';
-  const off = [];
+  const off = [], anchored = [];
   for (const s of SUPER_HEX) {
     const t = tileAt(s.q, s.r); if (!t) continue;
     const [X, Y] = proj(c, t.x, t.y);
@@ -1898,42 +1910,87 @@ function drawSuperHexNames(c, h) {
       const tw = ctx.measureText(s.name).width;
       if (dockLabelHitsUi(X, Y + 4, tw)) continue;
       MARK_LABELS.push(paintMarkLabel(s.name, s.col, X, Y, tw));
+      anchored.push({ name: s.name, q: s.q, r: s.r, sx: Math.round(X), sy: Math.round(Y) });
       continue;
     }
-    off.push({ s, X, Y, d: Math.hypot(t.x - h.x, t.y - h.y) });
+    off.push({ s, t, X, Y, d: Math.hypot(t.x - h.x, t.y - h.y) });
   }
-  off.sort((a, b) => a.d - b.d);
-  const seen = new Set(), picked = [];
+  off.sort((a, b) => a.d - b.d || a.s.q - b.s.q || a.s.r - b.s.r);
+  const seen = new Set(), picked = [], skipped = [];
   for (const o of off) {
-    if (seen.has(o.s.name)) continue;
+    const row = { name: o.s.name, q: o.s.q, r: o.s.r, d: Math.round(o.d * 1000) / 1000, sx: Math.round(o.X), sy: Math.round(o.Y) };
+    if (seen.has(o.s.name)) { skipped.push({ ...row, reason: 'duplicate name, farther than the chosen ' + o.s.name }); continue; }
     seen.add(o.s.name);
+    if (picked.length >= 2) { skipped.push({ ...row, reason: 'beyond the two nearest names' }); continue; }
     picked.push(o);
-    if (picked.length === 2) break;
   }
+  const M = 14, TIP = 9, BACK = 6, WING = 6.5, GAP = 4, STROKE = 2;
+  const pad = GAP + BACK + TIP + STROKE;
+  const drawn = [];
   for (const o of picked) {
+    const row = { name: o.s.name, q: o.s.q, r: o.s.r, d: Math.round(o.d * 1000) / 1000, sx: Math.round(o.X), sy: Math.round(o.Y) };
     const textW = ctx.measureText(o.s.name).width;
-    const tw = textW + 18;
-    const edgeX = o.X < 0 ? 18 + tw / 2 : o.X > W ? W - 18 - tw / 2 : clamp(o.X, 18 + tw / 2, W - 18 - tw / 2);
+    const overX = o.X < 0 ? -o.X : o.X > W ? o.X - W : 0;
+    const overY = o.Y < 0 ? -o.Y : o.Y > H ? o.Y - H : 0;
+    const side = overX >= overY && overX > 0 ? (o.X < 0 ? -1 : 1) : 0;
+    const vert = side === 0 && overY > 0 ? (o.Y < 0 ? -1 : 1) : 0;
+    const halfX = textW / 2 + 8, halfY = 14;
+    let cx = side < 0 ? M + pad + halfX : side > 0 ? W - M - pad - halfX : clamp(o.X, M + halfX, W - M - halfX);
     const spots = [];
-    for (let y = 72; y <= H - 150; y += 26) spots.push([edgeX, y]);
-    spots.sort((a, b) => Math.abs(a[1] - o.Y) - Math.abs(b[1] - o.Y));
+    if (vert) {
+      const cy = vert < 0 ? M + pad + halfY : H - M - pad - halfY;
+      const minX = M + halfX, maxX = W - M - halfX;
+      for (let x = minX; x <= maxX; x += 24) spots.push([x, cy]);
+      spots.sort((a, b) => Math.abs(a[0] - o.X) - Math.abs(b[0] - o.X));
+    } else {
+      const minY = M + halfY, maxY = H - M - halfY;
+      for (let y = minY; y <= maxY; y += 24) spots.push([cx, y]);
+      spots.sort((a, b) => Math.abs(a[1] - o.Y) - Math.abs(b[1] - o.Y));
+    }
+    const chevFor = (x, y, plate) => {
+      if (side) {
+        const tipX = (side < 0 ? plate.l : plate.r) + side * (GAP + BACK + TIP);
+        return { l: Math.min(tipX, tipX - side * (TIP + BACK)) - STROKE, r: Math.max(tipX, tipX - side * (TIP + BACK)) + STROKE, t: y - WING - STROKE, b: y + WING + STROKE };
+      }
+      const tipY = (vert < 0 ? plate.t : plate.b) + vert * (GAP + BACK + TIP);
+      return { l: x - WING - STROKE, r: x + WING + STROKE, t: Math.min(tipY, tipY - vert * (TIP + BACK)) - STROKE, b: Math.max(tipY, tipY - vert * (TIP + BACK)) + STROKE };
+    };
     const spot = spots.find(([x, y]) => {
-      if (y < 56 || y > H - 136) return false;
-      if (dockLabelHitsUi(x, y + 4, tw)) return false;
-      const box = { l: x - tw / 2 - 8, r: x + tw / 2 + 8, t: y - 14, b: y + 14 };
-      return !markHitsRoute(box) && !MARK_LABELS.some(m => boxesOverlap(box, m));
+      const plate = { l: x - halfX, r: x + halfX, t: y - halfY, b: y + halfY };
+      const all = unionBox(plate, chevFor(x, y, plate));
+      if (all.l < M || all.r > W - M || all.t < M || all.b > H - M) return false;
+      const gap = { l: all.l - 10, r: all.r + 10, t: all.t - 10, b: all.b + 10 };
+      return !uiBoxHits(gap) && !markHitsRoute(gap) && !markHitsAvatar(gap);
     });
-    if (!spot) continue;
-    const box = paintMarkLabel(o.s.name, o.s.col, spot[0], spot[1], textW);
-    const ang = Math.atan2(o.Y - spot[1], o.X - spot[0]);
-    const tip = 5;
+    if (!spot) { skipped.push({ ...row, reason: 'no safe edge' }); continue; }
+    const [x, y] = spot;
+    const plate = paintMarkLabel(o.s.name, o.s.col, x, y, textW);
+    const chev = chevFor(x, y, plate);
+    const ang = side ? (side > 0 ? 0 : Math.PI) : (vert > 0 ? Math.PI / 2 : -Math.PI / 2);
+    const ox = side ? (side < 0 ? plate.l : plate.r) + side * (GAP + BACK) : x;
+    const oy = side ? y : (vert < 0 ? plate.t : plate.b) + vert * (GAP + BACK);
+    MARK_CHEVRONS.push({ ox, oy, ang, col: o.s.col });
+    const all = unionBox(plate, chev);
+    MARK_LABELS.push(all);
+    drawn.push({ ...row, plate: roundBox(plate), chevron: roundBox(chev), group: roundBox(all) });
+  }
+  window.__markRank = { max: 2, view: { w: W, h: H }, avatar: { x: Math.round(h.x * 1000) / 1000, y: Math.round(h.y * 1000) / 1000 }, ranked: off.map(o => ({ name: o.s.name, q: o.s.q, r: o.s.r, d: Math.round(o.d * 1000) / 1000, sx: Math.round(o.X), sy: Math.round(o.Y) })), picked: picked.map(o => ({ name: o.s.name, q: o.s.q, r: o.s.r, d: Math.round(o.d * 1000) / 1000 })), anchored, drawn, skipped };
+  ctx.restore();
+}
+function roundBox(b) { return { l: Math.round(b.l), r: Math.round(b.r), t: Math.round(b.t), b: Math.round(b.b) }; }
+function drawMarkChevrons() {
+  if (!MARK_CHEVRONS.length || G.scene !== 'map') return;
+  ctx.save();
+  ctx.lineJoin = 'round';
+  for (const c of MARK_CHEVRONS) {
     ctx.save();
-    ctx.translate(spot[0] + Math.cos(ang) * (textW / 2 + 8), spot[1] + Math.sin(ang) * 8);
-    ctx.rotate(ang);
-    ctx.fillStyle = `rgba(${o.s.col},.95)`;
-    ctx.beginPath(); ctx.moveTo(tip, 0); ctx.lineTo(-5, 4.5); ctx.lineTo(-5, -4.5); ctx.closePath(); ctx.fill();
+    ctx.translate(c.ox, c.oy);
+    ctx.rotate(c.ang);
+    ctx.lineWidth = 2.5;
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = `rgb(${c.col})`;
+    ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(-6, 6.5); ctx.lineTo(-6, -6.5); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.restore();
-    MARK_LABELS.push(box);
   }
   ctx.restore();
 }
@@ -5843,8 +5900,7 @@ layoutMapCam = function () {
   }
 }; }
 function boxesOverlap(a, b) { return !(a.r < b.l || b.r < a.l || a.b < b.t || b.b < a.t); }
-function dockLabelHitsUi(x, y, tw) {
-  const box = { l: x - tw * 0.5 - 8, r: x + tw * 0.5 + 8, t: y - 22, b: y + 28 };
+function uiBoxHits(box) {
   for (const id of ['coach', 'mapNav', 'obj', 'charBtn', 'wirePanel', 'act', 'menuBtn']) {
     const el = document.getElementById(id);
     if (!el) continue;
@@ -5869,6 +5925,9 @@ function dockLabelHitsUi(x, y, tw) {
   for (const m of MARK_LABELS) if (boxesOverlap(box, m)) return true;
   return false;
 }
+function dockLabelHitsUi(x, y, tw) {
+  return uiBoxHits({ l: x - tw * 0.5 - 8, r: x + tw * 0.5 + 8, t: y - 22, b: y + 28 });
+}
 function drawDockHud() {
   if (!dockHud || G.scene !== 'map') return;
   ctx.save();
@@ -5884,12 +5943,12 @@ function drawDockHud() {
     const near = Math.hypot(dockHud.x - px, dockHud.y - py) < Math.max(120, Hh * 1.3);
     if (near) {
       const gap = Math.max(96, Hh * 0.85);
-      const avatar = { l: px - 34 * sc, r: px + 34 * sc, t: py - Hh - 8, b: py + 14 };
+      const avatar = { l: px - 50 * sc, r: px + 50 * sc, t: py - Hh - 16, b: py + 20 };
       const spots = [];
       for (const side of [1, -1]) for (const extra of [0, 48, 96]) for (const ly of [py - 8, py - Hh * 0.45, py + 30, 72]) spots.push([px + side * (gap + extra), ly]);
       const fits = (cx, ly) => {
         if (cx - tw * 0.5 < 8 || cx + tw * 0.5 > W - 8 || ly < 36 || ly > H - 40) return false;
-        const box = { l: cx - tw * 0.5 - 8, r: cx + tw * 0.5 + 8, t: ly - 22, b: ly + 28 };
+        const box = { l: cx - tw * 0.5 - 8, r: cx + tw * 0.5 + 8, t: ly - 22, b: ly + 36 };
         if (boxesOverlap(box, avatar)) return false;
         return !dockLabelHitsUi(cx, ly, tw);
       };
@@ -6022,7 +6081,7 @@ function drawFpFrame() {
   ctx.stroke();
   ctx.restore();
 }
-{ const _vignette = vignette; vignette = function () { _vignette(); if (G.scene === 'arena') { drawFpFrame(); drawAimLayer(); drawDisc(); drawForearm(); drawHoldDemo(); if (typeof drawCellRig === 'function') drawCellRig(); if (typeof drawCellAim === 'function') drawCellAim(); } if (G.scene === 'map') drawDockHud(); }; }
+{ const _vignette = vignette; vignette = function () { _vignette(); if (G.scene === 'arena') { drawFpFrame(); drawAimLayer(); drawDisc(); drawForearm(); drawHoldDemo(); if (typeof drawCellRig === 'function') drawCellRig(); if (typeof drawCellAim === 'function') drawCellAim(); } if (G.scene === 'map') { drawMarkChevrons(); drawDockHud(); } }; }
 { const _obj = arenaObjective; arenaObjective = function () { if (!TRAIN.on) return _obj(); const t = TRAIN.king ? kingLine() : drillLine(); if (t !== AR.objT) { AR.objT = t; setObj(t); } }; }
 { const _setClass = setClass; setClass = function (c) { if (TRAIN.on && c !== GUN.cls) interruptCharge('Charge cancelled'); const r = _setClass(c); syncClassBtn(); const help = document.getElementById('trainHelp'); if (help && TRAIN.on) help.textContent = trainHelpText(); return r; }; }
 { const _manaUI = manaUI; manaUI = function () {
