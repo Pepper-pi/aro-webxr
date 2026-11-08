@@ -52,35 +52,69 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 @keyframes hexpulse{0%,100%{filter:drop-shadow(0 0 6px rgba(255,79,180,.55))}50%{filter:drop-shadow(0 0 16px rgba(255,79,180,.95))}}
 .pointer{animation:ptr 1.1s ease-in-out infinite}
 @keyframes ptr{0%,100%{filter:drop-shadow(0 0 6px rgba(255,201,77,.6))}50%{filter:drop-shadow(0 0 22px rgba(255,201,77,1))}}
-/* ---------- menu ring (honey-galaxy ring of hex tiles) ---------- */
-#ring{position:fixed;inset:0;z-index:20;background:radial-gradient(circle at 30% 70%,rgba(255,170,60,.12),rgba(8,4,12,.22) 70%);opacity:0;pointer-events:none;transition:opacity .25s}
-#ring.on{opacity:1;pointer-events:auto}
-#ring .hx{position:absolute;width:84px;height:94px;margin:-47px 0 0 -42px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
-background:linear-gradient(160deg,rgba(255,201,77,.95),rgba(255,79,180,.9));display:grid;place-items:center;transform:scale(.3);transition:transform .3s cubic-bezier(.3,1.6,.5,1)}
-#ring.on .hx{transform:scale(1)}
-#ring .hx>div{position:absolute;inset:3px;clip-path:inherit;background:radial-gradient(circle at 50% 30%,rgba(74,40,90,.92),rgba(16,10,28,.94));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-weight:900;font-size:11px;padding:10px 12px;text-align:center;line-height:1.05}
-#ring .hx img{width:30px;height:30px;image-rendering:pixelated}
-#ring .hx.outer>div{background:radial-gradient(circle at 50% 30%,#2c1f3a,#140c1c)}
-#ring .hx.glow{animation:ptr 1.1s infinite}
-#ring .hx:focus-visible{outline:2px solid #79E4EF;outline-offset:2px}
+/* ---------- one left hex rail and the section beside it ---------- */
+#ring{position:fixed;inset:0;z-index:30;background:transparent;opacity:0;pointer-events:none}
+#ring.on{opacity:1}
+#ring,#ring *{pointer-events:none}
+#ring.on #ringHead,#ring.on #ringHead *,#ring.on #ringRail,#ring.on #ringRail *,#ring.on #ringHome,#ring.on #ringHome *{pointer-events:auto}
+#ringFrame{position:absolute;display:flex;flex-direction:column;min-width:0;background:rgba(8,12,22,.55);border:1px solid rgba(127,240,255,.55);box-shadow:inset 0 0 0 1px rgba(255,214,130,.28)}
+#ringHead{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 8px;flex:none}
+#ringTitle{flex:1;font-weight:900;font-size:16px}
+#sectionsBtn,#sectionsClose,#ringX{min-height:48px;padding:8px 12px;font-weight:900;font-size:16px;color:#f4fbff;background:rgba(16,27,42,.94);border:1px solid rgba(127,240,255,.8)}
+#sectionsBtn,#sectionsClose{display:none}
+#ringBody{flex:1;min-height:0;display:flex;gap:12px}
+#ringRail{flex:none;min-height:0;overflow:auto;overscroll-behavior:contain;display:flex;flex-direction:column;scrollbar-width:thin}
+#ringTabs{display:flex;flex-direction:column;gap:8px}
+#ringStage{flex:1;min-width:0;min-height:0;position:relative;pointer-events:none}
+#ringHome{height:100%;overflow:auto;padding:16px;background:rgba(16,27,42,.96);color:#f4fbff;font-size:16px;line-height:1.4}
+#ringHome p{margin:0 0 12px}
+#ring .hx{--pane:rgba(122,223,240,.85);position:relative;display:block;width:100%;min-height:72px;padding:0;color:#f4fbff;clip-path:polygon(12px 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,12px 100%,0 50%);background:linear-gradient(#7adff0,#7adff0 calc(100% - 2px),rgba(6,16,24,.9) 100%)}
+#ring .hx:nth-child(3n+2){--pane:rgba(187,166,244,.85);background:linear-gradient(#cbbcf8,#cbbcf8 calc(100% - 2px),rgba(16,10,28,.9) 100%)}
+#ring .hx:nth-child(3n){--pane:rgba(244,207,133,.8);background:linear-gradient(#f4cf85,#f4cf85 calc(100% - 2px),rgba(28,18,8,.9) 100%)}
+#ring .hx:nth-child(even){margin-left:4px;width:calc(100% - 4px)}
+#ring .hx .hx-plane{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:68px;margin:2px;padding:8px 16px;pointer-events:none;background:rgba(100,221,232,.24)}
+#ring .hx:nth-child(3n+2) .hx-plane{background:rgba(187,166,244,.24)}
+#ring .hx:nth-child(3n) .hx-plane{background:rgba(244,207,133,.22)}
+#ring .hx .hx-mark{position:relative;width:26px;height:26px;display:grid;place-items:center;pointer-events:none}
+#ring .hx .hx-glow{position:absolute;left:50%;top:46%;width:36px;height:36px;margin:-18px 0 0 -18px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.92) 0%,var(--pane) 34%,transparent 72%);pointer-events:none}
+#ring .hx .hx-frost{position:relative;width:18px;height:18px;display:block}
+#ring .hx .hx-name,#ring .hx .hx-why{font-weight:800;font-size:16px;line-height:1.15;text-align:center}
+#ring .hx .hx-why{font-weight:700}
+#ring .hx.sel{background:linear-gradient(#ffe7a2,#7adff0 calc(100% - 2px),rgba(6,16,24,.9) 100%)}
+#ring .hx.sel .hx-plane{box-shadow:inset 0 0 0 2px rgba(255,231,162,.95)}
+#ring .hx:focus{outline:none}
+#ring .hx:focus-visible{outline:3px dashed #ffffff;outline-offset:3px}
+#ring .hx.soon{filter:saturate(.65)}
+#ring .hx.glow{outline:3px solid rgba(255,201,77,.9);outline-offset:2px}
+#ring.drawer #ringBody{display:block;position:relative}
+#ring.drawer #ringRail{display:none;position:absolute;z-index:2;left:0;top:0;bottom:0;width:min(176px,calc(100% - 24px));padding:8px;background:rgba(8,14,24,.96);border:1px solid rgba(127,240,255,.7);overflow:auto}
+#ring.drawer.rail-open #ringRail{display:flex}
+#ring.drawer .hx{min-height:48px}
+#ring.drawer .hx .hx-plane{flex-direction:row;justify-content:flex-start;gap:8px;min-height:44px;padding:6px 18px}
+#ring.drawer #sectionsBtn{display:inline-flex;align-items:center}
+#ring.drawer.rail-open #sectionsClose{display:block;margin-bottom:8px}
+#ring.drawer.rail-open #ringStage{pointer-events:none}
 #act[disabled]{opacity:.45}
 @media (prefers-reduced-motion: reduce){
-  #ring,#ring .hx{transition:none}
-  #ring .hx.glow{animation:none}
+  #ring .hx{transition:none}
+  #ring .hx.glow{outline-style:solid}
 }
-#ring .hx.soon{opacity:.4}
 .focus-nav{display:flex;gap:8px;margin-top:10px}
-.focus-nav button{flex:1;padding:10px 8px;border-radius:14px;font-weight:900;background:rgba(255,255,255,.08);border:1px solid rgba(255,214,130,.55);color:#fff6d8}
+.focus-nav button{flex:1;min-height:48px;padding:12px 8px;font-weight:900;font-size:16px;background:rgba(16,27,42,.94);border:1px solid rgba(255,214,130,.7);color:#fff6d8}
 #ringClose{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
-#ring.compact .hx{width:58px;height:66px;margin:-33px 0 0 -29px}
-#ring.compact .hx>div{font-size:9px;gap:1px;padding:2px 4px}
-#ring.compact .hx img{width:20px;height:20px}
 /* ---------- sheets / modals ---------- */
 .modal{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:8px;background:rgba(8,4,12,.72);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .25s}
 .modal.on{opacity:1;visibility:visible;pointer-events:auto}
 .sheet{width:min(100%,460px);max-height:var(--sheet-max,calc(100dvh - 16px));overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:linear-gradient(180deg,rgba(54,24,62,.98),rgba(18,8,24,.98));border:1px solid rgba(255,214,160,.55);border-radius:18px;padding:14px 16px calc(18px + var(--sab));box-shadow:0 18px 50px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.16);backdrop-filter:blur(8px)}
 body.out-combat #mapNav,body.out-combat #wirePanel,body.out-combat #charBtn{display:none!important}
-body:has(.modal.on) #ring,body:has(.modal.on) #coach,body:has(.modal.on) #mapNav,body:has(.modal.on) #act,body:has(.modal.on) #menuBtn,body:has(.modal.on) #obj,body:has(.modal.on) #wirePanel,body:has(.modal.on) #charBtn,body:has(.modal.on) #banner,body.menu-open #coach,body.menu-open #mapNav,body.menu-open #wirePanel,body.menu-open #charBtn,body.menu-open #obj,body.menu-open #toasts{visibility:hidden!important;pointer-events:none!important}
+body:has(.modal.on) #coach,body:has(.modal.on) #mapNav,body:has(.modal.on) #act,body:has(.modal.on) #menuBtn,body:has(.modal.on) #obj,body:has(.modal.on) #wirePanel,body:has(.modal.on) #charBtn,body:has(.modal.on) #banner,body:has(.modal.on) #toasts,body.menu-open #coach,body.menu-open #mapNav,body.menu-open #wirePanel,body.menu-open #charBtn,body.menu-open #obj{visibility:hidden!important;pointer-events:none!important}
+body.menu-open .modal.on:not(#sumM){z-index:19;background:transparent;pointer-events:none;padding:0}
+body.menu-open .modal.on:not(#sumM) .sheet{pointer-events:auto;position:fixed;margin:0;max-width:none;width:auto;border-radius:0;background:rgba(16,27,42,.97);color:#f4fbff}
+body.menu-open .sheet .row{flex-direction:column;align-items:stretch}
+body.menu-open .sheet .row div,body.menu-open .sheet .hint,body.menu-open #ringHome{font-size:16px}
+body.menu-open .sheet .chips{grid-template-columns:repeat(2,minmax(0,1fr))}
+body.menu-open .sheet input[type=range]{width:100%}
+body.menu-open #ballC{height:96px}
 body.menu-open #cv{pointer-events:none}
 #ringPlate{position:absolute;z-index:0;border-radius:26px;pointer-events:none;background:linear-gradient(180deg,rgba(36,16,48,.94),rgba(12,6,18,.96));border:1px solid rgba(255,220,170,.72);box-shadow:0 0 0 1px rgba(255,79,180,.35),inset 0 0 0 7px rgba(255,255,255,.05),inset 0 1px 0 rgba(255,255,255,.22),0 18px 40px rgba(0,0,0,.5)}
 #ring .hx{z-index:1}
@@ -469,9 +503,28 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
   </div>
   <div id="cmdList"></div>
   <div class="hint" id="cmdNote"></div>
+  <div class="focus-nav"><button type="button" data-back>Back</button><button type="button" data-home>Home</button></div>
 </div></div>
 <div id="ring" role="dialog" aria-modal="true" aria-label="Menu" aria-hidden="true">
-  <div id="ringPlate"></div>
+  <div id="ringFrame">
+    <div id="ringHead">
+      <button type="button" id="sectionsBtn">Sections</button>
+      <div id="ringTitle">Menu</div>
+      <button type="button" id="ringX">Close</button>
+    </div>
+    <div id="ringBody">
+      <div id="ringRail">
+        <button type="button" id="sectionsClose">Close sections</button>
+        <div id="ringTabs"></div>
+      </div>
+      <div id="ringStage">
+        <div id="ringHome">
+          <p>Choose a section. Opening one does not use an item.</p>
+          <p id="ringNote"></p>
+        </div>
+      </div>
+    </div>
+  </div>
   <button id="ringClose">tap anywhere to close</button>
 </div>
 
@@ -508,11 +561,13 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
   <div class="sh-h"><div><small>Spellbook</small>Hand-cast powers</div><button class="x" data-close>×</button></div>
   <div id="spellList"></div>
   <div class="hint"><b>Tap</b> = quick cast at the nearest live mob · <b>tap a mob</b> = focused (+25%) · <b>hold</b> = charge the cube in your hand (half charge ≈ half power, full = 150%) · <b>swipe</b>, arrows or ‹ › = step hexes out of red zones and off red bullet lines · hold still to tighten your aim circle.</div>
+  <div class="focus-nav"><button type="button" data-back>Back</button><button type="button" data-home>Home</button></div>
 </div></div>
 
 <div class="modal" id="logM"><div class="sheet">
   <div class="sh-h"><div><small>Collection</small>Day log</div><button class="x" data-close>×</button></div>
   <ul class="steps" id="logList"></ul>
+  <div class="focus-nav"><button type="button" data-back>Back</button><button type="button" data-home>Home</button></div>
 </div></div>
 
 <div class="modal" id="fishM"><div class="sheet">
@@ -4034,13 +4089,46 @@ function fitSheet() {
   const z = parseFloat(getComputedStyle(document.documentElement).zoom);
   const zoom = z > 0 ? z : 1;
   document.documentElement.style.setProperty('--sheet-max', Math.max(120, vh / zoom - 12) + 'px');
+  if (typeof layoutMenu === 'function') layoutMenu();
+}
+const MENU_MODAL = { bag: 'bagM', craft: 'craftM', fish: 'fishM', skills: 'skillM', log: 'logM', set: 'setM', cmd: 'cmdM' };
+let menuHist = [];
+function menuZoom() { const z = parseFloat(getComputedStyle(document.documentElement).zoom); return z > 0 ? z : 1; }
+function layoutMenu() {
+  const ring = $('#ring'); if (!ring || !ring.classList.contains('on')) return;
+  const z = menuZoom();
+  const availW = innerWidth / z, availH = innerHeight / z;
+  const land = availW > availH;
+  const drawer = z >= 2 || availW < 104 + 12 + 224;
+  const top = (land ? 16 : 72) / z, side = 12 / z, bottom = (land ? 118 : 100) / z;
+  const frame = $('#ringFrame');
+  frame.style.left = side + 'px';
+  frame.style.top = top + 'px';
+  frame.style.width = Math.max(160, availW - side * 2) + 'px';
+  frame.style.height = Math.max(160, availH - top - bottom) + 'px';
+  ring.classList.toggle('drawer', drawer);
+  const rail = $('#ringRail');
+  rail.style.width = drawer ? '' : (land ? 148 : 116) + 'px';
+  const stage = $('#ringStage').getBoundingClientRect();
+  document.querySelectorAll('.modal.on').forEach(m => {
+    if (m.id === 'sumM') return;
+    const sheet = m.querySelector('.sheet'); if (!sheet) return;
+    sheet.style.left = (stage.left / z) + 'px';
+    sheet.style.top = (stage.top / z) + 'px';
+    sheet.style.width = Math.max(120, stage.width / z) + 'px';
+    sheet.style.height = Math.max(120, stage.height / z) + 'px';
+    sheet.style.maxHeight = Math.max(120, stage.height / z) + 'px';
+  });
 }
 function openModal(id) {
-  closeRing(); fitSheet();
+  const keep = $('#ring').classList.contains('on') && Object.values(MENU_MODAL).includes(id);
+  if (!keep) closeRing();
+  fitSheet();
   document.body.classList.add('sheet-open');
   $('#' + id).classList.add('on');
   const sheet = document.querySelector('#' + id + ' .sheet'); if (sheet) sheet.scrollTop = 0;
-  const back = document.querySelector('#' + id + ' [data-back]'); if (back) back.focus();
+  if (keep) { $('#ringHome').style.visibility = 'hidden'; $('#ringTitle').textContent = document.querySelector('#ring .hx.sel .hx-name') ? document.querySelector('#ring .hx.sel .hx-name').textContent : 'Menu'; layoutMenu(); }
+  const back = document.querySelector('#' + id + ' [data-back]'); if (back) back.focus({ preventScroll: true });
   SFX.tap();
 }
 function closeModal(id) { $('#' + id).classList.remove('on'); if (!anyModal()) document.body.classList.remove('sheet-open'); onModalClosed(id); }
@@ -4048,7 +4136,7 @@ if (window.visualViewport) window.visualViewport.addEventListener('resize', fitS
 addEventListener('resize', fitSheet);
 const anyModal = () => $$('.modal.on').length > 0;
 function onModalClosed(id) { if (id === 'craftM') { CR.brewing = false; CR.k = 0; } if (id === 'fishM') FI.charging = false; if (id === 'cmdM' && typeof disc3dStop === 'function') disc3dStop(); }
-$$('.modal').forEach(m => { m.addEventListener('click', e => { if (e.target === m && m.id !== 'sumM') closeModal(m.id); }); m.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(m.id))); });
+$$('.modal').forEach(m => { m.addEventListener('click', e => { if (e.target === m && m.id !== 'sumM') { closeModal(m.id); if ($('#ring').classList.contains('on') && !anyModal()) showMenuRoot(); } }); m.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => { closeModal(m.id); if ($('#ring').classList.contains('on') && !anyModal()) showMenuRoot(); })); });
 
 const RING = [
   { k: 'bag', n: 'Bag', i: 'bag', a: -150, r: 1, go: () => { renderBag(); openModal('bagM'); } },
@@ -4059,50 +4147,89 @@ const RING = [
   { k: 'set', n: 'Settings', i: 'gear', a: -100, r: 1.35, go: () => { renderSettings(); openModal('setM'); } },
   { k: 'cmd', n: 'Command', i: 'book', a: 200, r: 1.35, go: () => openCommand() },
 ];
+const FROST = {
+  bag: 'M10 5h4v3h3v12H7V8h3z',
+  craft: 'M12 2.2l1.7 6.4 6.4 1.7-6.4 1.7L12 18.4l-1.7-6.4L3.9 10.3l6.4-1.7z',
+  fish: 'M4 12c0-3.2 4.2-5.4 9-4.4 1 .2 2 .7 2.8 1.3L21 6v12l-5.2-2.7c-.8.5-1.8.9-2.8 1.1C8.2 17.4 4 15.2 4 12z',
+  skills: 'M6 4h13v16H6z',
+  log: 'M12 2l2.6 6.4 6.8.5-5.2 4.3 1.7 6.6L12 16.4 6.1 19.8l1.7-6.6L2.6 8.9l6.8-.5z',
+  set: 'M12 3.6a8.4 8.4 0 1 0 .1 0zM12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8z',
+  cmd: 'M5 6h14v2.2H5zM5 10.9h9v2.2H5zM5 15.8h14v2.2H5z',
+};
+function frostMark(k) {
+  return `<span class="hx-mark"><i class="hx-glow"></i><svg class="hx-frost" viewBox="0 0 24 24" aria-hidden="true"><path fill="#f4fbff" fill-rule="evenodd" d="${FROST[k]}"/></svg></span>`;
+}
 function buildRing() {
-  const ring = $('#ring');
-  for (const t of RING) { const b = document.createElement('button'); b.className = 'hx' + (t.r > 1.5 ? ' outer' : ''); b.dataset.k = t.k; b.tabIndex = -1; b.innerHTML = `<div><img src="${ICON_URL[t.i]}" alt="">${t.n}</div>`; b.onclick = e => { e.stopPropagation(); closeRing(); t.go(); }; ring.appendChild(b); }
-  ring.addEventListener('click', closeRing);
+  const tabs = $('#ringTabs');
+  for (const t of RING) {
+    const b = document.createElement('button');
+    b.className = 'hx'; b.type = 'button'; b.dataset.k = t.k; b.tabIndex = -1;
+    b.innerHTML = `<span class="hx-plane">${frostMark(t.k)}<span class="hx-name">${t.n}</span></span>`;
+    b.onclick = e => { e.stopPropagation(); chooseSection(t); };
+    tabs.appendChild(b);
+  }
+  $('#sectionsBtn').onclick = () => { $('#ring').classList.add('rail-open'); const s = $('#sectionsClose'); if (s) s.focus(); };
+  $('#sectionsClose').onclick = () => { $('#ring').classList.remove('rail-open'); $('#sectionsBtn').focus(); };
+  $('#ringX').onclick = () => { closeRing(); $('#menuBtn').focus(); };
+}
+function chooseSection(t) {
+  $$('#ring .hx').forEach(b => { b.classList.toggle('sel', b.dataset.k === t.k); b.setAttribute('aria-current', b.dataset.k === t.k ? 'true' : 'false'); });
+  $('#ring').classList.remove('rail-open');
+  if (t.k === 'fish' && !fishReady()) {
+    for (const id of Object.values(MENU_MODAL)) if ($('#' + id).classList.contains('on')) closeModal(id);
+    $('#ringNote').textContent = 'Fishing opens at the pond after the Cook Nook.';
+    $('#ringHome').style.visibility = 'visible';
+    $('#ringTitle').textContent = 'Fishing';
+    t.go();
+    return;
+  }
+  const prev = menuHist[menuHist.length - 1];
+  if (prev !== t.k) menuHist.push(t.k);
+  for (const id of Object.values(MENU_MODAL)) if ($('#' + id).classList.contains('on')) closeModal(id);
+  t.go();
+  const tab = document.querySelector('#ring .hx.sel');
+  if (tab) { const rail = $('#ringRail'); const top = tab.offsetTop, bot = top + tab.offsetHeight; if (top < rail.scrollTop) rail.scrollTop = top; else if (bot > rail.scrollTop + rail.clientHeight) rail.scrollTop = bot - rail.clientHeight; }
+}
+function showMenuRoot() {
+  menuHist = [];
+  for (const id of Object.values(MENU_MODAL)) if ($('#' + id).classList.contains('on')) closeModal(id);
+  $$('#ring .hx').forEach(b => { b.classList.remove('sel'); b.setAttribute('aria-current', 'false'); });
+  $('#ring').classList.remove('rail-open');
+  $('#ringHome').style.visibility = 'visible';
+  $('#ringNote').textContent = '';
+  $('#ringTitle').textContent = 'Menu';
+  const visible = [...document.querySelectorAll('#ring .hx')].find(b => b.offsetParent);
+  const next = visible || $('#sectionsBtn');
+  if (next && next.offsetParent) next.focus(); else $('#ringX').focus();
 }
 function openRing() {
   if ($('#ring').classList.contains('on')) { closeRing(); return; }
   if (G.scene === 'arena' || anyModal()) return;
   SFX.tap(); buzz(8);
-  const compact = Math.min(W, H) < 560;
-  $('#ring').classList.toggle('compact', compact);
-  const tiles = [...document.querySelectorAll('#ring .hx')];
-  const tw = compact ? 64 : 84, th = compact ? 72 : 94, gap = 10;
-  const cols = H > W ? 4 : Math.min(tiles.length, 4);
-  const rows = Math.ceil(tiles.length / cols);
-  const gridW = Math.min(cols, tiles.length) * (tw + gap) - gap;
-  const x0 = H > W ? Math.max(16, (W - gridW) / 2) : 168;
-  const y0 = H > W ? 108 : 18;
-  tiles.forEach((b, i) => {
-    const c = i % cols, row = Math.floor(i / cols);
-    b.style.left = (x0 + c * (tw + gap) + tw / 2) + 'px';
-    b.style.top = (y0 + row * (th + gap) + th / 2) + 'px';
+  $$('#ring .hx').forEach(b => {
     const t = RING.find(x => x.k === b.dataset.k);
     b.classList.toggle('glow', G.step === 5 && t.k === 'craft');
-    b.classList.toggle('soon', t.k === 'fish' && !fishReady());
+    const later = t.k === 'fish' && !fishReady();
+    b.classList.toggle('soon', later);
+    let why = b.querySelector('.hx-why');
+    if (later) {
+      if (!why) { why = document.createElement('span'); why.className = 'hx-why'; b.querySelector('.hx-plane').appendChild(why); }
+      why.textContent = 'Opens at the pond after the Cook Nook.';
+      b.title = 'Fishing opens at the pond after the Cook Nook.';
+    } else { if (why) why.remove(); b.removeAttribute('title'); }
   });
-  const plate = document.getElementById('ringPlate');
-  if (plate) {
-    const pad = 14;
-    plate.style.left = (x0 - pad) + 'px';
-    plate.style.top = (y0 - pad) + 'px';
-    plate.style.width = (gridW + pad * 2) + 'px';
-    plate.style.height = (rows * (th + gap) - gap + pad * 2) + 'px';
-  }
   const ring = $('#ring');
   ring.classList.add('on'); ring.setAttribute('aria-hidden', 'false'); document.body.classList.add('menu-open');
   $$('#ring .hx').forEach(b => { b.tabIndex = 0; });
+  showMenuRoot();
+  layoutMenu();
   const lab = $('#menuBtn b'); if (lab) lab.textContent = 'Close';
   const act = $('#act'); if (act && !act.classList.contains('hide')) { act.disabled = true; act.setAttribute('aria-disabled', 'true'); }
   $('#menuBtn').classList.remove('pointer');
-  const first = $('#ring .hx'); if (first) first.focus();
 }
 function closeRing() {
   const r = $('#ring'); if (!r) return;
+  showMenuRoot();
   r.classList.remove('on'); r.setAttribute('aria-hidden', 'true'); document.body.classList.remove('menu-open');
   $$('#ring .hx').forEach(b => { b.tabIndex = -1; });
   const lab = $('#menuBtn b'); if (lab) lab.textContent = 'Menu';
@@ -4240,9 +4367,27 @@ $('#fishBtn').onclick = () => afterFish();
 $('#fishAssist').onclick = () => fishAssist();
 $('#act').addEventListener('click', () => { closeRing(); audioInit(); SFX.tap(); const f = actFn; f && f(); });
 $('#menuBtn').addEventListener('click', openRing);
-function backToMenu(m) { if (!m || m.id === 'sumM') return; closeModal(m.id); if (G.scene === 'map' && !anyModal()) openRing(); }
+function backToMenu(m) {
+  if (!m || m.id === 'sumM') return;
+  const fromMenu = $('#ring').classList.contains('on');
+  closeModal(m.id);
+  if (G.scene !== 'map' || anyModal()) return;
+  if (!fromMenu) { openRing(); return; }
+  menuHist.pop();
+  const prev = menuHist.pop();
+  const t = prev && RING.find(x => x.k === prev);
+  if (t) chooseSection(t); else showMenuRoot();
+}
+function homeMenu(m) {
+  if (!m || m.id === 'sumM') return;
+  const fromMenu = $('#ring').classList.contains('on');
+  closeModal(m.id);
+  if (G.scene !== 'map' || anyModal()) return;
+  if (!fromMenu) { openRing(); return; }
+  showMenuRoot();
+}
 document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => backToMenu(b.closest('.modal'))));
-document.querySelectorAll('[data-home]').forEach(b => b.addEventListener('click', () => backToMenu(b.closest('.modal'))));
+document.querySelectorAll('[data-home]').forEach(b => b.addEventListener('click', () => homeMenu(b.closest('.modal'))));
 document.addEventListener('keydown', e => {
   const ring = document.getElementById('ring');
   const open = [...document.querySelectorAll('.modal.on')].filter(m => m.id !== 'sumM').pop();
@@ -5943,12 +6088,12 @@ function drawDockHud() {
     const near = Math.hypot(dockHud.x - px, dockHud.y - py) < Math.max(120, Hh * 1.3);
     if (near) {
       const gap = Math.max(96, Hh * 0.85);
-      const avatar = { l: px - 50 * sc, r: px + 50 * sc, t: py - Hh - 16, b: py + 20 };
+      const avatar = { l: px - 34 * sc, r: px + 34 * sc, t: py - Hh - 8, b: py + 14 };
       const spots = [];
       for (const side of [1, -1]) for (const extra of [0, 48, 96]) for (const ly of [py - 8, py - Hh * 0.45, py + 30, 72]) spots.push([px + side * (gap + extra), ly]);
       const fits = (cx, ly) => {
         if (cx - tw * 0.5 < 8 || cx + tw * 0.5 > W - 8 || ly < 36 || ly > H - 40) return false;
-        const box = { l: cx - tw * 0.5 - 8, r: cx + tw * 0.5 + 8, t: ly - 22, b: ly + 36 };
+        const box = { l: cx - tw * 0.5 - 8, r: cx + tw * 0.5 + 8, t: ly - 22, b: ly + 28 };
         if (boxesOverlap(box, avatar)) return false;
         return !dockLabelHitsUi(cx, ly, tw);
       };
@@ -6306,7 +6451,7 @@ function renderCommand() {
   });
   drawLookPreview();
 }
-function openCommand() { if (typeof closeRing === 'function') closeRing(); renderCommand(); openModal('cmdM'); if (typeof disc3dStart === 'function') disc3dStart(); }
+function openCommand() { renderCommand(); openModal('cmdM'); if (typeof disc3dStart === 'function') disc3dStart(); }
 function syncMapNav() {
   const el = document.getElementById('mapNav');
   if (el) el.classList.toggle('hide', G.scene !== 'map');
