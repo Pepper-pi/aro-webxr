@@ -171,6 +171,10 @@ The change caches the still-camera plum field and the outer hex seam, and it ski
 
 A still map raid was filling the screen and stroking the cyan lattice on every frame, under the floor plates. That lattice does not move with time, so it is now a bitmap until the camera changes. The training yard still paints its own stone and does not use this bitmap. One paired tactical landscape sample moved from a 100 ms median to 66.7 ms and back to 99.9 ms when the old stroke returned. The raw gaps for tactical and low, both orientations, are in the evidence for this commit. This is not a phone result and not an overall performance pass. The pond cache is unchanged.
 
+## Original Gold
+
+The title has an Original Gold button under the hint. It loads `v7/assets/Original_Gold_Likeness.glb` and checks sha256 `54b1f5c7bef848ab2ae364655296214e693e8f3aa196728d071a26413b5fd5aa` before drawing. The file is 118,790 triangles, 20 parts, 6 materials, no skeleton and no animation. Front, quarter, side, and back each draw that mesh once. It is not Boba, and choosing it does not change the race. Boba stays the milk-tea slime. Closing the preview returns to the title. A missing file or a bad hash shows an error and does not draw Boba in its place. The day walker is still the existing picture. This is a static preview on SwiftShader here, not a rig and not a phone measurement.
+
 ## Short landscape title
 
 At 844×390 the title block was taller than the frame, and the page body does not scroll. Gel King sat partly past the bottom and Open the map was fully past it. Short screens shrink the race cards and the title can be dragged. A later base rule was still centering that column, which put AETHER REALMS above the scrollport where a drag could not reach it. The short-screen rule now comes after that and packs from the top. Both logo lines are on screen with the four actions. The hint under them still scrolls into view. Portrait 390×844 is taller than this rule and was already fully on screen. The buttons do the same things.

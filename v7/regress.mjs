@@ -1400,6 +1400,22 @@ check('the day can finish and names the pond fish, not a creature', day.sum && /
 check('the day flow does not throw', coreErr.length === 0, JSON.stringify(coreErr));
 await core.close();
 
+const goldPage = await open(844, 390);
+const gold = await goldPage.evaluate(async () => {
+  const boba = document.querySelector('.race[data-r="slime"]');
+  const before = { race: G.race, form: G.form, name: boba.querySelector('b').textContent, small: boba.querySelector('small').textContent };
+  const loaded = await window.__gold.open();
+  const during = { race: G.race, form: G.form, open: !document.getElementById('goldBox').classList.contains('hide') };
+  window.__gold.draw('side');
+  const side = document.querySelector('#goldViews button.on').dataset.v;
+  window.__gold.close();
+  boba.click();
+  const after = { race: G.race, form: G.form, name: boba.querySelector('b').textContent, sel: document.querySelector('.race.sel b').textContent, closed: document.getElementById('goldBox').classList.contains('hide') };
+  return { before, loaded, during, side, after, sha: window.__gold.sha };
+});
+check('Original Gold is the hashed mesh and does not replace Boba', gold.loaded.ok && gold.loaded.tris === 118790 && gold.loaded.hash === gold.sha && gold.sha === '54b1f5c7bef848ab2ae364655296214e693e8f3aa196728d071a26413b5fd5aa' && gold.during.race === 'human' && gold.before.name === 'Boba' && gold.after.race === 'slime' && gold.after.form === 'boba' && gold.after.sel === 'Boba' && gold.after.closed && gold.side === 'side', JSON.stringify(gold));
+await goldPage.close();
+
 await browser.close();
 console.log(fails.length ? '\n' + fails.length + ' failed' : '\nall passed');
 process.exit(fails.length ? 1 : 0);
