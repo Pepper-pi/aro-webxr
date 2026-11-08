@@ -175,8 +175,9 @@ input[type=range]{accent-color:var(--pink);width:120px}
   .ic{padding:3px 1px 3px}
   .ic img{width:22px;height:22px}
   .big{padding:9px;margin-top:6px}
-  #fishC{height:min(36vh,150px)}
+  #fishC{height:min(28vh,120px)}
   #fishMsg{margin-top:4px;font-size:13px}
+  #fishAssist{padding:8px;margin-top:4px}
   .sumgrid{gap:4px;margin:4px 0}
   .sumgrid div{padding:2px 6px;font-size:11px}
   .sumgrid b{font-size:13px}
@@ -513,6 +514,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
   <div class="sh-h"><div><small>Pond spot</small><span id="fishTitle">Fishing</span></div><button class="x" data-close>×</button></div>
   <canvas id="fishC"></canvas>
   <div id="fishMsg"></div>
+  <button class="big hide" id="fishAssist" type="button">Reel assist</button>
   <button class="big hide" id="fishBtn">Keep it</button>
   <div class="focus-nav"><button type="button" data-back>Back</button><button type="button" data-home>Home</button></div>
 </div></div>
@@ -3745,7 +3747,9 @@ function drawBall(T, dt) {
 
 /* ===================== fishing: one cast ===================== */
 const FI = { phase: 'aim', t: 0, power: 0, grade: '', bx: 0, by: 0, biteAt: 0, nib: false, beat: 0, hits: 0, ring: 0, rt: 0, fish: null, msg: '', win: 0 };
-function openFish() { Object.assign(FI, { phase: 'aim', t: 0, power: 0, pw: 0, charging: false, ct: 0, grade: '', beat: 0, hits: 0, fish: null, paid: false }); $('#fishBtn').classList.add('hide'); fishMsg('<b>Hold</b> to charge your cast, <b>release</b> in the <b style="color:var(--gold)">gold zone</b>'); $('#fishTitle').textContent = G.fishBait === 'bait' ? 'Fishing · Honey Bait on' : 'Fishing'; openModal('fishM'); }
+function openFish() { Object.assign(FI, { phase: 'aim', t: 0, power: 0, pw: 0, charging: false, ct: 0, grade: '', beat: 0, hits: 0, fish: null, paid: false }); $('#fishBtn').classList.add('hide'); syncFishAssist(); fishMsg('<b>Hold</b> to charge your cast, <b>release</b> in the <b style="color:var(--gold)">gold zone</b>'); $('#fishTitle').textContent = G.fishBait === 'bait' ? 'Fishing · Honey Bait on' : 'Fishing'; openModal('fishM'); }
+function syncFishAssist() { const b = $('#fishAssist'); if (b) b.classList.toggle('hide', FI.phase !== 'reel'); }
+function fishTol() { return .42 + (G.fishBait === 'hook' ? .12 : 0) + (SET.cozy ? .08 : 0); }
 function fishMsg(h) { $('#fishMsg').innerHTML = h; }
 const SWEET = .7;
 // v7 field slice: hold-to-charge cast (the standard confirm). the needle fills while held, eases back if over-held
@@ -3756,17 +3760,23 @@ function fishTap() {
     FI.charging = false; FI.power = FI.pw; const d = Math.abs(FI.power - SWEET); FI.grade = d <= .05 ? 'Perfect' : d <= .12 ? 'Great' : 'Good';
     FI.phase = 'fly'; FI.t = 0; SFX.cast(); buzz(8); fishMsg(`${FI.grade} cast!`); G.day.castGrade = FI.grade;
   } else if (FI.phase === 'wait') { fishMsg('Too early, it got spooked. Wait for the <b>!</b>'); FI.t = 0; FI.biteAt = R(1.2, 2.2); }
-  else if (FI.phase === 'bite') { FI.phase = 'reel'; FI.t = 0; FI.beat = 0; FI.hits = 0; FI.rt = -.3; SFX.bite(); buzz(25); fishMsg('Hooked! Tap as the ring meets the bobber · 0/3'); }
-  else if (FI.phase === 'reel' && FI.rt > 0) {
-    const tol = .22 + (G.fishBait === 'hook' ? .12 : 0) + (SET.cozy ? .06 : 0), ok = Math.abs(FI.ring - 1) <= tol;
-    if (ok) { FI.hits++; SFX.land(); buzz(10); } else SFX.tele();
-    nextBeat(ok ? 'Nice!' : 'Missed');
-  } else if (FI.phase === 'lost') { openFish(); }
+  else if (FI.phase === 'bite') { FI.phase = 'reel'; FI.t = 0; FI.beat = 0; FI.hits = 0; FI.rt = -.3; SFX.bite(); buzz(25); fishMsg('Hooked! Beat 1 of 3. TAP when the ring meets the bobber.'); syncFishAssist(); }
+  else if (FI.phase === 'reel' && FI.rt > 0) { if (Math.abs(FI.ring - 1) <= fishTol()) fishHit(); else fishMiss(); }
+  else if (FI.phase === 'lost') { openFish(); }
 }
-function nextBeat(word) {
-  FI.beat++; fishMsg(`${word} · ${FI.hits}/3`);
-  if (FI.beat >= 3) { if (FI.hits >= 2) landFish(); else { FI.phase = 'lost'; fishMsg('It wriggled free! <b>Tap</b> to cast again.'); SFX.splash(); } }
-  else FI.rt = -.6;
+function fishMiss() {
+  if (FI.phase !== 'reel' || FI.paid) return;
+  FI.rt = -.4; SFX.tele();
+  fishMsg(`Missed. Same beat, ${FI.beat + 1} of 3. The fish stays on.`);
+}
+function fishHit() {
+  if (FI.phase !== 'reel' || FI.paid) return;
+  FI.hits++; FI.beat++; SFX.land(); buzz(10); fishMsg(`Nice! ${FI.hits}/3`);
+  if (FI.beat >= 3) landFish(); else FI.rt = -.45;
+}
+function fishAssist() {
+  if (FI.phase !== 'reel' || FI.paid) { fishMsg('Reel assist starts after the hook. The cast and the wait stay yours.'); return; }
+  while (FI.phase === 'reel' && FI.beat < 3 && !FI.paid) fishHit();
 }
 function landFish() {
   if (FI.paid || FI.phase === 'catch') return;
@@ -3781,20 +3791,21 @@ function landFish() {
   if (G.fishBait === 'bait') { G.bag.bait = Math.max(0, (G.bag.bait || 0) - 1); }
   addItem('fish'); G.day.fish = FI.fish; addAether(3); if (cap) { G.caps++; toast('The fish was holding a bottle cap!', 'cap'); }
   fishMsg(`<span style="color:${RAR[r]}">${RARN[r]}</span> · <b>${FI.fish.n}</b> · ${FI.fish.cm} cm · kept the pond's blue grid colour`);
-  $('#fishBtn').classList.remove('hide');
+  $('#fishBtn').classList.remove('hide'); syncFishAssist();
 }
 function fishUpdate(dt) {
   FI.t += dt;
   if (FI.phase === 'aim') { if (FI.charging) { FI.ct += dt; FI.pw = .5 - .5 * Math.cos(FI.ct * 1.5 / PACE()); } else FI.pw = Math.max(0, (FI.pw || 0) - dt * 1.5); }
   else if (FI.phase === 'fly' && FI.t >= .9) { FI.phase = 'wait'; FI.t = 0; FI.biteAt = R(1.8, 3.2) * (G.fishBait === 'bait' ? .6 : 1); FI.nib = false; SFX.splash(); fishMsg('Wait for the bite…'); }
-  else if (FI.phase === 'wait') { if (!FI.nib && FI.t > FI.biteAt * .5) { FI.nib = true; SFX.tap(); } if (FI.t >= FI.biteAt) { FI.phase = 'bite'; FI.t = 0; FI.win = (SET.cozy ? 1.5 : 1.1) + (FI.grade === 'Perfect' ? .2 : 0); SFX.bite(); buzz(40); fishMsg('<b style="color:#ff4fb4;font-size:20px">! TAP !</b>'); } }
-  else if (FI.phase === 'bite' && FI.t > FI.win) { FI.phase = 'lost'; fishMsg('Too slow, it swam off. <b>Tap</b> to cast again.'); SFX.splash(); }
-  else if (FI.phase === 'reel') { FI.rt += dt; if (FI.rt > 0) { const dur = 1.4 * PACE(); FI.ring = 3 - 2.6 * (FI.rt / dur); if (FI.ring < .4) { SFX.tele(); nextBeat('Missed'); } } }
+  else if (FI.phase === 'wait') { if (!FI.nib && FI.t > FI.biteAt * .5) { FI.nib = true; SFX.tap(); } if (FI.t >= FI.biteAt) { FI.phase = 'bite'; FI.t = 0; FI.win = (SET.cozy ? 1.5 : 1.1) + (FI.grade === 'Perfect' ? .2 : 0); SFX.bite(); buzz(40); fishMsg('<b style="color:#ff4fb4;font-size:20px">! TAP !</b> · bite'); } }
+  else if (FI.phase === 'bite' && FI.t > FI.win) { FI.phase = 'lost'; syncFishAssist(); fishMsg('Too slow, it swam off. <b>Tap</b> to cast again.'); SFX.splash(); }
+  else if (FI.phase === 'reel') { FI.rt += dt; if (FI.rt > 0) { const dur = (reducedMotion() ? 2.4 : 1.85) * PACE(); FI.ring = 3 - 2.6 * (FI.rt / dur); if (FI.ring < .4) fishMiss(); } }
 }
 function drawFish(T) {
   const c = $('#fishC'), w = c.clientWidth, h = c.clientHeight; if (!w) return;
   const dpr = Math.min(2, window.devicePixelRatio || 1); if (c.width !== (w * dpr | 0)) { c.width = w * dpr | 0; c.height = h * dpr | 0; }
   const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const calm = reducedMotion();
   const wg = g.createLinearGradient(0, 0, 0, h); wg.addColorStop(0, '#0d2340'); wg.addColorStop(1, '#1d4d88'); g.fillStyle = wg; g.fillRect(0, 0, w, h);
   // tilted pink hex grid over the water (the pond keeps the grid)
   g.strokeStyle = 'rgba(255,79,180,.16)'; g.lineWidth = 1;
@@ -3811,13 +3822,30 @@ function drawFish(T) {
   let bx = sx, by = sy;
   if (FI.phase === 'aim') { bx = tipX; by = tipY; }
   else { const target = h * (.85 - FI.power * .6); if (FI.phase === 'fly') { const k = clamp(FI.t / .9, 0, 1); bx = lerp(tipX, sx + (FI.power - SWEET) * 40, k); by = lerp(tipY, target, k) - Math.sin(k * Math.PI) * h * .25; } else { bx = sx + (FI.power - SWEET) * 40; by = target; } }
-  let dunk = 0; if (FI.phase === 'wait') dunk = Math.sin(FI.t * 3) * 2 + (FI.nib && FI.t - FI.biteAt * .5 < .25 ? 5 : 0); if (FI.phase === 'bite') dunk = 9 + Math.sin(FI.t * 30) * 3; if (FI.phase === 'reel') dunk = 6 + Math.sin(T * 20) * 2;
+  let dunk = 0; if (FI.phase === 'wait') dunk = (calm ? 1 : Math.sin(FI.t * 3) * 2) + (FI.nib && FI.t - FI.biteAt * .5 < .25 ? 5 : 0); if (FI.phase === 'bite') dunk = 9 + (calm ? 0 : Math.sin(FI.t * 30) * 3); if (FI.phase === 'reel') dunk = 6 + (calm ? 0 : Math.sin(T * 20) * 2);
   g.strokeStyle = 'rgba(255,255,255,.65)'; g.lineWidth = 1; g.beginPath(); g.moveTo(tipX, tipY); g.quadraticCurveTo((tipX + bx) / 2, Math.max(tipY, by) + 20, bx, by + dunk); g.stroke();
   drawAvatar(g, ax, ay, as, { t: T, view: 'back', cast: FI.phase === 'fly' ? 1 : 0 });
   g.strokeStyle = '#a8743e'; g.lineWidth = 3; g.beginPath(); g.moveTo(ax + as * .2, ay - as * .62); g.lineTo(tipX, tipY); g.stroke();
   if (FI.phase !== 'aim' && FI.phase !== 'catch') { g.fillStyle = '#fff'; g.beginPath(); g.arc(bx, by + dunk - 4, 6, Math.PI, 0); g.fill(); g.fillStyle = '#ff4fb4'; g.beginPath(); g.arc(bx, by + dunk - 4, 6, 0, Math.PI); g.fill(); g.strokeStyle = 'rgba(255,255,255,.4)'; g.beginPath(); g.ellipse(bx, by + 4, 14, 5, 0, 0, TAU); g.stroke(); }
-  if (FI.phase === 'bite') { g.fillStyle = '#ff4fb4'; g.font = '900 34px ui-rounded,system-ui'; g.textAlign = 'center'; g.fillText('!', bx, by - 22 + Math.sin(T * 30) * 2); }
-  if (FI.phase === 'reel' && FI.rt > 0) { g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 3; g.beginPath(); g.arc(bx, by, 22, 0, TAU); g.stroke(); g.strokeStyle = Math.abs(FI.ring - 1) < .22 ? '#ffc94d' : '#7ff0ff'; g.lineWidth = 4; g.beginPath(); g.arc(bx, by, 22 * FI.ring, 0, TAU); g.stroke(); }
+  if (FI.phase === 'bite') { g.fillStyle = '#ff4fb4'; g.font = '900 34px ui-rounded,system-ui'; g.textAlign = 'center'; g.fillText('!', bx, by - 22 + (calm ? 0 : Math.sin(T * 30) * 2)); }
+  if (FI.phase === 'wait' || FI.phase === 'reel') {
+    const n = calm ? 1 : 3;
+    for (let i = 0; i < n; i++) { const k = calm ? .45 : (T * .35 + i / n) % 1; g.strokeStyle = `rgba(255,255,255,${.28 * (1 - k)})`; g.lineWidth = 1.5; g.beginPath(); g.ellipse(bx, by + 8, 10 + k * 28, (10 + k * 28) * .35, 0, 0, TAU); g.stroke(); }
+  }
+  if (FI.phase === 'reel') {
+    const wag = calm ? 0 : Math.sin(T * 4) * 8;
+    g.save(); g.translate(bx + wag, by + 16); g.globalAlpha = .8;
+    g.strokeStyle = 'rgba(190,255,255,.9)'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(0, 0, 16, 7, 0, 0, TAU); g.stroke();
+    g.beginPath(); g.moveTo(14, 0); g.lineTo(22, -6); g.lineTo(22, 6); g.closePath(); g.stroke();
+    g.restore();
+  }
+  if (FI.phase === 'reel' && FI.rt > 0) {
+    const hot = Math.abs(FI.ring - 1) <= fishTol();
+    g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = hot ? 7 : 3; g.beginPath(); g.arc(bx, by, 22, 0, TAU); g.stroke();
+    g.strokeStyle = hot ? '#ffc94d' : '#7ff0ff'; g.lineWidth = hot ? 4 : 2; g.beginPath(); g.arc(bx, by, 22 * FI.ring, 0, TAU); g.stroke();
+    if (hot) { g.fillStyle = '#fff'; g.font = '900 16px ui-rounded,system-ui'; g.textAlign = 'center'; g.fillText('TAP', bx, by - 30); g.strokeStyle = '#fff'; g.lineWidth = 3; g.beginPath(); g.moveTo(bx, by - 22); g.lineTo(bx, by - 14); g.stroke(); }
+    else { g.fillStyle = '#fff'; g.font = '800 13px ui-rounded,system-ui'; g.textAlign = 'center'; g.fillText(String(FI.beat + 1), bx, by - 28); }
+  }
   // power meter
   if (FI.phase === 'aim') {
     const mw = w * .8, mx = (w - mw) / 2, my = h - 24; g.fillStyle = 'rgba(20,8,24,.8)'; rrect(g, mx - 3, my - 3, mw + 6, 18, 9); g.fill();
@@ -3827,14 +3855,20 @@ function drawFish(T) {
   if (FI.phase === 'catch') {
     const k = clamp(FI.t / .9, 0, 1), fx2 = w / 2, fy = lerp(sy, h * .32, easeOut(k)) - Math.sin(k * Math.PI) * 40, f = FI.fish;
     const gl = g.createRadialGradient(fx2, fy, 0, fx2, fy, 70); gl.addColorStop(0, RAR[f.r]); gl.addColorStop(1, 'rgba(0,0,0,0)'); g.globalAlpha = .7; g.fillStyle = gl; g.beginPath(); g.arc(fx2, fy, 70, 0, TAU); g.fill(); g.globalAlpha = 1;
-    g.save(); g.translate(fx2, fy); g.rotate(Math.sin(T * 6) * .15); const s = 1.4 + f.r * .15;
+    const holo = !calm && k < .28;
+    g.save(); g.translate(fx2, fy); if (!calm) g.rotate(Math.sin(T * 6) * .15); const s = 1.4 + f.r * .15;
+    if (holo) {
+      g.strokeStyle = 'rgba(190,255,255,.95)'; g.lineWidth = 2; g.beginPath(); g.ellipse(0, 0, 30 * s, 19 * s, 0, 0, TAU); g.stroke();
+      g.beginPath(); g.moveTo(26 * s, 0); g.lineTo(44 * s, -16 * s); g.lineTo(44 * s, 16 * s); g.closePath(); g.stroke();
+      g.restore();
+    } else {
     g.fillStyle = '#3a8fd9'; tri(g, 26 * s, 0, 44 * s, -16 * s, 44 * s, 16 * s);
     g.fillStyle = '#5fb8ff'; g.beginPath(); g.ellipse(0, 0, 30 * s, 19 * s, 0, 0, TAU); g.fill();
     g.strokeStyle = 'rgba(255,79,180,.5)'; g.lineWidth = 1; for (let i = -1; i <= 1; i++) { g.beginPath(); HEXC.forEach((p, j) => { const X = i * 12 * s + p[0] * 6 * s, Y = p[1] * 6 * s; j ? g.lineTo(X, Y) : g.moveTo(X, Y); }); g.closePath(); g.stroke(); }
     g.fillStyle = '#fff'; g.beginPath(); g.arc(-16 * s, -4 * s, 6 * s, 0, TAU); g.fill(); g.fillStyle = '#1a0a1e'; g.beginPath(); g.arc(-17 * s, -4 * s, 3.5 * s, 0, TAU); g.fill();
     g.fillStyle = 'rgba(255,120,160,.6)'; g.beginPath(); g.ellipse(-12 * s, 6 * s, 5 * s, 2.5 * s, 0, 0, TAU); g.fill();
     if (f.cap) { g.fillStyle = '#ff4fb4'; g.beginPath(); g.arc(-30 * s, 3 * s, 6 * s, 0, TAU); g.fill(); g.strokeStyle = '#fff'; g.stroke(); }
-    g.restore();
+    g.restore(); }
   }
 }
 function drawSpriteTo(g, name, x, y, s) { const sp = SPR[name]; if (sp) g.drawImage(sp.c, x - sp.w * s / 2, y - sp.h * s, sp.w * s, sp.h * s); }
@@ -3842,7 +3876,7 @@ function drawSpriteTo(g, name, x, y, s) { const sp = SPR[name]; if (sp) g.drawIm
 function openModal(id) { $('#' + id).classList.add('on'); SFX.tap(); }
 function closeModal(id) { $('#' + id).classList.remove('on'); onModalClosed(id); }
 const anyModal = () => $$('.modal.on').length > 0;
-function onModalClosed(id) { if (id === 'craftM') { CR.brewing = false; CR.k = 0; } if (id === 'cmdM' && typeof disc3dStop === 'function') disc3dStop(); }
+function onModalClosed(id) { if (id === 'craftM') { CR.brewing = false; CR.k = 0; } if (id === 'fishM') FI.charging = false; if (id === 'cmdM' && typeof disc3dStop === 'function') disc3dStop(); }
 $$('.modal').forEach(m => { m.addEventListener('click', e => { if (e.target === m && m.id !== 'sumM') closeModal(m.id); }); m.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(m.id))); });
 
 const RING = [
@@ -4024,6 +4058,7 @@ function endDay() {
 }
 $('#again').onclick = () => location.reload();
 $('#fishBtn').onclick = () => afterFish();
+$('#fishAssist').onclick = () => fishAssist();
 $('#act').addEventListener('click', () => { closeRing(); audioInit(); SFX.tap(); const f = actFn; f && f(); });
 $('#menuBtn').addEventListener('click', openRing);
 document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => { const m = b.closest('.modal'); if (m) closeModal(m.id); }));

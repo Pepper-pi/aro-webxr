@@ -205,6 +205,10 @@ A restrained soft-light at 0.45 darkened plates that are already near that navy 
 
 The floor is Canvas 2D. There is no material slot, no mip chain, and no per-hex UV. One repeat is an affine fit of the perspective camera, so the far edge is not perspective-correct. Field colors, danger marks, and the avatar paint after the cache. The map uses a different cache.
 
+## Cozy reel
+
+The fishing modal is the same cast, the same few-second wait, and the same payout. A miss on a reel beat now repeats that beat. The fish stays on, and bait is still spent only when a fish lands. Reel assist is a button on that modal. It finishes the same three beats and calls the same landing. It is not a setting. `STILLBLOOM_AR.md` is not in this checkout. The current code never waits a minute, so that wait was not added.
+
 ## Still open
 
 - No phone in hand. iOS Safari can cancel a touch on rotation at a different moment than this Chrome. The events here were synthesized touches, and they did arrive as `pointerType: "touch"`.
