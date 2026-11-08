@@ -57,7 +57,9 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 #ring.on{opacity:1}
 #ring,#ring *{pointer-events:none}
 #ring.on #ringHead,#ring.on #ringHead *,#ring.on #ringRail,#ring.on #ringRail *,#ring.on #ringHome,#ring.on #ringHome *{pointer-events:auto}
-#ringFrame{position:absolute;display:flex;flex-direction:column;min-width:0;background:transparent;border:1px solid rgba(127,240,255,.45)}
+#ringBack{position:absolute;z-index:0;pointer-events:none;clip-path:polygon(50% 0,100% 10%,100% 90%,50% 100%,0 90%,0 10%);background:linear-gradient(180deg,rgba(255,140,210,.2),rgba(90,30,140,.14));}
+#ringBack::before{content:"";position:absolute;inset:0;opacity:.08;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='24' viewBox='0 0 28 24'><path d='M7 1h14l6 11-6 11H7L1 12z' fill='none' stroke='%23ffd0ef' stroke-width='1'/></svg>");background-size:28px 24px}
+#ringFrame{position:absolute;z-index:1;display:flex;flex-direction:column;min-width:0;background:transparent;border:0}
 #ringHead{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 8px;flex:none;background:rgba(8,14,24,.78)}
 #ringTitle{flex:1;font-weight:900;font-size:16px}
 #sectionsBtn,#sectionsClose,#ringX{min-height:48px;padding:8px 12px;font-weight:900;font-size:16px;color:#f4fbff;background:rgba(16,27,42,.94);border:1px solid rgba(127,240,255,.8)}
@@ -68,14 +70,14 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 #ringStage{flex:1;min-width:0;min-height:0;position:relative;pointer-events:none}
 #ringHome{height:100%;overflow:auto;padding:16px;background:rgba(16,27,42,.96);color:#f4fbff;font-size:16px;line-height:1.4}
 #ringHome p{margin:0 0 12px}
-#ring .hx{--pane:rgba(122,223,240,.95);--tint:rgba(122,223,240,.18);position:relative;display:block;width:100%;height:88px;min-height:88px;max-height:88px;padding:0;overflow:hidden;color:#f7fbff;clip-path:polygon(12px 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,12px 100%,0 50%);background:var(--tint);box-shadow:inset 0 0 0 3px var(--pane)}
-#ring .hx:nth-child(3n+2){--pane:rgba(187,166,244,.9);--tint:rgba(187,166,244,.16)}
-#ring .hx:nth-child(3n){--pane:rgba(244,207,133,.9);--tint:rgba(244,207,133,.16)}
-#ring .hx:nth-child(even){margin-left:4px;width:calc(100% - 4px)}
-#ring .hx .hx-plane{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:100%;padding:6px 16px;pointer-events:none;background:transparent}
-#ring .hx .hx-mark{position:relative;width:28px;height:28px;display:grid;place-items:center;pointer-events:none;flex:none}
-#ring .hx .hx-glow{position:absolute;left:50%;top:50%;width:32px;height:32px;margin:-16px 0 0 -16px;border-radius:50%;background:radial-gradient(circle,var(--pane) 0%,transparent 70%);opacity:.4;pointer-events:none}
-#ring .hx .hx-frost{position:relative;width:22px;height:22px;display:block}
+#ring .hx{--pane:rgba(122,223,240,.95);--tint:rgba(122,223,240,.2);position:relative;display:block;width:100%;height:56px;min-height:56px;max-height:56px;padding:0;overflow:hidden;color:#f7fbff;clip-path:polygon(14px 0,calc(100% - 14px) 0,100% 50%,calc(100% - 14px) 100%,14px 100%,0 50%);background:var(--tint);box-shadow:inset 0 0 0 4px var(--pane),inset 0 -4px 0 rgba(0,0,0,.28)}
+#ring .hx:nth-child(3n+2){--pane:rgba(187,166,244,.92);--tint:rgba(187,166,244,.18)}
+#ring .hx:nth-child(3n){--pane:rgba(244,207,133,.92);--tint:rgba(244,207,133,.18)}
+#ring .hx:nth-child(even){margin-left:18px;width:calc(100% - 18px)}
+#ring .hx .hx-plane{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:10px;height:100%;padding:0 22px;pointer-events:none;background:transparent}
+#ring .hx .hx-mark{position:relative;width:34px;height:34px;display:grid;place-items:center;pointer-events:none;flex:none}
+#ring .hx .hx-glow{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:radial-gradient(circle,var(--pane) 0%,transparent 72%);opacity:.45;pointer-events:none}
+#ring .hx .hx-frost{position:relative;width:28px;height:28px;display:block}
 #ring .hx .hx-name{font-weight:800;font-size:16px;line-height:1.05;text-align:center;color:#f7fbff;text-shadow:0 1px 2px rgba(0,0,0,.85)}
 #ring .hx.sel{box-shadow:inset 0 0 0 3px #ffe7a2}
 #ring .hx:focus{outline:none}
@@ -83,10 +85,17 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 #ring .hx.soon .hx-name{color:#f7fbff}
 #ring .hx.glow{outline:3px solid rgba(255,201,77,.95);outline-offset:2px}
 #ring.drawer #ringBody{display:block;position:relative}
-#ring.drawer #ringRail{display:none;position:absolute;z-index:2;left:0;top:0;bottom:0;width:min(176px,calc(100% - 24px));padding:8px;background:rgba(8,14,24,.96);border:1px solid rgba(127,240,255,.7);overflow:auto}
+#ring.drawer #ringHead{gap:4px;padding:0 4px}
+#ring.drawer #ringTitle{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#ring.drawer #sectionsBtn,#ring.drawer #ringX{padding:8px;font-size:14px}
+#ring.drawer #ringRail{display:none;position:absolute;z-index:2;left:0;top:0;bottom:0;width:min(220px,calc(100% - 8px));padding:6px;background:rgba(8,14,24,.96);border:1px solid rgba(127,240,255,.7);overflow:auto}
 #ring.drawer.rail-open #ringRail{display:flex}
-#ring.drawer .hx{height:64px;min-height:64px;max-height:64px}
-#ring.drawer .hx .hx-plane{flex-direction:row;justify-content:flex-start;gap:8px;padding:4px 18px}
+#ring.drawer .hx{height:52px;min-height:52px;max-height:52px;clip-path:polygon(8px 0,calc(100% - 8px) 0,100% 50%,calc(100% - 8px) 100%,8px 100%,0 50%)}
+#ring.drawer .hx:nth-child(even){margin-left:4px;width:calc(100% - 4px)}
+#ring.drawer .hx .hx-plane{padding:0 8px;gap:6px}
+#ring.drawer .hx .hx-mark{width:22px;height:22px}
+#ring.drawer .hx .hx-frost{width:20px;height:20px}
+#ring.drawer .hx .hx-name{font-size:14px;text-align:left}
 #ring.drawer #sectionsBtn{display:inline-flex;align-items:center}
 #ring.drawer.rail-open #sectionsClose{display:block;margin-bottom:8px}
 #ring.drawer.rail-open #ringStage{pointer-events:none}
@@ -104,13 +113,14 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 .sheet{width:min(100%,460px);max-height:var(--sheet-max,calc(100dvh - 16px));overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:linear-gradient(180deg,rgba(54,24,62,.98),rgba(18,8,24,.98));border:1px solid rgba(255,214,160,.55);border-radius:18px;padding:14px 16px calc(18px + var(--sab));box-shadow:0 18px 50px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.16);backdrop-filter:blur(8px)}
 body.out-combat #mapNav,body.out-combat #wirePanel,body.out-combat #charBtn{display:none!important}
 body:has(.modal.on) #coach,body:has(.modal.on) #mapNav,body:has(.modal.on) #act,body:has(.modal.on) #menuBtn,body:has(.modal.on) #obj,body:has(.modal.on) #wirePanel,body:has(.modal.on) #charBtn,body:has(.modal.on) #banner,body:has(.modal.on) #toasts,body.menu-open #coach,body.menu-open #mapNav,body.menu-open #wirePanel,body.menu-open #charBtn,body.menu-open #obj{visibility:hidden!important;pointer-events:none!important}
-body.menu-open .modal.on:not(#sumM){z-index:19;background:transparent;pointer-events:none;padding:0}
-body.menu-open .modal.on:not(#sumM) .sheet{pointer-events:auto;position:fixed;margin:0;max-width:none;width:auto;border-radius:0;background:rgba(16,27,42,.96);color:#f7fbff}
+body.menu-open .modal.on:not(#sumM){z-index:31;background:transparent;pointer-events:none;padding:0}
+body.menu-open:has(#ring.drawer.rail-open) .modal.on:not(#sumM){z-index:19}
+body.menu-open .modal.on:not(#sumM) .sheet{pointer-events:auto;position:fixed;margin:0;max-width:none;width:auto;border-radius:2px;box-shadow:none;padding:10px 12px;background:rgba(12,18,32,.92);color:#f7fbff}
 body.menu-open .sheet .row div,body.menu-open .sheet .sh-h,body.menu-open .sheet .spell b{color:#f7fbff}
 body.menu-open .sheet .row small,body.menu-open .sheet .hint,body.menu-open .sheet .spell small{color:#d7ecf8;font-size:16px}
 body.menu-open .sheet .tg{background:rgba(255,255,255,.55)}
 body.menu-open .sheet .tg.on{background:#ff4fb4}
-body.menu-open #ringHome{background:rgba(16,27,42,.96);color:#f7fbff}
+body.menu-open #ringHome{background:rgba(12,18,32,.92);color:#f7fbff;box-shadow:none;padding:12px 14px}
 body.menu-open .sheet .row{flex-direction:column;align-items:stretch}
 body.menu-open .sheet .row div,body.menu-open .sheet .hint,body.menu-open #ringHome{font-size:16px}
 body.menu-open .sheet .chips{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -508,6 +518,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
   <div class="focus-nav"><button type="button" data-back>Back</button><button type="button" data-home>Home</button></div>
 </div></div>
 <div id="ring" role="dialog" aria-modal="true" aria-label="Menu" aria-hidden="true">
+  <div id="ringBack" aria-hidden="true"></div>
   <div id="ringFrame">
     <div id="ringHead">
       <button type="button" id="sectionsBtn">Sections</button>
@@ -4111,7 +4122,14 @@ function layoutMenu() {
   frame.style.height = Math.max(160, availH - top - bottom) + 'px';
   ring.classList.toggle('drawer', drawer);
   const rail = $('#ringRail');
-  rail.style.width = drawer ? '' : (land ? 148 : 116) + 'px';
+  rail.style.width = drawer ? '' : (land ? 260 : 196) + 'px';
+  const back = $('#ringBack');
+  if (back) {
+    back.style.left = (side - 6) + 'px';
+    back.style.top = (top - 8) + 'px';
+    back.style.width = Math.max(180, availW - side * 2 + 12) + 'px';
+    back.style.height = Math.max(180, availH - top - bottom + 16) + 'px';
+  }
   const stage = $('#ringStage').getBoundingClientRect();
   document.querySelectorAll('.modal.on').forEach(m => {
     if (m.id === 'sumM') return;
@@ -4151,13 +4169,13 @@ const RING = [
   { k: 'cmd', n: 'Command', i: 'book', a: 200, r: 1.35, go: () => openCommand() },
 ];
 const FROST = {
-  bag: 'M10 5h4v3h3v12H7V8h3z',
-  craft: 'M12 2.2l1.7 6.4 6.4 1.7-6.4 1.7L12 18.4l-1.7-6.4L3.9 10.3l6.4-1.7z',
-  fish: 'M4 12c0-3.2 4.2-5.4 9-4.4 1 .2 2 .7 2.8 1.3L21 6v12l-5.2-2.7c-.8.5-1.8.9-2.8 1.1C8.2 17.4 4 15.2 4 12z',
-  skills: 'M6 4h13v16H6z',
-  log: 'M12 2l2.6 6.4 6.8.5-5.2 4.3 1.7 6.6L12 16.4 6.1 19.8l1.7-6.6L2.6 8.9l6.8-.5z',
-  set: 'M12 3.6a8.4 8.4 0 1 0 .1 0zM12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8z',
-  cmd: 'M5 6h14v2.2H5zM5 10.9h9v2.2H5zM5 15.8h14v2.2H5z',
+  bag: 'M9 8h6v2h2v11H7V10h2z',
+  craft: 'M4 11 L12 4 L20 11 V20 H4 Z',
+  fish: 'M4 12c0-4 4-7 8.5-7S21 8 21 12s-4 7-8.5 7S4 16 4 12zm8.1-.15a1.15 1.15 0 1 0 2.3 0 1.15 1.15 0 0 0-2.3 0z',
+  skills: 'M6 4h12v16H6z',
+  log: 'M12 3 L20 12 L12 21 L4 12 Z',
+  set: 'M12 3.4a8.6 8.6 0 1 0 .1 0zM12 8.2a3.8 3.8 0 1 1 0 7.6 3.8 3.8 0 0 1 0-7.6z',
+  cmd: 'M12 2.2 L14.2 9.8 L22 12 L14.2 14.2 L12 21.8 L9.8 14.2 L2 12 L9.8 9.8 Z',
 };
 function frostMark(k) {
   return `<span class="hx-mark"><i class="hx-glow"></i><svg class="hx-frost" viewBox="0 0 24 24" aria-hidden="true"><path fill="#f4fbff" fill-rule="evenodd" d="${FROST[k]}"/></svg></span>`;
