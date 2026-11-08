@@ -2251,7 +2251,7 @@ function startArena(kind, onDone) {
   syncRoomLow();
   if (typeof syncMapNav === 'function') syncMapNav();
   $('#hearts').classList.remove('hide'); $('#menuBtn').classList.add('dim'); closeRing(); setAct(null); coach(null);
-  if (kind === 'raid') { banner('Raid Dome', 'Floor 1 · Green'); setObj('<b>Raid</b> · punch the honey block'); AR.block = { x: 0, y: -.6, hp: 1, k: 0, rar: 0 }; if (!TRAIN.on) placeRockBarricade(-2, 1); }
+  if (kind === 'raid') { banner('Raid Dome', 'Floor 1 · Green'); setObj('<b>Raid</b> · punch the honey block'); AR.block = { x: 0, y: -.6, hp: 1, k: 0, rar: 0 }; if (!TRAIN.on) placeRaidRocks(); }
   else { banner('Pond Spot', 'Hack · territory'); setObj('<b>Hack</b> · deal with the guard'); }
   setTimeout(() => {
     if (G.scene !== 'arena') return;
@@ -2382,6 +2382,7 @@ function claimEnd() {
 }
 function endArena() {
   dropCanvasPress();
+  FIELD.barricades = []; FIELD.inspect = null;
   setAct(null); coach(null); $('#bossCD').classList.add('hide'); $('#dangerV').style.opacity = 0; $('#wheel').classList.remove('on'); $('#hearts').classList.add('hide'); $('#menuBtn').classList.remove('dim');
   G.scene = 'map'; groundDirty = true; syncRoomLow(); if (typeof syncMapNav === 'function') syncMapNav(); syncOutCombat(); const f = AR.onDone; AR.onDone = null; f && f();
 }
@@ -2459,10 +2460,10 @@ function raidAimKind(X, Y, aim) {
 function releaseEmberAt(X, Y, aim, power) {
   const kind = raidAimKind(X, Y, aim);
   if (kind === 'rock') {
-    const rock = aimedRock(aim);
-    if (!rock || AR.cds[0] > 0 || !spendMana(MANA_COST.spell)) return 'no';
+    const hit = aimedRock(aim);
+    if (!hit || hit.zone.broken || hit.zone.breakProcessed || AR.cds[0] > 0 || !spendMana(MANA_COST.spell)) return 'no';
     AR.cds[0] = SPELLS[0].cd; AR.castT = .25; G.day.casts++;
-    rockHit(rock, Math.round(SPELLS[0].dmg * power)); SFX.cast();
+    rockHit(hit.barricade, hit.zone, Math.round(SPELLS[0].dmg * power)); SFX.cast();
     FIELD.inspect = null;
     return 'rock';
   }
@@ -2721,20 +2722,20 @@ function drawArena(T) {
   if (AR.block) S.push([AR.block.y, 2]); if (AR.spike && AR.kind === 'hack' && (AR.phase === 'spike' || AR.spike.k > 0 && AR.spike.k < 1)) S.push([AR.spike.y, 3]);
   if (FIELD.wall) for (const h of FIELD.wall.hexes) S.push([hexXY(h[0], h[1])[1] + .01, 4, h]);
   for (const k of FIELD.chunks) S.push([hexXY(k.q, k.r)[1] + .01, 5, k]);
-  for (const b of FIELD.barricades) if (b.zones[0] && !b.zones[0].broken) S.push([hexXY(b.q, b.r)[1] + .02, 6, b]);
+  for (const b of FIELD.barricades) for (const z of b.zones) if (!z.broken) S.push([hexXY(z.hexes[0][0], z.hexes[0][1])[1] + .02, 6, { b, z }]);
   S.sort((a, b) => a[0] - b[0]);
   for (const s of S) {
     if (s[1] === 0) drawArenaMob(s[2], T);
     else if (s[1] === 1) { const [px, py] = pPos(), [X, Y, f] = proj(c, px, py), ch = AR.ptr && !AR.ptr.swiped && AR.ptr.held > .18 ? clamp((AR.ptr.held - .18) / .8, 0, 1) : 0; drawAvatar(ctx, X, Y, 1.25 * c.hz * f, { t: T, view: 'back', cast: AR.castT * 4, charge: ch, col: SPELLS[AR.sel].col, hurt: AR.hurt }); drawChibiBuddy(ctx, X - .9 * c.hz * f, Y + 2, .7 * c.hz * f, T); }
     else if (s[1] === 4) drawWallHex(s[2], T);
     else if (s[1] === 5) drawChunk(s[2], T);
-    else if (s[1] === 6) drawRock(s[2]);
+    else if (s[1] === 6) drawRock(s[2].b, s[2].z);
     else if (s[1] === 2) drawBlock(T);
     else drawSpike(T);
   }
   if (AR.ptr && AR.ptr.aiming && raidEmberAim()) {
     const kind = raidAimKind(AR.ptr.x, AR.ptr.y, AR.ptr.aim);
-    const label = kind === 'wall' ? 'Ice wall' : kind === 'mob' ? 'Enemy' : 'Ground';
+    const label = kind === 'wall' ? 'Ice wall' : kind === 'mob' ? 'Enemy' : kind === 'rock' ? (aimedRock(AR.ptr.aim) && aimedRock(AR.ptr.aim).barricade.material === 'ICE' ? 'Ice' : 'Rock') : 'Ground';
     ctx.save(); ctx.globalAlpha = 1;
     ctx.strokeStyle = kind === 'wall' ? '#ffd36a' : kind === 'mob' ? '#ff8ad0' : '#ff8a3d'; ctx.lineWidth = kind === 'wall' ? 3 : 2;
     ctx.beginPath(); ctx.arc(AR.ptr.x, AR.ptr.y, 22, 0, TAU); ctx.stroke();
@@ -2943,7 +2944,7 @@ function pick(a) { return a[(rng() * a.length) | 0]; }
 function zoneUpdate(dt) {
   let inside = false; const P = [AR.ph.q, AR.ph.r];
   for (let i = AR.zones.length - 1; i >= 0; i--) {
-    const z = AR.zones[i]; z.t += dt; const here = z.hexes.some(h => sameHex(h, P));
+    const z = AR.zones[i]; if (!z) continue; z.t += dt; const here = z.hexes.some(h => sameHex(h, P));
     if (z.t < z.warn) { if (here) z.wasIn = true; continue; }
     if (!z.on) { z.on = true; const [x, y] = hexXY(z.hexes[0][0], z.hexes[0][1]); wirePulse(x, y, 1, 'arena'); if (z.kind !== 'poison') { SFX.punch(); for (const h of z.hexes) { const [hx, hy] = hexXY(h[0], h[1]), [X, Y] = proj(AR.cam, hx, hy); burst(X, Y - 8, z.kind === 'pulse' ? '#7ff0ff' : '#ff6f8f', 8, 130, 3); } if (!SET.cozy && z.kind.includes('slam')) AR.shake = Math.max(AR.shake, .35); if (z.kind === 'bslam' || (z.kind === 'spear' && z.mob && z.mob.tier === 'elite')) slashHexes(z.hexes); } else noise(.3, .12, 600);
       if (!here && z.wasIn) { G.day.dodges++; const [X, Y] = proj(AR.cam, AR.ppx, AR.ppy); popText(X, Y - 118, 'Dodge!', '#7ff0ff', 18); SFX.dodge(); }
@@ -3144,7 +3145,7 @@ const HXS = {
   caramel: { life: 5,  col: '110,52,18',   a: .85, n: 'caramel' },
 };
 const FIELD_CAP = 28, FP_CAP = 60, RAIN_CAP = 2, WALL_HP = 90, WALL_LIFE = 16, WALL_CD = 12;
-const ROCK_HP = 36;
+const ROCK_HP = 36, FORM_HP = 24, ICE_BLOCK_HP = 24, DEBRIS_HP = 18, DEBRIS_CAP = 2, DEBRIS_BUDGET = 4;
 const FIELD = { iceWallLevel: +(new URLSearchParams(location.search).get('wall')) || 3, terr: new Map(), chunks: [], fogs: [], hex: new Map(), wall: null, barricades: [], barricadeN: 0, inspect: null, rains: [], fp: [], step: null, combos: 0, lastCombo: '', shatters: 0, wallCD: 0, rainT: 0, born: 0, msgT: {} };
 const hk = (q, r) => q + ',' + r;
 function fieldReset() { AR.objT = null; FIELD.floodTele = null; FIELD.floodBossT = 0; FIELD.hex.clear(); FIELD.terr.clear(); Object.assign(FIELD, { mana: 100, pots: 2, potCD: 0, chunks: [], fogs: [], wall: null, barricades: [], inspect: null, rains: [], fp: [], step: null, combos: 0, lastCombo: '', shatters: 0, wallCD: 0, rainT: 0 }); }
@@ -3242,68 +3243,111 @@ function manaUI() {
 }
 
 /* ---------- ice wall ---------- */
-function placeRockBarricade(q, r) {
-  if (!onField(q, r) || !inPA(q, r)) return null;
-  if (AR.ph && AR.ph.q === q && AR.ph.r === r) return null;
-  if (FIELD.wall && FIELD.wall.hexes.some(h => h[0] === q && h[1] === r)) return null;
-  if (FIELD.chunks.some(k => k.q === q && k.r === r)) return null;
-  if (FIELD.barricades.some(b => b.q === q && b.r === r && b.zones[0] && !b.zones[0].broken)) return null;
-  const id = 'rock-' + (++FIELD.barricadeN);
-  const b = { id, material: 'ROCK', q, r, debrisGeneration: 0, zones: [{ id: 'a', hp: ROCK_HP, max: ROCK_HP, broken: false, breakProcessed: false }] };
+function cellBlocked(q, r) {
+  if (AR.ph && AR.ph.q === q && AR.ph.r === r) return true;
+  if (FIELD.wall && FIELD.wall.hexes.some(h => h[0] === q && h[1] === r)) return true;
+  if (FIELD.chunks.some(k => k.q === q && k.r === r)) return true;
+  return FIELD.barricades.some(b => b.zones.some(z => !z.broken && z.hexes.some(h => h[0] === q && h[1] === r)));
+}
+function placeBarricade(spec) {
+  const zones = spec.zones.map(z => ({ id: z.id, hp: z.hp, max: z.hp, broken: false, breakProcessed: false, breaks: 0, hexes: z.hexes.map(h => [h[0], h[1]]) }));
+  for (const z of zones) for (const [q, r] of z.hexes) if (!onField(q, r) || cellBlocked(q, r)) return null;
+  const b = { id: (spec.material === 'ICE' ? 'ice-' : 'rock-') + (++FIELD.barricadeN), material: spec.material, kind: spec.kind, debrisGeneration: spec.debrisGeneration || 0, zones };
   FIELD.barricades.push(b);
   return b;
 }
+function placeRockBarricade(q, r) {
+  if (!inPA(q, r)) return null;
+  return placeBarricade({ material: 'ROCK', kind: 'barricade', zones: [{ id: 'a', hp: ROCK_HP, hexes: [[q, r]] }] });
+}
+function placeRaidRocks() {
+  placeRockBarricade(-2, 1);
+  placeBarricade({ material: 'ROCK', kind: 'formation', zones: [{ id: 'a', hp: FORM_HP, hexes: [[1, 1]] }, { id: 'b', hp: FORM_HP, hexes: [[1, 0]] }] });
+  placeBarricade({ material: 'ICE', kind: 'barricade', zones: [{ id: 'a', hp: ICE_BLOCK_HP, hexes: [[1, 2]] }] });
+}
 function noteRockInspect(X, Y, aim) {
   if (mobAt(X, Y)) { FIELD.inspect = null; return; }
-  const rock = aimedRock(aim);
-  FIELD.inspect = rock ? { kind: 'rock', id: rock.id, material: rock.material, zone: rock.zones[0].id, hp: rock.zones[0].hp, max: rock.zones[0].max } : null;
+  const hit = aimedRock(aim);
+  FIELD.inspect = hit ? { kind: 'rock', id: hit.barricade.id, material: hit.barricade.material, zone: hit.zone.id, hp: hit.zone.hp, max: hit.zone.max } : null;
 }
 function aimedRock(aim) {
   if (!aim || !Number.isFinite(aim.x) || !Number.isFinite(aim.y)) return null;
   let best = null, bd = 1.05;
-  for (const b of FIELD.barricades) {
-    const z = b.zones[0];
-    if (!z || z.broken) continue;
-    const [x, y] = hexXY(b.q, b.r), d = Math.hypot(aim.x - x, aim.y - y);
-    if (d < bd) { bd = d; best = b; }
+  for (const b of FIELD.barricades) for (const z of b.zones) {
+    if (z.broken || z.breakProcessed) continue;
+    for (const [q, r] of z.hexes) {
+      const [x, y] = hexXY(q, r), d = Math.hypot(aim.x - x, aim.y - y);
+      if (d < bd) { bd = d; best = { barricade: b, zone: z }; }
+    }
   }
   return best;
 }
-function rockHit(b, dmg) {
-  const z = b && b.zones[0];
-  if (!z || z.broken || z.breakProcessed) return 0;
-  const dealt = Math.max(0, Math.round(dmg));
-  z.hp -= dealt;
-  const [x, y] = hexXY(b.q, b.r), [X, Y, f] = proj(AR.cam, x, y);
-  if (z.hp > 0) { popText(X, Y - 36 * f, '-' + dealt, '#e7d3c2', 15); return dealt; }
-  z.hp = 0; z.broken = true; z.breakProcessed = true;
-  setHex(b.q, b.r, 'cracked');
-  popText(X, Y - 36 * f, 'Rock breaks', '#e7d3c2', 15);
-  return dealt;
+function debrisWanted(overkill, capacity) {
+  const o = Math.max(0, Math.round(overkill));
+  if (!(capacity > 0)) return 1;
+  if (o < capacity / 2) return 1;
+  return DEBRIS_CAP;
 }
-function drawRock(b) {
-  const z = b.zones[0];
+function spawnDebris(parent, zone, overkill) {
+  if (parent.debrisGeneration) return [];
+  const have = FIELD.barricades.filter(b => b.debrisGeneration).length;
+  const n = Math.max(0, Math.min(debrisWanted(overkill, zone.max), DEBRIS_CAP, DEBRIS_BUDGET - have));
+  const gap = new Set(zone.hexes.map(h => h[0] + ',' + h[1]));
+  const origin = zone.hexes[0];
+  const cand = [];
+  for (const [q, r] of zone.hexes) for (const [dq, dr] of DIRS) {
+    const nq = q + dq, nr = r + dr, key = nq + ',' + nr;
+    if (gap.has(key) || !onField(nq, nr)) continue;
+    if (AR.ph && AR.ph.q === nq && AR.ph.r === nr) continue;
+    if (cellBlocked(nq, nr) || cand.some(c => c[0] === nq && c[1] === nr)) continue;
+    cand.push([nq, nr]);
+  }
+  cand.sort((a, b) => hexDist(a[0], a[1], origin[0], origin[1]) - hexDist(b[0], b[1], origin[0], origin[1]) || a[0] - b[0] || a[1] - b[1]);
+  const made = [];
+  for (const [q, r] of cand.slice(0, n)) {
+    const d = placeBarricade({ material: parent.material, kind: 'debris', debrisGeneration: 1, zones: [{ id: 'a', hp: DEBRIS_HP, hexes: [[q, r]] }] });
+    if (d) made.push(d.id);
+  }
+  return made;
+}
+function rockHit(b, zone, dmg) {
+  if (!b || !zone || zone.broken || zone.breakProcessed) return { dealt: 0, debris: [], overkill: 0 };
+  const before = zone.hp;
+  const dealt = Math.max(0, Math.round(dmg));
+  zone.hp -= dealt;
+  const [q, r] = zone.hexes[0], [x, y] = hexXY(q, r), [X, Y, f] = proj(AR.cam, x, y);
+  const col = b.material === 'ICE' ? '#d7f4ff' : '#e7d3c2';
+  if (zone.hp > 0) { popText(X, Y - 36 * f, '-' + dealt, col, 15); return { dealt, debris: [], overkill: 0 }; }
+  const overkill = Math.max(0, dealt - before);
+  zone.hp = 0; zone.breakProcessed = true; zone.broken = true; zone.breaks = (zone.breaks || 0) + 1;
+  for (const [hq, hr] of zone.hexes) setHex(hq, hr, 'cracked');
+  const debris = spawnDebris(b, zone, overkill);
+  popText(X, Y - 36 * f, (b.material === 'ICE' ? 'Ice' : 'Rock') + ' breaks', col, 15);
+  return { dealt, debris, overkill };
+}
+function drawRock(b, z) {
   if (!z || z.broken) return;
-  const c = AR.cam, [x, y] = hexXY(b.q, b.r), [X, Y, f] = proj(c, x, y), s = 16 * f * c.hz / 70;
+  const c = AR.cam, [q, r] = z.hexes[0], [x, y] = hexXY(q, r), [X, Y, f] = proj(c, x, y);
+  const s = (b.kind === 'debris' ? 10 : b.kind === 'formation' ? 18 : 16) * f * c.hz / 70;
+  const ice = b.material === 'ICE';
   ctx.save();
-  ctx.fillStyle = 'rgba(24,18,16,.4)';
+  ctx.fillStyle = ice ? 'rgba(20,40,70,.4)' : 'rgba(24,18,16,.4)';
   ctx.beginPath(); ctx.ellipse(X, Y + 6 * f, s * 1.35, s * .42, 0, 0, TAU); ctx.fill();
   const pts = [[-1.05, .25], [-.75, -.5], [-.15, -1.05], [.4, -.8], [1, -.15], [1.05, .4], [.35, .62], [-.5, .5]];
   ctx.beginPath();
   pts.forEach((p, i) => { const px = X + p[0] * s, py = Y + p[1] * s * .9; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
   ctx.closePath();
   const g = ctx.createLinearGradient(X, Y - s, X, Y + s * .6);
-  g.addColorStop(0, '#d2c2b2'); g.addColorStop(.5, '#8d7566'); g.addColorStop(1, '#3a2e28');
+  if (ice) { g.addColorStop(0, '#e7fbff'); g.addColorStop(.5, '#7ec8e8'); g.addColorStop(1, '#3a5f86'); }
+  else { g.addColorStop(0, '#d2c2b2'); g.addColorStop(.5, '#8d7566'); g.addColorStop(1, '#3a2e28'); }
   ctx.fillStyle = g; ctx.fill();
-  ctx.fillStyle = 'rgba(255,236,220,.22)';
-  ctx.beginPath(); ctx.moveTo(X - .15 * s, Y - .72 * s); ctx.lineTo(X + .42 * s, Y - .28 * s); ctx.lineTo(X + .05 * s, Y + .08 * s); ctx.closePath(); ctx.fill();
   if (z.hp < z.max) {
-    ctx.strokeStyle = 'rgba(40,24,18,.85)'; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = ice ? 'rgba(20,40,70,.8)' : 'rgba(40,24,18,.85)'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(X - .2 * s, Y - .1 * s); ctx.lineTo(X + .15 * s, Y + .15 * s); ctx.lineTo(X + .45 * s, Y - .05 * s); ctx.stroke();
   }
   ctx.restore();
 }
-function barricadeAt(q, r) { return FIELD.barricades.some(b => b.q === q && b.r === r && b.zones[0] && !b.zones[0].broken); }
+function barricadeAt(q, r) { return FIELD.barricades.some(b => b.zones.some(z => !z.broken && z.hexes.some(h => h[0] === q && h[1] === r))); }
 function wallAt(q, r) { return (FIELD.wall && FIELD.wall.hexes.some(h => h[0] === q && h[1] === r)) || FIELD.chunks.some(k => k.q === q && k.r === r) || barricadeAt(q, r); }
 function raiseWall() {
   if (G.scene !== 'arena' || !['wave', 'nodes'].includes(AR.phase)) return false;
