@@ -76,11 +76,11 @@ background:linear-gradient(160deg,rgba(255,201,77,.95),rgba(255,79,180,.9));disp
 #ring.compact .hx>div{font-size:9px;gap:1px;padding:2px 4px}
 #ring.compact .hx img{width:20px;height:20px}
 /* ---------- sheets / modals ---------- */
-.modal{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:8px;background:rgba(8,4,12,.72);opacity:0;pointer-events:none;transition:opacity .25s}
-.modal.on{opacity:1;pointer-events:auto}
+.modal{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:8px;background:rgba(8,4,12,.72);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .25s}
+.modal.on{opacity:1;visibility:visible;pointer-events:auto}
 .sheet{width:min(100%,460px);max-height:var(--sheet-max,calc(100dvh - 16px));overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:linear-gradient(180deg,rgba(54,24,62,.98),rgba(18,8,24,.98));border:1px solid rgba(255,214,160,.55);border-radius:18px;padding:14px 16px calc(18px + var(--sab));box-shadow:0 18px 50px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.16);backdrop-filter:blur(8px)}
 body.out-combat #mapNav,body.out-combat #wirePanel,body.out-combat #charBtn{display:none!important}
-body.sheet-open #ring,body.sheet-open #coach,body.sheet-open #mapNav,body.sheet-open #act,body.sheet-open #menuBtn,body.sheet-open #obj,body.sheet-open #wirePanel,body.sheet-open #charBtn,body.sheet-open #banner,body.menu-open #coach,body.menu-open #mapNav,body.menu-open #wirePanel,body.menu-open #charBtn,body.menu-open #obj,body.menu-open #toasts{visibility:hidden!important;pointer-events:none!important}
+body:has(.modal.on) #ring,body:has(.modal.on) #coach,body:has(.modal.on) #mapNav,body:has(.modal.on) #act,body:has(.modal.on) #menuBtn,body:has(.modal.on) #obj,body:has(.modal.on) #wirePanel,body:has(.modal.on) #charBtn,body:has(.modal.on) #banner,body.menu-open #coach,body.menu-open #mapNav,body.menu-open #wirePanel,body.menu-open #charBtn,body.menu-open #obj,body.menu-open #toasts{visibility:hidden!important;pointer-events:none!important}
 body.menu-open #cv{pointer-events:none}
 #ringPlate{position:absolute;z-index:0;border-radius:26px;pointer-events:none;background:linear-gradient(180deg,rgba(36,16,48,.94),rgba(12,6,18,.96));border:1px solid rgba(255,220,170,.72);box-shadow:0 0 0 1px rgba(255,79,180,.35),inset 0 0 0 7px rgba(255,255,255,.05),inset 0 1px 0 rgba(255,255,255,.22),0 18px 40px rgba(0,0,0,.5)}
 #ring .hx{z-index:1}
@@ -3903,7 +3903,9 @@ function drawSpriteTo(g, name, x, y, s) { const sp = SPR[name]; if (sp) g.drawIm
 /* ===================== modals, menu ring, settings ===================== */
 function fitSheet() {
   const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
-  document.documentElement.style.setProperty('--sheet-max', Math.max(140, vh - 12) + 'px');
+  const z = parseFloat(getComputedStyle(document.documentElement).zoom);
+  const zoom = z > 0 ? z : 1;
+  document.documentElement.style.setProperty('--sheet-max', Math.max(120, vh / zoom - 12) + 'px');
 }
 function openModal(id) {
   closeRing(); fitSheet();
@@ -4023,7 +4025,7 @@ function wakeUp() {
   setAct(null);
 }
 /* ---------- v7 walking (dice removed) ---------- */
-function canWalkNow() { return G.scene === 'map' && MAP.avOut && G.step >= 2 && G.step <= 7 && MAP.house.mode !== 'fly' && !$('.modal.on'); }
+function canWalkNow() { return G.scene === 'map' && MAP.avOut && G.step >= 2 && G.step <= 7 && MAP.house.mode !== 'fly' && !$('.modal.on') && !$('#ring.on'); }
 function mapTap(X, Y) {
   if (!canWalkNow()) return;
   const [wx, wy] = unproj(MAP.cam, X, Y + 4), [q, r] = xyHex(wx, wy), t = tileAt(q, r); if (!t) return;
