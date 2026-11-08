@@ -227,6 +227,12 @@ text-shadow:0 0 18px rgba(255,79,180,.9),0 3px 0 #3a0f30}
 #title{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(20px + var(--sat)) 18px calc(20px + var(--sab));
 background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31,.25) 60%),linear-gradient(180deg,rgba(26,15,31,.55),rgba(26,15,31,.92));transition:opacity .5s}
 #title.out{opacity:0;pointer-events:none}
+@media (max-height:519px) {
+  /* The title rule above recenters the column. On a short screen that packs the logo
+     above the scrollport, where a drag cannot reach it. Start at the top instead. */
+  #title{justify-content:flex-start;padding:6px 18px 8px}
+  #title .race canvas{height:60px}
+}
 .logo{font-weight:900;font-size:30px;letter-spacing:.06em;text-align:center;line-height:1.05;background:linear-gradient(180deg,#fff6d8,#ffc94d 50%,#ff8fca);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 14px rgba(255,79,180,.6))}
 .sub{font-size:12px;letter-spacing:.24em;color:var(--pink);font-weight:900;margin:6px 0 16px;text-transform:uppercase}
 .races{display:flex;gap:10px;width:min(100%,400px)}
@@ -2272,6 +2278,32 @@ function drawLowAir(T) {
   }
   ctx.restore();
 }
+/* The raid's dark fill and cyan lattice do not move with time. Restroke was a large
+   slice of a still fight. The bitmap is the same strokes, reused until the camera changes. */
+const raidBack = { cv: document.createElement('canvas'), key: '', prev: '', ready: false };
+function raidBackdrop(c) {
+  const key = W + '|' + H + '|' + DPR + '|' + c.x.toFixed(3) + '|' + c.y.toFixed(3) + '|' + c.hz.toFixed(2) + '|' + c.A.toFixed(3) + '|' + c.D.toFixed(1) + '|' + c.cy.toFixed(1);
+  const s = raidBack;
+  if (s.cv.width !== cv.width || s.cv.height !== cv.height) { s.cv.width = cv.width; s.cv.height = cv.height; s.ready = false; s.key = ''; s.prev = ''; }
+  const paint = (g) => {
+    g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.setLineDash([]); g.lineJoin = 'round';
+    g.fillStyle = '#07060c'; g.fillRect(0, 0, W, H);
+    g.strokeStyle = 'rgba(110,160,200,.16)'; g.lineWidth = 1; g.beginPath();
+    for (const t of AHEX) if (t.d <= 5) addHex(c, t.x, t.y, .99, g);
+    g.stroke();
+  };
+  if (s.ready && s.key === key) { ctx.drawImage(s.cv, 0, 0, W, H); return; }
+  if (s.prev === key) {
+    const g = s.cv.getContext('2d', { alpha: false });
+    g.setTransform(DPR, 0, 0, DPR, 0, 0);
+    paint(g);
+    s.ready = true; s.key = key;
+    ctx.drawImage(s.cv, 0, 0, W, H);
+    return;
+  }
+  paint(ctx);
+  s.prev = key; s.ready = false; s.key = '';
+}
 function drawArena(T) {
   const c = AR.cam;
   if (AR.floorDirty) renderArenaFloor();
@@ -2279,12 +2311,8 @@ function drawArena(T) {
   if (AR.kind === 'raid') {
     // The pink underworld reads as hot seams once the floor is translucent. Raid plates stay opaque; gaps are a dim cyan lattice.
     // Training yard keeps that lattice off. The hex math is unchanged; cues draw only while aiming.
-    ctx.fillStyle = yardStage() ? '#68625c' : '#07060c'; ctx.fillRect(0, 0, W, H);
-    if (!yardStage()) {
-      ctx.strokeStyle = 'rgba(110,160,200,.16)'; ctx.lineWidth = 1; ctx.beginPath();
-      for (const t of AHEX) if (t.d <= 5) addHex(c, t.x, t.y, .99, ctx);
-      ctx.stroke();
-    }
+    if (yardStage()) { ctx.fillStyle = '#68625c'; ctx.fillRect(0, 0, W, H); }
+    else raidBackdrop(c);
     ctx.drawImage(acv, 0, 0, W, H);
   } else { drawWireUnder(c, AHEX, T, 'arena'); ctx.globalAlpha = surfaceAlpha(); ctx.drawImage(acv, 0, 0, W, H); ctx.globalAlpha = 1; }
   drawLowAir(T); drawWireOver(c, AHEX.filter(h => h.d <= 4), T, 'arena'); if (!yardStage()) drawRaidShimmer(c, T);
