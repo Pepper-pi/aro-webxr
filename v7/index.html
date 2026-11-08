@@ -1826,6 +1826,7 @@ function drawMap(T) {
   }
   // AR holo lanterns: faint passive decorations
   for (let i = 0; i < 5; i++) { const wx = -5 + i * 2.6, wy = -4 + Math.sin(i * 2.1) * 3, [X, Y, f] = proj(c, wx, wy); const bob = Math.sin(T * 1.3 + i) * 5; ctx.globalAlpha = .22; ctx.strokeStyle = '#7ff0ff'; ctx.lineWidth = 1.2; poly(ctx, HEXC.map(p => [X + p[0] * 6 * f, Y - 60 * f + bob + p[1] * 7 * f])); ctx.stroke(); ctx.globalAlpha = 1; }
+  drawSuperHexNames(c, h);
 }
 const HOLO_SPR = { lpTree: 1, lpTreeC: 1, pine: 1, pineD: 1, pineG: 1, round: 1, bloom: 1, shroom: 1 };
 const SUPER_HEX = [
@@ -1857,12 +1858,34 @@ function drawSuperHexes(c, h) {
     hexPath(c, t.x, t.y, s.rad);
     ctx.globalAlpha = a * 0.34; ctx.fillStyle = `rgba(${s.col},1)`; ctx.fill();
     ctx.globalAlpha = a; ctx.strokeStyle = `rgba(${s.col},1)`; ctx.lineWidth = 3; ctx.stroke();
-    if (near > 2.4) {
-      const [X, Y, f] = proj(c, t.x, t.y);
-      ctx.globalAlpha = a; ctx.font = `800 ${Math.max(11, 13 * f)}px ui-rounded,system-ui`; ctx.textAlign = 'center';
-      ctx.lineWidth = 3; ctx.strokeStyle = '#140810'; ctx.strokeText(s.name, X, Y - 6 * f);
-      ctx.fillStyle = '#e9faff'; ctx.fillText(s.name, X, Y - 6 * f);
-    }
+  }
+  ctx.restore();
+}
+const MARK_LABELS = [];
+function drawSuperHexNames(c, h) {
+  MARK_LABELS.length = 0;
+  if (window.__noHolo || G.scene !== 'map') return;
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const s of SUPER_HEX) {
+    const t = tileAt(s.q, s.r); if (!t) continue;
+    const [X, Y] = proj(c, t.x, t.y);
+    const [ax, ay] = proj(c, h.x, h.y);
+    if (Math.hypot(X - ax, Y - ay) < 70) continue;
+    if (X < 18 || X > W - 18 || Y < 28 || Y > H - 28) continue;
+    ctx.font = '800 16px ui-rounded,system-ui';
+    const tw0 = ctx.measureText(s.name).width;
+    if (dockLabelHitsUi(X, Y + 4, tw0)) continue;
+    const tw = tw0;
+    const box = { l: X - tw / 2 - 8, r: X + tw / 2 + 8, t: Y - 14, b: Y + 14 };
+    ctx.fillStyle = 'rgba(10,6,16,.88)';
+    ctx.strokeStyle = `rgba(${s.col},.95)`;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.roundRect(box.l, box.t, box.r - box.l, box.b - box.t, 8); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#f4fbff';
+    ctx.fillText(s.name, X, Y);
+    MARK_LABELS.push(box);
   }
   ctx.restore();
 }
@@ -5771,17 +5794,31 @@ layoutMapCam = function () {
     dockHud = { x: X, y: Y, s: ss };
   }
 }; }
+function boxesOverlap(a, b) { return !(a.r < b.l || b.r < a.l || a.b < b.t || b.b < a.t); }
 function dockLabelHitsUi(x, y, tw) {
-  const box = { l: x - tw * 0.5 - 6, r: x + tw * 0.5 + 6, t: y - 20, b: y + 24 };
-  for (const id of ['coach', 'mapNav', 'obj', 'charBtn', 'wirePanel']) {
+  const box = { l: x - tw * 0.5 - 8, r: x + tw * 0.5 + 8, t: y - 22, b: y + 28 };
+  for (const id of ['coach', 'mapNav', 'obj', 'charBtn', 'wirePanel', 'act', 'menuBtn']) {
     const el = document.getElementById(id);
     if (!el) continue;
     if (id === 'coach' && !el.classList.contains('on')) continue;
-    if (el.classList.contains('hide')) continue;
+    const s = getComputedStyle(el);
+    if (el.classList.contains('hide') || s.display === 'none' || s.visibility === 'hidden' || Number(s.opacity) < 0.05) continue;
     const r = el.getBoundingClientRect();
     if (r.width < 2 || r.height < 2) continue;
-    if (!(box.r < r.left || r.right < box.l || box.b < r.top || r.bottom < box.t)) return true;
+    if (boxesOverlap(box, { l: r.left, r: r.right, t: r.top, b: r.bottom })) return true;
   }
+  for (const el of document.querySelectorAll('#toasts .toast')) {
+    const r = el.getBoundingClientRect();
+    if (r.width < 2) continue;
+    if (boxesOverlap(box, { l: r.left - 6, r: r.right + 6, t: r.top - 4, b: r.bottom + 4 })) return true;
+  }
+  const hive = tileAt(-1, 0);
+  if (hive) {
+    const [X, Y, f] = proj(MAP.cam, hive.x, hive.y);
+    const sc = f * MAP.cam.hz / 42;
+    if (boxesOverlap(box, { l: X - 30 * sc, r: X + 34 * sc, t: Y - 78 * sc, b: Y + 18 * sc })) return true;
+  }
+  for (const m of MARK_LABELS) if (boxesOverlap(box, m)) return true;
   return false;
 }
 function drawDockHud() {
@@ -5798,12 +5835,18 @@ function drawDockHud() {
     const Hh = 58 * sc * (G.fieldAvatar === 'gold' ? 1.25 : 1.4);
     const near = Math.hypot(dockHud.x - px, dockHud.y - py) < Math.max(120, Hh * 1.3);
     if (near) {
-      const gap = Math.max(84, Hh * 0.72);
-      const ly = Math.max(86, Math.min(H - 48, py - Math.min(26, Hh * 0.2)));
-      const candidates = [px + gap + tw * 0.5, px - gap - tw * 0.5];
-      const fits = cx => cx - tw * 0.5 > 8 && cx + tw * 0.5 < W - 8 && !dockLabelHitsUi(cx, ly, tw);
-      x = candidates.find(fits) || candidates.find(cx => cx - tw * 0.5 > 8 && cx + tw * 0.5 < W - 8) || x;
-      y = ly;
+      const gap = Math.max(96, Hh * 0.85);
+      const avatar = { l: px - 34 * sc, r: px + 34 * sc, t: py - Hh - 8, b: py + 14 };
+      const spots = [];
+      for (const side of [1, -1]) for (const extra of [0, 48, 96]) for (const ly of [py - 8, py - Hh * 0.45, py + 30, 72]) spots.push([px + side * (gap + extra), ly]);
+      const fits = (cx, ly) => {
+        if (cx - tw * 0.5 < 8 || cx + tw * 0.5 > W - 8 || ly < 36 || ly > H - 40) return false;
+        const box = { l: cx - tw * 0.5 - 8, r: cx + tw * 0.5 + 8, t: ly - 22, b: ly + 28 };
+        if (boxesOverlap(box, avatar)) return false;
+        return !dockLabelHitsUi(cx, ly, tw);
+      };
+      const spot = spots.find(([cx, ly]) => fits(cx, ly));
+      if (spot) { x = spot[0]; y = spot[1]; }
     }
   }
   ctx.strokeStyle = '#140810';
