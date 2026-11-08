@@ -57,8 +57,8 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 #ring.on{opacity:1}
 #ring,#ring *{pointer-events:none}
 #ring.on #ringHead,#ring.on #ringHead *,#ring.on #ringRail,#ring.on #ringRail *,#ring.on #ringHome,#ring.on #ringHome *{pointer-events:auto}
-#ringFrame{position:absolute;display:flex;flex-direction:column;min-width:0;background:rgba(8,12,22,.55);border:1px solid rgba(127,240,255,.55);box-shadow:inset 0 0 0 1px rgba(255,214,130,.28)}
-#ringHead{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 8px;flex:none}
+#ringFrame{position:absolute;display:flex;flex-direction:column;min-width:0;background:transparent;border:1px solid rgba(127,240,255,.45)}
+#ringHead{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 8px;flex:none;background:rgba(8,14,24,.78)}
 #ringTitle{flex:1;font-weight:900;font-size:16px}
 #sectionsBtn,#sectionsClose,#ringX{min-height:48px;padding:8px 12px;font-weight:900;font-size:16px;color:#f4fbff;background:rgba(16,27,42,.94);border:1px solid rgba(127,240,255,.8)}
 #sectionsBtn,#sectionsClose{display:none}
@@ -68,29 +68,25 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 #ringStage{flex:1;min-width:0;min-height:0;position:relative;pointer-events:none}
 #ringHome{height:100%;overflow:auto;padding:16px;background:rgba(16,27,42,.96);color:#f4fbff;font-size:16px;line-height:1.4}
 #ringHome p{margin:0 0 12px}
-#ring .hx{--pane:rgba(122,223,240,.85);position:relative;display:block;width:100%;min-height:72px;padding:0;color:#f4fbff;clip-path:polygon(12px 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,12px 100%,0 50%);background:linear-gradient(#7adff0,#7adff0 calc(100% - 2px),rgba(6,16,24,.9) 100%)}
-#ring .hx:nth-child(3n+2){--pane:rgba(187,166,244,.85);background:linear-gradient(#cbbcf8,#cbbcf8 calc(100% - 2px),rgba(16,10,28,.9) 100%)}
-#ring .hx:nth-child(3n){--pane:rgba(244,207,133,.8);background:linear-gradient(#f4cf85,#f4cf85 calc(100% - 2px),rgba(28,18,8,.9) 100%)}
+#ring .hx{--pane:rgba(122,223,240,.95);--tint:rgba(122,223,240,.18);position:relative;display:block;width:100%;height:88px;min-height:88px;max-height:88px;padding:0;overflow:hidden;color:#f7fbff;clip-path:polygon(12px 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,12px 100%,0 50%);background:var(--tint);box-shadow:inset 0 0 0 3px var(--pane)}
+#ring .hx:nth-child(3n+2){--pane:rgba(187,166,244,.9);--tint:rgba(187,166,244,.16)}
+#ring .hx:nth-child(3n){--pane:rgba(244,207,133,.9);--tint:rgba(244,207,133,.16)}
 #ring .hx:nth-child(even){margin-left:4px;width:calc(100% - 4px)}
-#ring .hx .hx-plane{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:68px;margin:2px;padding:8px 16px;pointer-events:none;background:rgba(100,221,232,.24)}
-#ring .hx:nth-child(3n+2) .hx-plane{background:rgba(187,166,244,.24)}
-#ring .hx:nth-child(3n) .hx-plane{background:rgba(244,207,133,.22)}
-#ring .hx .hx-mark{position:relative;width:26px;height:26px;display:grid;place-items:center;pointer-events:none}
-#ring .hx .hx-glow{position:absolute;left:50%;top:46%;width:36px;height:36px;margin:-18px 0 0 -18px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.92) 0%,var(--pane) 34%,transparent 72%);pointer-events:none}
-#ring .hx .hx-frost{position:relative;width:18px;height:18px;display:block}
-#ring .hx .hx-name,#ring .hx .hx-why{font-weight:800;font-size:16px;line-height:1.15;text-align:center}
-#ring .hx .hx-why{font-weight:700}
-#ring .hx.sel{background:linear-gradient(#ffe7a2,#7adff0 calc(100% - 2px),rgba(6,16,24,.9) 100%)}
-#ring .hx.sel .hx-plane{box-shadow:inset 0 0 0 2px rgba(255,231,162,.95)}
+#ring .hx .hx-plane{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:100%;padding:6px 16px;pointer-events:none;background:transparent}
+#ring .hx .hx-mark{position:relative;width:28px;height:28px;display:grid;place-items:center;pointer-events:none;flex:none}
+#ring .hx .hx-glow{position:absolute;left:50%;top:50%;width:36px;height:36px;margin:-18px 0 0 -18px;border-radius:50%;background:radial-gradient(circle,transparent 0 32%,var(--pane) 48%,transparent 74%);pointer-events:none}
+#ring .hx .hx-frost{position:relative;width:22px;height:22px;display:block}
+#ring .hx .hx-name{font-weight:800;font-size:16px;line-height:1.05;text-align:center;color:#f7fbff;text-shadow:0 1px 2px rgba(0,0,0,.85)}
+#ring .hx.sel{box-shadow:inset 0 0 0 3px #ffe7a2}
 #ring .hx:focus{outline:none}
 #ring .hx:focus-visible{outline:3px dashed #ffffff;outline-offset:3px}
-#ring .hx.soon{filter:saturate(.65)}
-#ring .hx.glow{outline:3px solid rgba(255,201,77,.9);outline-offset:2px}
+#ring .hx.soon .hx-name{color:#f7fbff}
+#ring .hx.glow{outline:3px solid rgba(255,201,77,.95);outline-offset:2px}
 #ring.drawer #ringBody{display:block;position:relative}
 #ring.drawer #ringRail{display:none;position:absolute;z-index:2;left:0;top:0;bottom:0;width:min(176px,calc(100% - 24px));padding:8px;background:rgba(8,14,24,.96);border:1px solid rgba(127,240,255,.7);overflow:auto}
 #ring.drawer.rail-open #ringRail{display:flex}
-#ring.drawer .hx{min-height:48px}
-#ring.drawer .hx .hx-plane{flex-direction:row;justify-content:flex-start;gap:8px;min-height:44px;padding:6px 18px}
+#ring.drawer .hx{height:64px;min-height:64px;max-height:64px}
+#ring.drawer .hx .hx-plane{flex-direction:row;justify-content:flex-start;gap:8px;padding:4px 18px}
 #ring.drawer #sectionsBtn{display:inline-flex;align-items:center}
 #ring.drawer.rail-open #sectionsClose{display:block;margin-bottom:8px}
 #ring.drawer.rail-open #ringStage{pointer-events:none}
@@ -109,7 +105,12 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 body.out-combat #mapNav,body.out-combat #wirePanel,body.out-combat #charBtn{display:none!important}
 body:has(.modal.on) #coach,body:has(.modal.on) #mapNav,body:has(.modal.on) #act,body:has(.modal.on) #menuBtn,body:has(.modal.on) #obj,body:has(.modal.on) #wirePanel,body:has(.modal.on) #charBtn,body:has(.modal.on) #banner,body:has(.modal.on) #toasts,body.menu-open #coach,body.menu-open #mapNav,body.menu-open #wirePanel,body.menu-open #charBtn,body.menu-open #obj{visibility:hidden!important;pointer-events:none!important}
 body.menu-open .modal.on:not(#sumM){z-index:19;background:transparent;pointer-events:none;padding:0}
-body.menu-open .modal.on:not(#sumM) .sheet{pointer-events:auto;position:fixed;margin:0;max-width:none;width:auto;border-radius:0;background:rgba(16,27,42,.97);color:#f4fbff}
+body.menu-open .modal.on:not(#sumM) .sheet{pointer-events:auto;position:fixed;margin:0;max-width:none;width:auto;border-radius:0;background:rgba(16,27,42,.96);color:#f7fbff}
+body.menu-open .sheet .row div,body.menu-open .sheet .sh-h,body.menu-open .sheet .spell b{color:#f7fbff}
+body.menu-open .sheet .row small,body.menu-open .sheet .hint,body.menu-open .sheet .spell small{color:#d7ecf8;font-size:16px}
+body.menu-open .sheet .tg{background:rgba(255,255,255,.55)}
+body.menu-open .sheet .tg.on{background:#ff4fb4}
+body.menu-open #ringHome{background:rgba(16,27,42,.96);color:#f7fbff}
 body.menu-open .sheet .row{flex-direction:column;align-items:stretch}
 body.menu-open .sheet .row div,body.menu-open .sheet .hint,body.menu-open #ringHome{font-size:16px}
 body.menu-open .sheet .chips{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -4093,6 +4094,7 @@ function fitSheet() {
 }
 const MENU_MODAL = { bag: 'bagM', craft: 'craftM', fish: 'fishM', skills: 'skillM', log: 'logM', set: 'setM', cmd: 'cmdM' };
 let menuHist = [];
+const menuScroll = {};
 function menuZoom() { const z = parseFloat(getComputedStyle(document.documentElement).zoom); return z > 0 ? z : 1; }
 function layoutMenu() {
   const ring = $('#ring'); if (!ring || !ring.classList.contains('on')) return;
@@ -4165,7 +4167,10 @@ function buildRing() {
     const b = document.createElement('button');
     b.className = 'hx'; b.type = 'button'; b.dataset.k = t.k; b.tabIndex = -1;
     b.innerHTML = `<span class="hx-plane">${frostMark(t.k)}<span class="hx-name">${t.n}</span></span>`;
-    b.onclick = e => { e.stopPropagation(); chooseSection(t); };
+    b.addEventListener('pointerdown', e => { b._p = { x: e.clientX, y: e.clientY }; b._drag = false; });
+    b.addEventListener('pointermove', e => { if (b._p && Math.hypot(e.clientX - b._p.x, e.clientY - b._p.y) > 12) b._drag = true; });
+    b.addEventListener('pointercancel', () => { b._drag = true; b._p = null; });
+    b.onclick = e => { e.stopPropagation(); if (b._drag) { b._drag = false; return; } chooseSection(t); };
     tabs.appendChild(b);
   }
   $('#sectionsBtn').onclick = () => { $('#ring').classList.add('rail-open'); const s = $('#sectionsClose'); if (s) s.focus(); };
@@ -4173,6 +4178,9 @@ function buildRing() {
   $('#ringX').onclick = () => { closeRing(); $('#menuBtn').focus(); };
 }
 function chooseSection(t) {
+  const cur = document.querySelector('#ring .hx.sel');
+  const openSheet = document.querySelector('.modal.on .sheet');
+  if (cur && openSheet) menuScroll[cur.dataset.k] = openSheet.scrollTop;
   $$('#ring .hx').forEach(b => { b.classList.toggle('sel', b.dataset.k === t.k); b.setAttribute('aria-current', b.dataset.k === t.k ? 'true' : 'false'); });
   $('#ring').classList.remove('rail-open');
   if (t.k === 'fish' && !fishReady()) {
@@ -4185,12 +4193,15 @@ function chooseSection(t) {
   }
   const prev = menuHist[menuHist.length - 1];
   if (prev !== t.k) menuHist.push(t.k);
+  $('#ringNote').textContent = '';
   for (const id of Object.values(MENU_MODAL)) if ($('#' + id).classList.contains('on')) closeModal(id);
   t.go();
+  const backSheet = document.querySelector('.modal.on .sheet');
+  if (backSheet && menuScroll[t.k]) backSheet.scrollTop = menuScroll[t.k];
   const tab = document.querySelector('#ring .hx.sel');
   if (tab) { const rail = $('#ringRail'); const top = tab.offsetTop, bot = top + tab.offsetHeight; if (top < rail.scrollTop) rail.scrollTop = top; else if (bot > rail.scrollTop + rail.clientHeight) rail.scrollTop = bot - rail.clientHeight; }
 }
-function showMenuRoot() {
+function showMenuRoot(closing) {
   menuHist = [];
   for (const id of Object.values(MENU_MODAL)) if ($('#' + id).classList.contains('on')) closeModal(id);
   $$('#ring .hx').forEach(b => { b.classList.remove('sel'); b.setAttribute('aria-current', 'false'); });
@@ -4198,6 +4209,7 @@ function showMenuRoot() {
   $('#ringHome').style.visibility = 'visible';
   $('#ringNote').textContent = '';
   $('#ringTitle').textContent = 'Menu';
+  if (closing) return;
   const visible = [...document.querySelectorAll('#ring .hx')].find(b => b.offsetParent);
   const next = visible || $('#sectionsBtn');
   if (next && next.offsetParent) next.focus(); else $('#ringX').focus();
@@ -4211,12 +4223,8 @@ function openRing() {
     b.classList.toggle('glow', G.step === 5 && t.k === 'craft');
     const later = t.k === 'fish' && !fishReady();
     b.classList.toggle('soon', later);
-    let why = b.querySelector('.hx-why');
-    if (later) {
-      if (!why) { why = document.createElement('span'); why.className = 'hx-why'; b.querySelector('.hx-plane').appendChild(why); }
-      why.textContent = 'Opens at the pond after the Cook Nook.';
-      b.title = 'Fishing opens at the pond after the Cook Nook.';
-    } else { if (why) why.remove(); b.removeAttribute('title'); }
+    if (later) b.title = 'Fishing opens at the pond after the Cook Nook.';
+    else b.removeAttribute('title');
   });
   const ring = $('#ring');
   ring.classList.add('on'); ring.setAttribute('aria-hidden', 'false'); document.body.classList.add('menu-open');
@@ -4229,11 +4237,14 @@ function openRing() {
 }
 function closeRing() {
   const r = $('#ring'); if (!r) return;
-  showMenuRoot();
+  showMenuRoot(true);
   r.classList.remove('on'); r.setAttribute('aria-hidden', 'true'); document.body.classList.remove('menu-open');
   $$('#ring .hx').forEach(b => { b.tabIndex = -1; });
   const lab = $('#menuBtn b'); if (lab) lab.textContent = 'Menu';
   const act = $('#act'); if (act) { act.disabled = false; act.removeAttribute('aria-disabled'); }
+  const ae = document.activeElement;
+  if (ae && r.contains(ae)) ae.blur();
+  const menu = $('#menuBtn'); if (menu) menu.focus();
 }
 function chip(k, n) { return `<div class="ic r${ITEMS[k] ? ITEMS[k].r : 1}" data-k="${k}"><span class="n">${n}</span><img src="${ICON_URL[k === 'fish' ? 'fish' : k]}" alt="">${ITEMS[k] ? ITEMS[k].n : k}</div>`; }
 function renderBag() { let h = `<div class="ic r1"><span class="n">${G.aether}</span><img src="${ICON_URL.aether}" alt="">Aether</div><div class="ic r2"><span class="n">${G.caps}</span><img src="${ICON_URL.cap}" alt="">Bottle caps</div>`; for (const k in G.bag) if (G.bag[k] > 0) h += chip(k, G.bag[k]); $('#bagGrid').innerHTML = h; $$('#bagGrid .ic[data-k]').forEach(b => b.onclick = () => useBagItem(b.dataset.k)); }
