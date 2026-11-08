@@ -11,7 +11,7 @@
   "pitch": 0.08,
   "pixels": [480, 800],
   "color": "The file's linear baseColorFactor, encoded for the screen. Roughness, KHR_materials_specular specularFactor, and KHR_materials_clearcoat clearcoatFactor come from the file.",
-  "key": "The frame is cleared to magenta, then magenta pixels are dropped and the picture is cropped to the remaining pixels.",
+  "key": "No color key. The frame is cleared transparent. The WebGL readback is premultiplied alpha and is converted to straight alpha by v7/assets/original-gold-field-bake.mjs. Soft edges stay. Hair and the bikini are not trimmed by a magenta test.",
   "motion": "The whole picture moves and turns. Left-facing steps mirror the quarter picture. There is no skeleton and no transmission claim.",
   "selection": "Walk as Original Gold sets the field picture. Walk as Boba, or the Wayfarer and Boba cards, clear it. Reload starts without it. The inspection views do not select the field picture.",
   "audit": "At bake time the page records GOLD.manifest: sourceSha256, triangles, view yaw, pitch, spriteSha256 for front q and back, per-view drawMs, and bakeMs. spriteSha256 is from the pixels this GPU produced. Do not require those picture hashes to match another machine. The source file hash above is the gate."

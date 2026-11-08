@@ -31,6 +31,11 @@ background:rgba(26,15,31,.78);border:1px solid rgba(255,201,77,.45);border-radiu
 background:linear-gradient(180deg,rgba(52,22,58,.95),rgba(30,14,36,.95));border:1px solid rgba(255,79,180,.55);border-radius:18px;padding:11px 14px 11px 14px;
 font-size:14.5px;line-height:1.35;box-shadow:0 8px 30px rgba(0,0,0,.45),0 0 18px rgba(255,79,180,.18);opacity:0;pointer-events:none;transition:opacity .35s,transform .35s}
 #coach.on{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (max-height:519px) and (min-width:700px){
+  /* The centered card sat on the walker and, on the map, on Home and Dome. Same words, at the right, clear of those controls. */
+  #coach{left:auto;right:12px;top:148px;bottom:auto;width:min(34vw,260px);max-height:156px;overflow:auto;transform:none;font-size:12.5px;line-height:1.25;padding:7px 9px}
+  #coach.on{transform:none}
+}
 #coach .who{font-size:11px;letter-spacing:.12em;color:var(--pink);font-weight:900;text-transform:uppercase;margin-bottom:3px}
 #coach b{color:var(--gold)}
 /* ---------- one contextual action + one glowing hex menu button ---------- */
@@ -261,6 +266,8 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
 }
 #goldStatus{font-weight:900;min-height:1.3em;text-align:center}
 #goldBox[data-state="loading"] #goldStatus{color:#ffe08a}
+#goldBox[data-state="loading"] #goldCv{visibility:hidden}
+#goldWalk:disabled{opacity:.55}
 #goldBox[data-state="error"] #goldStatus{color:#ff9aaa}
 #goldBox[data-state="ready"] #goldStatus{color:#d9ffe8}
 #goldRetry{margin-top:6px}
@@ -1015,7 +1022,8 @@ function drawGoldField(g, x, y, s, o, img) {
   g.drawImage(img, -Ww / 2, -Hh, Ww, Hh);
   g.restore();
   if (o.cast > 0 || o.charge > 0) {
-    const hx = x + Ww * .2 * (o.flip ? -1 : 1), hy = y - hop - Hh * .55, c = o.col || '#ffc94d', k = Math.max(o.cast || 0, o.charge || 0), R = Hh * .12 * (.6 + k);
+    const k = Math.min(1, Math.max(o.cast || 0, o.charge || 0));
+    const hx = x + Ww * .22 * (o.flip ? -1 : 1), hy = y - hop - Hh * .34, c = o.col || '#ffc94d', R = Hh * .08 * (.7 + k);
     const gr = g.createRadialGradient(hx, hy, 0, hx, hy, R); gr.addColorStop(0, '#fff'); gr.addColorStop(.35, c); gr.addColorStop(1, 'rgba(0,0,0,0)');
     g.save(); g.fillStyle = gr; g.globalCompositeOperation = 'lighter'; g.beginPath(); g.arc(hx, hy, R, 0, TAU); g.fill(); g.restore();
   }
@@ -5546,16 +5554,44 @@ layoutMapCam = function () {
   _drawHome(X, Y, fs, T);
   if (G.scene === 'map') {
     const ss = fs * MAP.cam.hz / 42;
-    dockHud = { x: X, y: Y - Math.min(108, 72 * ss) };
+    dockHud = { x: X, y: Y, s: ss };
   }
 }; }
+function dockLabelHitsUi(x, y, tw) {
+  const box = { l: x - tw * 0.5 - 6, r: x + tw * 0.5 + 6, t: y - 20, b: y + 24 };
+  for (const id of ['coach', 'mapNav', 'obj', 'charBtn', 'wirePanel']) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    if (id === 'coach' && !el.classList.contains('on')) continue;
+    if (el.classList.contains('hide')) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) continue;
+    if (!(box.r < r.left || r.right < box.l || box.b < r.top || r.bottom < box.t)) return true;
+  }
+  return false;
+}
 function drawDockHud() {
   if (!dockHud || G.scene !== 'map') return;
-  const { x, y } = dockHud;
   ctx.save();
   ctx.textAlign = 'center';
   ctx.lineWidth = 4;
   ctx.font = '900 18px ui-rounded,system-ui';
+  const tw = ctx.measureText('THE DOCK').width;
+  let x = dockHud.x, y = dockHud.y - Math.min(108, 72 * dockHud.s);
+  if (MAP.avOut) {
+    const [px, py, f] = proj(MAP.cam, MAP.house.x, MAP.house.y);
+    const sc = f * MAP.cam.hz / 42;
+    const Hh = 58 * sc * (G.fieldAvatar === 'gold' ? 1.25 : 1.4);
+    const near = Math.hypot(dockHud.x - px, dockHud.y - py) < Math.max(120, Hh * 1.3);
+    if (near) {
+      const gap = Math.max(84, Hh * 0.72);
+      const ly = Math.max(86, Math.min(H - 48, py - Math.min(26, Hh * 0.2)));
+      const candidates = [px + gap + tw * 0.5, px - gap - tw * 0.5];
+      const fits = cx => cx - tw * 0.5 > 8 && cx + tw * 0.5 < W - 8 && !dockLabelHitsUi(cx, ly, tw);
+      x = candidates.find(fits) || candidates.find(cx => cx - tw * 0.5 > 8 && cx + tw * 0.5 < W - 8) || x;
+      y = ly;
+    }
+  }
   ctx.strokeStyle = '#140810';
   ctx.strokeText('THE DOCK', x, y);
   ctx.fillStyle = '#ffe7a2';
@@ -6292,7 +6328,7 @@ async function goldLoad() {
   catch (e) { GOLD.fail = 'The mesh could not be read. Boba was not used in its place.'; goldNote(GOLD.fail); return false; }
   if (!parsed || parsed.tris !== 118790 || parsed.parts.length !== 20 || parsed.mats !== 6 || parsed.anims !== 0) { GOLD.fail = 'The mesh is not the 20-part, 6-material Original Gold file.'; goldNote(GOLD.fail); return false; }
   let gl = null;
-  try { gl = canvas.getContext('webgl', { antialias: true, alpha: false, preserveDrawingBuffer: true }); }
+  try { gl = canvas.getContext('webgl', { antialias: true, alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: true }); }
   catch (e) { gl = null; }
   if (!gl) { GOLD.fail = 'This browser has no WebGL. The mesh is not being replaced with Boba.'; goldNote(GOLD.fail); return false; }
   const vs = 'attribute vec3 aPos;attribute vec3 aNrm;uniform mat4 uMVP;uniform mat4 uModel;uniform mat3 uN;varying vec3 vN;varying vec3 vP;void main(){vec4 w=uModel*vec4(aPos,1.0);vP=w.xyz;vN=uN*aNrm;gl_Position=uMVP*vec4(aPos,1.0);}';
@@ -6371,7 +6407,7 @@ function goldDraw(view, opt) {
   GOLD.center = [px[0], px[1], px[2]];
   GOLD.draws = (GOLD.draws || 0) + 1;
   if (GOLD.draws === 1) GOLD.firstMs = GOLD.ms;
-  goldNote('Static unrigged mesh from Original_Gold_Likeness.glb. ' + GOLD.tris + ' triangles, 20 parts, no skeleton. sha256 ' + GOLD.hash.slice(0, 8) + '…' + GOLD.hash.slice(-8) + '. First view ' + GOLD.firstMs.toFixed(0) + ' ms, this view ' + GOLD.ms.toFixed(0) + ' ms. Not Boba. Not animated.');
+  if (!opt.keepNote) goldNote('Static unrigged mesh from Original_Gold_Likeness.glb. ' + GOLD.tris + ' triangles, 20 parts, no skeleton. sha256 ' + GOLD.hash.slice(0, 8) + '…' + GOLD.hash.slice(-8) + '. First view ' + GOLD.firstMs.toFixed(0) + ' ms, this view ' + GOLD.ms.toFixed(0) + ' ms. Not Boba. Not animated.');
   return GOLD.ms;
 }
 async function goldOpen() {
@@ -6407,30 +6443,21 @@ function goldFieldTag() {
   const b = document.getElementById('goldBtn');
   if (b) b.textContent = G.fieldAvatar === 'gold' ? 'Original Gold · field picture' : 'Original Gold';
 }
-function goldKeyMagenta(px, w, h) {
-  const out = new Uint8ClampedArray(w * h * 4);
-  for (let y = 0; y < h; y++) {
-    const src = (h - 1 - y) * w;
-    for (let x = 0; x < w; x++) {
-      const s = (src + x) * 4, d = (y * w + x) * 4;
-      const r = px[s], g = px[s + 1], b = px[s + 2];
-      out[d] = r; out[d + 1] = g; out[d + 2] = b;
-      out[d + 3] = (r > 180 && b > 180 && g < 100) ? 0 : 255;
-    }
-  }
-  let x0 = w, y0 = h, x1 = 0, y1 = 0;
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    if (out[(y * w + x) * 4 + 3] < 16) continue;
-    if (x < x0) x0 = x; if (y < y0) y0 = y; if (x > x1) x1 = x; if (y > y1) y1 = y;
-  }
-  if (x1 < x0) return null;
+async function goldBakeModule() {
+  if (GOLD.bakeMod) return GOLD.bakeMod;
+  GOLD.bakeMod = await import(new URL('assets/original-gold-field-bake.mjs', location.href).href);
+  return GOLD.bakeMod;
+}
+function goldSheetFromStraight(buf, w, h, box) {
   const c = document.createElement('canvas');
-  c.width = x1 - x0 + 1; c.height = y1 - y0 + 1;
+  c.width = box.width; c.height = box.height;
   const g = c.getContext('2d');
-  const img = g.createImageData(w, h); img.data.set(out);
-  const full = document.createElement('canvas'); full.width = w; full.height = h;
-  full.getContext('2d').putImageData(img, 0, 0);
-  g.drawImage(full, x0, y0, c.width, c.height, 0, 0, c.width, c.height);
+  const img = g.createImageData(box.width, box.height);
+  for (let y = 0; y < box.height; y++) {
+    const src = ((box.y0 + y) * w + box.x0) * 4;
+    img.data.set(buf.subarray(src, src + box.width * 4), y * box.width * 4);
+  }
+  g.putImageData(img, 0, 0);
   return c;
 }
 async function goldShaCanvas(c) {
@@ -6441,41 +6468,70 @@ async function goldShaCanvas(c) {
 async function goldBakeField() {
   if (GOLD.baking) return { ok: false, fail: 'The field pictures are already being built.' };
   GOLD.baking = true;
+  const walkBtn = document.getElementById('goldWalk');
+  if (walkBtn) walkBtn.disabled = true;
   try { return await goldBakeFieldNow(); }
-  finally { GOLD.baking = false; }
+  finally {
+    GOLD.baking = false;
+    if (walkBtn) walkBtn.disabled = false;
+  }
 }
 async function goldBakeFieldNow() {
   if (!GOLD.ready && !await goldLoad()) return { ok: false, fail: GOLD.fail };
-  goldStatus('Building field pictures from the mesh…', 'loading');
+  let mod;
+  try { mod = await goldBakeModule(); }
+  catch (e) { GOLD.fail = 'The field-picture recipe did not load. Boba was not substituted.'; goldStatus(GOLD.fail, 'error'); return { ok: false, fail: GOLD.fail }; }
+  goldStatus('Preparing field preview…', 'loading');
+  goldNote('Cutting three pictures from the mesh. The page stays up. Nothing is selected until this finishes.');
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   const t0 = performance.now();
   const sprites = {};
   const hashes = {};
   const drawMs = {};
-  for (const [name, view] of [['front', 'front'], ['q', 'quarter'], ['back', 'back']]) {
-    drawMs[name] = goldDraw(view, { clear: [1, 0, 1, 1], pixels: [480, 800] });
-    const gl = GOLD.gl, W = 480, H = 800;
-    const px = new Uint8Array(W * H * 4);
-    gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
-    const sheet = goldKeyMagenta(px, W, H);
-    if (!sheet) { GOLD.fail = 'The field picture had no pixels.'; goldStatus(GOLD.fail, 'error'); return { ok: false, fail: GOLD.fail }; }
-    sprites[name] = sheet;
-    hashes[name] = await goldShaCanvas(sheet);
+  const W = mod.FIELD_BAKE.pixels[0], H = mod.FIELD_BAKE.pixels[1];
+  try {
+    for (const [name, view] of [['front', 'front'], ['q', 'quarter'], ['back', 'back']]) {
+      goldStatus('Preparing field preview… ' + name, 'loading');
+      await new Promise(r => requestAnimationFrame(r));
+      drawMs[name] = goldDraw(view, { clear: [0, 0, 0, 0], pixels: [W, H], keepNote: true });
+      const gl = GOLD.gl;
+      const px = new Uint8Array(W * H * 4);
+      gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      if (!mod.goldReadbackHasAlpha(px, W, H)) {
+        GOLD.fail = 'The picture did not come back transparent. Nothing was substituted.';
+        goldStatus(GOLD.fail, 'error');
+        goldDraw('front');
+        return { ok: false, fail: GOLD.fail };
+      }
+      const straight = mod.goldStraightAlpha(px, W, H);
+      const box = mod.goldAlphaBounds(straight, W, H);
+      if (!box) { GOLD.fail = 'The field picture had no pixels.'; goldStatus(GOLD.fail, 'error'); goldDraw('front'); return { ok: false, fail: GOLD.fail }; }
+      sprites[name] = goldSheetFromStraight(straight, W, H, box);
+      hashes[name] = await goldShaCanvas(sprites[name]);
+    }
+  } catch (e) {
+    GOLD.fail = 'The field preview stopped. Boba was not substituted.';
+    goldStatus(GOLD.fail, 'error');
+    if (GOLD.gl) goldDraw('front');
+    return { ok: false, fail: GOLD.fail };
   }
   GOLD.sprites = sprites;
   GOLD.bakeMs = performance.now() - t0;
   GOLD.manifest = {
     sourceFile: 'assets/Original_Gold_Likeness.glb',
     sourceSha256: GOLD.hash,
+    recipe: 'assets/original-gold-field-bake.mjs',
     triangles: GOLD.tris,
     parts: 20,
     materials: 6,
     skins: 0,
     animations: 0,
-    views: { front: 0, q: 0.7, back: Math.PI },
-    pitch: 0.08,
-    pixels: [480, 800],
+    views: mod.FIELD_BAKE.views,
+    pitch: mod.FIELD_BAKE.pitch,
+    pixels: mod.FIELD_BAKE.pixels,
     color: 'file linear baseColorFactor, sRGB encode, file roughness, KHR_materials_specular specularFactor, KHR_materials_clearcoat clearcoatFactor',
-    key: 'magenta clear, crop to opaque pixels',
+    alpha: mod.FIELD_BAKE.alpha,
+    key: 'none. transparent clear, straight alpha from the premultiplied readback',
     motion: 'rigid billboard. left walk mirrors the quarter picture. no skeleton.',
     spriteSha256: hashes,
     drawMs, bakeMs: GOLD.bakeMs
@@ -6484,7 +6540,7 @@ async function goldBakeFieldNow() {
   goldFieldTag();
   goldStatus('Field picture is Original Gold', 'ready');
   goldNote('Static pictures cut from the mesh. She turns as a whole card. No rig. Bake ' + GOLD.bakeMs.toFixed(0) + ' ms. sha256 ' + GOLD.hash.slice(0, 8) + '…' + GOLD.hash.slice(-8) + '.');
-  goldDraw('front');
+  goldDraw('front', { keepNote: true });
   return { ok: true, bakeMs: GOLD.bakeMs, manifest: GOLD.manifest, race: G.race };
 }
 function goldUseBoba() {
