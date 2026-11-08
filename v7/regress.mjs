@@ -1405,15 +1405,17 @@ const gold = await goldPage.evaluate(async () => {
   const boba = document.querySelector('.race[data-r="slime"]');
   const before = { race: G.race, form: G.form, name: boba.querySelector('b').textContent, small: boba.querySelector('small').textContent };
   const loaded = await window.__gold.open();
-  const during = { race: G.race, form: G.form, open: !document.getElementById('goldBox').classList.contains('hide') };
+  const during = { race: G.race, form: G.form, field: G.fieldAvatar, open: !document.getElementById('goldBox').classList.contains('hide') };
   window.__gold.draw('side');
   const side = document.querySelector('#goldViews button.on').dataset.v;
+  const bake = await window.__gold.bake();
+  const chosen = { field: G.fieldAvatar, race: G.race, source: bake.manifest && bake.manifest.sourceSha256, tris: bake.manifest && bake.manifest.triangles, views: bake.manifest && Object.keys(bake.manifest.spriteSha256 || {}), skins: bake.manifest && bake.manifest.skins, anims: bake.manifest && bake.manifest.animations };
   window.__gold.close();
   boba.click();
-  const after = { race: G.race, form: G.form, name: boba.querySelector('b').textContent, sel: document.querySelector('.race.sel b').textContent, closed: document.getElementById('goldBox').classList.contains('hide') };
-  return { before, loaded, during, side, after, sha: window.__gold.sha };
+  const after = { race: G.race, form: G.form, field: G.fieldAvatar, name: boba.querySelector('b').textContent, sel: document.querySelector('.race.sel b').textContent, closed: document.getElementById('goldBox').classList.contains('hide'), btn: document.getElementById('goldBtn').textContent };
+  return { before, loaded, during, side, bakeOk: bake.ok, chosen, after, sha: window.__gold.sha };
 });
-check('Original Gold is the hashed mesh and does not replace Boba', gold.loaded.ok && gold.loaded.tris === 118790 && gold.loaded.hash === gold.sha && gold.sha === '54b1f5c7bef848ab2ae364655296214e693e8f3aa196728d071a26413b5fd5aa' && gold.during.race === 'human' && gold.before.name === 'Boba' && gold.after.race === 'slime' && gold.after.form === 'boba' && gold.after.sel === 'Boba' && gold.after.closed && gold.side === 'side', JSON.stringify(gold));
+check('Original Gold is the hashed mesh and does not replace Boba', gold.loaded.ok && gold.loaded.tris === 118790 && gold.loaded.hash === gold.sha && gold.sha === '54b1f5c7bef848ab2ae364655296214e693e8f3aa196728d071a26413b5fd5aa' && gold.during.race === 'human' && gold.during.field === '' && gold.before.name === 'Boba' && gold.after.race === 'slime' && gold.after.form === 'boba' && gold.after.field === '' && gold.after.sel === 'Boba' && gold.after.closed && gold.side === 'side' && gold.bakeOk && gold.chosen.field === 'gold' && gold.chosen.race === 'human' && gold.chosen.source === gold.sha && gold.chosen.tris === 118790 && gold.chosen.skins === 0 && gold.chosen.anims === 0 && gold.chosen.views.length === 3, JSON.stringify(gold));
 await goldPage.close();
 
 await browser.close();

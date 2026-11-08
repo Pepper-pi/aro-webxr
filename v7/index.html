@@ -261,7 +261,12 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
 #goldRetry{margin-top:6px}
 #goldRetry.hide{display:none!important}
 @media (max-height:519px) and (min-width:700px){
-  #goldBox{flex-direction:row;gap:16px}
+  #goldBox{flex-direction:row;gap:12px;align-items:flex-start;padding:6px 10px}
+  #goldSide{width:min(42vw,320px);max-height:calc(100vh - 12px);overflow-y:auto}
+  #goldViews{flex-wrap:nowrap;margin:4px 0}
+  #goldViews button{padding:6px 8px;min-height:34px;font-size:13px}
+  #goldSide .big{margin-top:4px;padding:7px 8px}
+  #goldNote{max-height:3.6em;overflow:hidden}
 }
 /* summary */
 .sumgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
@@ -528,6 +533,8 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
       <button type="button" data-v="side">Side</button>
       <button type="button" data-v="back">Back</button>
     </div>
+    <button type="button" class="big" id="goldWalk">Walk as Original Gold</button>
+    <button type="button" class="big" id="goldAsBoba">Walk as Boba</button>
     <button type="button" class="big hide" id="goldRetry">Try the file again</button>
     <button type="button" class="big" id="goldClose">Back to choices</button>
   </div>
@@ -763,7 +770,7 @@ const recipeFor = (a, b) => RECIPES[[a, b].sort().join('+')] || 'mush';
 
 /* ---------- game state ---------- */
 const G = {
-  scene: 'title', step: 0, race: 'human', form: 'boba', formFx: null, aether: 12, caps: 0, bag: { pollen: 1, orange: 1 },
+  scene: 'title', step: 0, race: 'human', form: 'boba', fieldAvatar: '', formFx: null, aether: 12, caps: 0, bag: { pollen: 1, orange: 1 },
   hearts: 5, maxHearts: 5, hp: 100, maxHp: 100, t: 0, timeOfDay: 0, hackFill: 0, fishBait: null,
   day: { hops: 0, rolls: 0, lineDodges: 0, zoneTime: 0, tiles: [], mobs: 0, dodges: 0, hits: 0, rewinds: 0, crafted: null, fish: null, hack: false, aStart: 12, casts: 0, focused: 0, charged: 0 },
   flags: {},
@@ -968,7 +975,12 @@ HEAVY.king = Object.assign(new Image(), { src: HEAVY_SRC.king });
 const heavyOk = i => i && i.complete && i.naturalWidth > 0;
 function heavyImg(race, view) { const i = HEAVY[race === 'slime' ? 'slime' : 'human'][view]; return heavyOk(i) ? i : null; }
 function drawAvatar(g, x, y, s, o) {
-  const race = o.race || G.race, view = o.view === 'back' ? 'back' : o.view === 'q' ? 'q' : 'front', img = heavyImg(race, view);
+  const race = o.race || G.race, view = o.view === 'back' ? 'back' : o.view === 'q' ? 'q' : 'front';
+  if (!o.noGold && G.fieldAvatar === 'gold' && typeof goldFieldSprite === 'function') {
+    const sheet = goldFieldSprite(view);
+    if (sheet) return drawGoldField(g, x, y, s, o, sheet);
+  }
+  const img = heavyImg(race, view);
   if (!img) return drawAvatarChibi(g, x, y, s, o);
   const t = o.t || 0, hk = o.hk || 1.4, Hh = s * hk, Ww = Hh * img.naturalWidth / img.naturalHeight, hop = o.hop || 0;
   // contact: dark shadow + thin neon hex-ish ring so the figure sits on the grid
@@ -989,6 +1001,20 @@ function drawAvatar(g, x, y, s, o) {
   }
 }
 /* Gel King billboard, in drawMobShape's unit space (feet at 0, ~2.9 tall) */
+function drawGoldField(g, x, y, s, o, img) {
+  const t = o.t || 0, hk = o.hk || 1.25, Hh = s * hk, Ww = Hh * img.width / img.height, hop = o.hop || 0;
+  shadow(g, x, y, Ww * .42, Hh * .04, .55);
+  g.save(); g.translate(x, y - hop);
+  if (o.flip) g.scale(-1, 1);
+  if (o.hurt > 0) g.globalAlpha = .55 + .45 * Math.abs(Math.sin(t * 30));
+  g.drawImage(img, -Ww / 2, -Hh, Ww, Hh);
+  g.restore();
+  if (o.cast > 0 || o.charge > 0) {
+    const hx = x + Ww * .2 * (o.flip ? -1 : 1), hy = y - hop - Hh * .55, c = o.col || '#ffc94d', k = Math.max(o.cast || 0, o.charge || 0), R = Hh * .12 * (.6 + k);
+    const gr = g.createRadialGradient(hx, hy, 0, hx, hy, R); gr.addColorStop(0, '#fff'); gr.addColorStop(.35, c); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.save(); g.fillStyle = gr; g.globalCompositeOperation = 'lighter'; g.beginPath(); g.arc(hx, hy, R, 0, TAU); g.fill(); g.restore();
+  }
+}
 function drawHeavyKing(g, t) {
   const i = HEAVY.king; if (!heavyOk(i)) return false;
   const w = 3.0, h = w * i.naturalHeight / i.naturalWidth, p = .5 + .5 * Math.sin(t * 2.6);
@@ -3787,6 +3813,7 @@ function startDay() {
   audioInit(); $('#title').classList.add('out'); setTimeout(() => $('#title').classList.add('hide'), 600);
   $('#hud').classList.remove('hide'); $('#wirePanel').classList.remove('hide'); $('#menuBtn').classList.remove('hide'); addAether(0, true);
   G.scene = 'map'; G.step = 1; G.day.wakeT = 0; G.day.woke = false; setTime(0); G.day.aStart = G.aether;
+  if (G.fieldAvatar === 'gold') toast('Field picture: Original Gold · static, no rig');
   setObj('<b>Dawn</b> · wake up at home');
   setTimeout(() => { coach('Good morning! You wake in your <b>home hex</b>, the hub of your day. The bees left you <b>Pollen</b>. Your house stays put as your <b>fast-travel home</b>; today you go on foot.'); setAct('Step outside', wakeUp, true); }, 700);
 }
@@ -3885,7 +3912,7 @@ $('#again').onclick = () => location.reload();
 $('#fishBtn').onclick = () => afterFish();
 $('#act').addEventListener('click', () => { audioInit(); SFX.tap(); const f = actFn; f && f(); });
 $('#menuBtn').addEventListener('click', openRing);
-$$('.race').forEach(b => b.onclick = () => { G.race = b.dataset.r; if (G.race === 'slime') G.form = 'boba'; $$('.race').forEach(x => x.classList.toggle('sel', x === b)); SFX.tap(); });
+$$('.race').forEach(b => b.onclick = () => { G.race = b.dataset.r; G.fieldAvatar = ''; if (G.race === 'slime') G.form = 'boba'; $$('.race').forEach(x => x.classList.toggle('sel', x === b)); if (typeof goldFieldTag === 'function') goldFieldTag(); SFX.tap(); });
 $('#titleGo').onclick = () => startDay();
 $$('.sp').forEach(b => b.addEventListener('click', () => { dropCanvasPress(); const i = +b.dataset.i; selSpell(i); cast(i, 1, null); }));
 $('#iceWall').addEventListener('click', () => raiseWall());
@@ -3966,7 +3993,7 @@ function drawPreviews(T) {
     const play = h * .82 / 1.4, by = h * .93; // v7 heavy: full adult figure fills the card
     g.strokeStyle = 'rgba(255,79,180,.3)'; g.lineWidth = 1; g.beginPath(); g.ellipse(w / 2, by, w * .3, 6, 0, 0, TAU); g.stroke();
     const save = G.race, saveF = G.form; G.race = race; if (race === 'slime') G.form = 'boba';
-    drawAvatar(g, w / 2, by, play, { t: T + (race === 'slime' ? 1 : 0), view: 'front', race, form: race === 'slime' ? 'boba' : undefined });
+    drawAvatar(g, w / 2, by, play, { t: T + (race === 'slime' ? 1 : 0), view: 'front', race, noGold: true, form: race === 'slime' ? 'boba' : undefined });
     G.race = save; G.form = saveF;
     drawChibiBuddy(g, w * .2, by + 2, 22, T + (race === 'slime' ? .5 : 0), race === 'slime' ? 'honey' : 'orange');
   }
@@ -4115,7 +4142,7 @@ const BONDS = [ // sec: 'friends' = NPC humanoid characters only; 'pets' = Pip +
 function chOpen() {
   if (G.scene !== 'map' || anyModal()) return; audioInit(); SFX.tap(); buzz(8); closeRing();
   CH.on = true; $('#charM').classList.add('on'); $('#charM').setAttribute('aria-hidden', 'false');
-  $('#chWho').textContent = G.race === 'slime' ? (G.form === 'citrine' || (G.formFx && G.formFx.form === 'citrine') ? 'Boba · Citrine slime' : 'Boba · Milk-tea slime') : 'Wayfarer · Human';
+  $('#chWho').textContent = G.fieldAvatar === 'gold' ? 'Original Gold · static field picture' : (G.race === 'slime' ? (G.form === 'citrine' || (G.formFx && G.formFx.form === 'citrine') ? 'Boba · Citrine slime' : 'Boba · Milk-tea slime') : 'Wayfarer · Human');
   chTab(CH.tab);
 }
 function chClose() { CH.on = false; CH.sk.hold = null; $('#charM').classList.remove('on'); $('#charM').setAttribute('aria-hidden', 'true'); }
@@ -6288,20 +6315,22 @@ async function goldLoad() {
   };
   return true;
 }
-function goldDraw(view) {
+function goldDraw(view, opt) {
   const canvas = document.getElementById('goldCv'), gl = GOLD.gl;
   if (!gl || !canvas) return 0;
+  opt = opt || {};
   GOLD.view = view || GOLD.view;
-  document.querySelectorAll('#goldViews button').forEach(b => b.classList.toggle('on', b.dataset.v === GOLD.view));
+  document.querySelectorAll('#goldViews button').forEach(b => b.classList.toggle('on', b.dataset.v === (GOLD.view === 'quarter' ? 'quarter' : GOLD.view)));
   const dpr = Math.min(2, window.devicePixelRatio || 1);
-  const w = canvas.clientWidth || 320, h = canvas.clientHeight || 420;
-  const W = Math.max(2, w * dpr | 0), H = Math.max(2, h * dpr | 0);
+  const w = opt.pixels ? opt.pixels[0] : (canvas.clientWidth || 320), h = opt.pixels ? opt.pixels[1] : (canvas.clientHeight || 420);
+  const W = Math.max(2, opt.pixels ? w : (w * dpr | 0)), H = Math.max(2, opt.pixels ? h : (h * dpr | 0));
   if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+  const clear = opt.clear || [0.078, 0.047, 0.07, 1];
   const yaw = GOLD_YAW[GOLD.view] || 0, pitch = 0.08, dist = GOLD.dist;
   const eye = [Math.sin(yaw) * Math.cos(pitch) * dist + GOLD.target[0], Math.sin(pitch) * dist + GOLD.target[1], Math.cos(yaw) * Math.cos(pitch) * dist + GOLD.target[2]];
   const t0 = performance.now();
   gl.viewport(0, 0, W, H);
-  gl.clearColor(0.078, 0.047, 0.07, 1);
+  gl.clearColor(clear[0], clear[1], clear[2], clear[3]);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.enable(gl.DEPTH_TEST);
   gl.disable(gl.CULL_FACE);
@@ -6364,11 +6393,111 @@ async function goldRetry() {
   else goldStatus(GOLD.fail || 'The mesh did not load.', 'error');
   return { ok: GOLD.ready, fail: GOLD.fail, state: document.getElementById('goldBox').dataset.state };
 }
+function goldFieldSprite(view) {
+  const sheet = GOLD.sprites;
+  if (!sheet) return null;
+  return sheet[view] || sheet.front || null;
+}
+function goldFieldTag() {
+  const b = document.getElementById('goldBtn');
+  if (b) b.textContent = G.fieldAvatar === 'gold' ? 'Original Gold · field picture' : 'Original Gold';
+}
+function goldKeyMagenta(px, w, h) {
+  const out = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) {
+    const src = (h - 1 - y) * w;
+    for (let x = 0; x < w; x++) {
+      const s = (src + x) * 4, d = (y * w + x) * 4;
+      const r = px[s], g = px[s + 1], b = px[s + 2];
+      out[d] = r; out[d + 1] = g; out[d + 2] = b;
+      out[d + 3] = (r > 180 && b > 180 && g < 100) ? 0 : 255;
+    }
+  }
+  let x0 = w, y0 = h, x1 = 0, y1 = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (out[(y * w + x) * 4 + 3] < 16) continue;
+    if (x < x0) x0 = x; if (y < y0) y0 = y; if (x > x1) x1 = x; if (y > y1) y1 = y;
+  }
+  if (x1 < x0) return null;
+  const c = document.createElement('canvas');
+  c.width = x1 - x0 + 1; c.height = y1 - y0 + 1;
+  const g = c.getContext('2d');
+  const img = g.createImageData(w, h); img.data.set(out);
+  const full = document.createElement('canvas'); full.width = w; full.height = h;
+  full.getContext('2d').putImageData(img, 0, 0);
+  g.drawImage(full, x0, y0, c.width, c.height, 0, 0, c.width, c.height);
+  return c;
+}
+async function goldShaCanvas(c) {
+  const data = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  const dig = await crypto.subtle.digest('SHA-256', data);
+  return [...new Uint8Array(dig)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function goldBakeField() {
+  if (GOLD.baking) return { ok: false, fail: 'The field pictures are already being built.' };
+  GOLD.baking = true;
+  try { return await goldBakeFieldNow(); }
+  finally { GOLD.baking = false; }
+}
+async function goldBakeFieldNow() {
+  if (!GOLD.ready && !await goldLoad()) return { ok: false, fail: GOLD.fail };
+  goldStatus('Building field pictures from the mesh…', 'loading');
+  const t0 = performance.now();
+  const sprites = {};
+  const hashes = {};
+  const drawMs = {};
+  for (const [name, view] of [['front', 'front'], ['q', 'quarter'], ['back', 'back']]) {
+    drawMs[name] = goldDraw(view, { clear: [1, 0, 1, 1], pixels: [480, 800] });
+    const gl = GOLD.gl, W = 480, H = 800;
+    const px = new Uint8Array(W * H * 4);
+    gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    const sheet = goldKeyMagenta(px, W, H);
+    if (!sheet) { GOLD.fail = 'The field picture had no pixels.'; goldStatus(GOLD.fail, 'error'); return { ok: false, fail: GOLD.fail }; }
+    sprites[name] = sheet;
+    hashes[name] = await goldShaCanvas(sheet);
+  }
+  GOLD.sprites = sprites;
+  GOLD.bakeMs = performance.now() - t0;
+  GOLD.manifest = {
+    sourceFile: 'assets/Original_Gold_Likeness.glb',
+    sourceSha256: GOLD.hash,
+    triangles: GOLD.tris,
+    parts: 20,
+    materials: 6,
+    skins: 0,
+    animations: 0,
+    views: { front: 0, q: 0.7, back: Math.PI },
+    pitch: 0.08,
+    pixels: [480, 800],
+    color: 'file linear baseColorFactor, sRGB encode, file roughness, KHR_materials_specular specularFactor, KHR_materials_clearcoat clearcoatFactor',
+    key: 'magenta clear, crop to opaque pixels',
+    motion: 'rigid billboard. left walk mirrors the quarter picture. no skeleton.',
+    spriteSha256: hashes,
+    drawMs, bakeMs: GOLD.bakeMs
+  };
+  G.fieldAvatar = 'gold';
+  goldFieldTag();
+  goldStatus('Field picture is Original Gold', 'ready');
+  goldNote('Static pictures cut from the mesh. She turns as a whole card. No rig. Bake ' + GOLD.bakeMs.toFixed(0) + ' ms. sha256 ' + GOLD.hash.slice(0, 8) + '…' + GOLD.hash.slice(-8) + '.');
+  goldDraw('front');
+  return { ok: true, bakeMs: GOLD.bakeMs, manifest: GOLD.manifest, race: G.race };
+}
+function goldUseBoba() {
+  G.fieldAvatar = '';
+  G.race = 'slime';
+  G.form = 'boba';
+  $$('.race').forEach(x => x.classList.toggle('sel', x.dataset.r === 'slime'));
+  goldFieldTag();
+  goldStatus('Field picture is Boba', 'ready');
+  goldNote('Boba is the milk-tea slime again. Original Gold stays a still preview.');
+}
 document.getElementById('goldBtn').addEventListener('click', () => { SFX.tap(); goldOpen(); });
 document.getElementById('goldClose').addEventListener('click', () => { SFX.tap(); goldClose(); });
 document.getElementById('goldRetry').addEventListener('click', () => { SFX.tap(); goldRetry(); });
+document.getElementById('goldWalk').addEventListener('click', () => { SFX.tap(); goldBakeField(); });
+document.getElementById('goldAsBoba').addEventListener('click', () => { SFX.tap(); goldUseBoba(); });
 document.querySelectorAll('#goldViews button').forEach(b => b.addEventListener('click', () => { SFX.tap(); if (GOLD.ready) goldDraw(b.dataset.v); }));
-window.__gold = { open: goldOpen, close: goldClose, retry: goldRetry, draw: goldDraw, GOLD, sha: GOLD_SHA };
+window.__gold = { open: goldOpen, close: goldClose, retry: goldRetry, draw: goldDraw, bake: goldBakeField, useBoba: goldUseBoba, GOLD, sha: GOLD_SHA };
 const DISCPLAY = { gl: null, prog: null, loc: null, parts: null, canvas: null, fail: '', tris: 0 };
 function discPlayYaw(m, yaw) {
   const c = Math.cos(yaw), s = Math.sin(yaw), o = new Float32Array(16);
