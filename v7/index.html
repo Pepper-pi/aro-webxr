@@ -57,27 +57,26 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 #ring.on{opacity:1}
 #ring,#ring *{pointer-events:none}
 #ring.on #ringHead,#ring.on #ringHead *,#ring.on #ringRail,#ring.on #ringRail *,#ring.on #ringHome,#ring.on #ringHome *{pointer-events:auto}
-#ringBack{position:absolute;z-index:0;pointer-events:none;clip-path:polygon(50% 0,100% 10%,100% 90%,50% 100%,0 90%,0 10%);background:linear-gradient(180deg,rgba(255,140,210,.2),rgba(90,30,140,.14));}
-#ringBack::before{content:"";position:absolute;inset:0;opacity:.08;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='24' viewBox='0 0 28 24'><path d='M7 1h14l6 11-6 11H7L1 12z' fill='none' stroke='%23ffd0ef' stroke-width='1'/></svg>");background-size:28px 24px}
+#ringBack{position:absolute;z-index:0;pointer-events:none;clip-path:polygon(50% 0,100% 12%,100% 88%,50% 100%,0 88%,0 12%);background:linear-gradient(180deg,rgba(244,150,210,.78),rgba(104,40,158,.66))}
 #ringFrame{position:absolute;z-index:1;display:flex;flex-direction:column;min-width:0;background:transparent;border:0}
 #ringHead{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 8px;flex:none;background:rgba(8,14,24,.78)}
 #ringTitle{flex:1;font-weight:900;font-size:16px}
 #sectionsBtn,#sectionsClose,#ringX{min-height:48px;padding:8px 12px;font-weight:900;font-size:16px;color:#f4fbff;background:rgba(16,27,42,.94);border:1px solid rgba(127,240,255,.8)}
 #sectionsBtn,#sectionsClose{display:none}
-#ringBody{flex:1;min-height:0;display:flex;gap:12px}
+#ringBody{flex:1;min-height:0;display:flex;gap:8px}
 #ringRail{flex:none;min-height:0;overflow:auto;overscroll-behavior:contain;display:flex;flex-direction:column;scrollbar-width:thin}
 #ringTabs{display:flex;flex-direction:column;gap:8px}
 #ringStage{flex:1;min-width:0;min-height:0;position:relative;pointer-events:none}
 #ringHome{height:100%;overflow:auto;padding:16px;background:rgba(16,27,42,.96);color:#f4fbff;font-size:16px;line-height:1.4}
 #ringHome p{margin:0 0 12px}
-#ring .hx{--pane:rgba(122,223,240,.95);--tint:rgba(122,223,240,.2);position:relative;display:block;width:100%;height:56px;min-height:56px;max-height:56px;padding:0;overflow:hidden;color:#f7fbff;clip-path:polygon(14px 0,calc(100% - 14px) 0,100% 50%,calc(100% - 14px) 100%,14px 100%,0 50%);background:var(--tint);box-shadow:inset 0 0 0 4px var(--pane),inset 0 -4px 0 rgba(0,0,0,.28)}
-#ring .hx:nth-child(3n+2){--pane:rgba(187,166,244,.92);--tint:rgba(187,166,244,.18)}
-#ring .hx:nth-child(3n){--pane:rgba(244,207,133,.92);--tint:rgba(244,207,133,.18)}
-#ring .hx:nth-child(even){margin-left:18px;width:calc(100% - 18px)}
-#ring .hx .hx-plane{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:10px;height:100%;padding:0 22px;pointer-events:none;background:transparent}
-#ring .hx .hx-mark{position:relative;width:34px;height:34px;display:grid;place-items:center;pointer-events:none;flex:none}
-#ring .hx .hx-glow{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:radial-gradient(circle,var(--pane) 0%,transparent 72%);opacity:.45;pointer-events:none}
-#ring .hx .hx-frost{position:relative;width:28px;height:28px;display:block}
+#ring .hx{--pane:rgba(122,223,240,.95);--tint:rgba(122,223,240,.18);position:relative;display:block;width:100%;height:56px;min-height:56px;max-height:56px;padding:0;overflow:hidden;color:#f7fbff;clip-path:polygon(14px 0,calc(100% - 14px) 0,100% 50%,calc(100% - 14px) 100%,14px 100%,0 50%);background:var(--tint);box-shadow:inset 0 0 0 4px var(--pane),inset 0 -4px 0 rgba(0,0,0,.28)}
+#ring .hx:nth-child(3n+2){--pane:rgba(187,166,244,.92);--tint:rgba(187,166,244,.16)}
+#ring .hx:nth-child(3n){--pane:rgba(244,207,133,.92);--tint:rgba(244,207,133,.16)}
+#ring .hx:nth-child(even){margin-left:12px;width:calc(100% - 12px)}
+#ring .hx .hx-plane{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;height:100%;padding:0 16px;pointer-events:none;background:transparent}
+#ring .hx .hx-mark{position:relative;width:40px;height:40px;display:grid;place-items:center;pointer-events:none;flex:none}
+#ring .hx .hx-glow{position:absolute;left:50%;top:50%;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:radial-gradient(circle,var(--pane) 0%,transparent 72%);opacity:.4;pointer-events:none}
+#ring .hx .hx-frost{position:relative;width:36px;height:36px;display:block}
 #ring .hx .hx-name{font-weight:800;font-size:16px;line-height:1.05;text-align:center;color:#f7fbff;text-shadow:0 1px 2px rgba(0,0,0,.85)}
 #ring .hx.sel{box-shadow:inset 0 0 0 3px #ffe7a2}
 #ring .hx:focus{outline:none}
@@ -87,6 +86,8 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 #ring.drawer #ringBody{display:block;position:relative}
 #ring.drawer #ringHead{gap:4px;padding:0 4px}
 #ring.drawer #ringTitle{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#ring.head-stack #ringHead{flex-wrap:wrap}
+#ring.head-stack #ringTitle{flex:1 0 100%;overflow:visible;text-overflow:clip}
 #ring.drawer #sectionsBtn,#ring.drawer #ringX{padding:8px;font-size:14px}
 #ring.drawer #ringRail{display:none;position:absolute;z-index:2;left:0;top:0;bottom:0;width:min(220px,calc(100% - 8px));padding:6px;background:rgba(8,14,24,.96);border:1px solid rgba(127,240,255,.7);overflow:auto}
 #ring.drawer.rail-open #ringRail{display:flex}
@@ -112,7 +113,7 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 .modal.on{opacity:1;visibility:visible;pointer-events:auto}
 .sheet{width:min(100%,460px);max-height:var(--sheet-max,calc(100dvh - 16px));overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:linear-gradient(180deg,rgba(54,24,62,.98),rgba(18,8,24,.98));border:1px solid rgba(255,214,160,.55);border-radius:18px;padding:14px 16px calc(18px + var(--sab));box-shadow:0 18px 50px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.16);backdrop-filter:blur(8px)}
 body.out-combat #mapNav,body.out-combat #wirePanel,body.out-combat #charBtn{display:none!important}
-body:has(.modal.on) #coach,body:has(.modal.on) #mapNav,body:has(.modal.on) #act,body:has(.modal.on) #menuBtn,body:has(.modal.on) #obj,body:has(.modal.on) #wirePanel,body:has(.modal.on) #charBtn,body:has(.modal.on) #banner,body:has(.modal.on) #toasts,body.menu-open #coach,body.menu-open #mapNav,body.menu-open #wirePanel,body.menu-open #charBtn,body.menu-open #obj{visibility:hidden!important;pointer-events:none!important}
+body:has(.modal.on) #coach,body:has(.modal.on) #mapNav,body:has(.modal.on) #act,body:has(.modal.on) #menuBtn,body:has(.modal.on) #obj,body:has(.modal.on) #wirePanel,body:has(.modal.on) #charBtn,body:has(.modal.on) #banner,body:has(.modal.on) #toasts,body.menu-open #coach,body.menu-open #mapNav,body.menu-open #wirePanel,body.menu-open #charBtn,body.menu-open #obj,body.menu-open #act{visibility:hidden!important;pointer-events:none!important}
 body.menu-open .modal.on:not(#sumM){z-index:31;background:transparent;pointer-events:none;padding:0}
 body.menu-open:has(#ring.drawer.rail-open) .modal.on:not(#sumM){z-index:19}
 body.menu-open .modal.on:not(#sumM) .sheet{pointer-events:auto;position:fixed;margin:0;max-width:none;width:auto;border-radius:2px;box-shadow:none;padding:10px 12px;background:rgba(12,18,32,.92);color:#f7fbff}
@@ -4191,15 +4192,17 @@ function layoutMenu() {
   const availW = innerWidth / z, availH = innerHeight / z;
   const land = availW > availH;
   const drawer = z >= 2 || availW < 104 + 12 + 224;
-  const top = (land ? 16 : 72) / z, side = 12 / z, bottom = (land ? 118 : 100) / z;
+  const top = (land ? 16 : 72) / z, side = 8 / z, bottom = (land ? 118 : 100) / z;
   const frame = $('#ringFrame');
   frame.style.left = side + 'px';
   frame.style.top = top + 'px';
   frame.style.width = Math.max(160, availW - side * 2) + 'px';
   frame.style.height = Math.max(160, availH - top - bottom) + 'px';
   ring.classList.toggle('drawer', drawer);
+  ring.classList.toggle('head-stack', drawer && !land);
   const rail = $('#ringRail');
-  rail.style.width = drawer ? '' : (land ? 260 : 196) + 'px';
+  rail.style.width = drawer ? '' : (land ? 228 : 158) + 'px';
+  rail.style.maxHeight = drawer ? '' : '420px';
   const back = $('#ringBack');
   if (back) {
     back.style.left = (side - 6) + 'px';
@@ -4248,10 +4251,10 @@ const RING = [
 const FROST = {
   bag: 'M9 8h6v2h2v11H7V10h2z',
   craft: 'M4 11 L12 4 L20 11 V20 H4 Z',
-  fish: 'M4 12c0-4 4-7 8.5-7S21 8 21 12s-4 7-8.5 7S4 16 4 12zm8.1-.15a1.15 1.15 0 1 0 2.3 0 1.15 1.15 0 0 0-2.3 0z',
-  skills: 'M6 4h12v16H6z',
+  fish: 'M2 12C5 7 11 6 15.5 9.2L22 6.2 22 17.8 15.5 14.8C11 18 5 17 2 12ZM6.1 10.9a1.25 1.25 0 1 0 2.5 0 1.25 1.25 0 0 0-2.5 0z',
+  skills: 'M6 5 L15 4 L18 7 L18 19 L15 20 L6 18 Q4 12 6 5 Z',
   log: 'M12 3 L20 12 L12 21 L4 12 Z',
-  set: 'M12 3.4a8.6 8.6 0 1 0 .1 0zM12 8.2a3.8 3.8 0 1 1 0 7.6 3.8 3.8 0 0 1 0-7.6z',
+  set: 'M12 2.2 L14.1 4.4 L16.8 3.4 L17.5 6.2 L20.2 7.2 L19.2 9.8 L21.6 12 L19.2 14.2 L20.2 16.8 L17.5 17.8 L16.8 20.6 L14.1 19.6 L12 21.8 L9.9 19.6 L7.2 20.6 L6.5 17.8 L3.8 16.8 L4.8 14.2 L2.4 12 L4.8 9.8 L3.8 7.2 L6.5 6.2 L7.2 3.4 L9.9 4.4 Z M12 8.7a3.3 3.3 0 1 0 .1 0z',
   cmd: 'M12 2.2 L14.2 9.8 L22 12 L14.2 14.2 L12 21.8 L9.8 14.2 L2 12 L9.8 9.8 Z',
 };
 function frostMark(k) {
