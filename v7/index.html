@@ -76,11 +76,10 @@ background:linear-gradient(160deg,rgba(255,201,77,.95),rgba(255,79,180,.9));disp
 #ring.compact .hx>div{font-size:9px;gap:1px;padding:2px 4px}
 #ring.compact .hx img{width:20px;height:20px}
 /* ---------- sheets / modals ---------- */
-.modal{position:fixed;inset:0;z-index:30;display:flex;align-items:flex-end;justify-content:center;background:rgba(14,6,18,.55);opacity:0;pointer-events:none;transition:opacity .25s}
+.modal{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:8px;background:rgba(8,4,12,.72);opacity:0;pointer-events:none;transition:opacity .25s}
 .modal.on{opacity:1;pointer-events:auto}
-.sheet{width:min(100vw,460px);max-height:92vh;overflow:auto;background:linear-gradient(180deg,#2e1434,#1b0c20);border:1px solid rgba(255,79,180,.45);border-bottom:0;border-radius:22px 22px 0 0;
-padding:14px 16px calc(18px + var(--sab));transform:translateY(30px);transition:transform .3s;box-shadow:0 -10px 40px rgba(0,0,0,.5)}
-.modal.on .sheet{transform:translateY(0)}
+.sheet{width:min(100%,460px);max-height:var(--sheet-max,calc(100dvh - 16px));overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:linear-gradient(180deg,rgba(54,24,62,.98),rgba(18,8,24,.98));border:1px solid rgba(255,214,160,.55);border-radius:18px;padding:14px 16px calc(18px + var(--sab));box-shadow:0 18px 50px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.16);backdrop-filter:blur(8px)}
+body.sheet-open #ring,body.sheet-open #coach,body.sheet-open #mapNav,body.sheet-open #act,body.sheet-open #menuBtn,body.sheet-open #obj,body.sheet-open #wirePanel,body.sheet-open #charBtn,body.sheet-open #banner,body.menu-open #coach,body.menu-open #mapNav,body.menu-open #wirePanel,body.menu-open #charBtn,body.menu-open #obj{visibility:hidden!important;pointer-events:none!important}
 .sh-h{display:flex;align-items:center;justify-content:space-between;font-weight:900;font-size:17px;margin-bottom:8px}
 .sh-h small{display:block;font-size:11px;color:var(--pink);letter-spacing:.12em;text-transform:uppercase}
 .x{width:36px;height:36px;border-radius:12px;background:rgba(255,255,255,.08);font-size:20px;line-height:1}
@@ -168,7 +167,7 @@ input[type=range]{accent-color:var(--pink);width:120px}
   #trainHud .note{display:none}
   #trainHud button{padding:6px 6px;font-size:12px}
   #castFeed{left:8px;right:auto;transform:none;top:auto;bottom:8px;max-width:42vw}
-  .sheet{padding:8px 12px calc(8px + var(--sab))}
+  .sheet{padding:8px 12px calc(8px + var(--sab));max-height:var(--sheet-max,calc(100dvh - 12px))}
   #ballC{height:72px}
   .slots{margin:4px 0}
   .slot{width:46px;height:46px}
@@ -488,8 +487,9 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
   <div class="row"><div>Haptics<small id="hapNote">Tiny buzz on hits and bites</small></div><button class="tg" id="tHap"></button></div>
   <div class="row"><div>Floor look<small>Painterly ground ↔ neon wire underworld</small></div><input type="range" id="tNeon" min="0" max="1" step="0.05"></div>
   <div class="row"><div>Map tilt<small>How much the map leans back</small></div><input type="range" id="tTilt" min="0" max="1.4" step="0.05"></div>
-  <div class="row"><div>Spell hand<small>Which side the fight wheel favours</small></div><div class="seg" id="tHand"><button data-v="left">Left</button><button data-v="right">Right</button></div></div>
-  <div class="hint">Settings are saved on this device.</div>
+  <div class="row" id="setHandRow"><div>Spell hand<small>Which side the fight wheel favours</small></div><div class="seg" id="tHand"><button data-v="left">Left</button><button data-v="right">Right</button></div></div>
+  <div class="hint" id="setSaved">Settings are saved on this device.</div>
+  <div class="focus-nav"><button type="button" data-back>Back</button><button type="button" data-home>Home</button></div>
 </div></div>
 
 <div class="modal" id="bagM"><div class="sheet">
@@ -1795,7 +1795,16 @@ function drawMap(T) {
   const S = [];
   for (const t of MAP.list) {
     if (t.edge || !t.deco.length) continue; const [X0, Y0] = proj(c, t.x, t.y); if (X0 < -70 || X0 > W + 70 || Y0 < -40 || Y0 > H + 90) continue;
-    for (const d of t.deco) { const [X, Y, f] = proj(c, t.x + d.ox, t.y + d.oy); S.push([Y, 0, d.spr, X, Y - tileLift(t) * f, f * d.sc * c.hz / 42, holoFade(t, d.spr, h)]); }
+    for (const d of t.deco) {
+      const [X, Y, f] = proj(c, t.x + d.ox, t.y + d.oy);
+      let fade = holoFade(t, d.spr, h);
+      if (fade > 0 && d.spr !== 'hive' && d.spr !== 'crop') {
+        const [ax, ay, af] = proj(c, h.x, h.y);
+        if (Math.abs(X - ax) < 54 * af && Y > ay - 92 * af && Y < ay + 18 * af) fade = 0;
+      }
+      if (fade <= 0) continue;
+      S.push([Y, 0, d.spr, X, Y - tileLift(t) * f, f * d.sc * c.hz / 42, fade]);
+    }
   }
   { const t = tileAt(DOME.q, DOME.r), [X, Y, f] = proj(c, t.x, t.y); S.push([Y + 1, 0, 'dome', X, Y - 7 * f + 6 * f, f * c.hz / 42, 1]); }
   { const [X, Y, f] = proj(c, 0, 0); S.push([Y + 1.5, 4, X, Y, f]); }          // the house stays home (fast-travel anchor)
@@ -1826,11 +1835,12 @@ function holoFade(t, spr, h) {
   if (t.ter === 'yard' || t.ter === 'home' || t.ter === 'dome' || t.ter === 'poi') return 1;
   if (!HOLO_SPR[spr]) return 1;
   const dAv = Math.hypot(t.x - h.x, t.y - h.y);
-  let near = dAv < 1.7 ? 0 : dAv < 3.5 ? (dAv - 1.7) / 1.8 : 1;
+  let near = dAv < 2.6 ? 0 : dAv < 4.4 ? (dAv - 2.6) / 1.8 : 1;
   const route = MAP.prev;
-  if (route) for (let i = 0; i < route.length; i++) { if (hd(route[i], t) <= 1) { near = Math.min(near, 0.22); break; } }
-  const edge = clamp((t.d - 2) / 5, 0, 1);
-  return clamp(0.14 + near * (0.4 + 0.6 * edge), 0.12, 1);
+  if (route) for (let i = 0; i < route.length; i++) { if (hd(route[i], t) <= 1) { near = 0; break; } }
+  if (near === 0) return 0;
+  const edge = clamp((t.d - 4) / 3, 0, 1);
+  return clamp(near * edge, 0, 1);
 }
 function drawSuperHexes(c, h) {
   if (window.__noHolo || G.scene !== 'map') return;
@@ -1838,10 +1848,10 @@ function drawSuperHexes(c, h) {
   for (const s of SUPER_HEX) {
     const t = tileAt(s.q, s.r); if (!t) continue;
     const near = Math.hypot(t.x - h.x, t.y - h.y);
-    const a = near < 2.2 ? 0.16 : 0.72;
+    const a = near < 2.2 ? 0.28 : 0.9;
     hexPath(c, t.x, t.y, s.rad);
-    ctx.globalAlpha = a * 0.22; ctx.fillStyle = `rgba(${s.col},1)`; ctx.fill();
-    ctx.globalAlpha = a; ctx.strokeStyle = `rgba(${s.col},1)`; ctx.lineWidth = 2; ctx.setLineDash([7, 5]); ctx.stroke(); ctx.setLineDash([]);
+    ctx.globalAlpha = a * 0.34; ctx.fillStyle = `rgba(${s.col},1)`; ctx.fill();
+    ctx.globalAlpha = a; ctx.strokeStyle = `rgba(${s.col},1)`; ctx.lineWidth = 3; ctx.stroke();
     if (near > 2.4) {
       const [X, Y, f] = proj(c, t.x, t.y);
       ctx.globalAlpha = a; ctx.font = `800 ${Math.max(11, 13 * f)}px ui-rounded,system-ui`; ctx.textAlign = 'center';
@@ -3747,9 +3757,10 @@ function drawBall(T, dt) {
 
 /* ===================== fishing: one cast ===================== */
 const FI = { phase: 'aim', t: 0, power: 0, grade: '', bx: 0, by: 0, biteAt: 0, nib: false, beat: 0, hits: 0, ring: 0, rt: 0, fish: null, msg: '', win: 0 };
+const REEL_PROTO = new URLSearchParams(location.search).get('reelproto') === '1';
 function openFish() { Object.assign(FI, { phase: 'aim', t: 0, power: 0, pw: 0, charging: false, ct: 0, grade: '', beat: 0, hits: 0, fish: null, paid: false }); $('#fishBtn').classList.add('hide'); syncFishAssist(); fishMsg('<b>Hold</b> to charge your cast, <b>release</b> in the <b style="color:var(--gold)">gold zone</b>'); $('#fishTitle').textContent = G.fishBait === 'bait' ? 'Fishing · Honey Bait on' : 'Fishing'; openModal('fishM'); }
-function syncFishAssist() { const b = $('#fishAssist'); if (b) b.classList.toggle('hide', FI.phase !== 'reel'); }
-function fishTol() { return .42 + (G.fishBait === 'hook' ? .12 : 0) + (SET.cozy ? .08 : 0); }
+function syncFishAssist() { const b = $('#fishAssist'); if (b) b.classList.toggle('hide', !(REEL_PROTO && FI.phase === 'reel')); }
+function fishTol() { return (REEL_PROTO ? .42 : .22) + (G.fishBait === 'hook' ? .12 : 0) + (SET.cozy ? (REEL_PROTO ? .08 : .06) : 0); }
 function fishMsg(h) { $('#fishMsg').innerHTML = h; }
 const SWEET = .7;
 // v7 field slice: hold-to-charge cast (the standard confirm). the needle fills while held, eases back if over-held
@@ -3760,9 +3771,18 @@ function fishTap() {
     FI.charging = false; FI.power = FI.pw; const d = Math.abs(FI.power - SWEET); FI.grade = d <= .05 ? 'Perfect' : d <= .12 ? 'Great' : 'Good';
     FI.phase = 'fly'; FI.t = 0; SFX.cast(); buzz(8); fishMsg(`${FI.grade} cast!`); G.day.castGrade = FI.grade;
   } else if (FI.phase === 'wait') { fishMsg('Too early, it got spooked. Wait for the <b>!</b>'); FI.t = 0; FI.biteAt = R(1.2, 2.2); }
-  else if (FI.phase === 'bite') { FI.phase = 'reel'; FI.t = 0; FI.beat = 0; FI.hits = 0; FI.rt = -.3; SFX.bite(); buzz(25); fishMsg('Hooked! Beat 1 of 3. TAP when the ring meets the bobber.'); syncFishAssist(); }
-  else if (FI.phase === 'reel' && FI.rt > 0) { if (Math.abs(FI.ring - 1) <= fishTol()) fishHit(); else fishMiss(); }
+  else if (FI.phase === 'bite') { FI.phase = 'reel'; FI.t = 0; FI.beat = 0; FI.hits = 0; FI.rt = -.3; SFX.bite(); buzz(25); fishMsg(REEL_PROTO ? 'Hooked! Beat 1 of 3. TAP when the ring meets the bobber.' : 'Hooked! Tap as the ring meets the bobber · 0/3'); syncFishAssist(); }
+  else if (FI.phase === 'reel' && FI.rt > 0) {
+    const ok = Math.abs(FI.ring - 1) <= fishTol();
+    if (REEL_PROTO) { if (ok) fishHit(); else fishMiss(); }
+    else { if (ok) { FI.hits++; SFX.land(); buzz(10); } else SFX.tele(); nextBeat(ok ? 'Nice!' : 'Missed'); }
+  }
   else if (FI.phase === 'lost') { openFish(); }
+}
+function nextBeat(word) {
+  FI.beat++; fishMsg(`${word} · ${FI.hits}/3`);
+  if (FI.beat >= 3) { if (FI.hits >= 2) landFish(); else { FI.phase = 'lost'; fishMsg('It wriggled free! <b>Tap</b> to cast again.'); SFX.splash(); } }
+  else FI.rt = -.6;
 }
 function fishMiss() {
   if (FI.phase !== 'reel' || FI.paid) return;
@@ -3775,6 +3795,7 @@ function fishHit() {
   if (FI.beat >= 3) landFish(); else FI.rt = -.45;
 }
 function fishAssist() {
+  if (!REEL_PROTO) return;
   if (FI.phase !== 'reel' || FI.paid) { fishMsg('Reel assist starts after the hook. The cast and the wait stay yours.'); return; }
   while (FI.phase === 'reel' && FI.beat < 3 && !FI.paid) fishHit();
 }
@@ -3797,9 +3818,9 @@ function fishUpdate(dt) {
   FI.t += dt;
   if (FI.phase === 'aim') { if (FI.charging) { FI.ct += dt; FI.pw = .5 - .5 * Math.cos(FI.ct * 1.5 / PACE()); } else FI.pw = Math.max(0, (FI.pw || 0) - dt * 1.5); }
   else if (FI.phase === 'fly' && FI.t >= .9) { FI.phase = 'wait'; FI.t = 0; FI.biteAt = R(1.8, 3.2) * (G.fishBait === 'bait' ? .6 : 1); FI.nib = false; SFX.splash(); fishMsg('Wait for the bite…'); }
-  else if (FI.phase === 'wait') { if (!FI.nib && FI.t > FI.biteAt * .5) { FI.nib = true; SFX.tap(); } if (FI.t >= FI.biteAt) { FI.phase = 'bite'; FI.t = 0; FI.win = (SET.cozy ? 1.5 : 1.1) + (FI.grade === 'Perfect' ? .2 : 0); SFX.bite(); buzz(40); fishMsg('<b style="color:#ff4fb4;font-size:20px">! TAP !</b> · bite'); } }
+  else if (FI.phase === 'wait') { if (!FI.nib && FI.t > FI.biteAt * .5) { FI.nib = true; SFX.tap(); } if (FI.t >= FI.biteAt) { FI.phase = 'bite'; FI.t = 0; FI.win = (SET.cozy ? 1.5 : 1.1) + (FI.grade === 'Perfect' ? .2 : 0); SFX.bite(); buzz(40); fishMsg('<b style="color:#ff4fb4;font-size:20px">! TAP !</b>'); } }
   else if (FI.phase === 'bite' && FI.t > FI.win) { FI.phase = 'lost'; syncFishAssist(); fishMsg('Too slow, it swam off. <b>Tap</b> to cast again.'); SFX.splash(); }
-  else if (FI.phase === 'reel') { FI.rt += dt; if (FI.rt > 0) { const dur = (reducedMotion() ? 2.4 : 1.85) * PACE(); FI.ring = 3 - 2.6 * (FI.rt / dur); if (FI.ring < .4) fishMiss(); } }
+  else if (FI.phase === 'reel') { FI.rt += dt; if (FI.rt > 0) { const dur = (REEL_PROTO ? (reducedMotion() ? 2.4 : 1.85) : 1.4) * PACE(); FI.ring = 3 - 2.6 * (FI.rt / dur); if (FI.ring < .4) { if (REEL_PROTO) fishMiss(); else { SFX.tele(); nextBeat('Missed'); } } } }
 }
 function drawFish(T) {
   const c = $('#fishC'), w = c.clientWidth, h = c.clientHeight; if (!w) return;
@@ -3840,11 +3861,13 @@ function drawFish(T) {
     g.restore();
   }
   if (FI.phase === 'reel' && FI.rt > 0) {
-    const hot = Math.abs(FI.ring - 1) <= fishTol();
-    g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = hot ? 7 : 3; g.beginPath(); g.arc(bx, by, 22, 0, TAU); g.stroke();
-    g.strokeStyle = hot ? '#ffc94d' : '#7ff0ff'; g.lineWidth = hot ? 4 : 2; g.beginPath(); g.arc(bx, by, 22 * FI.ring, 0, TAU); g.stroke();
-    if (hot) { g.fillStyle = '#fff'; g.font = '900 16px ui-rounded,system-ui'; g.textAlign = 'center'; g.fillText('TAP', bx, by - 30); g.strokeStyle = '#fff'; g.lineWidth = 3; g.beginPath(); g.moveTo(bx, by - 22); g.lineTo(bx, by - 14); g.stroke(); }
-    else { g.fillStyle = '#fff'; g.font = '800 13px ui-rounded,system-ui'; g.textAlign = 'center'; g.fillText(String(FI.beat + 1), bx, by - 28); }
+    if (!REEL_PROTO) { g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 3; g.beginPath(); g.arc(bx, by, 22, 0, TAU); g.stroke(); g.strokeStyle = Math.abs(FI.ring - 1) < .22 ? '#ffc94d' : '#7ff0ff'; g.lineWidth = 4; g.beginPath(); g.arc(bx, by, 22 * FI.ring, 0, TAU); g.stroke(); }
+    else {
+      const hot = Math.abs(FI.ring - 1) <= fishTol();
+      g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = hot ? 7 : 3; g.beginPath(); g.arc(bx, by, 22, 0, TAU); g.stroke();
+      g.strokeStyle = hot ? '#ffc94d' : '#7ff0ff'; g.lineWidth = hot ? 4 : 2; g.beginPath(); g.arc(bx, by, 22 * FI.ring, 0, TAU); g.stroke();
+      if (hot) { g.fillStyle = '#fff'; g.font = '900 16px ui-rounded,system-ui'; g.textAlign = 'center'; g.fillText('TAP', bx, by - 30); }
+    }
   }
   // power meter
   if (FI.phase === 'aim') {
@@ -3855,7 +3878,7 @@ function drawFish(T) {
   if (FI.phase === 'catch') {
     const k = clamp(FI.t / .9, 0, 1), fx2 = w / 2, fy = lerp(sy, h * .32, easeOut(k)) - Math.sin(k * Math.PI) * 40, f = FI.fish;
     const gl = g.createRadialGradient(fx2, fy, 0, fx2, fy, 70); gl.addColorStop(0, RAR[f.r]); gl.addColorStop(1, 'rgba(0,0,0,0)'); g.globalAlpha = .7; g.fillStyle = gl; g.beginPath(); g.arc(fx2, fy, 70, 0, TAU); g.fill(); g.globalAlpha = 1;
-    const holo = !calm && k < .28;
+    const holo = REEL_PROTO && !calm && k < .28;
     g.save(); g.translate(fx2, fy); if (!calm) g.rotate(Math.sin(T * 6) * .15); const s = 1.4 + f.r * .15;
     if (holo) {
       g.strokeStyle = 'rgba(190,255,255,.95)'; g.lineWidth = 2; g.beginPath(); g.ellipse(0, 0, 30 * s, 19 * s, 0, 0, TAU); g.stroke();
@@ -3873,8 +3896,21 @@ function drawFish(T) {
 }
 function drawSpriteTo(g, name, x, y, s) { const sp = SPR[name]; if (sp) g.drawImage(sp.c, x - sp.w * s / 2, y - sp.h * s, sp.w * s, sp.h * s); }
 /* ===================== modals, menu ring, settings ===================== */
-function openModal(id) { $('#' + id).classList.add('on'); SFX.tap(); }
-function closeModal(id) { $('#' + id).classList.remove('on'); onModalClosed(id); }
+function fitSheet() {
+  const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+  document.documentElement.style.setProperty('--sheet-max', Math.max(140, vh - 12) + 'px');
+}
+function openModal(id) {
+  closeRing(); fitSheet();
+  document.body.classList.add('sheet-open');
+  $('#' + id).classList.add('on');
+  const sheet = document.querySelector('#' + id + ' .sheet'); if (sheet) sheet.scrollTop = 0;
+  const back = document.querySelector('#' + id + ' [data-back]'); if (back) back.focus();
+  SFX.tap();
+}
+function closeModal(id) { $('#' + id).classList.remove('on'); if (!anyModal()) document.body.classList.remove('sheet-open'); onModalClosed(id); }
+if (window.visualViewport) window.visualViewport.addEventListener('resize', fitSheet);
+addEventListener('resize', fitSheet);
 const anyModal = () => $$('.modal.on').length > 0;
 function onModalClosed(id) { if (id === 'craftM') { CR.brewing = false; CR.k = 0; } if (id === 'fishM') FI.charging = false; if (id === 'cmdM' && typeof disc3dStop === 'function') disc3dStop(); }
 $$('.modal').forEach(m => { m.addEventListener('click', e => { if (e.target === m && m.id !== 'sumM') closeModal(m.id); }); m.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(m.id))); });
@@ -3915,7 +3951,7 @@ function openRing() {
     b.classList.toggle('soon', t.k === 'fish' && !fishReady());
   });
   const ring = $('#ring');
-  ring.classList.add('on'); ring.setAttribute('aria-hidden', 'false');
+  ring.classList.add('on'); ring.setAttribute('aria-hidden', 'false'); document.body.classList.add('menu-open');
   $$('#ring .hx').forEach(b => { b.tabIndex = 0; });
   const lab = $('#menuBtn b'); if (lab) lab.textContent = 'Close';
   const act = $('#act'); if (act && !act.classList.contains('hide')) { act.disabled = true; act.setAttribute('aria-disabled', 'true'); }
@@ -3924,7 +3960,7 @@ function openRing() {
 }
 function closeRing() {
   const r = $('#ring'); if (!r) return;
-  r.classList.remove('on'); r.setAttribute('aria-hidden', 'true');
+  r.classList.remove('on'); r.setAttribute('aria-hidden', 'true'); document.body.classList.remove('menu-open');
   $$('#ring .hx').forEach(b => { b.tabIndex = -1; });
   const lab = $('#menuBtn b'); if (lab) lab.textContent = 'Menu';
   const act = $('#act'); if (act) { act.disabled = false; act.removeAttribute('aria-disabled'); }
@@ -4061,14 +4097,23 @@ $('#fishBtn').onclick = () => afterFish();
 $('#fishAssist').onclick = () => fishAssist();
 $('#act').addEventListener('click', () => { closeRing(); audioInit(); SFX.tap(); const f = actFn; f && f(); });
 $('#menuBtn').addEventListener('click', openRing);
-document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => { const m = b.closest('.modal'); if (m) closeModal(m.id); }));
-document.querySelectorAll('[data-home]').forEach(b => b.addEventListener('click', () => { const m = b.closest('.modal'); if (m) closeModal(m.id); if (G.scene === 'map') openRing(); }));
+function backToMenu(m) { if (!m || m.id === 'sumM') return; closeModal(m.id); if (G.scene === 'map' && !anyModal()) openRing(); }
+document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => backToMenu(b.closest('.modal'))));
+document.querySelectorAll('[data-home]').forEach(b => b.addEventListener('click', () => backToMenu(b.closest('.modal'))));
 document.addEventListener('keydown', e => {
   const ring = document.getElementById('ring');
+  const open = [...document.querySelectorAll('.modal.on')].filter(m => m.id !== 'sumM').pop();
   if (e.key === 'Escape') {
-    const open = [...document.querySelectorAll('.modal.on')].filter(m => m.id !== 'sumM').pop();
-    if (open) { closeModal(open.id); document.getElementById('menuBtn').focus(); e.preventDefault(); return; }
+    if (open) { backToMenu(open); e.preventDefault(); return; }
     if (ring.classList.contains('on')) { closeRing(); document.getElementById('menuBtn').focus(); e.preventDefault(); }
+    return;
+  }
+  if (e.key === 'Tab' && open) {
+    const keys = [...open.querySelectorAll('button, input, [href], [tabindex]:not([tabindex="-1"])')].filter(el => !el.disabled && el.offsetParent);
+    if (!keys.length) return;
+    const i = keys.indexOf(document.activeElement);
+    e.preventDefault();
+    keys[(e.shiftKey ? (i <= 0 ? keys.length - 1 : i - 1) : (i < 0 || i === keys.length - 1 ? 0 : i + 1))].focus();
     return;
   }
   if (e.key === 'Tab' && ring.classList.contains('on')) {
