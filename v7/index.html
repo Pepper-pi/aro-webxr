@@ -74,7 +74,7 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 #ring .hx:nth-child(even){margin-left:4px;width:calc(100% - 4px)}
 #ring .hx .hx-plane{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:100%;padding:6px 16px;pointer-events:none;background:transparent}
 #ring .hx .hx-mark{position:relative;width:28px;height:28px;display:grid;place-items:center;pointer-events:none;flex:none}
-#ring .hx .hx-glow{position:absolute;left:50%;top:50%;width:36px;height:36px;margin:-18px 0 0 -18px;border-radius:50%;background:radial-gradient(circle,transparent 0 32%,var(--pane) 48%,transparent 74%);pointer-events:none}
+#ring .hx .hx-glow{position:absolute;left:50%;top:50%;width:32px;height:32px;margin:-16px 0 0 -16px;border-radius:50%;background:radial-gradient(circle,var(--pane) 0%,transparent 70%);opacity:.4;pointer-events:none}
 #ring .hx .hx-frost{position:relative;width:22px;height:22px;display:block}
 #ring .hx .hx-name{font-weight:800;font-size:16px;line-height:1.05;text-align:center;color:#f7fbff;text-shadow:0 1px 2px rgba(0,0,0,.85)}
 #ring .hx.sel{box-shadow:inset 0 0 0 3px #ffe7a2}
@@ -117,6 +117,7 @@ body.menu-open .sheet .chips{grid-template-columns:repeat(2,minmax(0,1fr))}
 body.menu-open .sheet input[type=range]{width:100%}
 body.menu-open #ballC{height:96px}
 body.menu-open #cv{pointer-events:none}
+body.menu-open #toasts{opacity:0!important;pointer-events:none!important}
 #ringPlate{position:absolute;z-index:0;border-radius:26px;pointer-events:none;background:linear-gradient(180deg,rgba(36,16,48,.94),rgba(12,6,18,.96));border:1px solid rgba(255,220,170,.72);box-shadow:0 0 0 1px rgba(255,79,180,.35),inset 0 0 0 7px rgba(255,255,255,.05),inset 0 1px 0 rgba(255,255,255,.22),0 18px 40px rgba(0,0,0,.5)}
 #ring .hx{z-index:1}
 .sh-h{display:flex;align-items:center;justify-content:space-between;font-weight:900;font-size:17px;margin-bottom:8px}
@@ -1949,7 +1950,7 @@ function unionBox(a, b) {
 function drawSuperHexNames(c, h) {
   MARK_LABELS.length = 0;
   MARK_CHEVRONS.length = 0;
-  if (window.__noHolo || G.scene !== 'map') return;
+  if (window.__noHolo || G.scene !== 'map' || document.body.classList.contains('menu-open')) return;
   ctx.save();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -6085,7 +6086,7 @@ function dockLabelHitsUi(x, y, tw) {
   return uiBoxHits({ l: x - tw * 0.5 - 8, r: x + tw * 0.5 + 8, t: y - 22, b: y + 28 });
 }
 function drawDockHud() {
-  if (!dockHud || G.scene !== 'map') return;
+  if (!dockHud || G.scene !== 'map' || document.body.classList.contains('menu-open')) return;
   ctx.save();
   ctx.textAlign = 'center';
   ctx.lineWidth = 4;
