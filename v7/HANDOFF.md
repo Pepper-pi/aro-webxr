@@ -185,6 +185,14 @@ Wayfarer stays selected unless you pick Boba. The title cards stay Wayfarer and 
 
 At 844×390 the title block was taller than the frame, and the page body does not scroll. Gel King sat partly past the bottom and Open the map was fully past it. Short screens shrink the race cards and the title can be dragged. A later base rule was still centering that column, which put AETHER REALMS above the scrollport where a drag could not reach it. The short-screen rule now comes after that and packs from the top. Both logo lines are on screen with the four actions. The hint under them still scrolls into view. Portrait 390×844 is taller than this rule and was already fully on screen. The buttons do the same things.
 
+## Outside combat, two buttons
+
+On the map the persistent controls are **Menu** and the current action. The action is the existing one for that moment: step outside, walk to the dome, enter the raid, walk to the pond, face the guard, open the Cook Nook, cast, fly home, or rest. Combat still uses the spell wheel, the dodge buttons, and the Low button. Menu does not take presses there.
+
+Menu opens the existing hex panel. The tiles keep the chibi icons. Bag, the Cook Nook, and Fishing are the focused screens. The Cook Nook is the crafting screen already in the day. There is no second kitchen. Fishing opens the pond cast only after the Cook Nook step. Before that, the tile says so and does not start a cast. Each of those three screens has Back and Home. Back closes the screen. Home returns to this menu. The map's own Home button still walks to the house. Cooking is the Cook Nook craft screen. There is no second kitchen. The raid, the pond hack, rewards, the cell drill, and Reset are unchanged. The map's Home, Dome, Pond, and Command row is still there. While the menu is open, the action button does not take a press. Escape closes the top screen and returns to Menu.
+
+The glass and ground boards shipped on 2026-11-07 are offline composites of the 55fc1d5 map, not runtime proof. Owner lock is the two buttons, the hex menu, the real Bag / Cook Nook / Fishing screens, and the chibi icons. Colors, pixel sizes, contrast samples, and the recessed-slate look are proposals. The glass board's empty lower half and the controls drawn under it are faults in that composite, not a layout to copy. Its symbols are provisional and are not in the game. Cooking is not a second screen. Settings in the game are Sound, Cozy mode, Haptics, Floor look, Map tilt, and Spell hand, saved on this device as `aro7set`. The ground art is not drawn yet. A later cache trial may fill the existing cell polygons from `terrain_strata_srgb_256.png`. It must not stamp the authoring plate, add a second grid, or change depth, telegraphs, or hitboxes.
+
 ## Still open
 
 - No phone in hand. iOS Safari can cancel a touch on rotation at a different moment than this Chrome. The events here were synthesized touches, and they did arrive as `pointerType: "touch"`.

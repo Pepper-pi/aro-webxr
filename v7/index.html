@@ -39,11 +39,12 @@ font-size:14.5px;line-height:1.35;box-shadow:0 8px 30px rgba(0,0,0,.45),0 0 18px
 #coach .who{font-size:11px;letter-spacing:.12em;color:var(--pink);font-weight:900;text-transform:uppercase;margin-bottom:3px}
 #coach b{color:var(--gold)}
 /* ---------- one contextual action + one glowing hex menu button ---------- */
-#act{position:fixed;left:50%;bottom:calc(104px + var(--sab));transform:translateX(-50%);z-index:12;min-width:210px;padding:14px 22px;border-radius:18px;
+#act{position:fixed;left:50%;bottom:calc(104px + var(--sab));transform:translateX(-50%);z-index:24;min-width:210px;padding:14px 22px;border-radius:18px;
 background:linear-gradient(180deg,#ff6fc4,#d93d98);color:#fff;font-weight:900;font-size:17px;letter-spacing:.01em;box-shadow:0 6px 0 #8f1f62,0 10px 26px rgba(255,79,180,.45);transition:transform .08s}
 #act:active{transform:translateX(-50%) translateY(3px);box-shadow:0 3px 0 #8f1f62,0 6px 18px rgba(255,79,180,.45)}
 #act.gold{background:linear-gradient(180deg,#ffd978,#f0a92e);color:#3a1d05;box-shadow:0 6px 0 #9a5f12,0 10px 26px rgba(255,201,77,.45)}
-#menuBtn{position:fixed;left:50%;bottom:calc(22px + var(--sab));transform:translateX(-50%);width:66px;height:72px;z-index:8;
+#menuBtn{position:fixed;left:50%;bottom:calc(22px + var(--sab));transform:translateX(-50%);width:66px;height:72px;z-index:24;display:grid;place-items:center;color:#fff6d8;font-weight:900}
+#menuBtn b{position:relative;z-index:2;font-size:11px;letter-spacing:.02em;text-shadow:0 1px 0 #000}
 clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radial-gradient(circle at 50% 40%,#ff9ad6,#ff4fb4 55%,#a01c6c);display:grid;place-items:center;animation:hexpulse 2.6s ease-in-out infinite}
 #menuBtn::after{content:"";position:absolute;inset:5px;clip-path:inherit;background:radial-gradient(circle at 50% 35%,#3a1640,#1d0b22)}
 #menuBtn span{position:relative;z-index:1;width:26px;height:26px;background:var(--gold);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);box-shadow:0 0 12px var(--gold)}
@@ -52,16 +53,28 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 .pointer{animation:ptr 1.1s ease-in-out infinite}
 @keyframes ptr{0%,100%{filter:drop-shadow(0 0 6px rgba(255,201,77,.6))}50%{filter:drop-shadow(0 0 22px rgba(255,201,77,1))}}
 /* ---------- menu ring (honey-galaxy ring of hex tiles) ---------- */
-#ring{position:fixed;inset:0;z-index:20;background:radial-gradient(circle at 50% 58%,rgba(255,170,60,.18),rgba(20,8,24,.82) 60%);opacity:0;pointer-events:none;transition:opacity .25s}
+#ring{position:fixed;inset:0;z-index:20;background:radial-gradient(circle at 30% 70%,rgba(255,170,60,.12),rgba(8,4,12,.22) 70%);opacity:0;pointer-events:none;transition:opacity .25s}
 #ring.on{opacity:1;pointer-events:auto}
 #ring .hx{position:absolute;width:84px;height:94px;margin:-47px 0 0 -42px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
 background:linear-gradient(160deg,rgba(255,201,77,.95),rgba(255,79,180,.9));display:grid;place-items:center;transform:scale(.3);transition:transform .3s cubic-bezier(.3,1.6,.5,1)}
 #ring.on .hx{transform:scale(1)}
-#ring .hx>div{position:absolute;inset:3px;clip-path:inherit;background:radial-gradient(circle at 50% 30%,#4a1d4f,#1e0c24);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-weight:900;font-size:12px}
+#ring .hx>div{position:absolute;inset:3px;clip-path:inherit;background:radial-gradient(circle at 50% 30%,rgba(74,40,90,.92),rgba(16,10,28,.94));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-weight:900;font-size:11px;padding:10px 12px;text-align:center;line-height:1.05}
 #ring .hx img{width:30px;height:30px;image-rendering:pixelated}
 #ring .hx.outer>div{background:radial-gradient(circle at 50% 30%,#2c1f3a,#140c1c)}
 #ring .hx.glow{animation:ptr 1.1s infinite}
-#ringClose{position:absolute;left:50%;bottom:calc(30px + var(--sab));transform:translateX(-50%);font-size:13px;color:var(--dim);font-weight:800;padding:10px 18px}
+#ring .hx:focus-visible{outline:2px solid #79E4EF;outline-offset:2px}
+#act[disabled]{opacity:.45}
+@media (prefers-reduced-motion: reduce){
+  #ring,#ring .hx{transition:none}
+  #ring .hx.glow{animation:none}
+}
+#ring .hx.soon{opacity:.4}
+.focus-nav{display:flex;gap:8px;margin-top:10px}
+.focus-nav button{flex:1;padding:10px 8px;border-radius:14px;font-weight:900;background:rgba(255,255,255,.08);border:1px solid rgba(255,214,130,.55);color:#fff6d8}
+#ringClose{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+#ring.compact .hx{width:58px;height:66px;margin:-33px 0 0 -29px}
+#ring.compact .hx>div{font-size:9px;gap:1px;padding:2px 4px}
+#ring.compact .hx img{width:20px;height:20px}
 /* ---------- sheets / modals ---------- */
 .modal{position:fixed;inset:0;z-index:30;display:flex;align-items:flex-end;justify-content:center;background:rgba(14,6,18,.55);opacity:0;pointer-events:none;transition:opacity .25s}
 .modal.on{opacity:1;pointer-events:auto}
@@ -384,7 +397,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
 <div id="banner"></div>
 <div id="coach"><div class="who">Shaula</div><div id="coachT"></div></div>
 <button id="act" class="hide"></button>
-<button id="menuBtn" class="hide" aria-label="Menu"><span></span></button>
+<button id="menuBtn" class="hide" aria-label="Menu"><span></span><b>Menu</b></button>
 <div id="wirePanel" class="hide"><button id="wireBtn" aria-pressed="false"><i></i>Wire View</button>
   <label class="neon"><span>paint</span><input type="range" id="neonS" min="0" max="1" step="0.05" aria-label="Painterly to neon"><span>neon</span></label></div>
 <button id="charBtn" class="hide" aria-label="Character"><i></i>Character</button>
@@ -453,7 +466,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
   <div id="cmdList"></div>
   <div class="hint" id="cmdNote"></div>
 </div></div>
-<div id="ring">
+<div id="ring" role="dialog" aria-modal="true" aria-label="Menu" aria-hidden="true">
   <button id="ringClose">tap anywhere to close</button>
 </div>
 
@@ -464,6 +477,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
   <div class="chips" id="craftBag"></div>
   <button class="big gold" id="brew" disabled><i></i><span>Hold to brew</span></button>
   <div class="hint" id="craftHint"></div>
+  <div class="focus-nav"><button type="button" data-back>Back</button><button type="button" data-home>Home</button></div>
 </div></div>
 
 <div class="modal" id="setM"><div class="sheet">
@@ -481,6 +495,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
   <div class="sh-h"><div><small>Bag</small>Today's haul</div><button class="x" data-close>×</button></div>
   <div class="chips" id="bagGrid"></div>
   <div class="hint">Two currencies: <b>Aether</b> (honey glow, top-left) and <b>bottle caps</b> (rare, from hacks and lucky fish).</div>
+  <div class="focus-nav"><button type="button" data-back>Back</button><button type="button" data-home>Home</button></div>
 </div></div>
 
 <div class="modal" id="skillM"><div class="sheet">
@@ -499,6 +514,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
   <canvas id="fishC"></canvas>
   <div id="fishMsg"></div>
   <button class="big hide" id="fishBtn">Keep it</button>
+  <div class="focus-nav"><button type="button" data-back>Back</button><button type="button" data-home>Home</button></div>
 </div></div>
 
 <div class="modal" id="sumM"><div class="sheet">
@@ -816,9 +832,25 @@ function coach(html, ms) {
 }
 function banner(big, small) { const b = $('#banner'); b.innerHTML = big + (small ? `<small>${small}</small>` : ''); b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); }
 let actFn = null;
+function syncOutCombat() { document.body.classList.toggle('out-combat', G.scene === 'map'); }
+function fishReady() { return G.scene === 'map' && G.step === 6; }
+function mapContext() {
+  if (G.scene !== 'map' || !MAP.avOut || MAP.house.mode === 'fly') return null;
+  if (G.step === 2) return ['Walk to the dome', () => goPlace(DOME.q, DOME.r), false];
+  if (G.step === 4 && !G.day.hack) return ['Walk to the pond', () => goPlace(POI.q, POI.r), false];
+  if (G.step === 5) return ['Open the Cook Nook', openCraft, true];
+  if (G.step === 6) return ['Cast at your pond spot', openFish, true];
+  if (G.step === 7) return ['Fast travel home', flyHome, true];
+  return null;
+}
 function setAct(label, fn, gold) {
   const a = $('#act');
-  if (!label) { a.classList.add('hide'); actFn = null; return; }
+  syncOutCombat();
+  if (!label) {
+    const ctx = mapContext();
+    if (!ctx) { a.classList.add('hide'); actFn = null; return; }
+    label = ctx[0]; fn = ctx[1]; gold = ctx[2];
+  }
   a.textContent = label; a.classList.toggle('gold', !!gold); a.classList.remove('hide'); actFn = fn;
 }
 function setObj(html) { const o = $('#obj'); if (!html) { o.classList.add('hide'); return; } o.innerHTML = html; o.classList.remove('hide'); }
@@ -1965,7 +1997,7 @@ function startArena(kind, onDone) {
   layoutArenaCam(); G.scene = 'arena';
   syncRoomLow();
   if (typeof syncMapNav === 'function') syncMapNav();
-  $('#hearts').classList.remove('hide'); $('#menuBtn').classList.add('dim'); setAct(null); coach(null);
+  $('#hearts').classList.remove('hide'); $('#menuBtn').classList.add('dim'); closeRing(); setAct(null); coach(null);
   if (kind === 'raid') { banner('Raid Dome', 'Floor 1 · Green'); setObj('<b>Raid</b> · punch the honey block'); AR.block = { x: 0, y: -.6, hp: 1, k: 0, rar: 0 }; }
   else { banner('Pond Spot', 'Hack · territory'); setObj('<b>Hack</b> · deal with the guard'); }
   setTimeout(() => {
@@ -2098,7 +2130,7 @@ function claimEnd() {
 function endArena() {
   dropCanvasPress();
   setAct(null); coach(null); $('#bossCD').classList.add('hide'); $('#dangerV').style.opacity = 0; $('#wheel').classList.remove('on'); $('#hearts').classList.add('hide'); $('#menuBtn').classList.remove('dim');
-  G.scene = 'map'; groundDirty = true; syncRoomLow(); if (typeof syncMapNav === 'function') syncMapNav(); const f = AR.onDone; AR.onDone = null; f && f();
+  G.scene = 'map'; groundDirty = true; syncRoomLow(); if (typeof syncMapNav === 'function') syncMapNav(); syncOutCombat(); const f = AR.onDone; AR.onDone = null; f && f();
 }
 
 /* ---------- casting ---------- */
@@ -3776,24 +3808,54 @@ $$('.modal').forEach(m => { m.addEventListener('click', e => { if (e.target === 
 
 const RING = [
   { k: 'bag', n: 'Bag', i: 'bag', a: -150, r: 1, go: () => { renderBag(); openModal('bagM'); } },
-  { k: 'craft', n: 'Craft', i: 'core', a: -30, r: 1, go: () => openCraft() },
+  { k: 'craft', n: 'Nook', i: 'core', a: -40, r: 1, go: () => openCraft() },
+  { k: 'fish', n: 'Fishing', i: 'fish', a: 20, r: 1, go: () => { if (fishReady()) openFish(); else toast('Fishing opens at the pond after the Cook Nook.'); } },
   { k: 'skills', n: 'Spellbook', i: 'book', a: 150, r: 1, go: () => { renderSpells(); openModal('skillM'); } },
-  { k: 'log', n: 'Collection', i: 'star', a: 30, r: 1, go: () => { renderLog(); openModal('logM'); } },
-  { k: 'set', n: 'Settings', i: 'gear', a: -90, r: 1.85, go: () => { renderSettings(); openModal('setM'); } },
-  { k: 'cmd', n: 'Command', i: 'book', a: 90, r: 1.85, go: () => openCommand() },
+  { k: 'log', n: 'Collection', i: 'star', a: 100, r: 1.35, go: () => { renderLog(); openModal('logM'); } },
+  { k: 'set', n: 'Settings', i: 'gear', a: -100, r: 1.35, go: () => { renderSettings(); openModal('setM'); } },
+  { k: 'cmd', n: 'Command', i: 'book', a: 200, r: 1.35, go: () => openCommand() },
 ];
 function buildRing() {
   const ring = $('#ring');
-  for (const t of RING) { const b = document.createElement('button'); b.className = 'hx' + (t.r > 1.5 ? ' outer' : ''); b.dataset.k = t.k; b.innerHTML = `<div><img src="${ICON_URL[t.i]}" alt="">${t.n}</div>`; b.onclick = e => { e.stopPropagation(); closeRing(); t.go(); }; ring.appendChild(b); }
+  for (const t of RING) { const b = document.createElement('button'); b.className = 'hx' + (t.r > 1.5 ? ' outer' : ''); b.dataset.k = t.k; b.tabIndex = -1; b.innerHTML = `<div><img src="${ICON_URL[t.i]}" alt="">${t.n}</div>`; b.onclick = e => { e.stopPropagation(); closeRing(); t.go(); }; ring.appendChild(b); }
   ring.addEventListener('click', closeRing);
 }
 function openRing() {
-  if (G.scene !== 'map' || anyModal()) return; SFX.tap(); buzz(8);
-  const cx = W / 2, cy = H * .5, rr = Math.min(W * .27, 105);
-  $$('#ring .hx').forEach(b => { const t = RING.find(x => x.k === b.dataset.k), a = t.a * Math.PI / 180; b.style.left = cx + Math.cos(a) * rr * t.r + 'px'; b.style.top = cy + Math.sin(a) * rr * t.r + 'px'; b.classList.toggle('glow', G.step === 5 && t.k === 'craft'); });
-  $('#ring').classList.add('on'); $('#menuBtn').classList.remove('pointer');
+  if ($('#ring').classList.contains('on')) { closeRing(); return; }
+  if (G.scene === 'arena' || anyModal()) return;
+  SFX.tap(); buzz(8);
+  const compact = Math.min(W, H) < 560;
+  $('#ring').classList.toggle('compact', compact);
+  const tiles = [...document.querySelectorAll('#ring .hx')];
+  const tw = compact ? 64 : 84, th = compact ? 72 : 94, gap = 10;
+  const cols = H > W ? 4 : Math.min(tiles.length, 4);
+  const rows = Math.ceil(tiles.length / cols);
+  const gridW = Math.min(cols, tiles.length) * (tw + gap) - gap;
+  const x0 = H > W ? Math.max(16, (W - gridW) / 2) : 168;
+  const y0 = H > W ? 108 : 18;
+  tiles.forEach((b, i) => {
+    const c = i % cols, row = Math.floor(i / cols);
+    b.style.left = (x0 + c * (tw + gap) + tw / 2) + 'px';
+    b.style.top = (y0 + row * (th + gap) + th / 2) + 'px';
+    const t = RING.find(x => x.k === b.dataset.k);
+    b.classList.toggle('glow', G.step === 5 && t.k === 'craft');
+    b.classList.toggle('soon', t.k === 'fish' && !fishReady());
+  });
+  const ring = $('#ring');
+  ring.classList.add('on'); ring.setAttribute('aria-hidden', 'false');
+  $$('#ring .hx').forEach(b => { b.tabIndex = 0; });
+  const lab = $('#menuBtn b'); if (lab) lab.textContent = 'Close';
+  const act = $('#act'); if (act && !act.classList.contains('hide')) { act.disabled = true; act.setAttribute('aria-disabled', 'true'); }
+  $('#menuBtn').classList.remove('pointer');
+  const first = $('#ring .hx'); if (first) first.focus();
 }
-function closeRing() { $('#ring').classList.remove('on'); }
+function closeRing() {
+  const r = $('#ring'); if (!r) return;
+  r.classList.remove('on'); r.setAttribute('aria-hidden', 'true');
+  $$('#ring .hx').forEach(b => { b.tabIndex = -1; });
+  const lab = $('#menuBtn b'); if (lab) lab.textContent = 'Menu';
+  const act = $('#act'); if (act) { act.disabled = false; act.removeAttribute('aria-disabled'); }
+}
 function chip(k, n) { return `<div class="ic r${ITEMS[k] ? ITEMS[k].r : 1}" data-k="${k}"><span class="n">${n}</span><img src="${ICON_URL[k === 'fish' ? 'fish' : k]}" alt="">${ITEMS[k] ? ITEMS[k].n : k}</div>`; }
 function renderBag() { let h = `<div class="ic r1"><span class="n">${G.aether}</span><img src="${ICON_URL.aether}" alt="">Aether</div><div class="ic r2"><span class="n">${G.caps}</span><img src="${ICON_URL.cap}" alt="">Bottle caps</div>`; for (const k in G.bag) if (G.bag[k] > 0) h += chip(k, G.bag[k]); $('#bagGrid').innerHTML = h; $$('#bagGrid .ic[data-k]').forEach(b => b.onclick = () => useBagItem(b.dataset.k)); }
 function useBagItem(k) {
@@ -3923,8 +3985,26 @@ function endDay() {
 }
 $('#again').onclick = () => location.reload();
 $('#fishBtn').onclick = () => afterFish();
-$('#act').addEventListener('click', () => { audioInit(); SFX.tap(); const f = actFn; f && f(); });
+$('#act').addEventListener('click', () => { closeRing(); audioInit(); SFX.tap(); const f = actFn; f && f(); });
 $('#menuBtn').addEventListener('click', openRing);
+document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => { const m = b.closest('.modal'); if (m) closeModal(m.id); }));
+document.querySelectorAll('[data-home]').forEach(b => b.addEventListener('click', () => { const m = b.closest('.modal'); if (m) closeModal(m.id); if (G.scene === 'map') openRing(); }));
+document.addEventListener('keydown', e => {
+  const ring = document.getElementById('ring');
+  if (e.key === 'Escape') {
+    const open = [...document.querySelectorAll('.modal.on')].filter(m => m.id !== 'sumM').pop();
+    if (open) { closeModal(open.id); document.getElementById('menuBtn').focus(); e.preventDefault(); return; }
+    if (ring.classList.contains('on')) { closeRing(); document.getElementById('menuBtn').focus(); e.preventDefault(); }
+    return;
+  }
+  if (e.key === 'Tab' && ring.classList.contains('on')) {
+    const tiles = [...ring.querySelectorAll('.hx')];
+    if (!tiles.length) return;
+    const i = tiles.indexOf(document.activeElement);
+    e.preventDefault();
+    tiles[(e.shiftKey ? (i <= 0 ? tiles.length - 1 : i - 1) : (i < 0 || i === tiles.length - 1 ? 0 : i + 1))].focus();
+  }
+});
 $$('.race').forEach(b => b.onclick = () => { G.race = b.dataset.r; G.fieldAvatar = ''; if (G.race === 'slime') G.form = 'boba'; $$('.race').forEach(x => x.classList.toggle('sel', x === b)); if (typeof goldFieldTag === 'function') goldFieldTag(); SFX.tap(); });
 $('#titleGo').onclick = () => startDay();
 $$('.sp').forEach(b => b.addEventListener('click', () => { dropCanvasPress(); const i = +b.dataset.i; selSpell(i); cast(i, 1, null); }));
