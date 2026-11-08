@@ -79,7 +79,11 @@ background:linear-gradient(160deg,rgba(255,201,77,.95),rgba(255,79,180,.9));disp
 .modal{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:8px;background:rgba(8,4,12,.72);opacity:0;pointer-events:none;transition:opacity .25s}
 .modal.on{opacity:1;pointer-events:auto}
 .sheet{width:min(100%,460px);max-height:var(--sheet-max,calc(100dvh - 16px));overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:linear-gradient(180deg,rgba(54,24,62,.98),rgba(18,8,24,.98));border:1px solid rgba(255,214,160,.55);border-radius:18px;padding:14px 16px calc(18px + var(--sab));box-shadow:0 18px 50px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.16);backdrop-filter:blur(8px)}
-body.sheet-open #ring,body.sheet-open #coach,body.sheet-open #mapNav,body.sheet-open #act,body.sheet-open #menuBtn,body.sheet-open #obj,body.sheet-open #wirePanel,body.sheet-open #charBtn,body.sheet-open #banner,body.menu-open #coach,body.menu-open #mapNav,body.menu-open #wirePanel,body.menu-open #charBtn,body.menu-open #obj{visibility:hidden!important;pointer-events:none!important}
+body.out-combat #mapNav,body.out-combat #wirePanel,body.out-combat #charBtn{display:none!important}
+body.sheet-open #ring,body.sheet-open #coach,body.sheet-open #mapNav,body.sheet-open #act,body.sheet-open #menuBtn,body.sheet-open #obj,body.sheet-open #wirePanel,body.sheet-open #charBtn,body.sheet-open #banner,body.menu-open #coach,body.menu-open #mapNav,body.menu-open #wirePanel,body.menu-open #charBtn,body.menu-open #obj,body.menu-open #toasts{visibility:hidden!important;pointer-events:none!important}
+body.menu-open #cv{pointer-events:none}
+#ringPlate{position:absolute;z-index:0;border-radius:26px;pointer-events:none;background:linear-gradient(180deg,rgba(36,16,48,.94),rgba(12,6,18,.96));border:1px solid rgba(255,220,170,.72);box-shadow:0 0 0 1px rgba(255,79,180,.35),inset 0 0 0 7px rgba(255,255,255,.05),inset 0 1px 0 rgba(255,255,255,.22),0 18px 40px rgba(0,0,0,.5)}
+#ring .hx{z-index:1}
 .sh-h{display:flex;align-items:center;justify-content:space-between;font-weight:900;font-size:17px;margin-bottom:8px}
 .sh-h small{display:block;font-size:11px;color:var(--pink);letter-spacing:.12em;text-transform:uppercase}
 .x{width:36px;height:36px;border-radius:12px;background:rgba(255,255,255,.08);font-size:20px;line-height:1}
@@ -467,6 +471,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
   <div class="hint" id="cmdNote"></div>
 </div></div>
 <div id="ring" role="dialog" aria-modal="true" aria-label="Menu" aria-hidden="true">
+  <div id="ringPlate"></div>
   <button id="ringClose">tap anywhere to close</button>
 </div>
 
@@ -3950,6 +3955,14 @@ function openRing() {
     b.classList.toggle('glow', G.step === 5 && t.k === 'craft');
     b.classList.toggle('soon', t.k === 'fish' && !fishReady());
   });
+  const plate = document.getElementById('ringPlate');
+  if (plate) {
+    const pad = 14;
+    plate.style.left = (x0 - pad) + 'px';
+    plate.style.top = (y0 - pad) + 'px';
+    plate.style.width = (gridW + pad * 2) + 'px';
+    plate.style.height = (rows * (th + gap) - gap + pad * 2) + 'px';
+  }
   const ring = $('#ring');
   ring.classList.add('on'); ring.setAttribute('aria-hidden', 'false'); document.body.classList.add('menu-open');
   $$('#ring .hx').forEach(b => { b.tabIndex = 0; });
@@ -3996,7 +4009,7 @@ function applyHand() { $('#wheel').classList.toggle('left', SET.hand === 'left')
 function startDay() {
   audioInit(); $('#title').classList.add('out'); setTimeout(() => $('#title').classList.add('hide'), 600);
   $('#hud').classList.remove('hide'); $('#wirePanel').classList.remove('hide'); $('#menuBtn').classList.remove('hide'); addAether(0, true);
-  G.scene = 'map'; G.step = 1; G.day.wakeT = 0; G.day.woke = false; setTime(0); G.day.aStart = G.aether;
+  G.scene = 'map'; syncOutCombat(); G.step = 1; G.day.wakeT = 0; G.day.woke = false; setTime(0); G.day.aStart = G.aether;
   if (G.fieldAvatar === 'gold') toast('Field picture: Original Gold · static, no rig');
   setObj('<b>Dawn</b> · wake up at home');
   setTimeout(() => { coach('Good morning! You wake in your <b>home hex</b>, the hub of your day. The bees left you <b>Pollen</b>. Your house stays put as your <b>fast-travel home</b>; today you go on foot.'); setAct('Step outside', wakeUp, true); }, 700);
@@ -6154,7 +6167,7 @@ function openMapNav() {
   document.getElementById('hud').classList.remove('hide');
   document.getElementById('wirePanel').classList.remove('hide');
   document.getElementById('menuBtn').classList.remove('hide', 'dim');
-  G.scene = 'map';
+  G.scene = 'map'; syncOutCombat();
   if ((G.step || 0) < 2) G.step = 2;
   MAP.avOut = true; MAP.avT = 1;
   if (MAP.house.mode === 'walk' || MAP.house.mode === 'fly') { /* keep moving */ }
