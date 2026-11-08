@@ -193,6 +193,10 @@ Menu opens the existing hex panel. The tiles keep the chibi icons. Bag, the Cook
 
 The glass and ground boards shipped on 2026-11-07 are offline composites of the 55fc1d5 map, not runtime proof. Owner lock is the two buttons, the hex menu, the real Bag / Cook Nook / Fishing screens, and the chibi icons. Colors, pixel sizes, contrast samples, and the recessed-slate look are proposals. The glass board's empty lower half and the controls drawn under it are faults in that composite, not a layout to copy. Its symbols are provisional and are not in the game. Cooking is not a second screen. Settings in the game are Sound, Cozy mode, Haptics, Floor look, Map tilt, and Spell hand, saved on this device as `aro7set`. The ground art is not drawn yet. A later cache trial may fill the existing cell polygons from `terrain_strata_srgb_256.png`. It must not stamp the authoring plate, add a second grid, or change depth, telegraphs, or hitboxes.
 
+## Simulated map markers
+
+This map is the existing hex field. It is not a phone location and it does not ask for one. Four dashed rings mark the forest, meadow, and stone clusters that were already generated. Home, the raid dome, the pond spot, the hive, and the crops stay solid. Decorative trees fade when you or today's dotted route are close, and they stay easier to see toward the outer grass. Walking, water, and spawns are unchanged. `window.__noHolo` only exists so a paired frame sample can turn the rings and the fade off. It is not a setting.
+
 ## Still open
 
 - No phone in hand. iOS Safari can cancel a touch on rotation at a different moment than this Chrome. The events here were synthesized touches, and they did arrive as `pointerType: "touch"`.

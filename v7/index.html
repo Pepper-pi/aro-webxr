@@ -1655,6 +1655,7 @@ function genMap() {
       for (const [spr, p] of (DECO_BY[ter] || [])) for (let i = 0; i < 2; i++) if (hsh(q * 31 + i * 7 + spr.length, r * 17 + i) < p * (i ? .45 : 1)) {
         const a = hsh(q + i * 3, r * 5 + spr.length) * TAU, rr = .25 + hsh(q * 3 + i, r + 11) * .38; t.deco.push({ spr, ox: Math.cos(a) * rr, oy: Math.sin(a) * rr * .8, sc: .75 + hsh(q + 9, r + i) * .5 });
       }
+      if (ter === 'forest' && d >= 5 && t.deco.length === 0) t.deco.push({ spr: 'lpTreeC', ox: 0, oy: 0, sc: .9 });
       if (ter === 'home') t.deco = [];
       if (q === -1 && r === 0) t.deco = [{ spr: 'hive', ox: 0, oy: 0, sc: 1.1 }, { spr: 'flowers', ox: .3, oy: .3, sc: 1 }];
       if (q === 0 && r === 1) t.deco = [{ spr: 'crop', ox: -.2, oy: 0, sc: 1 }, { spr: 'crop', ox: .25, oy: .2, sc: 1 }];
@@ -1785,14 +1786,14 @@ function drawMap(T) {
   const tg = objectiveTile(); if (tg && h.mode === 'park' && !(h.q === tg.q && h.r === tg.r)) { const [X, Y, f] = proj(c, tg.x, tg.y); const b = Math.sin(T * 3) * 4;
     if (tg.ter === 'dome') { ctx.strokeStyle = `rgba(186,255,255,${.4 + .15 * Math.sin(T * 3)})`; ctx.lineWidth = 1.15; ctx.beginPath(); ctx.moveTo(X, Y - 78 * f + b); ctx.lineTo(X, Y - tileLift(tg) * f); ctx.stroke(); drawRaidBeacon(X, Y - 92 * f + b, 8 * f, T); }
     else { ctx.fillStyle = 'rgba(255,201,77,.9)'; poly(ctx, HEXC.map(p => [X + p[0] * 7 * f, Y - 92 * f + b + p[1] * 7 * f])); ctx.fill(); ctx.strokeStyle = 'rgba(255,201,77,.35)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(X, Y - 84 * f + b); ctx.lineTo(X, Y - 10 * f); ctx.stroke(); } }
+  drawSuperHexes(c, h);
   // contested crackle on a rival-hacked tile (hidden in cozy mode)
   if (!SET.cozy) { const t = tileAt(-4, 1); if (t) { hexPath(c, t.x, t.y, .9); ctx.strokeStyle = `rgba(255,70,90,${.25 + Math.random() * .4})`; ctx.lineWidth = 1.5 + Math.random() * 1.5; ctx.stroke(); } }
   // y-sorted sprites
   const S = [];
   for (const t of MAP.list) {
     if (t.edge || !t.deco.length) continue; const [X0, Y0] = proj(c, t.x, t.y); if (X0 < -70 || X0 > W + 70 || Y0 < -40 || Y0 > H + 90) continue;
-    const dh = Math.hypot(t.x - h.x, t.y - h.y), faint = dh > 7.5 ? .32 : 1;
-    for (const d of t.deco) { const [X, Y, f] = proj(c, t.x + d.ox, t.y + d.oy); S.push([Y, 0, d.spr, X, Y - tileLift(t) * f, f * d.sc * c.hz / 42, faint]); }
+    for (const d of t.deco) { const [X, Y, f] = proj(c, t.x + d.ox, t.y + d.oy); S.push([Y, 0, d.spr, X, Y - tileLift(t) * f, f * d.sc * c.hz / 42, holoFade(t, d.spr, h)]); }
   }
   { const t = tileAt(DOME.q, DOME.r), [X, Y, f] = proj(c, t.x, t.y); S.push([Y + 1, 0, 'dome', X, Y - 7 * f + 6 * f, f * c.hz / 42, 1]); }
   { const [X, Y, f] = proj(c, 0, 0); S.push([Y + 1.5, 4, X, Y, f]); }          // the house stays home (fast-travel anchor)
@@ -1809,6 +1810,44 @@ function drawMap(T) {
   }
   // AR holo lanterns: faint passive decorations
   for (let i = 0; i < 5; i++) { const wx = -5 + i * 2.6, wy = -4 + Math.sin(i * 2.1) * 3, [X, Y, f] = proj(c, wx, wy); const bob = Math.sin(T * 1.3 + i) * 5; ctx.globalAlpha = .22; ctx.strokeStyle = '#7ff0ff'; ctx.lineWidth = 1.2; poly(ctx, HEXC.map(p => [X + p[0] * 6 * f, Y - 60 * f + bob + p[1] * 7 * f])); ctx.stroke(); ctx.globalAlpha = 1; }
+}
+const HOLO_SPR = { lpTree: 1, lpTreeC: 1, pine: 1, pineD: 1, pineG: 1, round: 1, bloom: 1, shroom: 1 };
+const SUPER_HEX = [
+  { q: -3, r: -1, name: 'Forest', rad: 1.65, col: '127,240,255' },
+  { q: -1, r: -5, name: 'Forest', rad: 1.45, col: '127,240,255' },
+  { q: 3, r: 1, name: 'Meadow', rad: 1.55, col: '255,214,120' },
+  { q: -2, r: 3, name: 'Stone', rad: 1.45, col: '214,196,230' },
+];
+function holoFade(t, spr, h) {
+  if (window.__noHolo) return 1;
+  if (spr === 'hive' || spr === 'crop' || spr === 'house' || spr === 'dome') return 1;
+  if (t.ter === 'yard' || t.ter === 'home' || t.ter === 'dome' || t.ter === 'poi') return 1;
+  if (!HOLO_SPR[spr]) return 1;
+  const dAv = Math.hypot(t.x - h.x, t.y - h.y);
+  let near = dAv < 1.7 ? 0 : dAv < 3.5 ? (dAv - 1.7) / 1.8 : 1;
+  const route = MAP.prev;
+  if (route) for (let i = 0; i < route.length; i++) { if (hd(route[i], t) <= 1) { near = Math.min(near, 0.22); break; } }
+  const edge = clamp((t.d - 2) / 5, 0, 1);
+  return clamp(0.14 + near * (0.4 + 0.6 * edge), 0.12, 1);
+}
+function drawSuperHexes(c, h) {
+  if (window.__noHolo || G.scene !== 'map') return;
+  ctx.save();
+  for (const s of SUPER_HEX) {
+    const t = tileAt(s.q, s.r); if (!t) continue;
+    const near = Math.hypot(t.x - h.x, t.y - h.y);
+    const a = near < 2.2 ? 0.16 : 0.72;
+    hexPath(c, t.x, t.y, s.rad);
+    ctx.globalAlpha = a * 0.22; ctx.fillStyle = `rgba(${s.col},1)`; ctx.fill();
+    ctx.globalAlpha = a; ctx.strokeStyle = `rgba(${s.col},1)`; ctx.lineWidth = 2; ctx.setLineDash([7, 5]); ctx.stroke(); ctx.setLineDash([]);
+    if (near > 2.4) {
+      const [X, Y, f] = proj(c, t.x, t.y);
+      ctx.globalAlpha = a; ctx.font = `800 ${Math.max(11, 13 * f)}px ui-rounded,system-ui`; ctx.textAlign = 'center';
+      ctx.lineWidth = 3; ctx.strokeStyle = '#140810'; ctx.strokeText(s.name, X, Y - 6 * f);
+      ctx.fillStyle = '#e9faff'; ctx.fillText(s.name, X, Y - 6 * f);
+    }
+  }
+  ctx.restore();
 }
 function drawHome(X, Y, f, T) {
   const c = MAP.cam, s = f * c.hz / 42;
