@@ -232,8 +232,10 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
      above the scrollport, where a drag cannot reach it. Start at the top instead. */
   #title{justify-content:flex-start;padding:6px 18px 8px}
   #title .race canvas{height:60px}
-  #goldCv{height:min(46vh,176px);width:min(46vw,280px)}
-  #goldSide{width:min(46vw,250px)}
+  #goldCv{height:min(82vh,320px);width:min(56vw,480px)}
+  #goldSide{width:min(38vw,260px)}
+  #goldNote{font-size:12px;line-height:1.25}
+  #goldViews button,#goldClose,#goldRetry{min-height:40px}
 }
 .logo{font-weight:900;font-size:30px;letter-spacing:.06em;text-align:center;line-height:1.05;background:linear-gradient(180deg,#fff6d8,#ffc94d 50%,#ff8fca);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 14px rgba(255,79,180,.6))}
 .sub{font-size:12px;letter-spacing:.24em;color:var(--pink);font-weight:900;margin:6px 0 16px;text-transform:uppercase}
@@ -252,6 +254,12 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
 #goldViews button{padding:8px 12px;border-radius:12px;font-weight:900;background:rgba(255,255,255,.08);border:1px solid rgba(255,214,130,.5);color:#fff6d8}
 #goldViews button.on{background:#ffc94d;color:#3a2408}
 #goldSide{display:flex;flex-direction:column;align-items:center;max-width:min(92vw,480px)}
+#goldStatus{font-weight:900;min-height:1.3em;text-align:center}
+#goldBox[data-state="loading"] #goldStatus{color:#ffe08a}
+#goldBox[data-state="error"] #goldStatus{color:#ff9aaa}
+#goldBox[data-state="ready"] #goldStatus{color:#d9ffe8}
+#goldRetry{margin-top:6px}
+#goldRetry.hide{display:none!important}
 @media (max-height:519px) and (min-width:700px){
   #goldBox{flex-direction:row;gap:16px}
 }
@@ -512,6 +520,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
   <canvas id="goldCv" width="640" height="800"></canvas>
   <div id="goldSide">
     <b id="goldTitle">Original Gold</b>
+    <p id="goldStatus">Loading Original_Gold_Likeness.glb…</p>
     <div id="goldNote" class="hint"></div>
     <div id="goldViews">
       <button type="button" data-v="front">Front</button>
@@ -519,6 +528,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
       <button type="button" data-v="side">Side</button>
       <button type="button" data-v="back">Back</button>
     </div>
+    <button type="button" class="big hide" id="goldRetry">Try the file again</button>
     <button type="button" class="big" id="goldClose">Back to choices</button>
   </div>
 </div>
@@ -6063,11 +6073,13 @@ function disc3dParse(buf) {
         metal: pbr.metallicFactor == null ? 1 : pbr.metallicFactor,
         rough: pbr.roughnessFactor == null ? (/gold/.test(mat.name || '') ? 0.22 : 1) : pbr.roughnessFactor,
         goldFix: /gold/.test(mat.name || '') && (pbr.metallicFactor == null || pbr.roughnessFactor == null),
-        blend: mat.alphaMode === 'BLEND'
+        blend: mat.alphaMode === 'BLEND',
+        specF: (mat.extensions && mat.extensions.KHR_materials_specular && mat.extensions.KHR_materials_specular.specularFactor != null) ? mat.extensions.KHR_materials_specular.specularFactor : 1,
+        coatF: (mat.extensions && mat.extensions.KHR_materials_clearcoat && mat.extensions.KHR_materials_clearcoat.clearcoatFactor != null) ? mat.extensions.KHR_materials_clearcoat.clearcoatFactor : 0
       });
     });
   });
-  return { parts, tris, pieces: json.nodes.length };
+  return { parts, tris, pieces: json.nodes.length, mats: (json.materials || []).length, anims: (json.animations || []).length };
 }
 function disc3dFallback(msg) {
   DISC3D.fail = msg;
@@ -6218,11 +6230,20 @@ function goldFit(parts) {
     }
   });
   GOLD.target = [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2];
-  GOLD.dist = Math.max(max[0] - min[0], max[1] - min[1], max[2] - min[2]) * 1.35;
+  GOLD.dist = Math.max(max[0] - min[0], max[1] - min[1], max[2] - min[2]) * 1.18;
 }
 function goldNote(text) { const n = document.getElementById('goldNote'); if (n) n.textContent = text; }
+function goldStatus(text, state) {
+  const box = document.getElementById('goldBox');
+  const s = document.getElementById('goldStatus');
+  if (box && state) box.dataset.state = state;
+  if (s) s.textContent = text;
+  const retry = document.getElementById('goldRetry');
+  if (retry) retry.classList.toggle('hide', state !== 'error');
+}
 async function goldLoad() {
-  if (GOLD.ready || GOLD.fail) return !GOLD.fail;
+  if (GOLD.ready) return true;
+  if (GOLD.fail) return false;
   const canvas = document.getElementById('goldCv');
   if (!canvas) { GOLD.fail = 'Preview canvas is missing.'; goldNote(GOLD.fail); return false; }
   let buf;
@@ -6237,13 +6258,13 @@ async function goldLoad() {
   let parsed;
   try { parsed = disc3dParse(buf); }
   catch (e) { GOLD.fail = 'The mesh could not be read. Boba was not used in its place.'; goldNote(GOLD.fail); return false; }
-  if (!parsed || parsed.tris !== 118790 || parsed.parts.length !== 20) { GOLD.fail = 'The mesh is not the 20-part Original Gold file.'; goldNote(GOLD.fail); return false; }
+  if (!parsed || parsed.tris !== 118790 || parsed.parts.length !== 20 || parsed.mats !== 6 || parsed.anims !== 0) { GOLD.fail = 'The mesh is not the 20-part, 6-material Original Gold file.'; goldNote(GOLD.fail); return false; }
   let gl = null;
   try { gl = canvas.getContext('webgl', { antialias: true, alpha: false, preserveDrawingBuffer: true }); }
   catch (e) { gl = null; }
   if (!gl) { GOLD.fail = 'This browser has no WebGL. The mesh is not being replaced with Boba.'; goldNote(GOLD.fail); return false; }
   const vs = 'attribute vec3 aPos;attribute vec3 aNrm;uniform mat4 uMVP;uniform mat4 uModel;uniform mat3 uN;varying vec3 vN;varying vec3 vP;void main(){vec4 w=uModel*vec4(aPos,1.0);vP=w.xyz;vN=uN*aNrm;gl_Position=uMVP*vec4(aPos,1.0);}';
-  const fs = 'precision mediump float;varying vec3 vN;varying vec3 vP;uniform vec4 uBase;uniform vec3 uEmit;uniform float uStr;uniform float uMetal;uniform float uRough;uniform vec3 uLight;uniform vec3 uEye;void main(){vec3 n=normalize(vN);vec3 l=normalize(uLight);vec3 e=normalize(uEye-vP);float nd=max(dot(n,l),0.0);float wrap=nd*0.62+0.38;float fill=max(dot(n,normalize(vec3(-0.4,0.2,0.5))),0.0);float spec=pow(max(dot(n,normalize(l+e)),0.0),mix(48.0,16.0,clamp(uRough,0.0,1.0)));vec3 lit=uBase.rgb*(0.42+wrap*0.7)+uBase.rgb*fill*0.18;vec3 c=lit+vec3(1.0,0.92,0.8)*spec*0.28+uEmit*uStr;gl_FragColor=vec4(min(c,vec3(1.0)),1.0);}';
+  const fs = 'precision mediump float;varying vec3 vN;varying vec3 vP;uniform vec4 uBase;uniform vec3 uEmit;uniform float uStr;uniform float uMetal;uniform float uRough;uniform float uSpec;uniform float uCoat;uniform vec3 uLight;uniform vec3 uEye;vec3 enc(vec3 c){c=clamp(c,0.0,1.0);vec3 lo=c*12.92;vec3 hi=1.055*pow(c,vec3(0.4166667))-0.055;return mix(lo,hi,step(vec3(0.0031308),c));}void main(){vec3 n=normalize(vN);vec3 l=normalize(uLight);vec3 e=normalize(uEye-vP);float nd=max(dot(n,l),0.0);float wrap=nd*0.45+0.55;float fill=max(dot(n,normalize(vec3(-0.35,0.25,0.45))),0.0);float shine=mix(64.0,18.0,clamp(uRough,0.0,1.0));float spec=pow(max(dot(n,normalize(l+e)),0.0),shine);float coat=pow(max(dot(n,normalize(l+e)),0.0),96.0);vec3 diff=uBase.rgb*(wrap*0.92+fill*0.08);vec3 c=diff+vec3(1.0)*spec*uSpec*0.18+vec3(1.0)*coat*uCoat*0.65+uEmit*uStr;gl_FragColor=vec4(enc(c),1.0);}';
   function sh(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
   let prog;
   try {
@@ -6262,6 +6283,7 @@ async function goldLoad() {
     uMVP: gl.getUniformLocation(prog, 'uMVP'), uModel: gl.getUniformLocation(prog, 'uModel'), uN: gl.getUniformLocation(prog, 'uN'),
     uBase: gl.getUniformLocation(prog, 'uBase'), uEmit: gl.getUniformLocation(prog, 'uEmit'), uStr: gl.getUniformLocation(prog, 'uStr'),
     uMetal: gl.getUniformLocation(prog, 'uMetal'), uRough: gl.getUniformLocation(prog, 'uRough'),
+    uSpec: gl.getUniformLocation(prog, 'uSpec'), uCoat: gl.getUniformLocation(prog, 'uCoat'),
     uLight: gl.getUniformLocation(prog, 'uLight'), uEye: gl.getUniformLocation(prog, 'uEye')
   };
   return true;
@@ -6298,6 +6320,8 @@ function goldDraw(view) {
     gl.uniform1f(GOLD.loc.uStr, p.emitStr || 0);
     gl.uniform1f(GOLD.loc.uMetal, p.metal || 0);
     gl.uniform1f(GOLD.loc.uRough, p.rough == null ? 0.4 : p.rough);
+    gl.uniform1f(GOLD.loc.uSpec, p.specF == null ? 1 : p.specF);
+    gl.uniform1f(GOLD.loc.uCoat, p.coatF || 0);
     gl.bindBuffer(gl.ARRAY_BUFFER, p.posBuf);
     gl.enableVertexAttribArray(GOLD.loc.aPos);
     gl.vertexAttribPointer(GOLD.loc.aPos, 3, gl.FLOAT, false, 0, 0);
@@ -6319,17 +6343,32 @@ function goldDraw(view) {
 async function goldOpen() {
   const box = document.getElementById('goldBox');
   box.classList.remove('hide');
-  goldNote('Loading the Original Gold mesh…');
-  if (await goldLoad()) goldDraw('front');
-  return { ok: GOLD.ready, fail: GOLD.fail, tris: GOLD.tris, hash: GOLD.hash, ms: GOLD.ms, race: G.race, form: G.form };
+  if (GOLD.ready) { goldStatus('Original Gold mesh ready', 'ready'); goldDraw(GOLD.view || 'front'); }
+  else {
+    goldStatus('Loading Original_Gold_Likeness.glb…', 'loading');
+    goldNote('Fetching the file. Boba is not shown here.');
+    if (await goldLoad()) { goldStatus('Original Gold mesh ready', 'ready'); goldDraw('front'); }
+    else goldStatus(GOLD.fail || 'The mesh did not load.', 'error');
+  }
+  return { ok: GOLD.ready, fail: GOLD.fail, tris: GOLD.tris, hash: GOLD.hash, ms: GOLD.ms, race: G.race, form: G.form, state: box.dataset.state };
 }
 function goldClose() {
   document.getElementById('goldBox').classList.add('hide');
 }
+async function goldRetry() {
+  GOLD.fail = '';
+  GOLD.ready = false;
+  goldStatus('Loading Original_Gold_Likeness.glb…', 'loading');
+  goldNote('Trying the file again. Boba is not shown here.');
+  if (await goldLoad()) { goldStatus('Original Gold mesh ready', 'ready'); goldDraw('front'); }
+  else goldStatus(GOLD.fail || 'The mesh did not load.', 'error');
+  return { ok: GOLD.ready, fail: GOLD.fail, state: document.getElementById('goldBox').dataset.state };
+}
 document.getElementById('goldBtn').addEventListener('click', () => { SFX.tap(); goldOpen(); });
 document.getElementById('goldClose').addEventListener('click', () => { SFX.tap(); goldClose(); });
+document.getElementById('goldRetry').addEventListener('click', () => { SFX.tap(); goldRetry(); });
 document.querySelectorAll('#goldViews button').forEach(b => b.addEventListener('click', () => { SFX.tap(); if (GOLD.ready) goldDraw(b.dataset.v); }));
-window.__gold = { open: goldOpen, close: goldClose, draw: goldDraw, GOLD, sha: GOLD_SHA };
+window.__gold = { open: goldOpen, close: goldClose, retry: goldRetry, draw: goldDraw, GOLD, sha: GOLD_SHA };
 const DISCPLAY = { gl: null, prog: null, loc: null, parts: null, canvas: null, fail: '', tris: 0 };
 function discPlayYaw(m, yaw) {
   const c = Math.cos(yaw), s = Math.sin(yaw), o = new Float32Array(16);

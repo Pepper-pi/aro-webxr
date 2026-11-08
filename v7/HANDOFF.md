@@ -173,7 +173,7 @@ A still map raid was filling the screen and stroking the cyan lattice on every f
 
 ## Original Gold
 
-The title has an Original Gold button under the hint. It loads `v7/assets/Original_Gold_Likeness.glb` and checks sha256 `54b1f5c7bef848ab2ae364655296214e693e8f3aa196728d071a26413b5fd5aa` before drawing. The file is 118,790 triangles, 20 parts, 6 materials, no skeleton and no animation. Front, quarter, side, and back each draw that mesh once. It is not Boba, and choosing it does not change the race. Boba stays the milk-tea slime. Closing the preview returns to the title. A missing file or a bad hash shows an error and does not draw Boba in its place. The day walker is still the existing picture. This is a static preview on SwiftShader here, not a rig and not a phone measurement.
+The title has an Original Gold button under the hint. It loads `v7/assets/Original_Gold_Likeness.glb` and checks sha256 `54b1f5c7bef848ab2ae364655296214e693e8f3aa196728d071a26413b5fd5aa` before drawing. The file is 118,790 triangles, 20 parts, 6 materials, no skeleton and no animation. Those base colors are linear. The preview encodes them for the screen and uses each material's roughness, specular factor, and clearcoat factor from the file. The colors are not repainted. Front, quarter, side, and back each draw that mesh once. The panel says it is loading the file before the first frame. A missing file or a bad hash shows that error, offers another try, and does not draw Boba there. It is not Boba, and choosing it does not change the race. Boba stays the milk-tea slime. Closing the preview returns to the title. The day walker is still the existing picture. This is a static preview on SwiftShader here, not a rig and not a phone measurement.
 
 ## Short landscape title
 
