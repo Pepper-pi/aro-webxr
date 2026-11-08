@@ -1862,29 +1862,77 @@ function drawSuperHexes(c, h) {
   ctx.restore();
 }
 const MARK_LABELS = [];
+function paintMarkLabel(name, col, X, Y, tw) {
+  const box = { l: X - tw / 2 - 8, r: X + tw / 2 + 8, t: Y - 14, b: Y + 14 };
+  ctx.fillStyle = 'rgba(10,6,16,.88)';
+  ctx.strokeStyle = `rgba(${col},.95)`;
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(box.l, box.t, box.r - box.l, box.b - box.t, 8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#f4fbff';
+  ctx.fillText(name, X, Y);
+  return box;
+}
+function markHitsRoute(box) {
+  const near = (x, y) => x > box.l - 18 && x < box.r + 18 && y > box.t - 18 && y < box.b + 18;
+  const [ax, ay] = proj(MAP.cam, MAP.house.x, MAP.house.y);
+  if (near(ax, ay)) return true;
+  if (MAP.prev) for (const t of MAP.prev) { const [x, y] = proj(MAP.cam, t.x, t.y); if (near(x, y)) return true; }
+  return false;
+}
 function drawSuperHexNames(c, h) {
   MARK_LABELS.length = 0;
   if (window.__noHolo || G.scene !== 'map') return;
   ctx.save();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  ctx.font = '800 16px ui-rounded,system-ui';
+  const off = [];
   for (const s of SUPER_HEX) {
     const t = tileAt(s.q, s.r); if (!t) continue;
     const [X, Y] = proj(c, t.x, t.y);
     const [ax, ay] = proj(c, h.x, h.y);
-    if (Math.hypot(X - ax, Y - ay) < 70) continue;
-    if (X < 18 || X > W - 18 || Y < 28 || Y > H - 28) continue;
-    ctx.font = '800 16px ui-rounded,system-ui';
-    const tw0 = ctx.measureText(s.name).width;
-    if (dockLabelHitsUi(X, Y + 4, tw0)) continue;
-    const tw = tw0;
-    const box = { l: X - tw / 2 - 8, r: X + tw / 2 + 8, t: Y - 14, b: Y + 14 };
-    ctx.fillStyle = 'rgba(10,6,16,.88)';
-    ctx.strokeStyle = `rgba(${s.col},.95)`;
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.roundRect(box.l, box.t, box.r - box.l, box.b - box.t, 8); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#f4fbff';
-    ctx.fillText(s.name, X, Y);
+    const outside = X < 0 || X > W || Y < 0 || Y > H;
+    if (!outside) {
+      if (Math.hypot(X - ax, Y - ay) < 70) continue;
+      if (X < 18 || X > W - 18 || Y < 28 || Y > H - 28) continue;
+      const tw = ctx.measureText(s.name).width;
+      if (dockLabelHitsUi(X, Y + 4, tw)) continue;
+      MARK_LABELS.push(paintMarkLabel(s.name, s.col, X, Y, tw));
+      continue;
+    }
+    off.push({ s, X, Y, d: Math.hypot(t.x - h.x, t.y - h.y) });
+  }
+  off.sort((a, b) => a.d - b.d);
+  const seen = new Set(), picked = [];
+  for (const o of off) {
+    if (seen.has(o.s.name)) continue;
+    seen.add(o.s.name);
+    picked.push(o);
+    if (picked.length === 2) break;
+  }
+  for (const o of picked) {
+    const textW = ctx.measureText(o.s.name).width;
+    const tw = textW + 18;
+    const edgeX = o.X < 0 ? 18 + tw / 2 : o.X > W ? W - 18 - tw / 2 : clamp(o.X, 18 + tw / 2, W - 18 - tw / 2);
+    const spots = [];
+    for (let y = 72; y <= H - 150; y += 26) spots.push([edgeX, y]);
+    spots.sort((a, b) => Math.abs(a[1] - o.Y) - Math.abs(b[1] - o.Y));
+    const spot = spots.find(([x, y]) => {
+      if (y < 56 || y > H - 136) return false;
+      if (dockLabelHitsUi(x, y + 4, tw)) return false;
+      const box = { l: x - tw / 2 - 8, r: x + tw / 2 + 8, t: y - 14, b: y + 14 };
+      return !markHitsRoute(box) && !MARK_LABELS.some(m => boxesOverlap(box, m));
+    });
+    if (!spot) continue;
+    const box = paintMarkLabel(o.s.name, o.s.col, spot[0], spot[1], textW);
+    const ang = Math.atan2(o.Y - spot[1], o.X - spot[0]);
+    const tip = 5;
+    ctx.save();
+    ctx.translate(spot[0] + Math.cos(ang) * (textW / 2 + 8), spot[1] + Math.sin(ang) * 8);
+    ctx.rotate(ang);
+    ctx.fillStyle = `rgba(${o.s.col},.95)`;
+    ctx.beginPath(); ctx.moveTo(tip, 0); ctx.lineTo(-5, 4.5); ctx.lineTo(-5, -4.5); ctx.closePath(); ctx.fill();
+    ctx.restore();
     MARK_LABELS.push(box);
   }
   ctx.restore();
