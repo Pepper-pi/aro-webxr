@@ -1732,25 +1732,74 @@ function setWireView(on) {
 function pulseAt(x, y, sc) {
   let a = 0; for (const p of WIRE.pulses) { if (p.sc !== sc) continue; const d = Math.hypot(x - p.x, y - p.y), front = p.t * 6; const k = 1 - Math.abs(d - front) / 1.4; if (k > 0) a += k * p.s * (1 - p.t / 1.6); } return Math.min(1.4, a);
 }
+/* Still cameras were repainting every hex of this underlayer each frame (fills plus
+   two full strokes). The plum, the radial and the outer seam don't move until the
+   camera, the mix or the pulse glow does, so that part is cached. The inner dashes
+   stay live, and only where the painted ground does not cover them. */
+const wireCache = {
+  under: { cv: document.createElement('canvas'), key: '', prev: '', ready: false },
+  over: { cv: document.createElement('canvas'), key: '', prev: '', ready: false },
+};
+function wireCacheSlot(kind) {
+  const s = wireCache[kind], w = cv.width, h = cv.height;
+  if (s.cv.width !== w || s.cv.height !== h) { s.cv.width = w; s.cv.height = h; s.ready = false; s.key = ''; s.prev = ''; }
+  return s;
+}
+function wireCacheKey(cam, tiles, sc) {
+  let sig = tiles.length;
+  for (let i = 0; i < tiles.length; i++) { const t = tiles[i]; sig = (sig * 33 + (t.x * 8 | 0) + (t.y * 8 | 0)) | 0; }
+  return sc + '|' + W + '|' + H + '|' + cam.x.toFixed(3) + '|' + cam.y.toFixed(3) + '|' + cam.hz.toFixed(2) + '|' + cam.A.toFixed(3) + '|' + cam.D.toFixed(1) + '|' + cam.cy.toFixed(1) + '|' + wireMix().toFixed(3) + '|' + (WIRE.glow < 0.004 ? '0' : WIRE.glow.toFixed(3)) + '|' + sig;
+}
+function wireCacheUse(kind, key, paint) {
+  const s = wireCacheSlot(kind);
+  if (s.ready && s.key === key) { ctx.drawImage(s.cv, 0, 0, W, H); return; }
+  if (s.prev === key) {
+    const g = s.cv.getContext('2d', { alpha: kind === 'over' });
+    g.setTransform(DPR, 0, 0, DPR, 0, 0);
+    if (kind === 'over') g.clearRect(0, 0, W, H);
+    paint(g);
+    s.ready = true; s.key = key;
+    ctx.drawImage(s.cv, 0, 0, W, H);
+    return;
+  }
+  paint(ctx);
+  s.prev = key; s.ready = false; s.key = '';
+}
 /* underlayer: plum void + animated grid. tiles = [{x,y}] hex centres; s = hex scale */
 function drawWireUnder(cam, tiles, T, sc) {
-  const m = wireMix(), g = ctx;
-  g.fillStyle = PLUM; g.fillRect(0, 0, W, H);
-  const gr = g.createRadialGradient(W / 2, H * .55, 20, W / 2, H * .55, Math.max(W, H) * .8); gr.addColorStop(0, 'rgba(90,20,80,.55)'); gr.addColorStop(1, 'rgba(10,2,14,0)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
-  const base = .18 + m * .45 + WIRE.glow * .25;
-  g.lineJoin = 'round';
-  // wide soft glow pass (cheap bloom) only when the underworld is showing
-  if (m > .35) { g.strokeStyle = `rgba(255,79,180,${(m - .35) * .35})`; g.lineWidth = 6; g.beginPath(); for (const t of tiles) addHex(cam, t.x, t.y, .99, g); g.stroke(); }
-  g.strokeStyle = `rgba(255,79,180,${base})`; g.lineWidth = 1.3; g.beginPath(); for (const t of tiles) addHex(cam, t.x, t.y, .99, g); g.stroke();
-  // flowing data dashes on inner rings
-  g.setLineDash([4, 10]); g.lineDashOffset = -T * 30; g.strokeStyle = `rgba(255,150,220,${.08 + m * .35})`; g.lineWidth = 1; g.beginPath(); for (const t of tiles) addHex(cam, t.x, t.y, .55, g); g.stroke(); g.setLineDash([]);
+  const m = wireMix();
+  wireCacheUse('under', wireCacheKey(cam, tiles, sc), g => {
+    g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.setLineDash([]);
+    g.fillStyle = PLUM; g.fillRect(0, 0, W, H);
+    const gr = g.createRadialGradient(W / 2, H * .55, 20, W / 2, H * .55, Math.max(W, H) * .8); gr.addColorStop(0, 'rgba(90,20,80,.55)'); gr.addColorStop(1, 'rgba(10,2,14,0)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    const base = .18 + m * .45 + WIRE.glow * .25;
+    g.lineJoin = 'round';
+    if (m > .35) { g.strokeStyle = `rgba(255,79,180,${(m - .35) * .35})`; g.lineWidth = 6; g.beginPath(); for (const t of tiles) addHex(cam, t.x, t.y, .99, g); g.stroke(); }
+    g.strokeStyle = `rgba(255,79,180,${base})`; g.lineWidth = 1.3; g.beginPath(); for (const t of tiles) addHex(cam, t.x, t.y, .99, g); g.stroke();
+  });
+  // Inner dashes sit under the opaque ground paint, so they only show on the world edge
+  // or while Wire View fades the surface. Skip the covered ones; they were invisible.
+  const open = surfaceAlpha() < 0.98;
+  ctx.lineJoin = 'round'; ctx.setLineDash([4, 10]); ctx.lineDashOffset = -T * 30;
+  ctx.strokeStyle = `rgba(255,150,220,${.08 + m * .35})`; ctx.lineWidth = 1; ctx.beginPath();
+  let dashed = 0;
+  for (const t of tiles) { if (!open && !t.edge) continue; addHex(cam, t.x, t.y, .55, ctx); dashed++; }
+  if (dashed) ctx.stroke();
+  ctx.setLineDash([]); ctx.lineDashOffset = 0;
 }
 /* overlay: pink seams that glow through the painted tiles, brighter where a pulse front passes */
 function drawWireOver(cam, tiles, T, sc) {
   const m = wireMix(), g = ctx, raid = sc === 'arena' && AR.kind === 'raid';
   if (!(raid && yardStage())) {
     const base = raid ? .07 : .1 + m * .5 + WIRE.glow * .3;
-    g.strokeStyle = raid ? `rgba(150,190,220,${base})` : `rgba(255,79,180,${Math.min(1, base)})`; g.lineWidth = raid ? 1 : 1.1 + m; g.beginPath(); for (const t of tiles) addHex(cam, t.x, t.y, .97, g); g.stroke();
+    const paint = gg => {
+      gg.globalAlpha = 1; gg.globalCompositeOperation = 'source-over'; gg.setLineDash([]); gg.lineJoin = 'round';
+      gg.strokeStyle = raid ? `rgba(150,190,220,${base})` : `rgba(255,79,180,${Math.min(1, base)})`; gg.lineWidth = raid ? 1 : 1.1 + m;
+      gg.beginPath(); for (const t of tiles) addHex(cam, t.x, t.y, .97, gg); gg.stroke();
+    };
+    // A full-canvas blit is cheaper than restroking the wide map, and slower than the short raid seam.
+    if (tiles.length >= 90) wireCacheUse('over', wireCacheKey(cam, tiles, sc) + '|m', paint);
+    else paint(ctx);
   }
   if (WIRE.pulses.some(p => p.sc === sc)) {
     g.globalCompositeOperation = 'lighter';

@@ -157,9 +157,21 @@ Those times are in `CELL_TUNABLE` and are not approved durations. The names fire
 
 ![Snapped closed](handoff/cell_snapped.png)
 
+## Frame time (not a performance approval)
+
+Headless Chrome 156 on this machine, one browser, no second page. The display is a 1920×1200 VNC at 60 Hz. There is no `/dev/dri`. WebGL reports ANGLE SwiftShader (Vulkan 1.3, Subzero). The game canvas is 2D. Device pixel ratio was 1, so 390×844 and 844×390 are the same number of pixels. RequestAnimationFrame gaps land on 16.7 ms ticks. A gap is the time until the next callback, not the JavaScript time inside it. Wrapping `heavyGrade`, `vignette`, `drawMap`, and `drawArena` showed under a millisecond of script in those functions. The rest is software raster and the work those wrappers do not cover.
+
+The pond has no Tactical or Low camera. Those cameras exist on the yard and on a map raid. The morning isolated run (`profile-baseline.json`, 79 gaps after 25 warmup frames, two passes) had the yard near a 33 ms median, a map raid near 67 ms, the portrait pond near 67 ms, and the landscape pond near 117 ms with most frames over 100 ms. That run is kept. A later paired run on the same scenes was slower overall (the yard sat near 50 ms both before and after the change), so the before/after numbers below are the paired run, not the morning file compared with a later boot.
+
+On that paired run the landscape pond was the outlier: median 166.7 ms, mean 170.7 ms, 74 of 79 frames over 100 ms, then the same scene again after the change at median 100 ms, mean 98.5 ms, 20 of 79 over 100 ms, then the old painter again at median 166.7 ms and mean 170.7 ms. Portrait pond moved from median 100 ms / mean about 104 ms to median 83.3 ms / mean 87.3 ms, and the old painter returned to median 100 ms. Yard tactical and low, both orientations, stayed on a 50 ms median. Map raid tactical and low stayed on about a 100 ms median. Turning the wire drawing off, on an earlier isolated pass, dropped the landscape pond from about 117 ms to about 33 ms. Turning the grade off left it near 100 ms. The grade is not the whole pond cost, and it was not rewritten. Raid did not have one function that accounted for its extra slot: dropping the grade, the mobs, the shimmer, or the seam one at a time left the median in place.
+
+The change caches the still-camera plum field and the outer hex seam, and it skips inner dashes the opaque ground already covers. The seam bitmap is used only when 90 or more hexes are on screen. Landscape pond shows about 136. Portrait shows about 55, and a raid seam is about 61, where a full-canvas blit was slower than stroking them. One frozen pond frame against the old painter differed in 16,903 of 329,160 pixels: 16,413 by one level, 480 by two, 10 by three. Aim, hitboxes, timers, damage, and the CELL rules were not retuned. Nothing here is phone-ready, and this is not a performance pass.
+
 ## Still open
 
 - No phone in hand. iOS Safari can cancel a touch on rotation at a different moment than this Chrome. The events here were synthesized touches, and they did arrive as `pointerType: "touch"`.
+- Frame time above is SwiftShader in headless Chrome. A phone GPU was not measured.
+- Pepper reported a slime-area candy name, Godstoppers. That is a reported design name only. It is not a rule and it does nothing in the game.
 - A touch flick that Chrome delivered as one late 90px jump now steps. Confirmed in the touch suite at all three sizes and both cameras. A phone in hand has not been tried.
 - If a creature is standing on the center of the wall, the ring says Enemy and the cast hits the creature. Aim a clear part of the wall to get the 38.
 - Frost and Honey do not shatter a wall. The yard's 40 and the raid's 38 are different holds. Do not mix them.
