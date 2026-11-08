@@ -2250,7 +2250,7 @@ function startArena(kind, onDone) {
   syncRoomLow();
   if (typeof syncMapNav === 'function') syncMapNav();
   $('#hearts').classList.remove('hide'); $('#menuBtn').classList.add('dim'); closeRing(); setAct(null); coach(null);
-  if (kind === 'raid') { banner('Raid Dome', 'Floor 1 · Green'); setObj('<b>Raid</b> · punch the honey block'); AR.block = { x: 0, y: -.6, hp: 1, k: 0, rar: 0 }; }
+  if (kind === 'raid') { banner('Raid Dome', 'Floor 1 · Green'); setObj('<b>Raid</b> · punch the honey block'); AR.block = { x: 0, y: -.6, hp: 1, k: 0, rar: 0 }; if (!TRAIN.on) placeRockBarricade(-2, 1); }
   else { banner('Pond Spot', 'Hack · territory'); setObj('<b>Hack</b> · deal with the guard'); }
   setTimeout(() => {
     if (G.scene !== 'arena') return;
@@ -2318,7 +2318,7 @@ function arenaUpdate(dt) {
     const p = AR.ptr; p.held = (performance.now() - p.t0) / 1000;
     // A still finger never emits a move, so the raid aim ring arms from the frame clock.
     // The ring arms only while the finger is actually still. A later 90px jump is a flick, not a drag.
-    if (raidEmberAim() && p.held > .26 && (p.maxTravel || 0) < 10) { p.rested = true; p.armed = true; p.aiming = true; p.aim = aimWorld(p.x, p.y); }
+    if (raidEmberAim() && p.held > .26 && (p.maxTravel || 0) < 10) { p.rested = true; p.armed = true; p.aiming = true; p.aim = aimWorld(p.x, p.y); noteRockInspect(p.x, p.y, p.aim); }
   }
   updWheel();
 }
@@ -2443,16 +2443,28 @@ function arenaMove(X, Y) {
   if (commitFlick(p, X, Y)) return;
   p.x = X; p.y = Y; p.maxTravel = Math.max(p.maxTravel || 0, Math.hypot(dx, dy));
   if (raidEmberAim() && !p.swiped && held > .26 && p.maxTravel < 10) p.rested = true;
-  if (raidEmberAim() && p.rested && !p.swiped) { p.armed = true; p.aiming = true; p.aim = aimWorld(X, Y); }
+  if (raidEmberAim() && p.rested && !p.swiped) {
+    p.armed = true; p.aiming = true; p.aim = aimWorld(X, Y);
+    noteRockInspect(X, Y, p.aim);
+  } else if (!p.aiming) FIELD.inspect = null;
 }
 function emberPower(held) { return held > .22 ? Math.max(.5, 1.6 * clamp((held - .18) / .8, 0, 1)) : 1; }
 function raidAimKind(X, Y, aim) {
   if (mobAt(X, Y)) return 'mob';
+  if (aim && aimedRock(aim)) return 'rock';
   if (aim && typeof aimedOwnWall === 'function' && aimedOwnWall(aim)) return 'wall';
   return 'ground';
 }
 function releaseEmberAt(X, Y, aim, power) {
   const kind = raidAimKind(X, Y, aim);
+  if (kind === 'rock') {
+    const rock = aimedRock(aim);
+    if (!rock || AR.cds[0] > 0 || !spendMana(MANA_COST.spell)) return 'no';
+    AR.cds[0] = SPELLS[0].cd; AR.castT = .25; G.day.casts++;
+    rockHit(rock, Math.round(SPELLS[0].dmg * power)); SFX.cast();
+    FIELD.inspect = null;
+    return 'rock';
+  }
   if (kind === 'wall') {
     const wall = aimedOwnWall(aim);
     if (AR.cds[0] > 0 || !spendMana(MANA_COST.spell)) return 'no';
@@ -2473,7 +2485,7 @@ function arenaUp(X, Y) {
   if (commitFlick(p, X, Y)) return;
   const aim = aimWorld(X, Y);
   // Ember in a map raid: a rested drag, or a tap that lands on your own wall and not on a creature.
-  if (raidEmberAim() && (p.aiming || (!mobAt(X, Y) && typeof aimedOwnWall === 'function' && aimedOwnWall(aim)))) {
+  if (raidEmberAim() && (p.aiming || (!mobAt(X, Y) && ((typeof aimedOwnWall === 'function' && aimedOwnWall(aim)) || aimedRock(aim))))) {
     releaseEmberAt(X, Y, p.aiming && p.aim ? p.aim : aim, emberPower(held));
     return;
   }
@@ -2708,12 +2720,14 @@ function drawArena(T) {
   if (AR.block) S.push([AR.block.y, 2]); if (AR.spike && AR.kind === 'hack' && (AR.phase === 'spike' || AR.spike.k > 0 && AR.spike.k < 1)) S.push([AR.spike.y, 3]);
   if (FIELD.wall) for (const h of FIELD.wall.hexes) S.push([hexXY(h[0], h[1])[1] + .01, 4, h]);
   for (const k of FIELD.chunks) S.push([hexXY(k.q, k.r)[1] + .01, 5, k]);
+  for (const b of FIELD.barricades) if (b.zones[0] && !b.zones[0].broken) S.push([hexXY(b.q, b.r)[1] + .02, 6, b]);
   S.sort((a, b) => a[0] - b[0]);
   for (const s of S) {
     if (s[1] === 0) drawArenaMob(s[2], T);
     else if (s[1] === 1) { const [px, py] = pPos(), [X, Y, f] = proj(c, px, py), ch = AR.ptr && !AR.ptr.swiped && AR.ptr.held > .18 ? clamp((AR.ptr.held - .18) / .8, 0, 1) : 0; drawAvatar(ctx, X, Y, 1.25 * c.hz * f, { t: T, view: 'back', cast: AR.castT * 4, charge: ch, col: SPELLS[AR.sel].col, hurt: AR.hurt }); drawChibiBuddy(ctx, X - .9 * c.hz * f, Y + 2, .7 * c.hz * f, T); }
     else if (s[1] === 4) drawWallHex(s[2], T);
     else if (s[1] === 5) drawChunk(s[2], T);
+    else if (s[1] === 6) drawRock(s[2]);
     else if (s[1] === 2) drawBlock(T);
     else drawSpike(T);
   }
@@ -3129,9 +3143,10 @@ const HXS = {
   caramel: { life: 5,  col: '110,52,18',   a: .85, n: 'caramel' },
 };
 const FIELD_CAP = 28, FP_CAP = 60, RAIN_CAP = 2, WALL_HP = 90, WALL_LIFE = 16, WALL_CD = 12;
-const FIELD = { iceWallLevel: +(new URLSearchParams(location.search).get('wall')) || 3, terr: new Map(), chunks: [], fogs: [], hex: new Map(), wall: null, rains: [], fp: [], step: null, combos: 0, lastCombo: '', shatters: 0, wallCD: 0, rainT: 0, born: 0, msgT: {} };
+const ROCK_HP = 36;
+const FIELD = { iceWallLevel: +(new URLSearchParams(location.search).get('wall')) || 3, terr: new Map(), chunks: [], fogs: [], hex: new Map(), wall: null, barricades: [], barricadeN: 0, inspect: null, rains: [], fp: [], step: null, combos: 0, lastCombo: '', shatters: 0, wallCD: 0, rainT: 0, born: 0, msgT: {} };
 const hk = (q, r) => q + ',' + r;
-function fieldReset() { AR.objT = null; FIELD.floodTele = null; FIELD.floodBossT = 0; FIELD.hex.clear(); FIELD.terr.clear(); Object.assign(FIELD, { mana: 100, pots: 2, potCD: 0, chunks: [], fogs: [], wall: null, rains: [], fp: [], step: null, combos: 0, lastCombo: '', shatters: 0, wallCD: 0, rainT: 0 }); }
+function fieldReset() { AR.objT = null; FIELD.floodTele = null; FIELD.floodBossT = 0; FIELD.hex.clear(); FIELD.terr.clear(); Object.assign(FIELD, { mana: 100, pots: 2, potCD: 0, chunks: [], fogs: [], wall: null, barricades: [], inspect: null, rains: [], fp: [], step: null, combos: 0, lastCombo: '', shatters: 0, wallCD: 0, rainT: 0 }); }
 const hexState = (q, r) => { const h = FIELD.hex.get(hk(q, r)); return h ? h.s : 'normal'; };
 const onField = (q, r) => (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2 <= 4;
 function hexPop(q, r, txt, col) { const [x, y] = hexXY(q, r), [X, Y, f] = proj(AR.cam, x, y); popText(X, Y - 26 * f, txt, col, 14); }
@@ -3226,7 +3241,69 @@ function manaUI() {
 }
 
 /* ---------- ice wall ---------- */
-function wallAt(q, r) { return (FIELD.wall && FIELD.wall.hexes.some(h => h[0] === q && h[1] === r)) || FIELD.chunks.some(k => k.q === q && k.r === r); }
+function placeRockBarricade(q, r) {
+  if (!onField(q, r) || !inPA(q, r)) return null;
+  if (AR.ph && AR.ph.q === q && AR.ph.r === r) return null;
+  if (FIELD.wall && FIELD.wall.hexes.some(h => h[0] === q && h[1] === r)) return null;
+  if (FIELD.chunks.some(k => k.q === q && k.r === r)) return null;
+  if (FIELD.barricades.some(b => b.q === q && b.r === r && b.zones[0] && !b.zones[0].broken)) return null;
+  const id = 'rock-' + (++FIELD.barricadeN);
+  const b = { id, material: 'ROCK', q, r, debrisGeneration: 0, zones: [{ id: 'a', hp: ROCK_HP, max: ROCK_HP, broken: false, breakProcessed: false }] };
+  FIELD.barricades.push(b);
+  return b;
+}
+function noteRockInspect(X, Y, aim) {
+  if (mobAt(X, Y)) { FIELD.inspect = null; return; }
+  const rock = aimedRock(aim);
+  FIELD.inspect = rock ? { kind: 'rock', id: rock.id, material: rock.material, zone: rock.zones[0].id, hp: rock.zones[0].hp, max: rock.zones[0].max } : null;
+}
+function aimedRock(aim) {
+  if (!aim || !Number.isFinite(aim.x) || !Number.isFinite(aim.y)) return null;
+  let best = null, bd = 1.05;
+  for (const b of FIELD.barricades) {
+    const z = b.zones[0];
+    if (!z || z.broken) continue;
+    const [x, y] = hexXY(b.q, b.r), d = Math.hypot(aim.x - x, aim.y - y);
+    if (d < bd) { bd = d; best = b; }
+  }
+  return best;
+}
+function rockHit(b, dmg) {
+  const z = b && b.zones[0];
+  if (!z || z.broken || z.breakProcessed) return 0;
+  const dealt = Math.max(0, Math.round(dmg));
+  z.hp -= dealt;
+  const [x, y] = hexXY(b.q, b.r), [X, Y, f] = proj(AR.cam, x, y);
+  if (z.hp > 0) { popText(X, Y - 36 * f, '-' + dealt, '#e7d3c2', 15); return dealt; }
+  z.hp = 0; z.broken = true; z.breakProcessed = true;
+  setHex(b.q, b.r, 'cracked');
+  popText(X, Y - 36 * f, 'Rock breaks', '#e7d3c2', 15);
+  return dealt;
+}
+function drawRock(b) {
+  const z = b.zones[0];
+  if (!z || z.broken) return;
+  const c = AR.cam, [x, y] = hexXY(b.q, b.r), [X, Y, f] = proj(c, x, y), s = 16 * f * c.hz / 70;
+  ctx.save();
+  ctx.fillStyle = 'rgba(24,18,16,.4)';
+  ctx.beginPath(); ctx.ellipse(X, Y + 6 * f, s * 1.35, s * .42, 0, 0, TAU); ctx.fill();
+  const pts = [[-1.05, .25], [-.75, -.5], [-.15, -1.05], [.4, -.8], [1, -.15], [1.05, .4], [.35, .62], [-.5, .5]];
+  ctx.beginPath();
+  pts.forEach((p, i) => { const px = X + p[0] * s, py = Y + p[1] * s * .9; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
+  ctx.closePath();
+  const g = ctx.createLinearGradient(X, Y - s, X, Y + s * .6);
+  g.addColorStop(0, '#d2c2b2'); g.addColorStop(.5, '#8d7566'); g.addColorStop(1, '#3a2e28');
+  ctx.fillStyle = g; ctx.fill();
+  ctx.fillStyle = 'rgba(255,236,220,.22)';
+  ctx.beginPath(); ctx.moveTo(X - .15 * s, Y - .72 * s); ctx.lineTo(X + .42 * s, Y - .28 * s); ctx.lineTo(X + .05 * s, Y + .08 * s); ctx.closePath(); ctx.fill();
+  if (z.hp < z.max) {
+    ctx.strokeStyle = 'rgba(40,24,18,.85)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(X - .2 * s, Y - .1 * s); ctx.lineTo(X + .15 * s, Y + .15 * s); ctx.lineTo(X + .45 * s, Y - .05 * s); ctx.stroke();
+  }
+  ctx.restore();
+}
+function barricadeAt(q, r) { return FIELD.barricades.some(b => b.q === q && b.r === r && b.zones[0] && !b.zones[0].broken); }
+function wallAt(q, r) { return (FIELD.wall && FIELD.wall.hexes.some(h => h[0] === q && h[1] === r)) || FIELD.chunks.some(k => k.q === q && k.r === r) || barricadeAt(q, r); }
 function raiseWall() {
   if (G.scene !== 'arena' || !['wave', 'nodes'].includes(AR.phase)) return false;
   if (FIELD.wallCD > 0 || FIELD.wall) { const [X, Y] = proj(AR.cam, AR.ppx, AR.ppy); popText(X, Y - 130, FIELD.wall ? 'wall is up' : 'wall cooling', '#8fe3ff', 13); return false; }
@@ -4456,7 +4533,7 @@ cv.addEventListener('pointerdown', e => { e.preventDefault(); audioInit(); const
 cv.addEventListener('pointermove', e => { if (G.scene === 'arena') { if (!pressOwns(e)) return; arenaMove(e.clientX, e.clientY); } else if (mp && !mp.onMe && e.clientY - mp.y > 90 && Math.abs(e.clientX - mp.x) < 60 && G.step >= 5) { mp = null; openRing(); } });
 cv.addEventListener('pointerup', e => { const X = e.clientX, Y = e.clientY; if (G.scene === 'arena') { if (!pressOwns(e)) return; e.preventDefault(); arenaUp(X, Y); } else if (mp) { const dx = X - mp.x, dy = Y - mp.y; if (Math.hypot(dx, dy) < 14) mapTap(X, Y); else if (mp.onMe && Math.hypot(dx, dy) > 24) dragStep(dx, dy); } mp = null; });
 cv.addEventListener('touchend', e => { if (G.scene === 'arena') e.preventDefault(); }, { passive: false });
-cv.addEventListener('pointercancel', e => { if (!pressOwns(e)) return; AR.ptr = null; mp = null; });
+cv.addEventListener('pointercancel', e => { if (!pressOwns(e)) return; AR.ptr = null; mp = null; FIELD.inspect = null; });
 cv.addEventListener('touchcancel', () => { AR.ptr = null; mp = null; });
 cv.addEventListener('lostpointercapture', e => { if (AR.ptr && AR.ptr.id != null && AR.ptr.id === e.pointerId) AR.ptr = null; });
 $('#fishC').addEventListener('pointerdown', e => { e.preventDefault(); if (FI.phase === 'aim') fishCharge(); else fishTap(); });
