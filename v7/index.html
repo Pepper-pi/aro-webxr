@@ -3686,6 +3686,7 @@ function drawArena(T) {
   if (AR.kind === 'hack' && (AR.phase === 'nodes' || AR.phase === 'claim')) { const w = Math.min(W * .6, 240), x = (W - w) / 2, y = 92; ctx.fillStyle = 'rgba(26,15,31,.8)'; rrect(ctx, x - 4, y - 4, w + 8, 18, 9); ctx.fill(); ctx.fillStyle = '#ffc94d'; rrect(ctx, x, y, w * AR.share, 10, 5); ctx.fill(); ctx.fillStyle = '#fff'; ctx.font = '800 11px ui-rounded,system-ui'; ctx.textAlign = 'center'; ctx.fillText('your colour ' + Math.round(AR.share * 100) + '%', W / 2, y + 28); }
 }
 function drawArenaMob(m, T) {
+  if (m.art === 'king' && typeof TRAIN !== 'undefined' && TRAIN.king && window.__fight && window.__fight.plate && window.__fight.plate().on) return;
   const c = AR.cam, [X, Y, f] = proj(c, m.x, m.y), sz = m.D.r * c.hz * f * 1.6, h = MOBART[m.art].h * sz, rc = RAR[m.rar];
   const wire = mobCol(m);
   if (m.state === 'panel') return;

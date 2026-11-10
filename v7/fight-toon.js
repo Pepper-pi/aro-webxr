@@ -35,6 +35,7 @@ const state = {
 let renderer, scene, camera, sun, grad;
 let hexMesh, hexInk, edgeMesh, rainMesh;
 let hands, rifle, glass, rune, boss, bossWire, bossEyes, bossBar, boltSky, streak;
+let kingPlate, kingPaint, kingHolo, kingShadow;
 let reticle, petFollow, petSphere, slamRing;
 let wardMesh, wardShell, novaRing, slashBar, fragMesh, turretMesh, droneMesh, flareMark;
 const petRigs = {};
@@ -790,6 +791,7 @@ function buildBoss() {
   bossBar = fill;
   boss.position.set(0, 0, -4.6);
   boss.scale.setScalar(1.55);
+  buildKingPlate();
   boltSky = new THREE.Mesh(new THREE.PlaneGeometry(9, 2.4), new THREE.MeshBasicMaterial({ color: 0xe7f3ff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
   boltSky.position.set(0.4, 4.4, -2.2);
   streak = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 3.2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
@@ -798,6 +800,70 @@ function buildBoss() {
   scene.add(boltSky, streak);
 }
 
+function buildKingPlate() {
+  const tex = new THREE.TextureLoader().load('gel_king.png');
+  tex.colorSpace = THREE.SRGBColorSpace;
+  kingPaint = new THREE.MeshBasicMaterial({
+    map: tex, transparent: true, depthWrite: true, side: THREE.FrontSide, toneMapped: false,
+  });
+  kingHolo = new THREE.MeshBasicMaterial({
+    map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending, opacity: 0.5, color: 0xffb0e8, toneMapped: false,
+  });
+  kingPlate = new THREE.Mesh(new THREE.PlaneGeometry(2.05, 2.18), kingPaint);
+  kingPlate.visible = false;
+  kingPlate.renderOrder = 2;
+  scene.add(kingPlate);
+  kingShadow = new THREE.Mesh(
+    new THREE.CircleGeometry(0.62, 18),
+    new THREE.MeshBasicMaterial({ color: 0x120814, transparent: true, opacity: 0.4, depthWrite: false })
+  );
+  kingShadow.rotation.x = -Math.PI / 2;
+  kingShadow.visible = false;
+  scene.add(kingShadow);
+}
+function gelKingMob(g) {
+  if (!kingPlate || !g || !g.TRAIN || !g.TRAIN.king) return null;
+  return (g.AR.mobs || []).find(m => m && m.tier === 'boss' && m.art === 'king' && m.state !== 'gone') || null;
+}
+function syncKingPlate(g, raidBoss) {
+  const king = gelKingMob(g) || (raidBoss && raidBoss.art === 'king' ? raidBoss : null);
+  const on = !!king;
+  state.plateOn = on;
+  if (!kingPlate) return { on: false, mode: 'off' };
+  if (!on) {
+    kingPlate.visible = false;
+    if (kingShadow) kingShadow.visible = false;
+    state.plateMode = 'off';
+    return { on: false, mode: 'off' };
+  }
+  boss.visible = false;
+  const x = king.x, z = king.y;
+  if (king.max) { state.bossHp = Math.max(0, king.hp); state.bossMax = king.max; }
+  const bob = Math.sin(state.t * 1.5) * 0.025;
+  kingPlate.position.set(x, 1.12 + bob, z);
+  kingPlate.rotation.set(0, 0, 0);
+  kingPlate.visible = true;
+  const dx = camera.position.x - x;
+  const dy = camera.position.y - (1.12 + bob);
+  const dz = camera.position.z - z;
+  const dist = Math.hypot(dx, dy, dz);
+  const behind = dz < 0.4;
+  const side = Math.abs(dx) > Math.max(0.7, Math.abs(dz) * 1.25);
+  const close = dist < 1.45;
+  const holo = behind || side || close;
+  state.plateMode = holo ? 'holo' : 'paint';
+  kingPlate.material = holo ? kingHolo : kingPaint;
+  if (holo) {
+    kingHolo.opacity = 0.34 + 0.22 * (0.5 + 0.5 * Math.sin(state.t * 6));
+    kingHolo.color.setHex((state.t % 0.8) < 0.4 ? 0xff9ad4 : 0xb7f0ff);
+  } else kingPaint.opacity = 0.96 + 0.04 * (0.5 + 0.5 * Math.sin(state.t * 2.2));
+  if (kingShadow) {
+    kingShadow.visible = !holo;
+    kingShadow.position.set(x, 0.03, z + 0.12);
+  }
+  return { on: true, mode: state.plateMode, dist: Math.round(dist * 100) / 100 };
+}
 function buildSlamRing() {
   slamRing = new THREE.Group();
   const disc = new THREE.Mesh(
@@ -1310,6 +1376,8 @@ function syncActors(g) {
   const hit = state.flash > 0;
   bossWire.material.color.set(hit ? '#ffffff' : '#8fe8ff');
   bossEyes.forEach(e => { e.scale.setScalar(hit ? 1.7 : 1); });
+  const plate = syncKingPlate(g, raidBoss);
+  state.plate = plate;
 }
 
 function syncGun(g) {
@@ -1427,7 +1495,9 @@ function mount() {
       wall: wallBits.some(m => m.visible), slash: !!(slashBar && slashBar.visible),
       frag: !!(fragMesh && fragMesh.visible), turret: !!(turretMesh && turretMesh.visible),
       drone: !!(droneMesh && droneMesh.visible),
+      plate: state.plate || { on: false, mode: 'off' },
     }),
+    plate: () => state.plate || { on: false, mode: 'off' },
     strike: () => { if (ensure()) hurtBoss(18); return state.bossHp; },
     setPractice: (on) => { state.practice = !!on; },
   };

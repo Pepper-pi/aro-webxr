@@ -580,6 +580,20 @@ const king = await page.evaluate(() => {
   return { phase: AR.phase, casts, retries, steps, you: Math.ceil(window.__aro.G.hp), start: seen[0], low: Math.ceil(Math.min(...seen)) };
 });
 check('gel king full-health victory', king.phase === 'clear' && king.retries === 0 && king.start === 160 && king.casts >= 5, JSON.stringify(king));
+const kingPlate = await page.evaluate(async () => {
+  window.__aroFreeze = true;
+  window.__train.startKing();
+  window.__train.setTrainView('fp');
+  const wait = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  let front = null;
+  for (let i = 0; i < 12; i++) { await wait(); front = window.__fight && window.__fight.plate && window.__fight.plate(); if (front && front.on && front.mode === 'paint') break; }
+  const m = window.__aro.AR.mobs.find(x => x.tier === 'boss' && x.art === 'king');
+  if (m) { window.__aro.AR.ppx = m.x; window.__aro.AR.ppy = m.y - 2.6; }
+  await wait(); await wait();
+  const behind = window.__fight && window.__fight.plate && window.__fight.plate();
+  return { front, behind, view: window.__train.TRAIN.view, king: window.__train.TRAIN.king };
+});
+check('gel king plate is the painting from the front and a hologram from behind', kingPlate.king && kingPlate.view === 'fp' && kingPlate.front && kingPlate.front.on && kingPlate.front.mode === 'paint' && kingPlate.behind && kingPlate.behind.on && kingPlate.behind.mode === 'holo', JSON.stringify(kingPlate));
 
 async function layout(w, h) {
   const p = await open(w, h);
