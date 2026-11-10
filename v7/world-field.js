@@ -24,6 +24,7 @@ let daily = null;
 const AREA = {
   Forest: { sky: '#12341c', fog: '#0e2814', sun: '#d7f0b8', neon: ['#7dff9a', '#3de0ff', '#c6ff6a'] },
   Meadow: { sky: '#2c3412', fog: '#24300e', sun: '#ffe7a0', neon: ['#ffd36a', '#ff9ad2', '#e8ff8a'] },
+  Stone: { sky: '#2a2e34', fog: '#23262c', sun: '#d5d8de', neon: ['#c5ccd4', '#8e98a6', '#6a7380'] },
 };
 let rev = 0;
 const CELL = 0.02;
@@ -171,6 +172,10 @@ function buildLook(date, disc, weather) {
   };
 }
 function publish(next) {
+  if (look && look.area && next && !next.area) {
+    daily = next;
+    return;
+  }
   look = next;
   if (next && !next.area) daily = next;
   rev += 1;
@@ -383,6 +388,7 @@ function mount() {
   document.getElementById('worldPin').onclick = () => pin();
   window.__world = {
     look: () => look,
+    daily: () => daily || (look && !look.area ? look : null),
     enterArea,
     leaveArea,
     revision: () => rev,

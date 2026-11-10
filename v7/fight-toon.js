@@ -131,6 +131,8 @@ const hexCells = [];
 const halos = [];
 const cracks = [];
 const scatterProps = [];
+const areaDress = { Forest: [], Meadow: [], Stone: [] };
+const DRESS_SPOTS = [[-1, 0], [1, 0], [0, -1], [-2, 0], [2, -1], [-1, -1]];
 function buildHexes() {
   for (let q = -4; q <= 4; q++) for (let r = -4; r <= 4; r++) {
     const dist = (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
@@ -157,10 +159,71 @@ function buildHexes() {
     scene.add(prop);
     scatterProps.push(prop);
   }
+  DRESS_SPOTS.forEach((_, i) => {
+    areaDress.Forest.push(dressTree(i));
+    areaDress.Meadow.push(dressMeadow(i));
+    areaDress.Stone.push(dressStone(i));
+  });
   scene.add(hexMesh, hexInk, edgeMesh);
   paintField(null);
 }
 
+function dressTree(i) {
+  const g = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.7, 5), toon('#6b4330'));
+  trunk.position.y = 0.4;
+  const cap = new THREE.Mesh(new THREE.ConeGeometry(0.48 + (i % 3) * 0.08, 1.15, 6), toon(i % 2 ? '#2f7a3a' : '#3f8f48'));
+  cap.position.y = 1.15;
+  g.add(trunk, cap);
+  g.visible = false;
+  scene.add(g);
+  return g;
+}
+function dressMeadow(i) {
+  const g = new THREE.Group();
+  if (i % 2) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1.15, 5), toon('#ffd36a'));
+    post.position.y = 0.6;
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 5), toon('#ffe7a0'));
+    cap.position.y = 1.22;
+    g.add(post, cap);
+  } else {
+    const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.55, 5), toon('#c6a24a'));
+    tuft.position.y = 0.3;
+    g.add(tuft);
+  }
+  g.visible = false;
+  scene.add(g);
+  return g;
+}
+function dressStone(i) {
+  const g = new THREE.Group();
+  if (i % 2) {
+    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.24, 1.55, 5), toon('#8b939e'));
+    pillar.position.y = 0.8;
+    g.add(pillar);
+  } else {
+    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.42, 0), toon('#9aa3ad'));
+    rock.position.y = 0.2;
+    rock.rotation.y = i;
+    g.add(rock);
+  }
+  g.visible = false;
+  scene.add(g);
+  return g;
+}
+function placeDress(area) {
+  for (const name of Object.keys(areaDress)) {
+    areaDress[name].forEach((g, i) => {
+      const on = name === area;
+      g.visible = on;
+      if (!on) return;
+      const spot = DRESS_SPOTS[i];
+      const p = hexOf(spot[0], spot[1]);
+      g.position.set(p.x, 0, p.z);
+    });
+  }
+}
 function storyPits() {
   return hexCells.filter(c => {
     const dist = (Math.abs(c.q) + Math.abs(c.r) + Math.abs(c.q + c.r)) / 2;
@@ -203,7 +266,8 @@ function paintField(look) {
     cr.scale.set(pit.deep ? 1.45 : 1, 1, pit.deep ? 1.6 : 1);
     cr.material.color.set(pit.deep ? '#ff4466' : '#d56bff');
   });
-  const scatter = look ? look.scatter : [];
+  placeDress(look && look.area);
+  const scatter = look && !look.area ? look.scatter : [];
   scatterProps.forEach((m, i) => {
     const s = scatter[i];
     m.visible = !!s;
@@ -230,7 +294,7 @@ function paintField(look) {
   }
   if (hexMesh && look) {
     if (!hexMesh.userData.own) { hexMesh.material = hexMesh.material.clone(); hexMesh.userData.own = true; }
-    hexMesh.material.color.set(look.area === 'Forest' ? '#245c34' : look.area === 'Meadow' ? '#7d8a32' : (kind === 'rain' || kind === 'storm' ? '#243246' : kind === 'night' ? '#1a2230' : '#5d7594'));
+    hexMesh.material.color.set(look.area === 'Forest' ? '#245c34' : look.area === 'Meadow' ? '#7d8a32' : look.area === 'Stone' ? '#6a7078' : (kind === 'rain' || kind === 'storm' ? '#243246' : kind === 'night' ? '#1a2230' : '#5d7594'));
   }
   state.weatherKind = kind;
   state.story = !look;
