@@ -22,6 +22,7 @@ function blank() {
     quests: null,
     pets: [{ id: 'pip', species: 'pip', name: 'Pip', note: 'Honey carbuncle', level: 1, xp: 0, bond: 0, active: true }],
     pins: [], bonds: { taps: 0, tier: 0, collected: [] }, catches: [], prizes: [],
+    fills: { water: 3, fire: 3, aether: 3 }, garden: {}, harvests: [],
   };
 }
 let state = null;
@@ -60,6 +61,11 @@ function load() {
   if (typeof state.friendRaid !== 'string') state.friendRaid = '';
   if (typeof state.helper !== 'string') state.helper = '';
   if (!state.friends || typeof state.friends !== 'object') state.friends = {};
+  if (!state.fills || typeof state.fills !== 'object') state.fills = { water: 3, fire: 3, aether: 3 };
+  ['water', 'fire', 'aether'].forEach(k => { if (typeof state.fills[k] !== 'number') state.fills[k] = 3; });
+  if (!state.garden || typeof state.garden !== 'object') state.garden = {};
+  if (!Array.isArray(state.harvests)) state.harvests = [];
+  ensureGarden(false);
   const guideSteps = ['class', 'fish', 'out', 'fight', 'home', 'done'];
   if (fresh && !existed) state.guide = 'class';
   else if (guideSteps.indexOf(state.guide) < 0) state.guide = 'done';
@@ -153,6 +159,76 @@ function ensureQuests() {
   state.quests = { date, ids, claimed: [] };
   save();
   return state.quests;
+}
+const GARDEN_PLANTS = [
+  { id: '0,1', q: 0, r: 1, name: 'Honey bloom', want: 'aether' },
+  { id: '1,-1', q: 1, r: -1, name: 'Rain mint', want: 'water' },
+  { id: '1,0', q: 1, r: 0, name: 'Ember sprout', want: 'fire' },
+];
+const GARDEN_GROW = 20 * 60 * 1000;
+function ensureGarden(write) {
+  load();
+  const now = Date.now();
+  let dirty = false;
+  GARDEN_PLANTS.forEach((p, i) => {
+    if (state.garden[p.id]) return;
+    const grown = i < 2;
+    state.garden[p.id] = { since: grown ? now - GARDEN_GROW - 5000 : now, name: p.name, want: p.want };
+    dirty = true;
+  });
+  if (dirty && write !== false) save();
+}
+function gardenFeel() {
+  const look = window.__world && window.__world.daily && window.__world.daily();
+  return (look && look.weather) || 'clear';
+}
+function gardenRows() {
+  ensureGarden();
+  const now = Date.now();
+  const feel = gardenFeel();
+  return GARDEN_PLANTS.map(p => {
+    const g = state.garden[p.id];
+    const grown = now - (g.since || now);
+    const ready = grown >= GARDEN_GROW;
+    return { id: p.id, q: p.q, r: p.r, name: p.name, want: p.want, ready, left: ready ? 0 : GARDEN_GROW - grown, feel };
+  });
+}
+function gardenWindow(now) {
+  const t = (now || Date.now()) % 8000;
+  return t < 1800;
+}
+function tendPlot(id, element, quick, now) {
+  ensureGarden();
+  const spec = GARDEN_PLANTS.find(p => p.id === id);
+  const row = spec && state.garden[id];
+  if (!row) return { ok: false, reason: 'none' };
+  const when = now || Date.now();
+  const el = element === 'water' || element === 'fire' || element === 'aether' ? element : spec.want;
+  if (!(state.fills[el] > 0)) return { ok: false, reason: 'empty', element: el };
+  const ready = when - row.since >= GARDEN_GROW;
+  state.fills[el] -= 1;
+  const perfect = !quick && ready && gardenWindow(when) && el === spec.want;
+  const quality = perfect ? 'perfect' : 'ordinary';
+  state.harvests.push({ name: spec.name, quality, element: el, at: when });
+  state.harvests = state.harvests.slice(-8);
+  row.since = when;
+  save();
+  return { ok: true, quality, name: spec.name, element: el, fills: { water: state.fills.water, fire: state.fills.fire, aether: state.fills.aether } };
+}
+function cookHarvest(kind) {
+  load();
+  if (!state.harvests.length) return { ok: false, reason: 'none' };
+  const h = state.harvests.shift();
+  const perfect = h.quality === 'perfect';
+  if (kind === 'treat') {
+    state.treats += perfect ? 2 : 1;
+    save();
+    return { ok: true, kind: 'treat', name: h.name, quality: h.quality, treats: state.treats };
+  }
+  state.coins += perfect ? 10 : 6;
+  state.buff = perfect ? 'Honey plate · perfect' : 'Honey plate';
+  save();
+  return { ok: true, kind: 'meal', name: h.name, quality: h.quality, coins: state.coins, buff: state.buff };
 }
 function friendLevel(points) {
   let level = 1;
@@ -620,6 +696,12 @@ function mount() {
     notePin: (pin) => { load(); state.pins = [pin].concat(state.pins).slice(0, 8); save(); },
     noteBond: (b) => { load(); state.bonds = { taps: b.taps || 0, tier: b.tier || 0, collected: (b.collected || []).slice() }; save(); },
     catches: () => { load(); return state.catches.slice(); },
+    garden: gardenRows,
+    tendPlot,
+    gardenWindow,
+    harvests: () => { load(); return state.harvests.slice(); },
+    cookHarvest,
+    fills: () => { load(); return { water: state.fills.water, fire: state.fills.fire, aether: state.fills.aether }; },
     takeBuff: () => { load(); const name = state.buff || ''; if (name) { state.buff = ''; save(); } return name; },
     loadout: (cls) => { load(); const key = cls === 'gunner' ? 'gunner' : 'mage'; return state.loadout[key].slice(); },
     setLoadout: (cls, ids) => {

@@ -2005,6 +2005,7 @@ function drawMap(T) {
   // AR holo lanterns: faint passive decorations
   for (let i = 0; i < 5; i++) { const wx = -5 + i * 2.6, wy = -4 + Math.sin(i * 2.1) * 3, [X, Y, f] = proj(c, wx, wy); const bob = Math.sin(T * 1.3 + i) * 5; ctx.globalAlpha = .22; ctx.strokeStyle = '#7ff0ff'; ctx.lineWidth = 1.2; poly(ctx, HEXC.map(p => [X + p[0] * 6 * f, Y - 60 * f + bob + p[1] * 7 * f])); ctx.stroke(); ctx.globalAlpha = 1; }
   drawSuperHexNames(c, h);
+  drawGardenPlots(c);
   drawWorldPins(c);
   drawEncounterMarkers(c);
 }
@@ -2539,6 +2540,117 @@ function markHitsAvatar(box) {
 }
 function unionBox(a, b) {
   return { l: Math.min(a.l, b.l), r: Math.max(a.r, b.r), t: Math.min(a.t, b.t), b: Math.max(a.b, b.b) };
+}
+function gardenSoil() {
+  const rows = window.__profile && window.__profile.garden ? window.__profile.garden() : [];
+  const feel = rows[0] && rows[0].feel;
+  if (feel === 'rain' || feel === 'storm') return '#3f5c44';
+  if (feel === 'snow') return '#d5ddd0';
+  if (feel === 'fog') return '#6d786c';
+  return '#8a6238';
+}
+function drawGardenPlots(c) {
+  if (G.scene !== 'map' || !window.__profile || !window.__profile.garden) return;
+  const rows = window.__profile.garden();
+  const soil = gardenSoil();
+  ctx.save();
+  rows.forEach(p => {
+    const t = tileAt(p.q, p.r);
+    if (!t) return;
+    const [X, Y, f] = proj(c, t.x, t.y);
+    ctx.fillStyle = soil;
+    ctx.beginPath();
+    ctx.ellipse(X, Y - 4 * f, 16 * f, 8 * f, 0, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = p.want === 'water' ? '#7ec8ff' : p.want === 'fire' ? '#ff8a3d' : '#ffd36a';
+    ctx.globalAlpha = p.ready ? 1 : 0.55;
+    ctx.beginPath();
+    ctx.arc(X, Y - 16 * f, Math.max(5, 7 * f), 0, TAU);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#fff6d4';
+    ctx.font = '800 11px ui-rounded,system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText(p.ready ? p.name : p.name + ' · growing', X, Y - 28 * f);
+  });
+  const pond = tileAt(0, -1);
+  if (pond) {
+    const [X, Y, f] = proj(c, pond.x, pond.y);
+    ctx.strokeStyle = '#7ec8ff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(X, Y - 2 * f, 14 * f, 7 * f, 0, 0, TAU);
+    ctx.stroke();
+    ctx.fillStyle = '#d7f3ff';
+    ctx.font = '800 11px ui-rounded,system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('Nook pond', X, Y - 16 * f);
+  }
+  ctx.restore();
+}
+function mountGarden() {
+  if (document.getElementById('gardenHud')) return;
+  const style = document.createElement('style');
+  style.textContent = [
+    '#gardenHud{position:fixed;right:8px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:12;display:none;width:min(280px,54vw);max-height:46vh;overflow:auto;padding:10px;border-radius:14px;background:rgba(20,14,10,.92);border:1px solid rgba(226,196,138,.7);color:#f6e2c4;font:700 13px/1.35 ui-rounded,system-ui}',
+    '#gardenHud.on{display:block}',
+    '#gardenHud p{margin:4px 0}',
+    '#gardenHud button{display:inline-block;min-height:44px;margin:4px 4px 0 0;padding:8px 10px;border-radius:12px;border:1px solid rgba(226,196,138,.7);background:#3a2618;color:#f6e2c4;font:800 13px ui-rounded,system-ui}',
+    '#gardenHud button.on{outline:2px solid #9dffc8}',
+  ].join('');
+  document.head.appendChild(style);
+  const hud = document.createElement('div');
+  hud.id = 'gardenHud';
+  hud.innerHTML = '<b>Garden</b><div id="gardenPlots"></div><p id="gardenFills"></p><p id="gardenWindow"></p><div id="gardenActs"><button type="button" id="gardenQuick">Quick tend</button><button type="button" data-el="water">Water</button><button type="button" data-el="fire">Fire</button><button type="button" data-el="aether">Aether</button></div><p id="gardenNote"></p>';
+  document.body.appendChild(hud);
+  hud.querySelector('#gardenQuick').onclick = () => gardenTend(null, true);
+  hud.querySelectorAll('[data-el]').forEach(b => { b.onclick = () => gardenTend(b.dataset.el, false); });
+}
+function gardenHome() {
+  if (G.scene !== 'map' || !MAP.avOut || FI.open) return false;
+  if (document.body.classList.contains('home-in')) return false;
+  if (typeof TRAIN !== 'undefined' && TRAIN.on) return false;
+  const h = MAP.house;
+  return hd(h, { q: 0, r: 0 }) <= 2;
+}
+function gardenPick() {
+  const rows = window.__profile && window.__profile.garden ? window.__profile.garden() : [];
+  return rows.find(p => p.ready) || rows[0] || null;
+}
+let gardenLog = [];
+function gardenTend(element, quick) {
+  const plot = gardenPick();
+  if (!plot || !window.__profile || !window.__profile.tendPlot) return;
+  const el = element || plot.want;
+  const r = window.__profile.tendPlot(plot.id, el, !!quick);
+  const line = r.ok ? (r.quality === 'perfect' ? 'Perfect' : 'Ordinary') + ' · ' + r.name : (r.reason === 'empty' ? 'No ' + r.element + ' left' : 'Not a plot');
+  gardenLog = [line].concat(gardenLog).slice(0, 2);
+  syncGardenHud();
+}
+function syncGardenHud() {
+  const hud = document.getElementById('gardenHud');
+  if (!hud) return;
+  const show = gardenHome() && window.__profile && window.__profile.garden;
+  hud.classList.toggle('on', !!show);
+  if (!show) return;
+  const rows = window.__profile.garden();
+  const fills = window.__profile.fills ? window.__profile.fills() : { water: 0, fire: 0, aether: 0 };
+  const host = document.getElementById('gardenPlots');
+  if (host) host.innerHTML = rows.map(p => {
+    const mins = Math.ceil(p.left / 60000);
+    const state = p.ready ? 'ready' : mins + ' min';
+    return '<p>' + p.name + ' · ' + state + ' · ' + p.want + '</p>';
+  }).join('');
+  const feel = rows[0] ? rows[0].feel : 'clear';
+  const fill = document.getElementById('gardenFills');
+  if (fill) fill.textContent = feel + ' · water ' + fills.water + ' · fire ' + fills.fire + ' · aether ' + fills.aether;
+  const plot = gardenPick();
+  const open = window.__profile.gardenWindow && window.__profile.gardenWindow();
+  const win = document.getElementById('gardenWindow');
+  if (win) win.textContent = plot && open && plot.ready ? 'Perfect · ' + plot.want : 'Quick tend is ordinary';
+  const note = document.getElementById('gardenNote');
+  if (note) note.textContent = gardenLog.join(' · ');
+  hud.querySelectorAll('[data-el]').forEach(b => b.classList.toggle('on', !!(plot && open && plot.ready && b.dataset.el === plot.want)));
 }
 function drawSuperHexNames(c, h) {
   MARK_LABELS.length = 0;
@@ -4673,9 +4785,7 @@ function paintNookCook() {
     const p = document.createElement('p');
     p.textContent = 'Fish the pond. A catch can become a meal or a treat.';
     host.appendChild(p);
-    return;
-  }
-  catches.forEach((c, i) => {
+  } else catches.forEach((c, i) => {
     const row = document.createElement('div');
     const name = document.createElement('p');
     name.textContent = c.name + ' · ' + c.cm + ' cm · ' + (c.date || '') + ' · ' + (c.weather || 'clear');
@@ -4704,6 +4814,35 @@ function paintNookCook() {
     row.appendChild(treat);
     host.appendChild(row);
   });
+  const harvests = window.__profile && window.__profile.harvests ? window.__profile.harvests() : [];
+  if (harvests.length) {
+    const title = document.createElement('p');
+    title.textContent = 'Garden · ' + harvests.map(h => h.quality + ' ' + h.name).join(', ');
+    host.appendChild(title);
+    const meal = document.createElement('button');
+    meal.type = 'button';
+    meal.className = 'big';
+    const top = harvests[0];
+    meal.textContent = top.quality === 'perfect' ? 'Cook garden meal · +10 coins' : 'Cook garden meal · +6 coins';
+    meal.onclick = () => {
+      const r = window.__profile.cookHarvest('meal');
+      const note = document.getElementById('nookCookNote');
+      if (note) note.textContent = r.ok ? r.name + ' · ' + r.quality + ' · ' + r.buff : 'No harvest';
+      renderCraftUI();
+    };
+    const treat = document.createElement('button');
+    treat.type = 'button';
+    treat.className = 'big';
+    treat.textContent = top.quality === 'perfect' ? 'Garden treat · 2' : 'Garden treat · 1';
+    treat.onclick = () => {
+      const r = window.__profile.cookHarvest('treat');
+      const note = document.getElementById('nookCookNote');
+      if (note) note.textContent = r.ok ? r.name + ' · ' + r.quality + ' treat · ' + r.treats + ' in stock' : 'No harvest';
+      renderCraftUI();
+    };
+    host.appendChild(meal);
+    host.appendChild(treat);
+  }
 }
 function brewDone() {
   if (CR.sel.length !== 2) return;
@@ -6341,6 +6480,7 @@ function frame(now) {
   if (fishOpen) fishUpdate(dt);
   if (G.scene === 'arena') drawArena(T); else { drawMap(T); drawFX(); dayTint(); weatherWash(); }
   if (typeof syncPortalBtn === 'function') syncPortalBtn();
+  if (typeof syncGardenHud === 'function') syncGardenHud();
   if (typeof paintGuide === 'function') paintGuide();
   heavyGrade(T, G.scene);
   vignette();
@@ -6375,6 +6515,7 @@ function boot() {
   renderSettings();
   requestAnimationFrame(frame);
   mountGuide();
+  mountGarden();
 }
 window.__aro = {
   G, MAP, AR, FI, CR, SET, perf,
@@ -6696,7 +6837,7 @@ function armMeal() {
   const name = window.__profile && window.__profile.takeBuff ? window.__profile.takeBuff() : '';
   MEAL.on = !!name;
   MEAL.name = name || '';
-  MEAL.mul = name ? 1.25 : 1;
+  MEAL.mul = name === 'Honey plate · perfect' ? 1.4 : name ? 1.25 : 1;
   syncMealChip();
 }
 function clearMeal() {
