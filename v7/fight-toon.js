@@ -29,7 +29,7 @@ const state = {
 let renderer, scene, camera, sun, grad;
 let hexMesh, hexInk, edgeMesh, rainMesh;
 let hands, rifle, glass, rune, boss, bossWire, bossEyes, bossBar, boltSky, streak;
-let reticle;
+let reticle, petFollow;
 const posts = [];
 const mobBlobs = [];
 const weatherBlobs = [];
@@ -665,6 +665,48 @@ function buildBoss() {
   scene.add(boltSky, streak);
 }
 
+function buildPet() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffd36a }));
+  body.position.y = 0.26;
+  g.add(body);
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 32;
+  const tex = new THREE.CanvasTexture(canvas);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  sprite.position.y = 0.72;
+  sprite.scale.set(0.9, 0.22, 1);
+  g.add(sprite);
+  g.visible = false;
+  g.userData.canvas = canvas;
+  g.userData.sprite = sprite;
+  scene.add(g);
+  petFollow = g;
+}
+function syncPet(g) {
+  if (!petFollow) return;
+  const pet = window.__profile && window.__profile.active && window.__profile.active();
+  const show = !!(pet && g.TRAIN && g.TRAIN.on && !g.TRAIN.king);
+  petFollow.visible = show;
+  if (!show) return;
+  const px = g.AR.ppx || 0;
+  const pz = g.AR.ppy || 0;
+  const fp = g.TRAIN.view === 'fp';
+  const bob = Math.abs(Math.sin(state.t * 3.2)) * 0.08;
+  petFollow.scale.setScalar(fp ? 1.7 : 1);
+  petFollow.position.set(px + (fp ? -0.95 : -0.62), bob, pz + (fp ? -1.35 : 0.85));
+  if (petFollow.userData.shown !== pet.name) {
+    const ctx = petFollow.userData.canvas.getContext('2d');
+    ctx.clearRect(0, 0, 128, 32);
+    ctx.fillStyle = '#fff6d4';
+    ctx.font = '700 22px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(pet.name, 64, 24);
+    petFollow.userData.sprite.material.map.needsUpdate = true;
+    petFollow.userData.shown = pet.name;
+  }
+}
 function buildPools() {
   for (let i = 0; i < 3; i++) {
     const p = part(new THREE.CylinderGeometry(0.16, 0.2, 1.25, 6), toon('#6a3a32').clone(), 0, 0.62, 0);
@@ -738,6 +780,7 @@ function ensure() {
   buildRifle();
   buildBoss();
   buildPools();
+  buildPet();
   buildWeatherMobs();
   loadMobRigs().catch(err => console.warn('mob rigs', err));
   state.built = true;
@@ -932,6 +975,7 @@ function frame(now) {
   document.body.classList.toggle('fp-clear', fp && !state.practice);
   syncShots(g);
   syncActors(g);
+  syncPet(g);
   syncGun(g);
   stepRain(now / 1000);
   for (const a of rigActors) {
