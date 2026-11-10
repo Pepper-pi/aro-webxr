@@ -38,7 +38,8 @@ let hands, rifle, glass, rune, boss, bossWire, bossEyes, bossBar, boltSky, strea
 let kingPlate, kingPaint, kingHolo, kingShadow;
 let boarPlate, boarPaint, boarHolo, boarShadow;
 let parkPlate, parkPaint;
-let raidFloor;
+let raidFloor, raidDress, raidPit, raidIce, raidSky;
+const RAID_PIT = { x: -0.7, z: 0.15, r: 1.65, depth: 2.05 };
 const parkDir = new THREE.Vector3();
 const parkAt = new THREE.Vector3();
 const BOAR_PULL = 2.15;
@@ -186,7 +187,7 @@ function buildHexes() {
   paintField(null);
 }
 function buildRaidFloor() {
-  const tex = new THREE.TextureLoader().load('raid_floor.png');
+  const tex = new THREE.TextureLoader().load('raid_floor.png?v=3');
   tex.colorSpace = THREE.SRGBColorSpace;
   raidFloor = new THREE.Mesh(
     new THREE.PlaneGeometry(28.4, 16),
@@ -197,13 +198,181 @@ function buildRaidFloor() {
   raidFloor.visible = false;
   raidFloor.renderOrder = 1;
   scene.add(raidFloor);
+  raidDress = new THREE.Group();
+  raidDress.visible = false;
+  raidPit = buildRaidPit();
+  raidIce = buildRaidIce();
+  raidSky = buildRaidSky();
+  raidDress.add(raidPit, raidIce, raidSky);
+  scene.add(raidDress);
+}
+function raidHexShape(r) {
+  const s = new THREE.Shape();
+  for (let i = 0; i < 6; i++) {
+    const a = Math.PI / 6 + i * Math.PI / 3;
+    const x = Math.cos(a) * r, y = Math.sin(a) * r;
+    if (i === 0) s.moveTo(x, y); else s.lineTo(x, y);
+  }
+  s.closePath();
+  return new THREE.ShapeGeometry(s);
+}
+function buildRaidPit() {
+  const g = new THREE.Group();
+  g.position.set(RAID_PIT.x, 0, RAID_PIT.z);
+  const R = RAID_PIT.r;
+  const depth = RAID_PIT.depth;
+  const ap = R * Math.cos(Math.PI / 6);
+  const notch = [0.18, 0.9, 1, 1, 1, 0.9];
+  const stone = new THREE.MeshBasicMaterial({ color: 0x1a2436, side: THREE.DoubleSide });
+  const insetMat = new THREE.MeshBasicMaterial({ color: 0x10182a, side: THREE.DoubleSide });
+  for (let i = 0; i < 6; i++) {
+    const ang = i * Math.PI / 3;
+    const h = depth * notch[i];
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(R * 1.04, h), stone);
+    wall.position.set(Math.sin(ang) * ap, -h * 0.5 + 0.04, Math.cos(ang) * ap);
+    wall.rotation.y = ang;
+    g.add(wall);
+    const inset = new THREE.Mesh(new THREE.PlaneGeometry(R * 0.72, h * 0.82), insetMat);
+    inset.position.set(Math.sin(ang) * (ap - 0.02), -h * 0.46, Math.cos(ang) * (ap - 0.02));
+    inset.rotation.y = ang;
+    g.add(inset);
+    for (let row = 0; row < 4; row++) {
+      const y = -0.18 - row * (h * 0.22);
+      if (y < -h + 0.12) continue;
+      const neon = new THREE.Mesh(
+        new THREE.PlaneGeometry(R * 0.92, 0.035),
+        new THREE.MeshBasicMaterial({ color: row % 2 ? 0xff4aa8 : 0x3de0ff, side: THREE.DoubleSide, toneMapped: false })
+      );
+      neon.position.set(Math.sin(ang) * (ap - 0.04), y, Math.cos(ang) * (ap - 0.04));
+      neon.rotation.y = ang;
+      g.add(neon);
+    }
+  }
+  const floor = new THREE.Mesh(raidHexShape(R * 0.92), new THREE.MeshBasicMaterial({ color: 0x071018, side: THREE.DoubleSide }));
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -depth + 0.02;
+  g.add(floor);
+  const glowL = new THREE.Mesh(raidHexShape(R * 0.7), new THREE.MeshBasicMaterial({
+    color: 0x1ad4ff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, side: THREE.DoubleSide,
+  }));
+  glowL.rotation.x = -Math.PI / 2;
+  glowL.position.set(-0.28, -depth + 0.06, 0.05);
+  const glowR = glowL.clone();
+  glowR.material = glowL.material.clone();
+  glowR.material.color.setHex(0xff3d9a);
+  glowR.position.x = 0.32;
+  g.add(glowL, glowR);
+  const chunks = [
+    [0.15, 1.42, 0.26, 0.5], [-0.55, 1.5, 0.18, -0.4], [0.7, 1.35, 0.2, 0.8],
+    [1.25, 0.85, 0.22, 0.3], [-1.3, 0.7, 0.24, -0.2], [1.15, -0.9, 0.16, 0.7],
+    [-1.05, -1.15, 0.2, 0.4], [0.35, -1.25, 0.14, 1.0], [-0.2, 1.15, 0.12, 0.6],
+  ];
+  chunks.forEach((c, i) => {
+    const rock = new THREE.Mesh(
+      i % 2 ? new THREE.DodecahedronGeometry(c[2], 0) : new THREE.BoxGeometry(c[2] * 1.8, c[2] * 0.7, c[2] * 1.3),
+      toon(i % 3 ? '#3a465c' : '#2a3344')
+    );
+    rock.position.set(c[0], 0.08 + c[2] * 0.35, c[1]);
+    rock.rotation.set(c[3], i, c[3] * 0.4);
+    g.add(rock);
+  });
+  [[0.35, 0.15, 0.16, -0.45], [-0.28, -0.2, 0.14, -0.85], [0.05, -0.4, 0.12, -0.3]].forEach((c, i) => {
+    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(c[2], 0), toon('#243044'));
+    rock.position.set(c[0], c[3], c[1]);
+    rock.rotation.y = i;
+    g.add(rock);
+  });
+  return g;
+}
+function buildRaidIce() {
+  const g = new THREE.Group();
+  const spots = [
+    [-3.15, 0.15, 2.05], [-2.35, -2.05, 2.55], [1.85, 0.35, 1.55],
+    [2.7, -1.7, 2.25], [-2.15, 1.35, 0.95], [1.15, 1.55, 0.7],
+  ];
+  spots.forEach((s, i) => {
+    const cluster = new THREE.Group();
+    const h = s[2];
+    const shard = new THREE.Mesh(new THREE.ConeGeometry(0.16 + (i % 3) * 0.05, h, 5), new THREE.MeshBasicMaterial({ color: i % 2 ? 0xd8f7ff : 0x9be7ff, toneMapped: false }));
+    shard.position.y = h * 0.5;
+    const core = new THREE.Mesh(new THREE.ConeGeometry(0.08, h * 0.72, 4), new THREE.MeshBasicMaterial({ color: 0x6fd0ff, toneMapped: false }));
+    core.position.set(0.12, h * 0.38, 0.06);
+    core.rotation.z = 0.18;
+    cluster.add(shard, core);
+    if (i % 2 === 0) {
+      const side = new THREE.Mesh(new THREE.ConeGeometry(0.1, h * 0.55, 4), new THREE.MeshBasicMaterial({ color: 0xeafbff, toneMapped: false }));
+      side.position.set(-0.16, h * 0.28, 0.05);
+      side.rotation.z = -0.35;
+      cluster.add(side);
+    }
+    cluster.position.set(s[0], 0.08, s[1]);
+    cluster.rotation.y = i * 0.7;
+    g.add(cluster);
+  });
+  return g;
+}
+function buildRaidSky() {
+  const g = new THREE.Group();
+  const edge = new THREE.MeshBasicMaterial({ color: 0x3de0ff, side: THREE.DoubleSide, toneMapped: false });
+  const edgeHot = new THREE.MeshBasicMaterial({ color: 0xff4aa8, side: THREE.DoubleSide, toneMapped: false });
+  const fill = new THREE.MeshBasicMaterial({ color: 0x12182c, side: THREE.DoubleSide });
+  for (let i = 0; i < 11; i++) {
+    if (i === 2 || i === 5 || i === 8) continue;
+    const a = -1.05 + i * 0.19;
+    const x = Math.sin(a) * 6.2;
+    const z = -2.4 - Math.cos(a) * 2.8;
+    const y = 2.7 + (i % 3) * 0.7;
+    const panel = new THREE.Mesh(raidHexShape(0.72 + (i % 2) * 0.18), fill);
+    const rim = new THREE.Mesh(raidHexShape(0.8 + (i % 2) * 0.18), i % 4 === 0 ? edgeHot : edge);
+    panel.position.set(x, y, z);
+    rim.position.set(x, y, z - 0.02);
+    const yaw = Math.atan2(x, z - 3);
+    panel.rotation.y = yaw;
+    rim.rotation.y = yaw;
+    panel.rotation.x = 0.18;
+    rim.rotation.x = 0.18;
+    g.add(rim, panel);
+  }
+  return g;
+}
+function hidePitHexes() {
+  hexCells.forEach((c, i) => {
+    const p = hexOf(c.q, c.r);
+    if (Math.hypot(p.x - RAID_PIT.x, p.z - RAID_PIT.z) > RAID_PIT.r * 0.96) return;
+    dummy.position.set(p.x, -8, p.z);
+    dummy.rotation.set(0, Math.PI / 6, 0);
+    dummy.scale.set(1, 1, 1);
+    dummy.updateMatrix();
+    hexMesh.setMatrixAt(i, dummy.matrix);
+    hexInk.setMatrixAt(i, dummy.matrix);
+    edgeMesh.setMatrixAt(i, dummy.matrix);
+    if (halos[i]) halos[i].visible = false;
+  });
+  hexMesh.instanceMatrix.needsUpdate = true;
+  hexInk.instanceMatrix.needsUpdate = true;
+  edgeMesh.instanceMatrix.needsUpdate = true;
+  state.pitHidden = true;
 }
 function syncRaidFloor(g) {
   const king = !!(g && g.TRAIN && g.TRAIN.king && !state.parkOn);
   if (raidFloor) raidFloor.visible = king;
+  if (raidDress) raidDress.visible = king;
+  if (king) hidePitHexes();
+  else if (state.pitHidden && !state.parkOn) {
+    state.pitHidden = false;
+    halos.forEach(h => { h.visible = true; });
+    state.worldKey = '';
+  } else if (state.pitHidden) state.pitHidden = false;
   const img = raidFloor && raidFloor.material.map && raidFloor.material.map.image;
   const ready = !!(img && img.complete && img.naturalWidth);
-  state.raidFloor = { on: !!(raidFloor && raidFloor.visible), art: 'raid-floor', ready };
+  state.raidFloor = {
+    on: !!(raidFloor && raidFloor.visible),
+    art: 'raid-floor',
+    ready,
+    pit: !!(king && raidPit),
+    ice: !!(king && raidIce && raidIce.children.length > 0),
+    sky: !!(king && raidSky && raidSky.children.length > 0),
+  };
   return state.raidFloor;
 }
 

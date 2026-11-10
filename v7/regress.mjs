@@ -599,7 +599,7 @@ const kingPlate = await page.evaluate(async () => {
   return { front, behind, floor, view: window.__train.TRAIN.view, king: window.__train.TRAIN.king };
 });
 check('gel king plate is the painting from the front and a hologram from behind', kingPlate.king && kingPlate.view === 'fp' && kingPlate.front && kingPlate.front.on && kingPlate.front.mode === 'paint' && kingPlate.behind && kingPlate.behind.on && kingPlate.behind.mode === 'holo', JSON.stringify(kingPlate));
-check('gel king front fight shows the dressed raid floor', kingPlate.king && kingPlate.front && kingPlate.front.mode === 'paint' && kingPlate.floor && kingPlate.floor.on && kingPlate.floor.art === 'raid-floor' && kingPlate.floor.ready, JSON.stringify(kingPlate.floor));
+check('gel king front fight shows the dressed raid floor', kingPlate.king && kingPlate.front && kingPlate.front.mode === 'paint' && kingPlate.floor && kingPlate.floor.on && kingPlate.floor.art === 'raid-floor' && kingPlate.floor.ready && kingPlate.floor.pit && kingPlate.floor.ice && kingPlate.floor.sky, JSON.stringify(kingPlate.floor));
 await page.waitForFunction(() => window.__gardenPlate && window.__gardenPlate.state().ready, { timeout: 8000 });
 const gardenPlate = await page.evaluate(() => {
   enterGarden();
@@ -637,10 +637,12 @@ const boarPlate = await page.evaluate(async () => {
   if (m) { window.__aro.AR.ppx = m.x; window.__aro.AR.ppy = m.y - 2.6; }
   await wait(); await wait();
   const behind = window.__fight && window.__fight.boar && window.__fight.boar();
-  return { front, behind, park, view: window.__train.TRAIN.view, day: window.__train.TRAIN.dayRaid };
+  const floor = window.__fight && window.__fight.floor && window.__fight.floor();
+  return { front, behind, park, floor, view: window.__train.TRAIN.view, day: window.__train.TRAIN.dayRaid };
 });
 check('boar plate is the painting from the front and a hologram from behind', boarPlate.day && boarPlate.view === 'fp' && boarPlate.front && boarPlate.front.on && boarPlate.front.mode === 'paint' && boarPlate.behind && boarPlate.behind.on && boarPlate.behind.mode === 'holo', JSON.stringify(boarPlate));
 check('park backdrop is the painting behind the boar', boarPlate.day && boarPlate.view === 'fp' && boarPlate.park && boarPlate.park.on && boarPlate.park.mode === 'paint' && boarPlate.front && boarPlate.front.mode === 'paint', JSON.stringify(boarPlate.park));
+check('day raid hides the raid floor and keeps the park', boarPlate.day && boarPlate.park && boarPlate.park.on && boarPlate.park.mode === 'paint' && boarPlate.floor && boarPlate.floor.on === false && boarPlate.floor.pit === false, JSON.stringify(boarPlate.floor));
 
 async function layout(w, h) {
   const p = await open(w, h);
