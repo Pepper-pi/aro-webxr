@@ -36,7 +36,7 @@ let renderer, scene, camera, sun, grad;
 let hexMesh, hexInk, edgeMesh, rainMesh;
 let hands, rifle, glass, rune, boss, bossWire, bossEyes, bossBar, boltSky, streak;
 let reticle, petFollow, petSphere, slamRing;
-let wardMesh, wardShell, novaRing, slashBar, fragMesh, turretMesh, droneMesh, flareMark, gardenRoot;
+let wardMesh, wardShell, novaRing, slashBar, fragMesh, turretMesh, droneMesh, flareMark;
 const petRigs = {};
 const posts = [];
 const mobBlobs = [];
@@ -302,7 +302,7 @@ function paintField(look) {
   }
   if (hexMesh && look) {
     if (!hexMesh.userData.own) { hexMesh.material = hexMesh.material.clone(); hexMesh.userData.own = true; }
-    hexMesh.material.color.set(look.area === 'Garden' ? (look.floor || '#3f8f56') : look.area === 'Forest' ? '#245c34' : look.area === 'Meadow' ? '#7d8a32' : look.area === 'Stone' ? '#6a7078' : look.area === 'Town' ? '#8a5a32' : look.area === 'Market' ? '#a07840' : look.area === 'Dock' ? '#6e5a48' : (kind === 'rain' || kind === 'storm' ? '#243246' : kind === 'night' ? '#1a2230' : '#5d7594'));
+    hexMesh.material.color.set(look.area === 'Forest' ? '#245c34' : look.area === 'Meadow' ? '#7d8a32' : look.area === 'Stone' ? '#6a7078' : look.area === 'Town' ? '#8a5a32' : look.area === 'Market' ? '#a07840' : look.area === 'Dock' ? '#6e5a48' : (kind === 'rain' || kind === 'storm' ? '#243246' : kind === 'night' ? '#1a2230' : '#5d7594'));
   }
   state.weatherKind = kind;
   state.story = !look;
@@ -660,27 +660,14 @@ function syncBossRig(g, mobs) {
 function storySpace(g) {
   return !!(g && g.TRAIN && (g.TRAIN.king || g.TRAIN.dayRaid));
 }
-function gardenLook() {
-  const daily = window.__world && window.__world.daily && window.__world.daily();
-  const weather = (daily && daily.weather) || 'clear';
-  const seed = (daily && daily.seed) || 1;
-  const damp = weather === 'rain' || weather === 'storm';
-  const floor = weather === 'snow' ? '#b7cbb4' : weather === 'night' ? '#1d4a3c' : damp ? '#2f6a48' : '#3f8f56';
-  const sky = weather === 'night' ? '#1a2844' : damp ? '#9eb6c8' : weather === 'fog' ? '#d5e2dc' : '#c7e7ff';
-  return {
-    area: 'Garden', weather, sky, floor, seed, pits: [], scatter: [], spawns: [],
-    neon: ['#9dffc8', '#ffd36a', '#8fd0ff'],
-  };
-}
 function syncWorld(g) {
   const story = storySpace(g);
-  const garden = !!(g.TRAIN && g.TRAIN.area === 'Garden');
   const w = window.__world;
   const rev = w && w.revision ? w.revision() : 0;
-  const key = (garden ? 'garden' : story ? 'story' : 'field') + ':' + rev;
+  const key = (story ? 'story' : 'field') + ':' + rev;
   if (key === state.worldKey) return;
   state.worldKey = key;
-  paintField(garden ? gardenLook() : story ? null : (w && w.look && w.look()));
+  paintField(story ? null : (w && w.look && w.look()));
 }
 function buildRain() {
   const geo = new THREE.BoxGeometry(0.03, 0.28, 0.03);
@@ -945,47 +932,6 @@ function makeBolt() {
   scene.add(g);
   return { g, shapes, glow, mark, life: 0 };
 }
-function buildGarden() {
-  gardenRoot = new THREE.Group();
-  gardenRoot.visible = false;
-  const pondAt = hexOf(0, -1);
-  part(new THREE.CylinderGeometry(0.92, 1.02, 0.08, 20), toon('#3a8ec4'), pondAt.x, 0.05, pondAt.z, gardenRoot);
-  const rim = part(new THREE.TorusGeometry(0.98, 0.06, 6, 20), toon('#d7f6ff'), pondAt.x, 0.1, pondAt.z, gardenRoot);
-  rim.rotation.x = Math.PI / 2;
-  const plots = [
-    { id: '0,1', q: 0, r: 1, col: '#ffd36a' },
-    { id: '1,-1', q: 1, r: -1, col: '#7ec8ff' },
-    { id: '1,0', q: 1, r: 0, col: '#ff8a3d' },
-  ];
-  plots.forEach(p => {
-    const at = hexOf(p.q, p.r);
-    const group = new THREE.Group();
-    group.position.set(at.x, 0, at.z);
-    group.userData.plot = p.id;
-    part(new THREE.CylinderGeometry(0.46, 0.58, 0.16, 8), toon('#8a6238').clone(), 0, 0.08, 0, group);
-    const bloom = part(new THREE.SphereGeometry(0.28, 10, 8), toon(p.col).clone(), 0, 0.46, 0, group);
-    group.userData.bloom = bloom;
-    gardenRoot.add(group);
-  });
-  for (const [q, r] of [[-2, 0], [2, -1], [0, 2], [-2, 2]]) {
-    const at = hexOf(q, r);
-    const tuft = part(new THREE.SphereGeometry(0.22, 8, 6), toon('#2f8a4a'), at.x, 0.16, at.z, gardenRoot);
-    tuft.scale.set(1.3, 0.7, 1.1);
-  }
-  scene.add(gardenRoot);
-}
-function syncGardenSpace(g) {
-  if (!gardenRoot) return;
-  const on = !!(g.TRAIN && g.TRAIN.area === 'Garden');
-  gardenRoot.visible = on;
-  if (!on) return;
-  const rows = window.__profile && window.__profile.garden && window.__profile.garden();
-  gardenRoot.children.forEach(ch => {
-    if (!ch.userData || !ch.userData.plot) return;
-    const row = rows && rows.find(p => p.id === ch.userData.plot);
-    if (ch.userData.bloom) ch.userData.bloom.scale.setScalar(row && row.ready ? 1 : 0.42);
-  });
-}
 function buildCasts() {
   wardMesh = new THREE.Group();
   const band = part(new THREE.TorusGeometry(1.15, 0.08, 8, 28), toon('#9dffc8'), 0, 1.15, 0, wardMesh);
@@ -1207,7 +1153,6 @@ function ensure() {
   buildPet();
   buildSlamRing();
   buildCasts();
-  buildGarden();
   buildWeatherMobs();
   loadMobRigs().catch(err => console.warn('mob rigs', err));
   state.built = true;
@@ -1414,7 +1359,6 @@ function frame(now) {
   state.cast = Math.max(0, state.cast - dt);
   placeCamera(g);
   syncWorld(g);
-  syncGardenSpace(g);
   const fp = !!(g.TRAIN.on && g.TRAIN.view === 'fp');
   document.body.classList.toggle('fight-fp', fp);
   document.body.classList.toggle('fp-clear', fp && !state.practice);
