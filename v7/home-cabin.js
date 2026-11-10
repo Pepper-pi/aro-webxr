@@ -1023,6 +1023,15 @@ function fishFromNook() {
   const back = document.getElementById('homeDoorBack');
   if (back) { back.textContent = 'Back to the Nook'; back.classList.add('on'); }
   if (typeof window.__showWorldMap === 'function') window.__showWorldMap();
+  if (typeof tileAt === 'function' && typeof MAP !== 'undefined') {
+    const home = tileAt(0, 0);
+    if (home) {
+      MAP.house.q = home.q; MAP.house.r = home.r;
+      MAP.house.x = home.x; MAP.house.y = home.y;
+      MAP.house.mode = 'park';
+      MAP.avOut = true;
+    }
+  }
   if (typeof openFish === 'function') openFish({ nook: true });
   return true;
 }

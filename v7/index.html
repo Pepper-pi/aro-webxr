@@ -1909,6 +1909,7 @@ function mapUpdate(dt) {
   for (const m of MAP.mobs) { m.ph += dt; m.x = m.hx + Math.sin(m.ph * .4) * .5; m.y = m.hy + Math.cos(m.ph * .31) * .3; const near = Math.hypot(m.x - h.x, m.y - h.y) < 3.4; m.skin = clamp(m.skin + (near ? dt : -dt) / .8, 0, 1); }
   for (let i = MAP.ripples.length - 1; i >= 0; i--) { MAP.ripples[i].t += dt; if (MAP.ripples[i].t > 1.3) MAP.ripples.splice(i, 1); }
   if (MAP.avOut) MAP.avT += dt;
+  checkMapPortal();
 }
 function ripple(t) { MAP.ripples.push({ q: t.q, r: t.r, t: 0, gold: t.ter === 'home' || t.ter === 'yard' || (t.ter === 'poi' && G.day.hack) }); }
 // Raid-start plate: translucent neon glass on the dome hex. Same tile, same walk, thinner glow.
@@ -2008,8 +2009,8 @@ function drawMap(T) {
 function drawEncounterMarkers(c) {
   if (G.scene !== 'map') return;
   const you = window.__world && window.__world.you ? window.__world.you() : null;
-  const house = MAP.house;
-  drawPortal(c, (you ? you.x : house.x) - 0.7, (you ? you.y : house.y) + 0.55);
+  const door = portalMapTile();
+  if (door) drawPortal(c, door.x, door.y);
   drawRaidMarker(c);
   if (!window.__world || !window.__world.markers) return;
   const list = window.__world.markers();
@@ -2064,7 +2065,9 @@ function drawActivePetMap(c, you) {
   ctx.fillText(pet.name, X, Y - 12);
   ctx.restore();
 }
-const PORTAL = { open: false };
+const PORTAL_MAP = { q: -1, r: 1 };
+const PORTAL_FIELD = { q: 0, r: 2 };
+const PORTAL = { open: false, busy: false };
 function catchUnit(n) {
   const page = (+new URLSearchParams(location.search).get('seed')) || 1;
   let a = (Math.imul(page >>> 0, 0x9e3779b1) ^ Math.imul((n | 0) + 1, 0x85ebca6b)) >>> 0;
@@ -2188,23 +2191,32 @@ function showWorldMap() {
   if (typeof syncMapNav === 'function') syncMapNav();
   if (typeof syncOutCombat === 'function') syncOutCombat();
 }
+function portalMapTile() { return tileAt(PORTAL_MAP.q, PORTAL_MAP.r); }
+function portalFieldXY() { return hexXY(PORTAL_FIELD.q, PORTAL_FIELD.r); }
 function placePortal() {
   const profile = window.__profile;
   if (!profile || !profile.get) return false;
+  if (PORTAL.open) { showCast('The portal is already by the house'); return false; }
   if (!(profile.get().cells >= 3)) { showCast('Need 3 CELLs'); return false; }
   profile.use('cells'); profile.use('cells'); profile.use('cells');
   PORTAL.open = true;
-  showCast('Three CELLs · the portal is open');
+  PORTAL.busy = false;
+  showCast('Three CELLs · the portal is by the house');
   syncPortalBtn();
   return true;
 }
 function stepPortal() {
-  if (!PORTAL.open) return false;
+  if (!PORTAL.open || PORTAL.busy) return false;
+  PORTAL.busy = true;
+  PORTAL.open = false;
+  syncPortalBtn();
   doorClear('Home', () => {
+    PORTAL.busy = false;
     G.step = Math.max(1, G.step || 0);
-    PORTAL.open = false;
-    syncPortalBtn();
-    if (typeof TRAIN !== 'undefined' && TRAIN.on && typeof leaveTrain === 'function') leaveTrain();
+    if (typeof TRAIN !== 'undefined' && TRAIN.on) {
+      TRAIN.raidReturn = null;
+      if (typeof leaveTrain === 'function') leaveTrain();
+    }
     const title = document.getElementById('title');
     if (title) title.classList.add('hide', 'out');
     if (window.__home && window.__home.enter) {
@@ -2214,39 +2226,63 @@ function stepPortal() {
   });
   return true;
 }
+function portalNear(x, y, px, py) { return Math.hypot(px - x, py - y) <= 0.95; }
+function checkMapPortal() {
+  if (!PORTAL.open || PORTAL.busy || G.scene !== 'map' || !MAP.avOut || FI.open) return;
+  const t = portalMapTile();
+  if (!t) return;
+  const h = MAP.house;
+  if (portalNear(t.x, t.y, h.x, h.y)) stepPortal();
+}
+function checkFieldPortal() {
+  if (!PORTAL.open || PORTAL.busy || G.scene !== 'arena') return;
+  if (typeof TRAIN !== 'undefined' && (TRAIN.dayRaid || TRAIN.king)) return;
+  const [x, y] = portalFieldXY();
+  const [px, py] = pPos();
+  if (portalNear(x, y, px, py)) stepPortal();
+}
 function syncPortalBtn() {
   const b = document.getElementById('portalBtn');
   if (!b) return;
   const home = document.body.classList.contains('home-in');
-  const training = typeof TRAIN !== 'undefined' && TRAIN.on && !TRAIN.king;
+  const training = typeof TRAIN !== 'undefined' && TRAIN.on && !TRAIN.king && !TRAIN.dayRaid;
   const show = !home && (document.body.classList.contains('out-combat') || training);
   b.classList.toggle('hide', !show);
-  b.textContent = PORTAL.open ? 'Step through' : 'Place 3 CELLs';
+  b.textContent = PORTAL.open ? 'Portal by the house' : 'Place 3 CELLs';
 }
 function drawPortal(c, x, y) {
   if (!PORTAL.open || !c) return;
+  if (G.scene === 'arena' && typeof TRAIN !== 'undefined' && (TRAIN.dayRaid || TRAIN.king)) return;
   const [X, Y, f] = proj(c, x, y);
-  const spots = [[-0.32, 0.18], [0.32, 0.18], [0, -0.24]];
+  const s = Math.max(28, 46 * f);
+  const posts = [[-0.55, 0.02], [0.55, 0.02]];
   ctx.save();
-  ctx.fillStyle = '#9ff3d0';
-  ctx.strokeStyle = '#123028';
-  ctx.lineWidth = 2;
-  for (const s of spots) {
-    const [sx, sy] = proj(c, x + s[0], y + s[1]);
-    ctx.beginPath();
-    ctx.arc(sx, sy, Math.max(5, 7 * f), 0, TAU);
-    ctx.fill();
-    ctx.stroke();
-  }
-  ctx.strokeStyle = '#e4d4ff';
-  ctx.lineWidth = 3;
+  ctx.fillStyle = 'rgba(180, 236, 214, .45)';
   ctx.beginPath();
-  ctx.ellipse(X, Y, Math.max(18, 26 * f), Math.max(9, 12 * f), 0, 0, TAU);
+  ctx.ellipse(X, Y - s * 0.35, s * 0.72, s * 0.95, 0, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = '#123028';
+  ctx.fillStyle = '#b8ffe4';
+  ctx.lineWidth = 3;
+  for (const p of posts) {
+    const [sx, sy] = proj(c, x + p[0], y + p[1]);
+    ctx.fillRect(sx - s * 0.12, sy - s * 1.15, s * 0.24, s * 1.25);
+    ctx.strokeRect(sx - s * 0.12, sy - s * 1.15, s * 0.24, s * 1.25);
+  }
+  ctx.strokeStyle = '#f4e8ff';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.ellipse(X, Y - s * 0.15, s * 0.78, s * 0.9, 0, Math.PI, TAU);
   ctx.stroke();
-  ctx.fillStyle = '#fff6d4';
-  ctx.font = '800 13px ui-rounded,system-ui';
+  ctx.font = '800 ' + Math.max(16, Math.round(18 * f)) + 'px ui-rounded,system-ui';
   ctx.textAlign = 'center';
-  ctx.fillText('Portal', X, Y - Math.max(16, 18 * f));
+  const label = 'Home door';
+  const tw = ctx.measureText(label).width;
+  const ly = Y - s * 1.45;
+  ctx.fillStyle = 'rgba(18,10,16,.88)';
+  ctx.fillRect(X - tw / 2 - 8, ly - 16, tw + 16, 22);
+  ctx.fillStyle = '#fff6d4';
+  ctx.fillText(label, X, ly);
   ctx.restore();
 }
 function drawSlam(c) {
@@ -2277,7 +2313,7 @@ function mountPortal() {
   b.type = 'button';
   b.className = 'hide';
   b.textContent = 'Place 3 CELLs';
-  b.onclick = () => { if (PORTAL.open) stepPortal(); else placePortal(); };
+  b.onclick = () => { if (PORTAL.open) showCast('Walk up to the portal'); else placePortal(); };
   document.body.appendChild(b);
   window.__doorClear = doorClear;
   window.__showWorldMap = showWorldMap;
@@ -3262,7 +3298,8 @@ function drawArena(T) {
     ctx.fillStyle = kind === 'wall' ? '#ffe7a4' : '#ffd8c4'; ctx.fillText(label, lx, ly);
     ctx.restore();
   }
-  drawPortal(c, (AR.ppx || 0) + 0.7, (AR.ppy || 0) - 0.55);
+  const [doorX, doorY] = portalFieldXY();
+  drawPortal(c, doorX, doorY);
   drawMeadowRaid(c);
   drawSlam(c);
   drawWallWeak(T); drawFieldTop(c, T); drawFog(c, T); drawSlashFX(c, T);
@@ -4757,12 +4794,18 @@ function fishRestock() {
   setGesture('idle', { lead: 'offhand', pinch: 0 });
   return true;
 }
+function nookPondSpot() {
+  const t = tileAt(0, -1);
+  if (!t) return { q: 0, r: -1, x: 0, y: -1.5, kind: 'summon', space: 'nook' };
+  return { q: t.q, r: t.r, x: t.x, y: t.y, kind: 'summon', space: 'nook' };
+}
 function openFish(opts) {
   FI.fromNook = !!(opts && opts.nook);
   const small = document.querySelector('#fishM small');
   if (small) small.textContent = FI.fromNook ? 'Cook Nook' : 'Pond spot';
   if (!FI.water) FI.water = 'pond';
-  ensureFishSpot();
+  if (FI.fromNook) FI.spot = nookPondSpot();
+  else ensureFishSpot();
   fishRestock();
   const mid = ['fly', 'wait', 'nibble', 'reel', 'catch', 'slip', 'spent'].indexOf(FI.phase) >= 0;
   if (!mid) {
@@ -5897,6 +5940,16 @@ function mapTap(X, Y) {
       enterLoved(loved);
       return;
     }
+    const door = PORTAL.open ? portalMapTile() : null;
+    if (door) {
+      const [sx, sy] = proj(MAP.cam, door.x, door.y);
+      if (Math.hypot(sx - X, sy - Y) < 46) {
+        const h = MAP.house;
+        if (!portalNear(door.x, door.y, h.x, h.y)) { showCast('Step closer · Home door'); return; }
+        stepPortal();
+        return;
+      }
+    }
     const area = areaUnder(X, Y);
     if (area) {
       if (!areaNear(area)) { showCast('Step closer · ' + area.name); popText(X, Y - 16, 'step closer', '#ffe7a8', 13); return; }
@@ -6005,6 +6058,7 @@ function enterDiscArea(area) {
   return true;
 }
 function onStep(t) {
+  if (PORTAL.open && t && t.q === PORTAL_MAP.q && t.r === PORTAL_MAP.r) { stepPortal(); return true; }
   if (G.day.tiles.length < 60) G.day.tiles.push(t.ter);
   giftFor(t);
   const area = namedAreaAt(t);
@@ -8281,6 +8335,7 @@ function drawDockHud() {
   if (TRAIN.on) for (const m of AR.mobs) if (m.dummy) { m.aggro = false; m.atkT = 99; }
   _arenaUpdate(dt);
   if (TRAIN.on && !TRAIN.king) checkMeadowRaid();
+  if (TRAIN.on && !TRAIN.dayRaid && !TRAIN.king) checkFieldPortal();
   if (TRAIN.on && !TRAIN.king) {
     for (const m of AR.mobs) if (m.dummy && !m.rolled && (m.state === 'gone' || m.state === 'dying' && m.st > 0.42)) reviveDummy(m);
     const rolled = AR.mobs.filter(m => m.rolled);
