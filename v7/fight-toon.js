@@ -131,6 +131,7 @@ function live() {
   const g = game();
   if (!g || !g.G || g.G.scene !== 'arena') return false;
   if (document.body.classList.contains('home-in')) return false;
+  if (g.TRAIN && g.TRAIN.area === 'Market') return false;
   if (g.TRAIN && g.TRAIN.on) return true;
   return g.AR.kind === 'raid' && (g.AR.phase === 'block' || g.AR.phase === 'wave' || g.AR.phase === 'arm');
 }

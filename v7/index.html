@@ -2307,7 +2307,7 @@ function syncPortalBtn() {
   if (!b) return;
   const home = document.body.classList.contains('home-in');
   const training = typeof TRAIN !== 'undefined' && TRAIN.on && !TRAIN.king && !TRAIN.dayRaid;
-  const show = !home && (document.body.classList.contains('out-combat') || training);
+  const show = !home && !marketPlateOn() && (document.body.classList.contains('out-combat') || training);
   b.classList.toggle('hide', !show);
   b.textContent = PORTAL.open ? 'Home door is placed' : 'Place 3 CELLs';
 }
@@ -2618,13 +2618,17 @@ function raisedPlot(x, y, w, h, kind, ready, name, soil) {
 const GARDEN_STILL = new Image();
 GARDEN_STILL.src = 'garden_paradise_room.jpg';
 const GARDEN_PLATE = { z: 4.6, x: 0 };
-function gardenPlateMode() {
-  const z = GARDEN_PLATE.z, x = GARDEN_PLATE.x;
+const MARKET_STILL = new Image();
+MARKET_STILL.src = 'market_dock_room.jpg';
+const MARKET_PLATE = { z: 4.6, x: 0 };
+function plateModeOf(view) {
+  const z = view.z, x = view.x;
   const close = z < 1.45;
   const behind = z < 0.4;
   const side = Math.abs(x) > Math.max(0.7, Math.abs(z) * 1.25);
   return (behind || side || close) ? 'holo' : 'paint';
 }
+function gardenPlateMode() { return plateModeOf(GARDEN_PLATE); }
 function gardenPlateState() {
   const ready = !!(GARDEN_STILL.complete && GARDEN_STILL.naturalWidth > 0);
   return {
@@ -2635,21 +2639,20 @@ function gardenPlateState() {
     x: GARDEN_PLATE.x,
   };
 }
-function drawGardenPlate(T) {
-  if (!(GARDEN_STILL.complete && GARDEN_STILL.naturalWidth > 0)) return false;
+function drawStillPlate(img, view, T) {
   const narrow = W < 560;
   const foot = narrow ? Math.min(188, H * 0.24) : 136;
-  const mode = gardenPlateMode();
-  const zoom = clamp(4.6 / Math.max(0.35, Math.abs(GARDEN_PLATE.z)), 0.75, 1.7);
+  const mode = plateModeOf(view);
+  const zoom = clamp(4.6 / Math.max(0.35, Math.abs(view.z)), 0.75, 1.7);
   ctx.fillStyle = '#24160f';
   ctx.fillRect(0, 0, W, H);
-  const aspect = GARDEN_STILL.naturalWidth / GARDEN_STILL.naturalHeight;
+  const aspect = img.naturalWidth / img.naturalHeight;
   const margin = narrow ? 18 : 48;
   let pw = (W - margin * 2) * (mode === 'holo' ? zoom : 1);
   let ph = pw / aspect;
   const maxH = (H - foot - (narrow ? 78 : 52)) * (mode === 'holo' ? zoom : 1);
   if (ph > maxH) { ph = maxH; pw = ph * aspect; }
-  const cx = W * 0.5 + GARDEN_PLATE.x * Math.min(W, 480) * 0.2;
+  const cx = W * 0.5 + view.x * Math.min(W, 480) * 0.2;
   const mid = (narrow ? 108 : 48) + (H - foot - (narrow ? 108 : 48)) * 0.46;
   const top = mid - ph / 2;
   ctx.fillStyle = 'rgba(8,4,4,.4)';
@@ -2663,15 +2666,34 @@ function drawGardenPlate(T) {
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = 0.5 + 0.18 * Math.sin((T || 0) * 6);
   }
-  ctx.drawImage(GARDEN_STILL, cx - pw / 2, top, pw, ph);
+  ctx.drawImage(img, cx - pw / 2, top, pw, ph);
   if (mode === 'holo') {
     ctx.globalAlpha = 0.28;
     ctx.fillStyle = Math.sin((T || 0) * 6) > 0 ? '#ff8ad4' : '#9ee7ff';
     ctx.fillRect(cx - pw / 2, top, pw, ph);
   }
   ctx.restore();
+}
+function drawGardenPlate(T) {
+  if (!(GARDEN_STILL.complete && GARDEN_STILL.naturalWidth > 0)) return false;
+  drawStillPlate(GARDEN_STILL, GARDEN_PLATE, T);
   return true;
 }
+function marketPlateOn() {
+  return typeof TRAIN !== 'undefined' && !!TRAIN.on && TRAIN.area === 'Market';
+}
+function marketPlateState() {
+  const ready = !!(MARKET_STILL.complete && MARKET_STILL.naturalWidth > 0);
+  return { on: marketPlateOn() && ready, ready: ready, mode: plateModeOf(MARKET_PLATE), z: MARKET_PLATE.z, x: MARKET_PLATE.x };
+}
+function drawMarketPlate(T) {
+  if (!(MARKET_STILL.complete && MARKET_STILL.naturalWidth > 0)) return;
+  drawStillPlate(MARKET_STILL, MARKET_PLATE, T);
+}
+window.__marketPlate = {
+  state: marketPlateState,
+  setView: v => { if (!v) return; if (v.z != null) MARKET_PLATE.z = v.z; if (v.x != null) MARKET_PLATE.x = v.x; },
+};
 window.__gardenPlate = {
   state: gardenPlateState,
   setView: v => { if (!v) return; if (v.z != null) GARDEN_PLATE.z = v.z; if (v.x != null) GARDEN_PLATE.x = v.x; },
@@ -6884,11 +6906,11 @@ function frame(now) {
   if (G.day.hack && G.hackFill < 1) G.hackFill = Math.min(1, G.hackFill + dt * .006);
   const fishOpen = $('#fishM').classList.contains('on'), craftOpen = $('#craftM').classList.contains('on');
   if (fishOpen) fishUpdate(dt);
-  if (G.scene === 'arena') drawArena(T); else if (GARDEN_ROOM.on) drawGardenRoom(T); else { drawMap(T); drawFX(); dayTint(); weatherWash(); }
+  if (marketPlateOn()) drawMarketPlate(T); else if (G.scene === 'arena') drawArena(T); else if (GARDEN_ROOM.on) drawGardenRoom(T); else { drawMap(T); drawFX(); dayTint(); weatherWash(); }
   if (typeof syncPortalBtn === 'function') syncPortalBtn();
   if (typeof syncGardenHud === 'function') syncGardenHud();
   if (typeof paintGuide === 'function') paintGuide();
-  if (!(GARDEN_ROOM.on || fishOpen)) heavyGrade(T, G.scene);
+  if (!(GARDEN_ROOM.on || fishOpen || marketPlateOn())) heavyGrade(T, G.scene);
   vignette();
   if (fishOpen) drawFishWorld(T);
   if (craftOpen) drawBall(T, dt);
@@ -9081,7 +9103,7 @@ function drawFpFrame() {
   ctx.stroke();
   ctx.restore();
 }
-{ const _vignette = vignette; vignette = function () { const garden = typeof GARDEN_ROOM !== 'undefined' && GARDEN_ROOM.on; const fishing = typeof FI !== 'undefined' && FI.open; if (!garden && !fishing) _vignette(); if (G.scene === 'arena') { drawFpFrame(); drawAimLayer(); drawDisc(); drawForearm(); drawHoldDemo(); if (typeof drawCellRig === 'function') drawCellRig(); if (typeof drawCellAim === 'function') drawCellAim(); if (typeof drawFollowerSticker === 'function') drawFollowerSticker(); } if (G.scene === 'map' && !garden && !fishing) { drawMarkChevrons(); drawDockHud(); if (typeof drawMapPetSticker === 'function') drawMapPetSticker(); } }; }
+{ const _vignette = vignette; vignette = function () { const garden = typeof GARDEN_ROOM !== 'undefined' && GARDEN_ROOM.on; const fishing = typeof FI !== 'undefined' && FI.open; const market = typeof marketPlateOn === 'function' && marketPlateOn(); if (!garden && !fishing && !market) _vignette(); if (G.scene === 'arena' && !market) { drawFpFrame(); drawAimLayer(); drawDisc(); drawForearm(); drawHoldDemo(); if (typeof drawCellRig === 'function') drawCellRig(); if (typeof drawCellAim === 'function') drawCellAim(); if (typeof drawFollowerSticker === 'function') drawFollowerSticker(); } if (G.scene === 'map' && !garden && !fishing) { drawMarkChevrons(); drawDockHud(); if (typeof drawMapPetSticker === 'function') drawMapPetSticker(); } }; }
 { const _obj = arenaObjective; arenaObjective = function () { if (!TRAIN.on) return _obj(); const t = TRAIN.king ? kingLine() : drillLine(); if (t !== AR.objT) { AR.objT = t; setObj(t); } }; }
 { const _setClass = setClass; setClass = function (c) { if (TRAIN.on && c !== GUN.cls) interruptCharge('Charge cancelled'); const r = _setClass(c); syncClassBtn(); const help = document.getElementById('trainHelp'); if (help && TRAIN.on) help.textContent = trainHelpText(); return r; }; }
 { const _manaUI = manaUI; manaUI = function () {

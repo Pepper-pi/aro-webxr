@@ -605,6 +605,17 @@ const gardenPlate = await page.evaluate(() => {
   return { front, close };
 });
 check('garden plate is the painting in the room and a hologram up close', gardenPlate.front.on && gardenPlate.front.mode === 'paint' && gardenPlate.close.on && gardenPlate.close.mode === 'holo', JSON.stringify(gardenPlate));
+await page.waitForFunction(() => window.__marketPlate && window.__marketPlate.state().ready, { timeout: 8000 });
+const marketPlate = await page.evaluate(() => {
+  enterDiscArea({ name: 'Market', q: -4, r: 1, x: 0, y: 0 });
+  const front = window.__marketPlate.state();
+  window.__marketPlate.setView({ z: 0.7, x: 0 });
+  const close = window.__marketPlate.state();
+  window.__marketPlate.setView({ z: 4.6, x: 0 });
+  if (window.__train.leaveTrain) window.__train.leaveTrain();
+  return { front, close };
+});
+check('market plate is the cleaned painting in the room and a hologram up close', marketPlate.front.on && marketPlate.front.mode === 'paint' && marketPlate.close.on && marketPlate.close.mode === 'holo', JSON.stringify(marketPlate));
 
 async function layout(w, h) {
   const p = await open(w, h);
