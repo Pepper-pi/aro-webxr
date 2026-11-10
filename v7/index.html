@@ -2140,7 +2140,7 @@ window.__guideBeat = guideBeat;
 window.__paintGuide = paintGuide;
 function openGuideMap() {
   showWorldMap();
-  G.step = 2;
+  if ((G.step || 0) < 2) G.step = 2;
   MAP.avOut = true;
   G.day.woke = true;
   if (typeof syncMapNav === 'function') syncMapNav();
@@ -5890,6 +5890,12 @@ function mapTap(X, Y) {
       enterLoved(loved);
       return;
     }
+    const area = areaUnder(X, Y);
+    if (area) {
+      if (!areaNear(area)) { showCast('Step closer · ' + area.name); popText(X, Y - 16, 'step closer', '#ffe7a8', 13); return; }
+      enterDiscArea(area);
+      return;
+    }
     const hit = markerUnder(X, Y);
     if (hit) {
       if (!markerNearYou(hit)) { popText(X, Y - 16, 'step closer', '#ffe7a8', 13); return; }
@@ -5934,9 +5940,46 @@ function giftFor(t) {
   const [X, Y] = proj(MAP.cam, t.x, t.y); lootPop(X, Y - 30, gift[0]);
 }
 // returns true to stop walking (reached something worth stopping for)
+function namedAreaAt(t) {
+  if (!t) return null;
+  const s = SUPER_HEX.find(a => (a.name === 'Forest' || a.name === 'Meadow') && a.q === t.q && a.r === t.r);
+  if (!s) return null;
+  return { name: s.name, q: s.q, r: s.r, x: t.x, y: t.y };
+}
+function areaUnder(X, Y) {
+  if (G.scene !== 'map') return null;
+  let best = null, bd = 42;
+  for (const s of SUPER_HEX) {
+    if (s.name !== 'Forest' && s.name !== 'Meadow') continue;
+    const t = tileAt(s.q, s.r);
+    if (!t) continue;
+    const [sx, sy] = proj(MAP.cam, t.x, t.y);
+    const d = Math.hypot(sx - X, sy - Y);
+    if (d < bd) { bd = d; best = { name: s.name, q: s.q, r: s.r, x: t.x, y: t.y }; }
+  }
+  return best;
+}
+function areaNear(area) {
+  const h = MAP.house;
+  return Math.hypot(area.x - h.x, area.y - h.y) < 2.2;
+}
+function enterDiscArea(area) {
+  if (window.__world && window.__world.enterArea) window.__world.enterArea(area.name);
+  startTrain();
+  TRAIN.area = area.name;
+  TRAIN.demo = false;
+  const look = window.__world && window.__world.look && window.__world.look();
+  const weather = look && look.weather ? look.weather : '';
+  setObj('<b>' + area.name + '</b> · ' + weather);
+  showCast(area.name + ' · ' + weather);
+  applySavedClass();
+  return true;
+}
 function onStep(t) {
   if (G.day.tiles.length < 60) G.day.tiles.push(t.ter);
   giftFor(t);
+  const area = namedAreaAt(t);
+  if (area) { setAct('Enter ' + area.name, () => enterDiscArea(area)); return true; }
   if ((G.step === 2 && t.ter === 'dome') || (G.step === 4 && t.ter === 'poi')) { onArrive(t); return true; }
   return false;
 }
@@ -7455,6 +7498,7 @@ function startKing() {
   coach(null);
 }
 function startTrain() {
+  TRAIN.area = null;
   dismissHome();
   audioInit();
   const title = document.getElementById('title');
@@ -7941,6 +7985,8 @@ function grantCookLoot(raid) {
   return { drops, line: drops.map(k => ITEMS[k].n).join(', ') };
 }
 function leaveTrain() {
+  if (TRAIN.area && window.__world && window.__world.leaveArea) window.__world.leaveArea();
+  TRAIN.area = null;
   interruptCharge();
   clearMeal();
   TRAIN.on = false; TRAIN.cap = null; TRAIN.drag = null;

@@ -230,7 +230,7 @@ function paintField(look) {
   }
   if (hexMesh && look) {
     if (!hexMesh.userData.own) { hexMesh.material = hexMesh.material.clone(); hexMesh.userData.own = true; }
-    hexMesh.material.color.set(kind === 'rain' || kind === 'storm' ? '#243246' : kind === 'night' ? '#1a2230' : '#5d7594');
+    hexMesh.material.color.set(look.area === 'Forest' ? '#245c34' : look.area === 'Meadow' ? '#7d8a32' : (kind === 'rain' || kind === 'storm' ? '#243246' : kind === 'night' ? '#1a2230' : '#5d7594'));
   }
   state.weatherKind = kind;
   state.story = !look;

@@ -20,6 +20,11 @@ let table = null;
 let override = '';
 let place = Object.assign({}, SEASIDE);
 let look = null;
+let daily = null;
+const AREA = {
+  Forest: { sky: '#12341c', fog: '#0e2814', sun: '#d7f0b8', neon: ['#7dff9a', '#3de0ff', '#c6ff6a'] },
+  Meadow: { sky: '#2c3412', fog: '#24300e', sun: '#ffe7a0', neon: ['#ffd36a', '#ff9ad2', '#e8ff8a'] },
+};
 let rev = 0;
 const CELL = 0.02;
 const dev = { on: false, lat: SEASIDE.lat, lon: SEASIDE.lon };
@@ -167,8 +172,33 @@ function buildLook(date, disc, weather) {
 }
 function publish(next) {
   look = next;
+  if (next && !next.area) daily = next;
   rev += 1;
   paintReadout();
+}
+function areaLook(name) {
+  const theme = AREA[name];
+  if (!theme) return null;
+  const weather = KINDS[mix(currentDate() + '|' + discId() + '|' + name) % KINDS.length];
+  const built = buildLook(currentDate(), discId() + '|' + name, weather);
+  built.sky = theme.sky;
+  built.fog = theme.fog;
+  built.sun = theme.sun;
+  built.neon = theme.neon.slice();
+  built.area = name;
+  return built;
+}
+function enterArea(name) {
+  const next = areaLook(name);
+  if (!next) return null;
+  if (!daily && look && !look.area) daily = look;
+  publish(next);
+  return look;
+}
+function leaveArea() {
+  if (daily) publish(daily);
+  else recompute();
+  return look;
 }
 function currentDate() {
   const q = new URLSearchParams(location.search).get('day');
@@ -353,6 +383,8 @@ function mount() {
   document.getElementById('worldPin').onclick = () => pin();
   window.__world = {
     look: () => look,
+    enterArea,
+    leaveArea,
     revision: () => rev,
     pins: loadPins,
     pin,

@@ -1051,19 +1051,10 @@ function enter() {
 }
 function goOutside() {
   const step = window.__profile && window.__profile.guide && window.__profile.guide();
-  if (step === 'out' && window.__openGuideMap) {
-    leave();
-    window.__openGuideMap();
-    if (window.__guideBeat) window.__guideBeat('out');
-    return;
-  }
   leave();
-  if (window.__train && window.__train.startTrain) {
-    window.__train.startTrain();
-    const c = window.__profile && window.__profile.get && window.__profile.get().cls;
-    if ((c === 'mage' || c === 'gunner') && window.__train.setClass) window.__train.setClass(c);
-    if (window.__train.setTrainView) window.__train.setTrainView('fp');
-  }
+  if (window.__openGuideMap) window.__openGuideMap();
+  else if (window.__showWorldMap) window.__showWorldMap();
+  if (step === 'out' && window.__guideBeat) window.__guideBeat('out');
 }
 function leave() {
   HOME.on = false; HOME.phase = 'inside';
@@ -1242,7 +1233,7 @@ function mount() {
   document.body.appendChild(canvas);
   const hud = document.createElement('div');
   hud.id = 'homeHud';
-  hud.innerHTML = '<div id="homeHudRow"><button type="button" id="homeCrackle" aria-pressed="false">Fire sound off</button><button type="button" id="homeTable">Place on a table</button><button type="button" id="homePortal">Place the door</button><button type="button" id="homeBookBtn">Collection</button><button type="button" id="homeArcade">Arcade</button><button type="button" id="homeArcadeOut">Step out</button><button type="button" id="homeBoard">Pet board</button><button type="button" id="homeMage">Mage</button><button type="button" id="homeGun">Gunner</button><button type="button" id="homeOutside" title="Future AR entry. On this screen it opens the field.">Outside</button><button type="button" id="homePin">Pin this world</button></div><div id="homeLoadout"></div><p id="homeArNote"></p><div id="homeBook"><b>Collection</b><p id="homeBondNote"></p><ul id="homeBookList"></ul><b>Pins</b><ul id="homePinList"></ul></div>';
+  hud.innerHTML = '<div id="homeHudRow"><button type="button" id="homeCrackle" aria-pressed="false">Fire sound off</button><button type="button" id="homeTable">Place on a table</button><button type="button" id="homePortal">Place the door</button><button type="button" id="homeBookBtn">Collection</button><button type="button" id="homeArcade">Arcade</button><button type="button" id="homeArcadeOut">Step out</button><button type="button" id="homeBoard">Pet board</button><button type="button" id="homeMage">Mage</button><button type="button" id="homeGun">Gunner</button><button type="button" id="homeOutside" title="Opens the world map.">Outside</button><button type="button" id="homePin">Pin this world</button></div><div id="homeLoadout"></div><p id="homeArNote"></p><div id="homeBook"><b>Collection</b><p id="homeBondNote"></p><ul id="homeBookList"></ul><b>Pins</b><ul id="homePinList"></ul></div>';
   document.body.appendChild(hud);
   const back = document.createElement('button');
   back.id = 'homeDoorBack'; back.type = 'button'; back.textContent = 'Door home';

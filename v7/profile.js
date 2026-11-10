@@ -32,6 +32,7 @@ function load() {
   try { raw = localStorage.getItem(KEY); } catch (e) { raw = null; }
   const existed = !!raw;
   try { state = raw ? JSON.parse(raw) : null; } catch (e) { state = null; }
+  const savedCells = state && typeof state.cells === 'number' ? state.cells : null;
   const fresh = !state || typeof state.coins !== 'number';
   if (fresh) state = blank();
   if (!Array.isArray(state.pets) || !state.pets.length) state.pets = blank().pets;
@@ -50,6 +51,9 @@ function load() {
   if (!Array.isArray(state.loadout.gunner) || !state.loadout.gunner.length) state.loadout.gunner = ['shot', 'frag', 'turret'];
   if (!Array.isArray(state.prizes)) state.prizes = [];
   if (state.cls !== 'mage' && state.cls !== 'gunner') state.cls = '';
+  if (!existed) state.cells = 3;
+  else if (savedCells != null) state.cells = savedCells;
+  else if (typeof state.cells !== 'number') state.cells = 2;
   if (typeof state.fieldWins !== 'number') state.fieldWins = 0;
   if (typeof state.captures !== 'number') state.captures = 0;
   if (typeof state.raidDate !== 'string') state.raidDate = '';
