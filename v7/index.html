@@ -602,6 +602,11 @@ body.fishing #fishM .focus-nav button{min-height:36px;padding:6px 8px}
   <div class="chips" id="craftBag"></div>
   <button class="big gold" id="brew" disabled><i></i><span>Hold to brew</span></button>
   <div class="hint" id="craftHint"></div>
+  <div class="hint" id="nookLoop">
+    <button type="button" class="big" id="nookPond">Fish the pond</button>
+    <div id="nookCatches"></div>
+    <p id="nookCookNote"></p>
+  </div>
   <div class="focus-nav"><button type="button" data-back>Back</button><button type="button" data-home>Home</button></div>
 </div></div>
 
@@ -4467,6 +4472,52 @@ function renderCraftUI() {
   $('#slotR').innerHTML = res ? `<img src="${ICON_URL[res]}" alt=""><div><span style="color:${RAR[ITEMS[res].r]}">${ITEMS[res].n}</span><br><span style="color:var(--dim);font-weight:600">${ITEMS[res].d}</span></div>` : '<span style="color:var(--dim)">pick two</span>';
   const can = !!res && G.aether >= 2; $('#brew').disabled = !can; $('#brew span').textContent = res ? 'Hold to brew · 2 Aether' : 'Hold to brew';
   $('#craftHint').innerHTML = G.bag.gel && G.bag.pollen ? 'Try <b>Slime Gel + Pollen</b> → Honey Bait. Fish bite faster and rarer.' : 'Pick two ingredients from your bag. Unknown pairs make <b>Aether Mush</b>.';
+  paintNookCook();
+}
+function paintNookCook() {
+  const host = document.getElementById('nookCatches');
+  if (!host) return;
+  host.innerHTML = '';
+  const catches = window.__profile && window.__profile.catches ? window.__profile.catches() : [];
+  const stock = window.__profile && window.__profile.get ? window.__profile.get().treats : 0;
+  const head = document.createElement('p');
+  head.textContent = 'Treats in stock · ' + stock;
+  host.appendChild(head);
+  if (!catches.length) {
+    const p = document.createElement('p');
+    p.textContent = 'Fish the pond. A catch can become a meal or a treat.';
+    host.appendChild(p);
+    return;
+  }
+  catches.forEach((c, i) => {
+    const row = document.createElement('div');
+    const name = document.createElement('p');
+    name.textContent = c.name + ' · ' + c.cm + ' cm · ' + (c.date || '') + ' · ' + (c.weather || 'clear');
+    const meal = document.createElement('button');
+    meal.type = 'button';
+    meal.className = 'big';
+    meal.textContent = 'Cook meal · +6 coins';
+    meal.onclick = () => {
+      const r = window.__profile.cookCatch(i, 'meal');
+      const note = document.getElementById('nookCookNote');
+      if (note) note.textContent = r.ok ? r.name + ' · Honey plate · +6 coins' : 'No catch';
+      renderCraftUI();
+    };
+    const treat = document.createElement('button');
+    treat.type = 'button';
+    treat.className = 'big';
+    treat.textContent = 'Make treat';
+    treat.onclick = () => {
+      const r = window.__profile.cookCatch(i, 'treat');
+      const note = document.getElementById('nookCookNote');
+      if (note) note.textContent = r.ok ? r.name + ' · pet treat · ' + r.treats + ' in stock' : 'No catch';
+      renderCraftUI();
+    };
+    row.appendChild(name);
+    row.appendChild(meal);
+    row.appendChild(treat);
+    host.appendChild(row);
+  });
 }
 function brewDone() {
   if (CR.sel.length !== 2) return;
@@ -4563,7 +4614,7 @@ function fishMsg(h) { const n = $('#fishMsg'); if (n) n.innerHTML = h; }
 function syncFishAssist() { const b = $('#fishAssist'); if (b) b.classList.toggle('hide', !(REEL_PROTO && FI.phase === 'reel')); }
 function showFishBtn(label) { const b = $('#fishBtn'); if (!b) return; b.textContent = label; b.classList.remove('hide'); }
 function fishTitle() {
-  const where = FI.spot && FI.spot.space === 'ship' ? 'Beside the ship' : 'Pond';
+  const where = FI.fromNook ? 'Cook Nook pond' : FI.spot && FI.spot.space === 'ship' ? 'Beside the ship' : 'Pond';
   const bait = G.fishBait === 'bait' ? ' · bait' : '';
   const left = Math.max(0, FISH_CASTS - (FI.used || 0));
   return where + bait + ' · ' + left + (left === 1 ? ' cast' : ' casts');
@@ -4600,7 +4651,10 @@ function fishRestock() {
   setGesture('idle', { lead: 'offhand', pinch: 0 });
   return true;
 }
-function openFish() {
+function openFish(opts) {
+  FI.fromNook = !!(opts && opts.nook);
+  const small = document.querySelector('#fishM small');
+  if (small) small.textContent = FI.fromNook ? 'Cook Nook' : 'Pond spot';
   if (!FI.water) FI.water = 'pond';
   ensureFishSpot();
   fishRestock();
@@ -5882,6 +5936,8 @@ cv.addEventListener('lostpointercapture', e => { if (AR.ptr && AR.ptr.id != null
 $('#fishC').addEventListener('pointerdown', e => { e.preventDefault(); if (FI.phase === 'aim') fishCharge(); else fishTap(); });
 ['pointerup', 'pointerleave', 'pointercancel'].forEach(n => $('#fishC').addEventListener(n, () => { if (FI.charging) fishTap(); }));
 addEventListener('keyup', e => { if (e.key === ' ' && FI.charging) fishTap(); });
+const nookPond = document.getElementById('nookPond');
+if (nookPond) nookPond.onclick = () => { if (window.__home && window.__home.fishFromNook) window.__home.fishFromNook(); };
 const brew = $('#brew');
 brew.addEventListener('pointerdown', e => { e.preventDefault(); if (brew.disabled) return; CR.brewing = true; CR.k = 0; SFX.brew(); });
 ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => brew.addEventListener(ev, () => { if (CR.brewing && CR.k < 1) { CR.brewing = false; CR.k = 0; brew.querySelector('i').style.width = '0'; } }));

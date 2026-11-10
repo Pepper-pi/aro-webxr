@@ -550,6 +550,22 @@ function mount() {
     addPet, setActive, giveTreat,
     notePin: (pin) => { load(); state.pins = [pin].concat(state.pins).slice(0, 8); save(); },
     noteBond: (b) => { load(); state.bonds = { taps: b.taps || 0, tier: b.tier || 0, collected: (b.collected || []).slice() }; save(); },
+    catches: () => { load(); return state.catches.slice(); },
+    cookCatch: (index, kind) => {
+      load();
+      const fish = state.catches[index | 0];
+      if (!fish) return { ok: false, reason: 'none' };
+      state.catches.splice(index | 0, 1);
+      if (kind === 'treat') {
+        state.treats += 1;
+        save();
+        return { ok: true, kind: 'treat', name: fish.name, treats: state.treats };
+      }
+      state.coins += 6;
+      state.buff = 'Honey plate';
+      save();
+      return { ok: true, kind: 'meal', name: fish.name, coins: state.coins, buff: state.buff };
+    },
     addCatch: (fish) => {
       load();
       const look = window.__world && window.__world.look && window.__world.look();

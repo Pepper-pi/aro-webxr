@@ -979,8 +979,19 @@ function beginFishing() {
   show(false);
   document.body.classList.remove('home-in');
   const back = document.getElementById('homeDoorBack');
-  if (back) back.classList.add('on');
+  if (back) { back.textContent = 'Door home'; back.classList.add('on'); }
   if (typeof openFish === 'function') openFish();
+}
+function fishFromNook() {
+  if (typeof closeModal === 'function') closeModal('craftM');
+  HOME.phase = 'fishing';
+  show(false);
+  document.body.classList.remove('home-in');
+  const back = document.getElementById('homeDoorBack');
+  if (back) { back.textContent = 'Back to the Nook'; back.classList.add('on'); }
+  if (typeof window.__showWorldMap === 'function') window.__showWorldMap();
+  if (typeof openFish === 'function') openFish({ nook: true });
+  return true;
 }
 function enter() {
   if (!ensure()) return false;
@@ -1079,7 +1090,7 @@ function backHome() {
   if (typeof closeModal === 'function') closeModal('fishM');
   show(true);
   const back = document.getElementById('homeDoorBack');
-  if (back) back.classList.remove('on');
+  if (back) { back.textContent = 'Door home'; back.classList.remove('on'); }
   camera.position.set(5.1, 1.65, 0.15);
   lookNow.set(11, 0.8, 0);
   placeRide(false);
@@ -1235,7 +1246,7 @@ function boot() {
     ar: { probe: probeAr, start: startAr },
     covers: () => HOME.on && HOME.phase !== 'fishing',
     refreshBook: () => renderBook(false),
-    goOutside, enterArcade, leaveArcade,
+    goOutside, enterArcade, leaveArcade, fishFromNook,
     markFromField: () => { HOME.fromField = true; },
     bond: () => { const b = bondState(); return { taps: b.taps, tier: b.tier, collected: b.collected.slice() }; },
     collection: () => bondState().collected.map(id => ({ id, title: CARD_TITLE[id] || id })),
