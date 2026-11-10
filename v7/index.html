@@ -57,16 +57,9 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 #ring.on{opacity:1}
 #ring,#ring *{pointer-events:none}
 #ring.on #ringHead,#ring.on #ringHead *,#ring.on #ringRail,#ring.on #ringRail *,#ring.on #ringHome,#ring.on #ringHome *{pointer-events:auto}
+#ringGlass{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
 #ringBack{position:absolute;z-index:0;pointer-events:none;background:none;clip-path:none;box-shadow:none}
-#ringGrid{position:absolute;inset:0;pointer-events:none;background:rgba(10,4,18,.92)}
-#ringFloor{position:absolute;inset:0;pointer-events:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='24' viewBox='0 0 28 24'><g fill='none' stroke='%23ffc4e4' stroke-width='0.45' opacity='0.42'><polygon points='7,1 13,4.2 13,11 7,14.2 1,11 1,4.2'/><polygon points='21,1 27,4.2 27,11 21,14.2 15,11 15,4.2'/><polygon points='14,8 20,11.2 20,18 14,21.2 8,18 8,11.2'/></g></svg>");background-size:112px 96px}
-#ring.land-fit #ringGrid{clip-path:polygon(50% 1%,98.5% 22%,98.5% 78%,50% 99%,1.5% 78%,1.5% 22%)}
-#ring:not(.land-fit) #ringGrid{clip-path:polygon(50% .7%,98% 18.7%,98% 81.3%,50% 99.3%,2% 81.3%,2% 18.7%)}
-#ring.land-fit #ringFloor{clip-path:polygon(50% 9%,90% 27%,90% 73%,50% 91%,10% 73%,10% 27%)}
-#ring:not(.land-fit) #ringFloor{clip-path:polygon(50% 8%,88% 24%,88% 76%,50% 92%,12% 76%,12% 24%)}
-#ringBack svg{display:block;width:100%;height:100%;overflow:visible;position:relative;filter:drop-shadow(0 0 5px rgba(255,120,200,.75)) drop-shadow(0 0 1.5px rgba(120,240,255,.8))}
-#ring.land-fit #ringBack .hex-port{display:none}
-#ring:not(.land-fit) #ringBack .hex-land{display:none}
+#ringGrid,#ringFloor,#ringBack svg{display:none}
 #ringFrame{position:absolute;z-index:1;display:flex;flex-direction:column;min-width:0;background:transparent;border:0}
 #ringHead{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 8px;flex:none;background:rgba(8,14,24,.42)}
 #ringTitle{flex:1;font-weight:900;font-size:16px}
@@ -150,7 +143,7 @@ body.out-combat #mapNav,body.out-combat #wirePanel,body.out-combat #charBtn{disp
 body:has(.modal.on) #coach,body:has(.modal.on) #mapNav,body:has(.modal.on) #act,body:has(.modal.on) #menuBtn,body:has(.modal.on) #obj,body:has(.modal.on) #wirePanel,body:has(.modal.on) #charBtn,body:has(.modal.on) #banner,body:has(.modal.on) #toasts,body.menu-open #coach,body.menu-open #mapNav,body.menu-open #wirePanel,body.menu-open #charBtn,body.menu-open #obj,body.menu-open #act,body.menu-open #menuBtn{visibility:hidden!important;pointer-events:none!important}
 body.menu-open .modal.on:not(#sumM){z-index:31;background:transparent;pointer-events:none;padding:0}
 body.menu-open:has(#ring.drawer.rail-open) .modal.on:not(#sumM){z-index:19}
-body.menu-open .modal.on:not(#sumM) .sheet{pointer-events:auto;position:fixed;margin:0;max-width:none;width:auto;border-radius:0;box-shadow:inset 0 0 0 1px rgba(220,250,255,.95),inset 0 0 0 5px rgba(255,140,210,.35),0 0 14px rgba(120,236,255,.7),0 0 22px rgba(255,90,190,.35);padding:34px 30px 16px;background:rgba(8,14,36,.34);color:#f7fbff;clip-path:polygon(8% 0,92% 0,100% 50%,92% 100%,8% 100%,0 50%)}
+body.menu-open .modal.on:not(#sumM) .sheet{pointer-events:auto;position:fixed;margin:0;max-width:none;width:auto;border-radius:0;box-shadow:none;padding:34px 30px 16px;background:transparent;color:#f7fbff;text-shadow:0 1px 2px rgba(0,0,0,.72);clip-path:polygon(8% 0,92% 0,100% 50%,92% 100%,8% 100%,0 50%)}
 body.menu-open .sheet .row div,body.menu-open .sheet .sh-h,body.menu-open .sheet .spell b{color:#f7fbff}
 body.menu-open .sheet .row small,body.menu-open .sheet .hint,body.menu-open .sheet .spell small{color:#d7ecf8;font-size:16px}
 body.menu-open .sheet .tg{background:rgba(255,255,255,.28);transition:none}
@@ -158,7 +151,7 @@ body.menu-open .sheet .tg::after{transition:none}
 body.menu-open .sheet .tg.on{background:#ff4fb4}
 body.menu-open .sheet .tg.on::after{left:24px}
 body.menu-open .sheet .seg button.on{background:#ff4fb4;color:#fff}
-body.menu-open #ringHome{background:rgba(8,14,36,.34);color:#f7fbff;box-shadow:inset 0 0 0 1px rgba(220,250,255,.95),inset 0 0 0 5px rgba(255,140,210,.35),0 0 14px rgba(120,236,255,.7),0 0 22px rgba(255,90,190,.35);padding:34px 30px 16px;clip-path:polygon(8% 0,92% 0,100% 50%,92% 100%,8% 100%,0 50%)}
+body.menu-open #ringHome{background:transparent;color:#f7fbff;box-shadow:none;text-shadow:0 1px 2px rgba(0,0,0,.72);padding:34px 30px 16px;clip-path:polygon(8% 0,92% 0,100% 50%,92% 100%,8% 100%,0 50%)}
 body.menu-open:has(#ring.tight) .modal.on:not(#sumM) .sheet,body.menu-open:has(#ring.tight) #ringHome{clip-path:polygon(12% 0,88% 0,100% 50%,88% 100%,12% 100%,0 50%);padding:14px 26px 16px}
 body.menu-open .sheet .row{flex-direction:column;align-items:stretch}
 body.menu-open .sheet .row div,body.menu-open .sheet .hint,body.menu-open #ringHome{font-size:16px}
@@ -557,6 +550,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
   <div class="focus-nav"><button type="button" data-back>Back</button><button type="button" data-home>Home</button></div>
 </div></div>
 <div id="ring" role="dialog" aria-modal="true" aria-label="Menu" aria-hidden="true">
+  <canvas id="ringGlass" aria-hidden="true"></canvas>
   <div id="ringBack" aria-hidden="true"><div id="ringGrid"><div id="ringFloor"></div></div><svg class="hex-land" viewBox="0 0 138 100" preserveAspectRatio="none" focusable="false"><polygon points="69,1 136,22 136,78 69,99 2,78 2,22" fill="rgba(255,170,220,.12)" stroke="#ffe6f8" stroke-width="2" vector-effect="non-scaling-stroke"/><polygon points="69,8 124,26 124,74 69,92 14,74 14,26" fill="none" stroke="rgba(255,236,250,.82)" stroke-width="1.2" vector-effect="non-scaling-stroke"/></svg><svg class="hex-port" viewBox="0 0 100 150" preserveAspectRatio="none" focusable="false"><polygon points="50,1 98,28 98,122 50,149 2,122 2,28" fill="rgba(255,170,220,.1)" stroke="#ffe6f8" stroke-width="2" vector-effect="non-scaling-stroke"/><polygon points="50,12 88,34 88,116 50,138 12,116 12,34" fill="none" stroke="rgba(255,232,248,.75)" stroke-width="1.1" vector-effect="non-scaling-stroke"/></svg></div>
   <div id="ringFrame">
     <div id="ringHead">
@@ -4268,6 +4262,363 @@ const MENU_MODAL = { bag: 'bagM', craft: 'craftM', fish: 'fishM', skills: 'skill
 let menuHist = [];
 const menuScroll = {};
 function menuZoom() { const z = parseFloat(getComputedStyle(document.documentElement).zoom); return z > 0 ? z : 1; }
+/* Thick holographic slab. The pink floor is a flat outline grid (no vanishing
+   point) drawn behind and around the pane. The pane is a front face plus a
+   side wall, and the floor sample bends inside the glass. The old clipped
+   wallpaper and the flat SVG stroke are not drawn. */
+const MENU_GLASS = { floorR: 80, fineR: 15, bend: 26, insetK: 0.086, shiftK: 0.32 };
+let menuGlassGL = null;
+
+function menuHexRatios(land) {
+  return land
+    ? [[69 / 138, 1 / 100], [136 / 138, 22 / 100], [136 / 138, 78 / 100], [69 / 138, 99 / 100], [2 / 138, 78 / 100], [2 / 138, 22 / 100]]
+    : [[50 / 100, 1 / 150], [98 / 100, 28 / 150], [98 / 100, 122 / 150], [50 / 100, 149 / 150], [2 / 100, 122 / 150], [2 / 100, 28 / 150]];
+}
+function menuHexPts(box, land) {
+  return menuHexRatios(land).map(([x, y]) => [box.x + x * box.w, box.y + y * box.h]);
+}
+function menuCentroid(pts) {
+  let x = 0, y = 0;
+  for (const p of pts) { x += p[0]; y += p[1]; }
+  return [x / pts.length, y / pts.length];
+}
+function menuMeanR(pts, c) {
+  let s = 0;
+  for (const p of pts) s += Math.hypot(p[0] - c[0], p[1] - c[1]);
+  return s / pts.length;
+}
+function menuInside(pts, p) {
+  let w = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const a = pts[i], b = pts[j];
+    const den = (b[1] - a[1]) || 1e-9;
+    if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / den + a[0]) w = !w;
+  }
+  return w;
+}
+function menuOffsetHex(pts, dist) {
+  const n = pts.length, lines = [];
+  for (let i = 0; i < n; i++) {
+    const a = pts[i], b = pts[(i + 1) % n];
+    const ex = b[0] - a[0], ey = b[1] - a[1];
+    const L = Math.hypot(ex, ey) || 1;
+    const nx = ey / L, ny = -ex / L;
+    lines.push({ p: [a[0] + nx * dist, a[1] + ny * dist], d: [ex, ey] });
+  }
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const A = lines[(i + n - 1) % n], B = lines[i];
+    const cross = A.d[0] * B.d[1] - A.d[1] * B.d[0];
+    if (Math.abs(cross) < 1e-5) { out.push(B.p.slice()); continue; }
+    const dx = B.p[0] - A.p[0], dy = B.p[1] - A.p[1];
+    const t = (dx * B.d[1] - dy * B.d[0]) / cross;
+    out.push([A.p[0] + A.d[0] * t, A.p[1] + A.d[1] * t]);
+  }
+  return out;
+}
+function menuFrontHex(back) {
+  const span = Math.hypot(back[0][0] - back[3][0], back[0][1] - back[3][1]);
+  let inset = Math.max(16, Math.min(38, span * MENU_GLASS.insetK));
+  let shift = inset * MENU_GLASS.shiftK;
+  let dist = inset;
+  let trial = menuOffsetHex(back, dist);
+  if (menuMeanR(trial, menuCentroid(trial)) > menuMeanR(back, menuCentroid(back))) dist = -inset;
+  let front = menuOffsetHex(back, dist).map(p => [p[0], p[1] - shift]);
+  let guard = 0;
+  while (front.some(p => !menuInside(back, p)) && guard++ < 6) {
+    shift *= 0.72;
+    front = menuOffsetHex(back, dist).map(p => [p[0], p[1] - shift]);
+  }
+  return { front, inset: Math.abs(dist), shift };
+}
+function menuGlassBox(ring, back) {
+  const rr = ring.getBoundingClientRect();
+  const br = back.getBoundingClientRect();
+  return { x: br.left - rr.left, y: br.top - rr.top, w: br.width, h: br.height };
+}
+function menuDrawHexes(canvas, dpr, R, origin, paint) {
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const cssW = canvas.width / dpr, cssH = canvas.height / dpr;
+  ctx.clearRect(0, 0, cssW, cssH);
+  const dx = 1.5 * R, dy = Math.sqrt(3) * R;
+  const cols = Math.ceil(cssW / dx) + 2, rows = Math.ceil(cssH / dy) + 2;
+  const cells = [];
+  for (let col = -cols; col <= cols; col++) {
+    for (let row = -rows; row <= rows; row++) {
+      const cx = origin[0] + col * dx;
+      const cy = origin[1] + row * dy + ((col & 1) ? dy / 2 : 0);
+      if (cx < -R || cy < -R || cx > cssW + R || cy > cssH + R) continue;
+      cells.push([cx, cy]);
+    }
+  }
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  const strokeAll = () => {
+    for (const [cx, cy] of cells) {
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = (i * Math.PI) / 3;
+        const x = cx + Math.cos(a) * R, y = cy + Math.sin(a) * R;
+        if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+  };
+  paint(ctx, strokeAll);
+}
+function menuEnsureGrid(host, key, w, h) {
+  let c = host[key];
+  if (!c) { c = document.createElement('canvas'); host[key] = c; }
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  return c;
+}
+function menuCompile(gl, type, src) {
+  const sh = gl.createShader(type);
+  gl.shaderSource(sh, src);
+  gl.compileShader(sh);
+  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+    const log = gl.getShaderInfoLog(sh);
+    gl.deleteShader(sh);
+    throw new Error(log || 'shader');
+  }
+  return sh;
+}
+function menuGlassProgram(gl) {
+  const vs = 'attribute vec2 a;void main(){gl_Position=vec4(a,0.0,1.0);}';
+  const fs = `
+precision highp float;
+uniform vec2 uRes;
+uniform float uDpr;
+uniform vec2 uCss;
+uniform vec2 uCenter;
+uniform float uBend;
+uniform vec4 uB0,uB1,uB2,uF0,uF1,uF2;
+uniform sampler2D uFloor;
+uniform sampler2D uFine;
+void accum(vec2 p, vec2 vi, vec2 vj, inout float d, inout float s) {
+  vec2 e = vj - vi;
+  vec2 w = p - vi;
+  vec2 b = w - e * clamp(dot(w, e) / max(dot(e, e), 1e-4), 0.0, 1.0);
+  d = min(d, dot(b, b));
+  bool c0 = p.y >= vi.y;
+  bool c1 = p.y < vj.y;
+  bool c2 = e.x * w.y > e.y * w.x;
+  if ((c0 && c1 && c2) || (!c0 && !c1 && !c2)) s = -s;
+}
+float sd6(vec2 p, vec4 A, vec4 B, vec4 C) {
+  float d = 1e20;
+  float s = 1.0;
+  accum(p, A.xy, C.zw, d, s);
+  accum(p, A.zw, A.xy, d, s);
+  accum(p, B.xy, A.zw, d, s);
+  accum(p, B.zw, B.xy, d, s);
+  accum(p, C.xy, B.zw, d, s);
+  accum(p, C.zw, C.xy, d, s);
+  return s * sqrt(d);
+}
+void over(inout vec3 c, inout float a, vec3 sc, float sa) {
+  c = sc * sa + c * (1.0 - sa);
+  a = sa + a * (1.0 - sa);
+}
+vec4 tap(sampler2D tex, vec2 q) {
+  vec2 uv = vec2(q.x / uCss.x, 1.0 - q.y / uCss.y);
+  return texture2D(tex, clamp(uv, 0.0, 1.0));
+}
+void main() {
+  vec2 p = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) / uDpr;
+  float sdB = sd6(p, uB0, uB1, uB2);
+  float sdF = sd6(p, uF0, uF1, uF2);
+  vec2 n = normalize(vec2(
+    sd6(p + vec2(1.0, 0.0), uB0, uB1, uB2) - sd6(p - vec2(1.0, 0.0), uB0, uB1, uB2),
+    sd6(p + vec2(0.0, 1.0), uB0, uB1, uB2) - sd6(p - vec2(0.0, 1.0), uB0, uB1, uB2)
+  ) + vec2(1e-4));
+  float up = clamp(-n.y, 0.0, 1.0);
+  float dn = clamp(n.y, 0.0, 1.0);
+  float outside = max(sdB, 0.0);
+  float quiet = sdB < 0.0 ? 1.0 : smoothstep(168.0, 26.0, outside);
+  vec2 rp = p;
+  float edgeN = 0.0;
+  if (sdF < 0.0) {
+    edgeN = 1.0 - clamp(-sdF / 70.0, 0.0, 1.0);
+    vec2 d = p - uCenter;
+    float L = length(d);
+    rp = uCenter + d * 1.055;
+    if (L > 0.001) rp += (d / L) * (uBend * edgeN);
+  }
+  vec4 fl = tap(uFloor, rp);
+  if (sdF < 0.0) {
+    vec4 blur = tap(uFloor, rp) + tap(uFloor, rp + vec2(2.0, 0.4)) + tap(uFloor, rp + vec2(-1.4, 1.2)) + tap(uFloor, rp + vec2(0.4, -1.8));
+    fl = blur * 0.25;
+    float chroma = 0.8 + edgeN * 2.2;
+    vec4 fr = tap(uFloor, rp + vec2(chroma, 0.0));
+    vec4 fb = tap(uFloor, rp - vec2(chroma, 0.0));
+    fl.rgb = mix(fl.rgb, vec3(fr.r, fl.g, fb.b), 0.65);
+  }
+  vec3 col = vec3(0.0);
+  float a = 0.0;
+  float sy = (p.y - (uCenter.y + 8.0)) / 34.0;
+  float sx = (p.x - uCenter.x) / max(uCss.x * 0.22, 40.0);
+  float shadow = exp(-sy * sy) * exp(-sx * sx);
+  if (sdB > 0.0) over(col, a, vec3(0.0, 0.0, 0.01), shadow * quiet * 0.5);
+  over(col, a, vec3(0.012, 0.006, 0.028), quiet * (sdB < 0.0 ? 0.9 : 0.82));
+  float floorVis = quiet * (sdF < 0.0 ? mix(1.0, 0.62, clamp(-sdF / 120.0, 0.0, 1.0)) : (sdF < 8.0 ? 0.35 : 1.0));
+  over(col, a, fl.rgb, fl.a * floorVis);
+  bool wall = sdB <= 0.0 && sdF >= 0.0;
+  bool face = sdF < 0.0;
+  if (wall) {
+    float span = max(sdF - sdB, 1.0);
+    float t = clamp(sdF / span, 0.0, 1.0);
+    vec4 etched = tap(uFine, p + n * ((t - 0.5) * 8.0));
+    vec3 body = mix(vec3(0.42, 0.14, 0.52), vec3(0.20, 0.06, 0.30), t);
+    float ridge = exp(-pow((t - 0.42) * 3.4, 2.0));
+    body += vec3(0.28, 0.16, 0.42) * ridge;
+    body += vec3(0.05, 0.18, 0.28) * up * (1.0 - t);
+    float catchL = smoothstep(0.14, 0.0, t);
+    vec3 lip = mix(vec3(0.9, 0.98, 1.0), vec3(1.0, 0.55, 0.9), dn * 0.5);
+    vec3 wallC = mix(body, lip, catchL);
+    float outer = smoothstep(0.86, 1.0, t);
+    wallC = mix(wallC, mix(vec3(0.95, 0.35, 0.72), vec3(0.45, 0.85, 1.0), up), outer * 0.65);
+    over(col, a, wallC, 0.9);
+    over(col, a, etched.rgb, etched.a * 0.7);
+  }
+  if (face) {
+    float fres = pow(clamp(1.0 + sdF / 54.0, 0.0, 1.0), 1.2);
+    float shade = clamp((uCenter.y - p.y) / 210.0 + 0.42, 0.0, 1.0);
+    vec3 faceC = mix(vec3(0.015, 0.03, 0.09), vec3(0.06, 0.12, 0.28), shade);
+    faceC += vec3(0.2, 0.45, 0.75) * fres * 0.35;
+    float groove = smoothstep(-18.0, -1.2, sdF);
+    faceC = mix(faceC, vec3(0.01, 0.015, 0.04), groove * 0.55);
+    over(col, a, faceC, 0.22 + fres * 0.2 + groove * 0.16);
+    vec4 etched = tap(uFine, p);
+    over(col, a, etched.rgb, etched.a * 0.28);
+    float innerFace = smoothstep(1.6, 0.2, abs(sdF + 18.0));
+    over(col, a, vec3(0.75, 0.9, 1.0), innerFace * 0.28);
+    vec2 q = (p - uCenter) / vec2(250.0, 190.0);
+    vec2 s = (q - vec2(-0.22, -0.38)) * vec2(1.2, 0.8);
+    over(col, a, vec3(0.88, 0.96, 1.0), exp(-dot(s, s)) * 0.12);
+  }
+  float lipLine = smoothstep(1.35, 0.05, abs(sdF));
+  over(col, a, mix(vec3(0.95, 0.98, 1.0), vec3(0.55, 0.95, 1.0), up), lipLine * 0.82);
+  if (sdB > 0.0 && sdB < 16.0) {
+    vec3 glow = mix(vec3(0.85, 0.22, 0.6), vec3(0.3, 0.7, 1.0), up);
+    float ga = 1.0 - sdB / 16.0;
+    over(col, a, glow, ga * ga * 0.45);
+  }
+  gl_FragColor = vec4(col, a);
+}
+`;
+  const prog = gl.createProgram();
+  const vsh = menuCompile(gl, gl.VERTEX_SHADER, vs);
+  const fsh = menuCompile(gl, gl.FRAGMENT_SHADER, fs);
+  gl.attachShader(prog, vsh);
+  gl.attachShader(prog, fsh);
+  gl.bindAttribLocation(prog, 0, 'a');
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog) || 'link');
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const floorTex = gl.createTexture();
+  const fineTex = gl.createTexture();
+  for (const tex of [floorTex, fineTex]) {
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  }
+  return { prog, buf, floorTex, fineTex };
+}
+function menuUpload(gl, tex, canvas) {
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+}
+function paintMenuGlass() {
+  const cv = document.getElementById('ringGlass');
+  const ring = document.getElementById('ring');
+  const backEl = document.getElementById('ringBack');
+  if (!cv || !ring || !ring.classList.contains('on') || !backEl) return;
+  const box = menuGlassBox(ring, backEl);
+  if (box.w < 40 || box.h < 40) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const cssW = ring.clientWidth, cssH = ring.clientHeight;
+  const bw = Math.max(2, Math.round(cssW * dpr)), bh = Math.max(2, Math.round(cssH * dpr));
+  if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; }
+  const land = ring.classList.contains('land-fit');
+  const back = menuHexPts(box, land);
+  const shaped = menuFrontHex(back);
+  const origin = [box.x + box.w / 2, box.y + box.h / 2];
+  const floor = menuEnsureGrid(cv, '_floor', bw, bh);
+  const fine = menuEnsureGrid(cv, '_fine', bw, bh);
+  menuDrawHexes(floor, dpr, MENU_GLASS.floorR, origin, (ctx, strokeAll) => {
+    ctx.strokeStyle = 'rgba(255, 80, 160, 0.38)';
+    ctx.lineWidth = 5.2;
+    ctx.shadowColor = 'rgba(255, 60, 140, 0.75)';
+    ctx.shadowBlur = 6;
+    strokeAll();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255, 206, 228, 0.96)';
+    ctx.lineWidth = 1.8;
+    strokeAll();
+  });
+  menuDrawHexes(fine, dpr, MENU_GLASS.fineR, origin, (ctx, strokeAll) => {
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(176, 206, 255, 0.55)';
+    ctx.lineWidth = 0.85;
+    strokeAll();
+  });
+  let gl = cv._gl;
+  if (!gl || gl.isContextLost()) {
+    gl = cv.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: true, preserveDrawingBuffer: true });
+    if (!gl) throw new Error('no webgl');
+    cv._gl = gl;
+    cv._gpu = null;
+  }
+  if (!cv._gpu) cv._gpu = menuGlassProgram(gl);
+  const gpu = cv._gpu;
+  const pack = pts => {
+    const a = [];
+    for (const p of pts) a.push(p[0], p[1]);
+    return a;
+  };
+  const bp = pack(back), fp = pack(shaped.front);
+  gl.viewport(0, 0, bw, bh);
+  gl.disable(gl.DEPTH_TEST);
+  gl.disable(gl.SCISSOR_TEST);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  gl.clearColor(0, 0, 0, 0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.useProgram(gpu.prog);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gpu.buf);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  const u = n => gl.getUniformLocation(gpu.prog, n);
+  gl.uniform2f(u('uRes'), bw, bh);
+  gl.uniform1f(u('uDpr'), dpr);
+  gl.uniform2f(u('uCss'), cssW, cssH);
+  gl.uniform2f(u('uCenter'), origin[0], origin[1]);
+  gl.uniform1f(u('uBend'), MENU_GLASS.bend);
+  gl.uniform4f(u('uB0'), bp[0], bp[1], bp[2], bp[3]);
+  gl.uniform4f(u('uB1'), bp[4], bp[5], bp[6], bp[7]);
+  gl.uniform4f(u('uB2'), bp[8], bp[9], bp[10], bp[11]);
+  gl.uniform4f(u('uF0'), fp[0], fp[1], fp[2], fp[3]);
+  gl.uniform4f(u('uF1'), fp[4], fp[5], fp[6], fp[7]);
+  gl.uniform4f(u('uF2'), fp[8], fp[9], fp[10], fp[11]);
+  gl.activeTexture(gl.TEXTURE0);
+  menuUpload(gl, gpu.floorTex, floor);
+  gl.uniform1i(u('uFloor'), 0);
+  gl.activeTexture(gl.TEXTURE1);
+  menuUpload(gl, gpu.fineTex, fine);
+  gl.uniform1i(u('uFine'), 1);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  window.__menuGlass = { ok: true, mode: 'webgl', land, box, inset: shaped.inset, shift: shaped.shift, css: [cssW, cssH] };
+}
+
 function layoutMenu() {
   const ring = $('#ring'); if (!ring || !ring.classList.contains('on')) return;
   const z = menuZoom();
@@ -4329,6 +4680,7 @@ function layoutMenu() {
     sheet.style.height = sheetH + 'px';
     sheet.style.maxHeight = sheetH + 'px';
   });
+  try { paintMenuGlass(); } catch (err) { console.error(err); window.__menuGlass = { ok: false, error: String(err && err.message || err) }; }
 }
 function openModal(id) {
   const keep = $('#ring').classList.contains('on') && Object.values(MENU_MODAL).includes(id);
