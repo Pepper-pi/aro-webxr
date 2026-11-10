@@ -1132,9 +1132,10 @@ function mount() {
   practice.type = 'button';
   practice.textContent = 'Practice';
   practice.onclick = () => {
-    state.practice = !state.practice;
-    practice.textContent = state.practice ? 'Close' : 'Practice';
-    practice.setAttribute('aria-expanded', state.practice ? 'true' : 'false');
+    const on = !document.body.classList.contains('practice-on');
+    if (window.setPractice) window.setPractice(on);
+    else state.practice = on;
+    practice.setAttribute('aria-expanded', on ? 'true' : 'false');
   };
   document.body.appendChild(practice);
   window.addEventListener('resize', resize);
@@ -1145,6 +1146,7 @@ function mount() {
       follow: Object.keys(petRigs).length, weather: state.weatherKind, story: !!state.story,
     }),
     strike: () => { if (ensure()) hurtBoss(18); return state.bossHp; },
+    setPractice: (on) => { state.practice = !!on; },
   };
   requestAnimationFrame(frame);
 }

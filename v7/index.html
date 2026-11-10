@@ -529,6 +529,7 @@ body.fishing #fishM .focus-nav button{min-height:36px;padding:6px 8px}
     <button type="button" id="viewFp">First person</button>
   </div>
   <div class="rowb">
+    <button type="button" id="trainPractice">Practice</button>
     <button type="button" id="trainClass">Mage</button>
     <button type="button" id="trainReset" class="gold">Reset</button>
     <button type="button" id="trainBack">Back</button>
@@ -2086,7 +2087,94 @@ function doorClear(label, then) {
     if (then) then();
   }, 420);
 }
+function dismissHome() {
+  if (window.__home && window.__home.leave) window.__home.leave();
+  document.body.classList.remove('home-in', 'arcade-in');
+}
+function setPractice(on) {
+  document.body.classList.toggle('practice-on', !!on);
+  const label = on ? 'Close practice' : 'Practice';
+  const b = document.getElementById('trainPractice');
+  if (b) b.textContent = label;
+  const fp = document.getElementById('fpPractice');
+  if (fp) fp.textContent = on ? 'Close' : 'Practice';
+  if (window.__fight && window.__fight.setPractice) window.__fight.setPractice(!!on);
+}
+window.setPractice = setPractice;
+const GUIDE_LINE = {
+  class: 'Pick Mage or Gunner.',
+  fish: 'Fish the Cook Nook once.',
+  out: 'Step Outside onto the map.',
+  fight: 'Win one fight, or catch one.',
+  home: 'Go home. The door, or three CELLs.',
+};
+function guideVisible() {
+  const step = window.__profile && window.__profile.guide && window.__profile.guide();
+  if (!step || step === 'done' || !GUIDE_LINE[step]) return false;
+  if (document.body.classList.contains('home-in')) return step === 'class' || step === 'fish' || step === 'out';
+  const fish = document.getElementById('fishM');
+  if (fish && fish.classList.contains('on')) return step === 'fish' || step === 'out';
+  if (G.scene === 'map') return step === 'out' || step === 'fight' || step === 'home';
+  if (G.scene === 'arena' && typeof TRAIN !== 'undefined' && TRAIN.encounter) return step === 'fight';
+  return false;
+}
+function paintGuide() {
+  const bar = document.getElementById('guideBar');
+  if (!bar) return;
+  const step = window.__profile && window.__profile.guide && window.__profile.guide();
+  const show = guideVisible();
+  bar.classList.toggle('on', show);
+  bar.classList.toggle('cabin', document.body.classList.contains('home-in'));
+  const line = document.getElementById('guideLine');
+  if (line) line.textContent = GUIDE_LINE[step] || '';
+}
+function guideBeat(step) {
+  if (!window.__profile || !window.__profile.guide || !window.__profile.setGuide) return;
+  const order = ['class', 'fish', 'out', 'fight', 'home', 'done'];
+  if (window.__profile.guide() !== step) return;
+  const next = order[order.indexOf(step) + 1] || 'done';
+  window.__profile.setGuide(next);
+  paintGuide();
+}
+window.__guideBeat = guideBeat;
+window.__paintGuide = paintGuide;
+function openGuideMap() {
+  showWorldMap();
+  G.step = 2;
+  MAP.avOut = true;
+  G.day.woke = true;
+  if (typeof syncMapNav === 'function') syncMapNav();
+  paintGuide();
+}
+window.__openGuideMap = openGuideMap;
+function mountGuide() {
+  const style = document.createElement('style');
+  style.textContent = [
+    '#trainHud #trainNote,#trainHud #trainViews,#trainHud #trainReset,#trainHud #trainAuto,#trainHud #trainDemo,#trainHud #trainHelpBtn,#trainHud #trainHelp{display:none}',
+    '@media (min-height:520px){body.practice-on #trainHud #trainNote{display:block}}',
+    'body.practice-on #trainHud #trainViews{display:flex}',
+    'body.practice-on #trainHud #trainReset,body.practice-on #trainHud #trainAuto,body.practice-on #trainHud #trainDemo,body.practice-on #trainHud #trainHelpBtn{display:block}',
+    '#itemBubble{display:none !important}',
+    'body.practice-on #itemBubble:not(.hide){display:block !important}',
+    '#guideBar{position:fixed;left:12px;right:12px;top:calc(210px + var(--sat));z-index:32;display:none;align-items:center;gap:8px;padding:8px 10px;border-radius:14px;background:rgba(20,10,16,.94);border:1px solid rgba(255,214,140,.75);color:#fff6e4;font:800 15px ui-rounded,system-ui;pointer-events:auto}',
+    '#guideBar.on{display:flex}',
+    '#guideBar.cabin{top:auto;bottom:calc(14px + var(--sab))}',
+    '#guideBar button{margin-left:auto;min-height:36px;padding:6px 12px;border-radius:10px;border:0;background:#ffd978;color:#3a1d05;font:800 13px ui-rounded,system-ui}',
+  ].join('');
+  document.head.appendChild(style);
+  const bar = document.createElement('div');
+  bar.id = 'guideBar';
+  bar.innerHTML = '<span id="guideLine"></span><button type="button" id="guideSkip">Skip</button>';
+  document.body.appendChild(bar);
+  document.getElementById('guideSkip').onclick = () => {
+    if (window.__profile && window.__profile.setGuide) window.__profile.setGuide('done');
+    paintGuide();
+  };
+  const practice = document.getElementById('trainPractice');
+  if (practice) practice.onclick = () => setPractice(!document.body.classList.contains('practice-on'));
+}
 function showWorldMap() {
+  dismissHome();
   G.step = Math.max(1, G.step || 0);
   G.scene = 'map';
   const title = document.getElementById('title');
@@ -2649,6 +2737,7 @@ const HACK_GUARD = [[{ k: 'scout', at: [1, -1], full: 0 }]];
 const HACK_NODES = [{ k: 'node', at: [-1, 0], full: 1 }, { k: 'node', at: [0, -1], full: 1 }, { k: 'node', at: [1, 0], full: 1 }];
 
 function startArena(kind, onDone) {
+  dismissHome();
   Object.assign(AR, { kind, t: 0, phase: 'intro', wave: 0, mobs: [], shots: [], teles: [], lane: 1, px: 0, hurt: 0, castT: 0, cds: [0, 0, 0], ptr: null, novaT: -1, shake: 0, floorDirty: true, share: 0, claimK: 0, drops: [], firstLive: false, idleHint: false, onDone, block: null });
   AR.waves = kind === 'raid' ? RAID_WAVES : HACK_GUARD;
   arenaV7Reset();
@@ -5709,6 +5798,7 @@ function applyHand() { $('#wheel').classList.toggle('left', SET.hand === 'left')
 
 /* ===================== the one-day flow ===================== */
 function startDay() {
+  dismissHome();
   audioInit(); $('#title').classList.add('out'); setTimeout(() => $('#title').classList.add('hide'), 600);
   $('#hud').classList.remove('hide'); $('#wirePanel').classList.remove('hide'); $('#menuBtn').classList.remove('hide'); addAether(0, true);
   G.scene = 'map'; syncOutCombat(); G.step = 1; G.day.wakeT = 0; G.day.woke = false; setTime(0); G.day.aStart = G.aether;
@@ -6058,6 +6148,7 @@ function frame(now) {
   if (fishOpen) fishUpdate(dt);
   if (G.scene === 'arena') drawArena(T); else { drawMap(T); drawFX(); dayTint(); weatherWash(); }
   if (typeof syncPortalBtn === 'function') syncPortalBtn();
+  if (typeof paintGuide === 'function') paintGuide();
   heavyGrade(T, G.scene);
   vignette();
   if (fishOpen) drawFishWorld(T);
@@ -6090,6 +6181,7 @@ function boot() {
   if (!canVibrate) SET.haptics = false;
   renderSettings();
   requestAnimationFrame(frame);
+  mountGuide();
 }
 window.__aro = {
   G, MAP, AR, FI, CR, SET, perf,
@@ -7014,7 +7106,7 @@ function drawForearm() {
   ctx.textAlign = 'left';
   ctx.fillStyle = '#ffe7a4';
   const ly = clamp(ends.w[1] + 4, 16, H - 8);
-  ctx.fillText('Not tracked', ends.e[0] + 10, ly);
+  if (document.body.classList.contains('practice-on')) ctx.fillText('Not tracked', ends.e[0] + 10, ly);
   ctx.restore();
 }
 function drawHoldDemo() {
@@ -7363,6 +7455,7 @@ function startKing() {
   coach(null);
 }
 function startTrain() {
+  dismissHome();
   audioInit();
   const title = document.getElementById('title');
   title.classList.add('out');
@@ -7394,6 +7487,7 @@ function startTrain() {
   G.hp = G.maxHp; renderHearts();
   document.getElementById('wheel').classList.add('on');
   document.getElementById('trainHud').classList.remove('hide', 'king');
+  document.body.classList.add('train-on');
   document.getElementById('trainHelp').textContent = trainHelpText();
   document.getElementById('trainHelp').classList.toggle('collapsed', !TRAIN.helpOpen);
   syncClassBtn();
@@ -7527,6 +7621,7 @@ function tryCapture() {
   m.hp = 0;
   m.state = 'gone';
   const pet = window.__profile.addPet(m.rollId || 'mob', m.D.n);
+  if (window.__guideBeat) window.__guideBeat('fight');
   showCast('Caught ' + m.D.n + ' · ' + chance + '% · ' + pet.name);
   paintCatch();
   return true;
@@ -7853,6 +7948,7 @@ function leaveTrain() {
   resetCell();
   itemSync();
   document.getElementById('trainHud').classList.add('hide');
+  document.body.classList.remove('train-on');
   document.getElementById('castFeed').classList.add('hide');
   document.getElementById('wirePanel').style.top = '';
   document.getElementById('wheel').classList.remove('on');
@@ -8424,6 +8520,7 @@ function syncMapNav() {
   if (el) el.classList.toggle('hide', G.scene !== 'map');
 }
 function openMapNav() {
+  dismissHome();
   audioInit();
   const title = document.getElementById('title');
   title.classList.add('out');

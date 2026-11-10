@@ -28,8 +28,12 @@ let state = null;
 
 function load() {
   if (state) return state;
-  try { state = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { state = null; }
-  if (!state || typeof state.coins !== 'number') state = blank();
+  let raw = null;
+  try { raw = localStorage.getItem(KEY); } catch (e) { raw = null; }
+  const existed = !!raw;
+  try { state = raw ? JSON.parse(raw) : null; } catch (e) { state = null; }
+  const fresh = !state || typeof state.coins !== 'number';
+  if (fresh) state = blank();
   if (!Array.isArray(state.pets) || !state.pets.length) state.pets = blank().pets;
   state.pets = state.pets.map(p => ({
     id: p.id, species: p.species || p.id, name: p.name || 'Pet', note: p.note || '',
@@ -51,6 +55,9 @@ function load() {
   if (typeof state.raidDate !== 'string') state.raidDate = '';
   if (typeof state.friendRaid !== 'string') state.friendRaid = '';
   if (!state.friends || typeof state.friends !== 'object') state.friends = {};
+  const guideSteps = ['class', 'fish', 'out', 'fight', 'home', 'done'];
+  if (fresh && !existed) state.guide = 'class';
+  else if (guideSteps.indexOf(state.guide) < 0) state.guide = 'done';
   try {
     const oldPins = JSON.parse(localStorage.getItem('aro.world.pins') || '[]');
     if (Array.isArray(oldPins) && oldPins.length && !state.pins.length) state.pins = oldPins.slice(0, 8);
@@ -541,11 +548,20 @@ function mount() {
     get: () => load(),
     use,
     buy,
-    grantWin: () => { load(); state.coins += 12; state.fieldWins = (state.fieldWins || 0) + 1; const lv = addXp(6); const pet = addPetXp(8, 0); save(); return { coins: 12, xp: 6, total: state.coins, pet, level: lv.level }; },
+    grantWin: () => { load(); state.coins += 12; state.fieldWins = (state.fieldWins || 0) + 1; const lv = addXp(6); const pet = addPetXp(8, 0); save(); if (window.__guideBeat) window.__guideBeat('fight'); return { coins: 12, xp: 6, total: state.coins, pet, level: lv.level }; },
     grantRaid: () => { load(); state.coins += 24; state.tokens += 4; state.cells += 1; state.raidDate = todayKey(); const lv = addXp(16); save(); return { coins: 24, tokens: 4, cells: 1, level: lv.level }; },
     addXp: (n) => { const lv = addXp(n); save(); return lv; },
     level: () => { load(); return playerLevel(state.xp); },
     setClass: (c) => { load(); state.cls = c === 'gunner' ? 'gunner' : 'mage'; save(); return state.cls; },
+    guide: () => { load(); return state.guide || 'done'; },
+    setGuide: (step) => {
+      load();
+      const steps = ['class', 'fish', 'out', 'fight', 'home', 'done'];
+      if (steps.indexOf(step) < 0) return state.guide;
+      state.guide = step;
+      save();
+      return state.guide;
+    },
     raidCleared: () => { load(); return state.raidDate === todayKey(); },
     talk: talkFriend,
     giveFriendTreat,
@@ -617,6 +633,7 @@ function mount() {
       });
       state.fishXp = (state.fishXp || 0) + 4;
       save();
+      if (window.__guideBeat) window.__guideBeat('fish');
       return fishProgress(state.fishXp);
     },
   };

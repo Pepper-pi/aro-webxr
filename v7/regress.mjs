@@ -1084,6 +1084,7 @@ const disc = await yard.evaluate(() => window.__train.discCenter());
 const yardId = await yardTouch.down(disc.x, disc.y);
 await sleep(250);
 const grabbed = await yard.evaluate(() => !!window.__train.TRAIN.cap);
+await yard.evaluate(() => document.getElementById('trainPractice').click());
 await yard.click('#trainReset');
 await sleep(40);
 await yardTouch.up(yardId, disc.x, disc.y);
@@ -1221,6 +1222,14 @@ const yardLay = await lay.evaluate(async () => {
   window.__train.setClass('mage');
   window.__train.setTrainView('tactical');
   resize();
+  const tucked = id => {
+    const el = document.getElementById(id);
+    if (!el) return false;
+    const r = el.getBoundingClientRect();
+    return r.width < 2 || r.height < 2;
+  };
+  const hiddenBefore = ['viewTac', 'viewLow', 'trainReset', 'trainAuto', 'trainHelpBtn', 'trainNote'].every(tucked);
+  document.getElementById('trainPractice').click();
   for (let i = 0; i < 24; i++) {
     await new Promise(r => setTimeout(r, 80));
     const dodge = document.getElementById('dodgeL').getBoundingClientRect();
@@ -1281,8 +1290,9 @@ const yardLay = await lay.evaluate(async () => {
   const ob = document.getElementById('obj').getBoundingClientRect();
   const onBanner = labels.filter(b => boxHits(b, ob.left, ob.top, ob.right, ob.bottom)).map(b => b.n);
   const onFeed = labels.filter(b => longFeed && boxHits(b, longFeed.l, longFeed.t, longFeed.r, longFeed.b)).map(b => b.n);
-  return { overlaps, off, covering, feedOnDodge: feed && dodge ? area(feed, dodge) : -1, seam, n: nodes.length, feed: resetLine, terr: window.__aro.FIELD.terr.size, longHits, onRing: nearDisc(longFeed), labels: labels.length, labelHits, labelOff: labelOff.length, onBody, onPost, onBanner, onFeed };
+  return { hiddenBefore, overlaps, off, covering, feedOnDodge: feed && dodge ? area(feed, dodge) : -1, seam, n: nodes.length, feed: resetLine, terr: window.__aro.FIELD.terr.size, longHits, onRing: nearDisc(longFeed), labels: labels.length, labelHits, labelOff: labelOff.length, onBody, onPost, onBanner, onFeed };
 });
+check('practice chrome stays hidden until Practice', yardLay.hiddenBefore, JSON.stringify(yardLay.hiddenBefore));
 check('landscape controls stay on screen and off each other', yardLay.off.length === 0 && yardLay.overlaps.length === 0 && yardLay.n >= 14, JSON.stringify({ off: yardLay.off, overlaps: yardLay.overlaps, n: yardLay.n }));
 check('landscape cast line does not cover the dodge', yardLay.feedOnDodge === 0, JSON.stringify(yardLay.feedOnDodge));
 check('landscape center of the field is not a button', yardLay.covering.length === 0, JSON.stringify(yardLay.covering));

@@ -1045,9 +1045,18 @@ function enter() {
   renderer.render(scene, camera);
   goldEnter();
   if (HOME.paintLoadout) HOME.paintLoadout();
+  if (window.__guideBeat) window.__guideBeat('home');
+  if (window.__paintGuide) window.__paintGuide();
   return true;
 }
 function goOutside() {
+  const step = window.__profile && window.__profile.guide && window.__profile.guide();
+  if (step === 'out' && window.__openGuideMap) {
+    leave();
+    window.__openGuideMap();
+    if (window.__guideBeat) window.__guideBeat('out');
+    return;
+  }
   leave();
   if (window.__train && window.__train.startTrain) {
     window.__train.startTrain();
@@ -1269,6 +1278,7 @@ function mount() {
       note.classList.add('on');
     }
     paintLoadout();
+    if (window.__guideBeat) window.__guideBeat('class');
   };
   function paintLoadout() {
     const host = document.getElementById('homeLoadout');
@@ -1309,6 +1319,8 @@ function boot() {
     state: () => ({ on: HOME.on, phase: HOME.phase, door: HOME.door, bounce: HOME.bounce, sound: HOME.sound, slot: HOME.slot, yaw: HOME.yaw, dressed: !!HOME.dressed, ar: Object.assign({}, HOME.ar) }),
   };
   window.__homeCovers = () => window.__home.covers();
+  const guideStep = window.__profile && window.__profile.guide && window.__profile.guide();
+  if (guideStep && guideStep !== 'done' && !(window.__train && window.__train.TRAIN && window.__train.TRAIN.on)) enter();
   window.__homeCommandExtra = list => {
     const sheet = list && list.closest ? list.closest('.sheet') : null;
     if (!sheet) return;
