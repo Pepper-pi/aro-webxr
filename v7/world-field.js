@@ -275,6 +275,7 @@ function pin() {
     weather: look.weather,
     lat: look.place.lat,
     lon: look.place.lon,
+    disc: look.disc,
   });
   try { localStorage.setItem(PIN_KEY, JSON.stringify(list.slice(0, 8))); } catch (e) { /* private mode */ }
   if (window.__profile && window.__profile.notePin) window.__profile.notePin(list[0]);

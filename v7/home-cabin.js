@@ -762,6 +762,7 @@ function ensure() {
   camera = new THREE.PerspectiveCamera(48, 1, 0.08, 40);
   buildRoom();
   buildVisitor();
+  buildArcade();
   resize();
   return true;
 }
@@ -802,6 +803,98 @@ function syncVisitor() {
   visitor.userData.sprite.material.map.needsUpdate = true;
   visitor.userData.shown = pal.name;
 }
+function labelSprite(text, w, h) {
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff6d4';
+  ctx.font = '700 28px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, w / 2, h * 0.7);
+  const tex = new THREE.CanvasTexture(canvas);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  sprite.userData.canvas = canvas;
+  sprite.userData.ctx = ctx;
+  return sprite;
+}
+function buildArcade() {
+  const room = new THREE.Group();
+  room.position.set(-7.4, 0, 0);
+  const wood = new THREE.MeshBasicMaterial({ color: 0x6a4328 });
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.08, 3.4), new THREE.MeshBasicMaterial({ color: 0x8a5a32 }));
+  floor.position.y = 0.04;
+  room.add(floor);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(4.2, 2.4, 0.12), wood);
+  back.position.set(0, 1.2, -1.6);
+  room.add(back);
+  const left = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.4, 3.4), wood);
+  left.position.set(-2.05, 1.2, 0);
+  room.add(left);
+  const right = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.4, 3.4), wood);
+  right.position.set(2.05, 1.2, 0);
+  room.add(right);
+  const ceil = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.1, 3.4), new THREE.MeshBasicMaterial({ color: 0x3a2618 }));
+  ceil.position.set(0, 2.4, 0);
+  room.add(ceil);
+  const shelf = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.08, 0.4), new THREE.MeshBasicMaterial({ color: 0xc4a574 }));
+  shelf.position.set(0, 1.35, -1.35);
+  room.add(shelf);
+  const prizes = [
+    { id: 'sticker', name: 'Sticker 2', x: -0.78, color: 0x7ec8ff },
+    { id: 'snack', name: 'Snack 3', x: 0, color: 0xffd36a },
+    { id: 'trinket', name: 'Trinket 5', x: 0.78, color: 0xd7b4ff },
+  ];
+  prizes.forEach(p => {
+    const box = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.32, 0.32), new THREE.MeshBasicMaterial({ color: p.color }));
+    box.position.set(p.x, 1.55, -1.35);
+    tag(box, 'prize:' + p.id);
+    room.add(box);
+    const s = labelSprite(p.name, 256, 48);
+    s.position.set(p.x, 1.9, -1.3);
+    s.scale.set(0.58, 0.14, 1);
+    room.add(s);
+  });
+  const table = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.7, 0.8), new THREE.MeshBasicMaterial({ color: 0x4a3020 }));
+  table.position.set(0, 0.35, 0.15);
+  room.add(table);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.06, 0.7), new THREE.MeshBasicMaterial({ color: 0x2a1a14 }));
+  top.position.set(0, 0.72, 0.15);
+  room.add(top);
+  const strike = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.08, 0.28), new THREE.MeshBasicMaterial({ color: 0xffd36a }));
+  strike.position.set(0, 0.8, 0.15);
+  tag(strike, 'arcade-strike');
+  room.add(strike);
+  const board = labelSprite('Pet board', 256, 48);
+  board.position.set(0, 1.05, 0.15);
+  board.scale.set(0.8, 0.18, 1);
+  board.name = 'arcadeLog';
+  room.add(board);
+  room.userData.log = board;
+  const door = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.3, 0.08), new THREE.MeshBasicMaterial({ color: 0x8d5a32 }));
+  door.position.set(-1.9, 0.7, 0.4);
+  tag(door, 'arcade-out');
+  room.add(door);
+  const out = labelSprite('Step out', 256, 48);
+  out.position.set(-1.9, 1.5, 0.4);
+  out.scale.set(0.7, 0.16, 1);
+  room.add(out);
+  scene.add(room);
+  HOME.arcadeRoom = room;
+}
+function enterArcade() {
+  if (!ensure()) return false;
+  HOME.phase = 'arcade';
+  camera.position.set(-7.4, 1.85, 4.2);
+  camera.lookAt(-7.4, 1.15, 0);
+  show(true);
+  return true;
+}
+function leaveArcade() {
+  HOME.phase = 'inside';
+  heroCamera();
+  applyOrbit();
+  show(true);
+}
 function resize() {
   const canvas = document.getElementById('homeCv');
   if (!renderer || !canvas) return;
@@ -813,6 +906,7 @@ function resize() {
 function show(on) {
   HOME.on = on;
   document.body.classList.toggle('home-in', on && HOME.phase !== 'fishing');
+  document.body.classList.toggle('arcade-in', HOME.phase === 'arcade');
   const hud = document.getElementById('homeHud');
   if (hud) hud.classList.toggle('on', on && HOME.phase !== 'fishing');
 }
@@ -923,6 +1017,18 @@ function leave() {
   const back = document.getElementById('homeDoorBack');
   if (back) back.classList.remove('on');
 }
+function paintArcade(text) {
+  const log = HOME.arcadeRoom && HOME.arcadeRoom.userData.log;
+  if (!log) return;
+  const ctx = log.userData.ctx;
+  const canvas = log.userData.canvas;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#fff6d4';
+  ctx.font = '700 28px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, canvas.width / 2, canvas.height * 0.7);
+  log.material.map.needsUpdate = true;
+}
 function activate(name) {
   if (name === 'nook' && typeof openCraft === 'function') { openCraft(); return true; }
   if (name === 'board' && typeof openCommand === 'function') { openCommand(); return true; }
@@ -939,6 +1045,17 @@ function activate(name) {
     }
     if (HOME.phase !== 'inside' && HOME.phase !== 'opening') return false;
     HOME.phase = 'opening'; HOME.doorTo = 1; return true;
+  }
+  if (name === 'arcade-out') { leaveArcade(); return true; }
+  if (name && name.indexOf('prize:') === 0 && window.__profile && window.__profile.takePrize) {
+    const ok = window.__profile.takePrize(name.slice(6));
+    paintArcade(ok ? 'Taken' : 'Need tokens');
+    return true;
+  }
+  if (name === 'arcade-strike' && window.__profile && window.__profile.boardStrike) {
+    const r = window.__profile.boardStrike();
+    paintArcade(r.win ? 'Win · +3 xp' : r.reason === 'ko' ? 'Pet is tired' : 'Strike 2');
+    return true;
   }
   return false;
 }
@@ -1039,7 +1156,7 @@ function onUp(e) {
   if (ptr.id !== e.pointerId) return;
   const was = ptr.drag;
   ptr.id = null;
-  if (!was && (HOME.phase === 'inside' || HOME.phase === 'opening')) activate(hitName(e.clientX, e.clientY));
+  if (!was && (HOME.phase === 'inside' || HOME.phase === 'opening' || HOME.phase === 'arcade')) activate(hitName(e.clientX, e.clientY));
 }
 
 function mount() {
@@ -1060,6 +1177,8 @@ function mount() {
     '#homeBook ul{margin:6px 0 0;padding-left:18px}',
     '#homeDoorBack{position:fixed;right:12px;top:calc(10px + env(safe-area-inset-top,0px));z-index:45;display:none}',
     '#homeDoorBack.on{display:block}',
+    '#homeArcadeOut{display:none}',
+    'body.home-in.arcade-in #homeArcadeOut{display:inline-block}',
   ].join('');
   document.head.appendChild(style);
   const canvas = document.createElement('canvas');
@@ -1067,7 +1186,7 @@ function mount() {
   document.body.appendChild(canvas);
   const hud = document.createElement('div');
   hud.id = 'homeHud';
-  hud.innerHTML = '<div id="homeHudRow"><button type="button" id="homeCrackle" aria-pressed="false">Fire sound off</button><button type="button" id="homeTable">Place on a table</button><button type="button" id="homePortal">Place the door</button><button type="button" id="homeBookBtn">Collection</button><button type="button" id="homeArcade">Arcade</button><button type="button" id="homeBoard">Pet board</button><button type="button" id="homeMage">Mage</button><button type="button" id="homeGun">Gunner</button><button type="button" id="homeOutside" title="Future AR entry. On this screen it opens the field.">Outside</button><button type="button" id="homePin">Pin this world</button></div><p id="homeArNote"></p><div id="homeBook"><b>Collection</b><p id="homeBondNote"></p><ul id="homeBookList"></ul><b>Pins</b><ul id="homePinList"></ul></div>';
+  hud.innerHTML = '<div id="homeHudRow"><button type="button" id="homeCrackle" aria-pressed="false">Fire sound off</button><button type="button" id="homeTable">Place on a table</button><button type="button" id="homePortal">Place the door</button><button type="button" id="homeBookBtn">Collection</button><button type="button" id="homeArcade">Arcade</button><button type="button" id="homeArcadeOut">Step out</button><button type="button" id="homeBoard">Pet board</button><button type="button" id="homeMage">Mage</button><button type="button" id="homeGun">Gunner</button><button type="button" id="homeOutside" title="Future AR entry. On this screen it opens the field.">Outside</button><button type="button" id="homePin">Pin this world</button></div><p id="homeArNote"></p><div id="homeBook"><b>Collection</b><p id="homeBondNote"></p><ul id="homeBookList"></ul><b>Pins</b><ul id="homePinList"></ul></div>';
   document.body.appendChild(hud);
   const back = document.createElement('button');
   back.id = 'homeDoorBack'; back.type = 'button'; back.textContent = 'Door home';
@@ -1089,7 +1208,8 @@ function mount() {
     if (window.__profile && window.__profile.openBook) window.__profile.openBook('pins');
     else document.getElementById('homeBook').classList.toggle('on');
   };
-  document.getElementById('homeArcade').onclick = () => { if (window.__profile && window.__profile.openArcade) window.__profile.openArcade(); };
+  document.getElementById('homeArcade').onclick = () => { if (window.__home && window.__home.enterArcade) window.__home.enterArcade(); };
+  document.getElementById('homeArcadeOut').onclick = () => { if (window.__home && window.__home.leaveArcade) window.__home.leaveArcade(); };
   document.getElementById('homeBoard').onclick = () => { if (window.__profile && window.__profile.openBoard) window.__profile.openBoard(); };
   const pickClass = (c) => {
     if (window.__profile && window.__profile.setClass) window.__profile.setClass(c);
@@ -1115,7 +1235,7 @@ function boot() {
     ar: { probe: probeAr, start: startAr },
     covers: () => HOME.on && HOME.phase !== 'fishing',
     refreshBook: () => renderBook(false),
-    goOutside,
+    goOutside, enterArcade, leaveArcade,
     markFromField: () => { HOME.fromField = true; },
     bond: () => { const b = bondState(); return { taps: b.taps, tier: b.tier, collected: b.collected.slice() }; },
     collection: () => bondState().collected.map(id => ({ id, title: CARD_TITLE[id] || id })),

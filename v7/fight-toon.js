@@ -211,18 +211,28 @@ function paintField(look) {
     const p = hexOf(s.q, s.r);
     m.position.set(p.x + (s.kind === 'lantern' ? 0.2 : -0.15), s.kind === 'lantern' ? 0.28 : 0.12, p.z);
   });
-  const sky = look ? look.sky : '#070814';
-  scene.background = new THREE.Color(sky);
+  const kind = look ? look.weather : 'storm';
+  const skyHex = !look ? '#070814'
+    : kind === 'clear' ? '#d7e6f8'
+    : kind === 'night' ? '#070814'
+    : kind === 'storm' ? '#243044'
+    : kind === 'rain' ? '#7f93ab'
+    : look.sky;
+  scene.background = new THREE.Color(skyHex);
   if (scene.fog) {
-    scene.fog.color.set(look ? look.fog : sky);
-    scene.fog.near = look ? look.fogNear : 8;
-    scene.fog.far = look ? look.fogFar : 18;
+    scene.fog.color.set(skyHex);
+    scene.fog.near = !look ? 8 : kind === 'storm' ? 4 : kind === 'rain' ? 7 : 12;
+    scene.fog.far = !look ? 16 : kind === 'storm' ? 12 : kind === 'clear' ? 26 : 18;
   }
   if (sun) {
-    sun.color.set(look ? look.sun : '#dde7ff');
-    sun.intensity = look ? look.sunLevel : 1.35;
+    sun.color.set(!look ? '#9eb4d0' : kind === 'clear' ? '#fff4d8' : kind === 'night' ? '#6d82b0' : '#d5deee');
+    sun.intensity = !look ? 0.55 : kind === 'clear' ? 1.7 : kind === 'night' ? 0.22 : kind === 'storm' ? 0.38 : 0.7;
   }
-  state.weatherKind = look ? look.weather : 'storm';
+  if (hexMesh && look) {
+    if (!hexMesh.userData.own) { hexMesh.material = hexMesh.material.clone(); hexMesh.userData.own = true; }
+    hexMesh.material.color.set(kind === 'rain' || kind === 'storm' ? '#243246' : kind === 'night' ? '#1a2230' : '#5d7594');
+  }
+  state.weatherKind = kind;
   state.story = !look;
   placeWeatherMobs(look);
   if (rainMesh) {
@@ -1132,7 +1142,7 @@ function mount() {
     status: () => ({
       on: state.on, hexes: state.hexes, gradient: 2, bossHp: state.bossHp, bossMax: state.bossMax,
       lights: 1, rain: RAIN, outlined: true, toon: true, rigs: mobsReady ? rigActors.length : 0,
-      follow: Object.keys(petRigs).length,
+      follow: Object.keys(petRigs).length, weather: state.weatherKind, story: !!state.story,
     }),
     strike: () => { if (ensure()) hurtBoss(18); return state.bossHp; },
   };

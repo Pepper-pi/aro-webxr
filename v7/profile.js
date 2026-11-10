@@ -366,6 +366,30 @@ function renderPets(host) {
     host.appendChild(row);
   }
 }
+const table = { pet: '', foe: 4, you: 0, done: false };
+function boardStrike() {
+  load();
+  const pet = activePet();
+  if (!pet) return { win: false, reason: 'none' };
+  if (table.pet !== pet.id || table.done) {
+    table.pet = pet.id;
+    table.foe = 4;
+    table.you = 4 + pet.level;
+    table.done = false;
+  }
+  if (table.you <= 0) return { win: false, reason: 'ko', you: table.you, foe: table.foe };
+  table.foe = Math.max(0, table.foe - 2);
+  if (table.foe > 0) table.you = Math.max(0, table.you - 1);
+  if (table.foe <= 0) {
+    const grown = addPetXp(3, 1);
+    state.tokens += 2;
+    save();
+    table.done = true;
+    return { win: true, name: grown.name, level: grown.level, bond: grown.bond };
+  }
+  if (table.you <= 0) return { win: false, reason: 'ko', you: table.you, foe: table.foe };
+  return { win: false, reason: 'hit', you: table.you, foe: table.foe };
+}
 function openBoard() {
   load();
   const panel = document.getElementById('spineBoard');
@@ -516,7 +540,12 @@ function mount() {
     noteFriendRaid: () => { load(); state.friendRaid = todayKey(); save(); },
     quests: questRows,
     claimQuest,
-    openBook, openShop, openArcade, openBoard,
+    openBook, openShop, openArcade, openBoard, boardStrike,
+    takePrize: (id) => {
+      load();
+      const item = PRIZES.find(p => p.id === id);
+      return item ? buyPrize(item) : false;
+    },
     active: activePet,
     addPet, setActive, giveTreat,
     notePin: (pin) => { load(); state.pins = [pin].concat(state.pins).slice(0, 8); save(); },
