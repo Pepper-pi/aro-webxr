@@ -31,6 +31,8 @@ let hands, rifle, glass, rune, boss, bossWire, bossEyes, bossBar, boltSky, strea
 let reticle;
 const posts = [];
 const mobBlobs = [];
+const weatherBlobs = [];
+const weatherBeasts = [];
 const bolts = [];
 const bursts = [];
 const seen = new WeakSet();
@@ -215,11 +217,82 @@ function paintField(look) {
   }
   state.weatherKind = look ? look.weather : 'storm';
   state.story = !look;
+  placeWeatherMobs(look);
   if (rainMesh) {
     const wet = state.story || ['rain', 'storm', 'snow', 'wind'].includes(state.weatherKind);
     rainMesh.visible = wet;
     rainMesh.material.color.set(state.weatherKind === 'snow' ? '#f4f7ff' : '#9ec7ff');
   }
+}
+function standKind(id) {
+  if (id === 'slime' || id === 'blob') return 'blob';
+  if (id === 'scout' || id === 'goblin') return 'beast';
+  if (id === 'glass-brute') return 'brute';
+  return '';
+}
+function buildWeatherMobs() {
+  for (let i = 0; i < 4; i++) {
+    const g = new THREE.Group();
+    const body = part(new THREE.SphereGeometry(0.42, 10, 8), toon('#7dffa8').clone(), 0, 0.34, 0, g);
+    body.scale.set(1.15, 0.72, 1);
+    part(new THREE.SphereGeometry(0.12, 8, 6), toon('#e8fff2').clone(), -0.08, 0.42, 0.16, g);
+    part(new THREE.SphereGeometry(0.12, 8, 6), toon('#e8fff2').clone(), 0.08, 0.42, 0.16, g);
+    g.visible = false;
+    scene.add(g);
+    weatherBlobs.push(g);
+  }
+  for (let i = 0; i < 4; i++) {
+    const g = new THREE.Group();
+    const fur = toon('#c45a3a').clone();
+    const torso = part(new THREE.SphereGeometry(0.36, 10, 8), fur, 0, 0.42, 0, g);
+    torso.scale.set(1.35, 0.62, 0.78);
+    part(new THREE.SphereGeometry(0.14, 8, 6), fur, 0.32, 0.46, 0, g);
+    for (const [x, z] of [[-0.16, 0.14], [0.12, 0.14], [-0.16, -0.14], [0.12, -0.14]]) {
+      part(new THREE.CylinderGeometry(0.035, 0.04, 0.2, 5), fur, x, 0.1, z, g);
+    }
+    g.visible = false;
+    scene.add(g);
+    weatherBeasts.push(g);
+  }
+}
+function placeWeatherMobs(look) {
+  weatherBlobs.forEach(m => { m.visible = false; });
+  weatherBeasts.forEach(m => { m.visible = false; });
+  state.showBrute = false;
+  state.bruteAt = null;
+  if (!look || !weatherBlobs.length) return;
+  const spots = hexCells.filter(c => {
+    const d = (Math.abs(c.q) + Math.abs(c.r) + Math.abs(c.q + c.r)) / 2;
+    return d >= 1 && d <= 2 && c.r < 0 && Math.abs(c.q) <= 2;
+  });
+  const used = new Set();
+  let bi = 0, ei = 0;
+  (look.spawns || []).forEach((s, n) => {
+    const kind = standKind(s.id);
+    if (!kind || !spots.length) return;
+    let cell = null;
+    for (let k = 0; k < spots.length; k++) {
+      const c = spots[(look.seed + n * 5 + k) % spots.length];
+      const key = c.q + ',' + c.r;
+      if (!used.has(key)) { used.add(key); cell = c; break; }
+    }
+    if (!cell) return;
+    const p = hexOf(cell.q, cell.r);
+    if (kind === 'blob' && bi < weatherBlobs.length) {
+      weatherBlobs[bi].visible = true;
+      weatherBlobs[bi].position.set(p.x, 0, p.z);
+      bi++;
+    } else if (kind === 'beast' && ei < weatherBeasts.length) {
+      weatherBeasts[ei].visible = true;
+      weatherBeasts[ei].position.set(p.x, 0, p.z);
+      weatherBeasts[ei].rotation.y = p.x > 0 ? -0.6 : 0.6;
+      ei++;
+    } else if (kind === 'brute') {
+      const far = hexCells.find(c => c.q === 0 && c.r === -3) || cell;
+      state.showBrute = true;
+      state.bruteAt = hexOf(far.q, far.r);
+    }
+  });
 }
 function storySpace(g) {
   return !!(g && g.TRAIN && g.TRAIN.king);
@@ -433,6 +506,7 @@ function ensure() {
   buildRifle();
   buildBoss();
   buildPools();
+  buildWeatherMobs();
   state.built = true;
   resize();
   return true;
@@ -527,6 +601,7 @@ function syncActors(g) {
   const mobs = (g.AR.mobs || []).filter(m => m.state !== 'gone' && m.state !== 'panel');
   const dummies = mobs.filter(m => m.dummy);
   posts.forEach((p, i) => {
+    if (!state.story) { p.visible = false; return; }
     const m = dummies[i];
     p.visible = !!m;
     if (!m) return;
@@ -536,24 +611,27 @@ function syncActors(g) {
     if (p.userData.head) p.userData.head.material.color.set(hit ? '#fff6e0' : '#ff4455');
   });
   let b = 0;
-  for (const m of mobs) {
+  if (!state.story) mobBlobs.forEach(bl => { bl.visible = false; });
+  else for (const m of mobs) {
     if (m.dummy || b >= mobBlobs.length) continue;
     const blob = mobBlobs[b++];
     blob.visible = true;
     blob.position.set(m.x, 0.4, m.y);
     blob.material.color.set(m.fl > 0 ? '#ffffff' : '#7dffa8');
   }
-  for (let i = b; i < mobBlobs.length; i++) mobBlobs[i].visible = false;
+  if (state.story) for (let i = b; i < mobBlobs.length; i++) mobBlobs[i].visible = false;
   const raidBoss = mobs.find(m => m.tier === 'boss');
-  const bx = raidBoss ? raidBoss.x : 0;
-  const bz = raidBoss ? raidBoss.y : -4.6;
+  let bx = 0, bz = -4.6;
+  if (raidBoss) { bx = raidBoss.x; bz = raidBoss.y; }
+  else if (!state.story && state.showBrute && state.bruteAt) { bx = state.bruteAt.x; bz = state.bruteAt.z; }
+  boss.visible = state.story || !!raidBoss || !!state.showBrute;
   if (raidBoss) {
     state.bossHp = Math.max(0, raidBoss.hp);
     state.bossMax = raidBoss.max || BOSS_MAX;
   }
   const flinch = state.flash > 0 ? 0.35 * state.flash : 0;
   const baseY = state.bossHp <= 0 ? -0.4 : 0;
-  boss.scale.setScalar(state.weatherKind === 'storm' && !state.story ? 1.9 : 1.55);
+  boss.scale.setScalar(!state.story && state.showBrute ? (state.weatherKind === 'storm' ? 1.25 : 1.1) : 1.55);
   boss.position.set(bx, baseY + Math.sin(state.t * 1.4) * 0.06, bz + flinch);
   boss.rotation.y = Math.sin(state.t * 0.7) * 0.22;
   boss.rotation.z = Math.sin(state.t * 0.9) * 0.05;

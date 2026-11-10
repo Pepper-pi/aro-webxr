@@ -149,6 +149,8 @@ function recompute() {
   publish(buildLook(currentDate(), discId(), weather));
 }
 function paintReadout() {
+  const chip = document.getElementById('worldChip');
+  if (chip && look) chip.textContent = look.weather + ' · ' + look.seed.toString(16).slice(0, 6);
   const el = document.getElementById('worldRead');
   if (!el || !look) return;
   const line = group => look.spawns.filter(s => s.group === group).map(s => s.id).join(', ') || '—';
@@ -214,8 +216,10 @@ function locate() {
 function mount() {
   const style = document.createElement('style');
   style.textContent = [
+    '#worldChip{position:fixed;left:50%;top:calc(44px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:16;display:none;padding:6px 14px;border-radius:999px;background:rgba(42,24,16,.9);border:1px solid rgba(226,196,138,.8);color:#f6e2c4;font:800 13px sans-serif;pointer-events:none;letter-spacing:.02em}',
+    'body.field-on #worldChip{display:block}',
     '#worldHud{position:fixed;right:12px;top:calc(8px + env(safe-area-inset-top,0px));z-index:16;display:none;width:min(18rem,calc(100% - 24px));pointer-events:none}',
-    'body.field-on #worldHud{display:block}',
+    'body.field-on.fight-fp:not(.fp-clear) #worldHud{display:block}',
     '#worldHud select,#worldHud button{pointer-events:auto;min-height:36px;margin:0 6px 6px 0;padding:6px 10px;border-radius:10px;border:1px solid rgba(180,220,255,.45);background:rgba(12,10,20,.88);color:#f4f7ff;font:700 13px sans-serif}',
     '#worldRead{pointer-events:none;margin:0;white-space:pre-line;font:600 12px/1.35 sans-serif;color:#f4f7ff;background:rgba(12,10,20,.82);padding:8px 10px;border-radius:10px}',
   ].join('');
@@ -225,6 +229,10 @@ function mount() {
   const opts = ['live'].concat(KINDS).map(k => '<option value="' + k + '">' + (k === 'live' ? 'Weather: live' : k) + '</option>').join('');
   hud.innerHTML = '<select id="worldWeather" aria-label="Weather override">' + opts + '</select><button type="button" id="worldPin">Pin this world</button><p id="worldRead"></p>';
   document.body.appendChild(hud);
+  const chip = document.createElement('div');
+  chip.id = 'worldChip';
+  chip.textContent = 'weather';
+  document.body.appendChild(chip);
   document.getElementById('worldWeather').onchange = (e) => {
     override = e.target.value === 'live' ? '' : e.target.value;
     if (override) publish(buildLook(currentDate(), discId(), override));
@@ -244,10 +252,11 @@ function mount() {
       else loadWeather();
       return look;
     },
-    preview: ({ date, disc, weather } = {}) => {
+    preview: ({ date, disc, weather, lat, lon } = {}) => {
       const d = date || currentDate();
       const id = disc || discId();
       const w = weather || override || (look && look.weather) || 'clear';
+      if (lat != null && lon != null) place = { lat, lon, source: 'preview' };
       if (weather) override = weather;
       const sel = document.getElementById('worldWeather');
       if (sel) sel.value = override || 'live';
