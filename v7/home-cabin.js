@@ -17,6 +17,7 @@ const HOME = {
   radius: 3.55,
   slot: 'billboard',
   nextCrackle: 0,
+  ar: { active: false, stub: true, mode: 'screen', placed: false, scale: 1, reason: 'Full-screen cabin. AR has not been asked for.' },
 };
 
 const target = new THREE.Vector3(-0.15, 1.05, -0.35);
@@ -26,7 +27,7 @@ const lookFrom = new THREE.Vector3();
 const lookTo = new THREE.Vector3();
 const lookNow = new THREE.Vector3();
 
-let renderer, scene, camera, fireLight, doorPivot, skyTex, skyCanvas, skyCtx;
+let renderer, scene, camera, fireLight, doorPivot, skyTex, skyCanvas, skyCtx, cabinRoot, reticle, hitSource;
 let slotRoot, slotArm, slotCanvas, slotCtx, slotTex;
 let cat;
 let ac, master;
@@ -81,12 +82,12 @@ const TEX = {
     g.fillStyle = '#e7d3b4';
     for (let i = 0; i < 80; i++) g.fillRect((i * 13) % w, (i * 7) % h, 3, 2);
   }),
-  screen: canvasTex(256, 160, (g, w, h) => {
+  screen: canvasTex(128, 80, (g, w, h) => {
     g.fillStyle = '#07141c'; g.fillRect(0, 0, w, h);
     g.strokeStyle = 'rgba(120,220,255,.35)'; g.lineWidth = 1;
     for (let x = 12; x < w; x += 18) { g.beginPath(); g.moveTo(x, 8); g.lineTo(x, h - 8); g.stroke(); }
     for (let y = 12; y < h; y += 16) { g.beginPath(); g.moveTo(8, y); g.lineTo(w - 8, y); g.stroke(); }
-    g.fillStyle = '#9af0ff'; g.font = '700 36px sans-serif'; g.textAlign = 'center';
+    g.fillStyle = '#9af0ff'; g.font = '700 18px sans-serif'; g.textAlign = 'center';
     g.fillText('Cook Nook', w / 2, h / 2 + 12);
   }),
   door: canvasTex(128, 128, (g, w, h) => {
@@ -185,6 +186,7 @@ function buildRoom() {
   buildSlot();
   buildLamp();
   buildSeat();
+  wrapCabin();
 }
 function buildHearth() {
   const stone = lambert({ map: TEX.stone });
@@ -263,6 +265,7 @@ function buildNook() {
     jar.position.set(-0.35 + i * 0.32, 1.8, -0.05);
     g.add(jar);
   }
+  pad(g, 'nook', 1.8, 1.8, 1.6, 0.9);
 }
 function buildBoard() {
   const g = new THREE.Group();
@@ -290,6 +293,7 @@ function buildBoard() {
   board.position.set(0, 0.78, 0.02);
   board.rotation.x = -0.7;
   g.add(board);
+  pad(g, 'board', 1.7, 1.6, 1.6, 0.7);
 }
 function buildDoor() {
   doorPivot = new THREE.Group();
@@ -305,6 +309,7 @@ function buildDoor() {
   const handle = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.016, 6, 14), lambert({ color: 0xd7c08a }));
   handle.position.set(-0.06, 0, 0.22);
   g.add(handle);
+  pad(g, 'door', 1.9, 1.9, 0.6, 0);
   const frame = new THREE.Mesh(new THREE.TorusGeometry(0.96, 0.055, 8, 32), lambert({ color: 0xc9a15a }));
   frame.position.set(3.38, 1.22, 0.15);
   frame.rotation.y = Math.PI / 2;
@@ -389,6 +394,7 @@ function buildSlot() {
   slotArm.position.set(0.22, 0.78, 0.02);
   slotArm.geometry.translate(0, -0.18, 0);
   slotRoot.add(slotArm);
+  pad(slotRoot, 'spot', 1.6, 1.8, 1.6, 0.85);
 }
 function buildBee() {
   const g = new THREE.Group();
@@ -429,6 +435,172 @@ function buildLamp() {
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xffd29a, transparent: true, opacity: 0.45, depthWrite: false }));
   glow.scale.set(0.42, 0.42, 1);
   g.add(glow);
+}
+function pad(parent, name, w, h, d, y) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ visible: false, depthWrite: false }));
+  m.position.y = y;
+  m.userData.pad = name;
+  m.userData.home = name;
+  parent.add(m);
+}
+function wrapCabin() {
+  cabinRoot = new THREE.Group();
+  cabinRoot.name = 'cabinRoot';
+  scene.children.filter(ch => !ch.isAmbientLight).forEach(ch => cabinRoot.add(ch));
+  scene.add(cabinRoot);
+}
+function resetPlacement() {
+  if (!cabinRoot) return;
+  cabinRoot.position.set(0, 0, 0);
+  cabinRoot.quaternion.identity();
+  cabinRoot.scale.setScalar(1);
+}
+function targets() {
+  const out = {};
+  if (!scene) return out;
+  scene.traverse(o => {
+    if (!o.userData || !o.userData.pad || !o.geometry || !o.geometry.parameters) return;
+    const p = o.geometry.parameters;
+    out[o.userData.pad] = Math.min(p.width, p.height);
+  });
+  return out;
+}
+
+/* Home is an AR object first, and a full-screen room second.
+   Dollhouse: the whole cabin scales to 0.07 (about half a metre across) and a
+   pinch on a detected plane sets it down. Portal: scale stays 1 and the round
+   door, not the room centre, sits on that plane so the door is a way through
+   in the real room. Both need immersive-ar plus hit-test. This browser check
+   has neither, so start() records the reason and leaves the full-screen room. */
+const DOLL_SCALE = 0.07;
+const DOOR_LOCAL = new THREE.Vector3(3.32, 1.22, 0.15);
+function arReason() {
+  return 'WebXR immersive AR is not in this browser. The full-screen cabin stays.';
+}
+async function probeAr() {
+  if (typeof navigator === 'undefined' || !navigator.xr || typeof navigator.xr.isSessionSupported !== 'function') {
+    return { available: false, reason: arReason() };
+  }
+  try {
+    const ok = await navigator.xr.isSessionSupported('immersive-ar');
+    if (!ok) return { available: false, reason: 'This browser has WebXR, but not immersive AR. The full-screen cabin stays.' };
+  } catch (err) {
+    return { available: false, reason: arReason() };
+  }
+  return { available: true, reason: '' };
+}
+function showArNote(text) {
+  const n = document.getElementById('homeArNote');
+  if (!n) return;
+  n.textContent = text;
+  n.classList.add('on');
+}
+function placeCabin(matrix) {
+  const mode = HOME.ar.mode === 'portal' ? 'portal' : 'dollhouse';
+  const s = mode === 'portal' ? 1 : DOLL_SCALE;
+  cabinRoot.matrix.copy(matrix);
+  cabinRoot.matrix.decompose(cabinRoot.position, cabinRoot.quaternion, cabinRoot.scale);
+  cabinRoot.scale.setScalar(s);
+  if (mode === 'portal') {
+    const offset = DOOR_LOCAL.clone().applyQuaternion(cabinRoot.quaternion).multiplyScalar(s);
+    cabinRoot.position.sub(offset);
+  }
+  HOME.ar.scale = s;
+  HOME.ar.placed = true;
+}
+function onXRFrame(t, frame) {
+  const now = t || performance.now();
+  const dt = Math.min(0.05, (now - (HOME.xrNow || now)) / 1000) || 0.016;
+  HOME.xrNow = now;
+  if (frame && hitSource && !HOME.ar.placed && reticle) {
+    const ref = renderer.xr.getReferenceSpace();
+    const hits = ref ? frame.getHitTestResults(hitSource) : [];
+    if (hits.length) {
+      const pose = hits[0].getPose(ref);
+      if (pose) {
+        reticle.visible = true;
+        reticle.matrix.fromArray(pose.transform.matrix);
+      }
+    }
+  }
+  step(dt);
+}
+function endAr() {
+  if (hitSource) { try { hitSource.cancel(); } catch (e) { /* already ended */ } hitSource = null; }
+  if (reticle) reticle.visible = false;
+  HOME.ar.active = false;
+  HOME.ar.placed = false;
+  if (renderer) {
+    renderer.xr.enabled = false;
+    renderer.setAnimationLoop(null);
+    renderer.setPixelRatio(Math.min(1.25, window.devicePixelRatio || 1));
+  }
+  resetPlacement();
+  resize();
+}
+async function startAr(mode) {
+  const picked = mode === 'portal' ? 'portal' : 'dollhouse';
+  const found = await probeAr();
+  HOME.ar = {
+    active: false,
+    stub: !found.available,
+    mode: picked,
+    placed: false,
+    scale: picked === 'portal' ? 1 : DOLL_SCALE,
+    reason: found.available ? '' : found.reason,
+  };
+  if (!found.available) {
+    showArNote(found.reason + (picked === 'portal'
+      ? ' On a phone this button places the round door on a detected surface.'
+      : ' On a phone this button places the cabin as a tabletop dollhouse.'));
+    resetPlacement();
+    return Object.assign({}, HOME.ar);
+  }
+  if (!ensure()) {
+    HOME.ar.stub = true;
+    HOME.ar.reason = 'The cabin view is not ready, so AR did not start.';
+    showArNote(HOME.ar.reason);
+    return Object.assign({}, HOME.ar);
+  }
+  let session;
+  try {
+    const overlay = document.getElementById('homeHud');
+    const opts = { requiredFeatures: ['hit-test'], optionalFeatures: ['local-floor'] };
+    if (overlay) { opts.optionalFeatures.push('dom-overlay'); opts.domOverlay = { root: overlay }; }
+    session = await navigator.xr.requestSession('immersive-ar', opts);
+  } catch (err) {
+    HOME.ar.stub = true;
+    HOME.ar.reason = 'The AR session did not start. The full-screen cabin stays.';
+    showArNote(HOME.ar.reason);
+    return Object.assign({}, HOME.ar);
+  }
+  try {
+    renderer.setPixelRatio(1);
+    renderer.xr.enabled = true;
+    renderer.xr.setReferenceSpaceType('local-floor');
+    await renderer.xr.setSession(session);
+    const viewer = await session.requestReferenceSpace('viewer');
+    hitSource = await session.requestHitTestSource({ space: viewer });
+  } catch (err) {
+    try { session.end(); } catch (e) { /* session may already be closing */ }
+    renderer.xr.enabled = false;
+    HOME.ar.stub = true;
+    HOME.ar.reason = 'Hit-test is missing, so the cabin cannot be placed. The full-screen cabin stays.';
+    showArNote(HOME.ar.reason);
+    return Object.assign({}, HOME.ar);
+  }
+  if (!reticle) {
+    reticle = new THREE.Mesh(new THREE.RingGeometry(0.05, 0.065, 20), new THREE.MeshBasicMaterial({ color: 0xe2c48a }));
+    reticle.matrixAutoUpdate = false;
+    reticle.visible = false;
+    scene.add(reticle);
+  }
+  HOME.ar.active = true;
+  HOME.ar.stub = false;
+  session.addEventListener('select', () => { if (reticle && reticle.visible) placeCabin(reticle.matrix); });
+  session.addEventListener('end', endAr);
+  renderer.setAnimationLoop(onXRFrame);
+  return Object.assign({}, HOME.ar);
 }
 function makeLabel(text) {
   const c = document.createElement('canvas'); c.width = 256; c.height = 64;
@@ -513,7 +685,7 @@ function step(dt) {
     camera.lookAt(lookNow);
     if (HOME.ride >= 1 && HOME.phase === 'through') beginFishing();
     if (HOME.ride >= 1 && HOME.phase === 'return') { HOME.phase = 'inside'; HOME.doorTo = 0; }
-  } else if (HOME.phase === 'inside' || HOME.phase === 'opening') applyOrbit();
+  } else if ((HOME.phase === 'inside' || HOME.phase === 'opening') && !HOME.ar.active) applyOrbit();
   if (HOME.flames) {
     const flick = 0.75 + Math.sin(HOME.t * 17) * 0.12 + Math.sin(HOME.t * 29) * 0.08;
     fireLight.intensity = 1.7 + flick;
@@ -540,7 +712,7 @@ function step(dt) {
 }
 function loop(now) {
   requestAnimationFrame(loop);
-  if (!HOME.on || HOME.phase === 'fishing') return;
+  if (HOME.ar.active || !HOME.on || HOME.phase === 'fishing') return;
   const dt = Math.min(0.05, (now - (loop.then || now)) / 1000);
   loop.then = now;
   step(dt || 0.016);
@@ -555,6 +727,12 @@ function beginFishing() {
 }
 function enter() {
   if (!ensure()) return false;
+  resetPlacement();
+  if (!HOME.ar.active) {
+    HOME.ar.scale = 1;
+    HOME.ar.placed = false;
+    HOME.ar.mode = 'screen';
+  }
   heroCamera();
   HOME.phase = 'inside';
   HOME.door = 0; HOME.doorTo = 0; HOME.ride = 0;
@@ -670,7 +848,7 @@ function onMove(e) {
   if (ptr.id !== e.pointerId || HOME.phase === 'through' || HOME.phase === 'return') return;
   const dx = e.clientX - ptr.x, dy = e.clientY - ptr.y;
   if (!ptr.drag && dx * dx + dy * dy > 36) ptr.drag = true;
-  if (!ptr.drag || (HOME.phase !== 'inside' && HOME.phase !== 'opening')) return;
+  if (HOME.ar.active || !ptr.drag || (HOME.phase !== 'inside' && HOME.phase !== 'opening')) return;
   HOME.yaw -= dx * 0.005;
   HOME.pitch = Math.max(0.08, Math.min(0.62, HOME.pitch + dy * 0.003));
   ptr.x = e.clientX; ptr.y = e.clientY;
@@ -688,10 +866,13 @@ function mount() {
     '#homeCv{position:fixed;inset:0;z-index:18;display:none;touch-action:none;width:100%;height:100%}',
     'body.home-in #homeCv{display:block}',
     'body.home-in #mapNav,body.home-in #act,body.home-in #menuBtn,body.home-in #obj,body.home-in #coach,body.home-in #wirePanel,body.home-in #charBtn{visibility:hidden!important}',
-    '#homeHud{position:fixed;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top,0px));z-index:19;display:none;gap:8px;pointer-events:none}',
+    '#homeHud{position:fixed;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top,0px));z-index:19;display:none;flex-direction:column;align-items:flex-start;gap:8px;pointer-events:none}',
     '#homeHud.on{display:flex}',
-    '#homeHud button{pointer-events:auto;padding:8px 12px;border-radius:12px;font-weight:800;background:rgba(42,24,16,.82);border:1px solid rgba(226,196,138,.7);color:#f6e2c4}',
-    '#homeDoorBack{position:fixed;right:12px;top:calc(10px + env(safe-area-inset-top,0px));z-index:45;display:none;padding:8px 12px;border-radius:12px;font-weight:800;background:rgba(42,24,16,.9);border:1px solid rgba(226,196,138,.8);color:#f6e2c4}',
+    '#homeHudRow{display:flex;flex-wrap:wrap;gap:8px}',
+    '#homeHud button,#homeDoorBack{pointer-events:auto;min-height:48px;min-width:48px;padding:10px 14px;border-radius:12px;font:800 15px sans-serif;background:rgba(42,24,16,.82);border:1px solid rgba(226,196,138,.7);color:#f6e2c4}',
+    '#homeArNote{display:none;margin:0;max-width:34rem;padding:10px 12px;border-radius:12px;background:rgba(42,24,16,.9);color:#f6e2c4;font:600 15px/1.35 sans-serif}',
+    '#homeArNote.on{display:block}',
+    '#homeDoorBack{position:fixed;right:12px;top:calc(10px + env(safe-area-inset-top,0px));z-index:45;display:none}',
     '#homeDoorBack.on{display:block}',
   ].join('');
   document.head.appendChild(style);
@@ -700,7 +881,7 @@ function mount() {
   document.body.appendChild(canvas);
   const hud = document.createElement('div');
   hud.id = 'homeHud';
-  hud.innerHTML = '<button type="button" id="homeCrackle" aria-pressed="false">Fire sound off</button><button type="button" id="homeOutside">Outside</button>';
+  hud.innerHTML = '<div id="homeHudRow"><button type="button" id="homeCrackle" aria-pressed="false">Fire sound off</button><button type="button" id="homeTable">Place on a table</button><button type="button" id="homePortal">Place the door</button><button type="button" id="homeOutside">Outside</button></div><p id="homeArNote"></p>';
   document.body.appendChild(hud);
   const back = document.createElement('button');
   back.id = 'homeDoorBack'; back.type = 'button'; back.textContent = 'Door home';
@@ -713,6 +894,8 @@ function mount() {
     HOME.radius = Math.max(2.4, Math.min(4.8, HOME.radius + Math.sign(e.deltaY) * 0.15));
   }, { passive: true });
   document.getElementById('homeCrackle').onclick = () => setSound(!HOME.sound);
+  document.getElementById('homeTable').onclick = () => startAr('dollhouse');
+  document.getElementById('homePortal').onclick = () => startAr('portal');
   document.getElementById('homeOutside').onclick = () => leave();
   back.onclick = () => backHome();
   window.addEventListener('resize', resize);
@@ -721,9 +904,10 @@ function mount() {
 function boot() {
   mount();
   window.__home = {
-    enter, leave, activate, back: backHome, pose, step, setSound, setSlot, hitName,
+    enter, leave, activate, back: backHome, pose, step, setSound, setSlot, hitName, targets,
+    ar: { probe: probeAr, start: startAr },
     covers: () => HOME.on && HOME.phase !== 'fishing',
-    state: () => ({ on: HOME.on, phase: HOME.phase, door: HOME.door, bounce: HOME.bounce, sound: HOME.sound, slot: HOME.slot, yaw: HOME.yaw }),
+    state: () => ({ on: HOME.on, phase: HOME.phase, door: HOME.door, bounce: HOME.bounce, sound: HOME.sound, slot: HOME.slot, yaw: HOME.yaw, ar: Object.assign({}, HOME.ar) }),
   };
   window.__homeCovers = () => window.__home.covers();
   window.__homeCommandExtra = list => {

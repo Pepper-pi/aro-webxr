@@ -1538,6 +1538,20 @@ check('the Cook Nook counter opens the Cook Nook', home.nook && home.craft, JSON
 check('the wall board opens Command with Friend quests', home.board && home.cmd && home.friends, JSON.stringify({ board: home.board, cmd: home.cmd, friends: home.friends }));
 check('a tap on the character spot bounces, and the fire stays quiet', home.bounce === 1 && home.sound === false && home.slotted, JSON.stringify({ bounce: home.bounce, sound: home.sound, slot: home.slotted }));
 check('the home interior does not throw', cabinErr.length === 0, JSON.stringify(cabinErr));
+const ar = await cabin.evaluate(async () => {
+  const probe = await window.__home.ar.probe();
+  const doll = await window.__home.ar.start('dollhouse');
+  const port = await window.__home.ar.start('portal');
+  const entered = window.__home.enter();
+  for (let i = 0; i < 4; i++) window.__home.step(0.05);
+  const pads = window.__home.targets();
+  const note = document.getElementById('homeArNote').textContent;
+  const hud = document.getElementById('homeTable').getBoundingClientRect();
+  return { probe, doll, port, entered, pads, note, hudH: hud.height, phase: window.__home.state().phase, on: document.body.classList.contains('home-in') };
+});
+check('WebXR is reported missing and the full-screen cabin stays', ar.probe.available === false && ar.doll.stub === true && ar.doll.active === false && ar.doll.mode === 'dollhouse' && ar.doll.scale === 0.07 && ar.port.mode === 'portal' && ar.port.scale === 1 && ar.port.stub === true && ar.entered && ar.on && ar.phase === 'inside' && /full-screen cabin/.test(ar.note), JSON.stringify(ar));
+check('cabin taps are large enough for a hand or a pinch', ar.pads.nook >= 1.5 && ar.pads.board >= 1.5 && ar.pads.door >= 1.5 && ar.pads.spot >= 1.5 && ar.hudH >= 44, JSON.stringify({ pads: ar.pads, hudH: ar.hudH }));
+check('the AR fallback does not throw', cabinErr.length === 0, JSON.stringify(cabinErr));
 await cabin.close();
 
 await browser.close();
