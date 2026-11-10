@@ -61,12 +61,7 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 #ringVeil{position:absolute;inset:0;pointer-events:none;background:rgba(5,2,14,.9)}
 #ring.land-fit #ringVeil{clip-path:polygon(50% 1%,98.5% 22%,98.5% 78%,50% 99%,1.5% 78%,1.5% 22%)}
 #ring:not(.land-fit) #ringVeil{clip-path:polygon(50% .7%,98% 18.7%,98% 81.3%,50% 99.3%,2% 81.3%,2% 18.7%)}
-#ringGrid{position:absolute;inset:0;pointer-events:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='112' height='96' viewBox='0 0 112 96'><g fill='none' stroke='%23ff9ed2' stroke-width='3.2' opacity='0.28'><polygon points='28,4 52,16.8 52,44 28,56.8 4,44 4,16.8'/><polygon points='84,4 108,16.8 108,44 84,56.8 60,44 60,16.8'/><polygon points='56,32 80,44.8 80,72 56,84.8 32,72 32,44.8'/></g><g fill='none' stroke='%23ffd4ea' stroke-width='1.15' opacity='0.62'><polygon points='28,4 52,16.8 52,44 28,56.8 4,44 4,16.8'/><polygon points='84,4 108,16.8 108,44 84,56.8 60,44 60,16.8'/><polygon points='56,32 80,44.8 80,72 56,84.8 32,72 32,44.8'/></g></svg>");background-size:112px 96px}
-#ring.land-fit #ringGrid{clip-path:polygon(50% 10%,88% 28%,88% 72%,50% 90%,12% 72%,12% 28%)}
-#ring:not(.land-fit) #ringGrid{clip-path:polygon(50% 9%,86% 26%,86% 74%,50% 91%,14% 74%,14% 26%)}
-#ringBack svg{display:block;width:100%;height:100%;overflow:visible;position:relative}
-#ring.land-fit #ringBack .hex-port{display:none}
-#ring:not(.land-fit) #ringBack .hex-land{display:none}
+#ringGlass{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 #ringFrame{position:absolute;z-index:1;display:flex;flex-direction:column;min-width:0;background:transparent;border:0}
 #ringHead{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 8px;flex:none;background:rgba(8,14,24,.42)}
 #ringTitle{flex:1;font-weight:900;font-size:16px}
@@ -150,7 +145,7 @@ body.out-combat #mapNav,body.out-combat #wirePanel,body.out-combat #charBtn{disp
 body:has(.modal.on) #coach,body:has(.modal.on) #mapNav,body:has(.modal.on) #act,body:has(.modal.on) #menuBtn,body:has(.modal.on) #obj,body:has(.modal.on) #wirePanel,body:has(.modal.on) #charBtn,body:has(.modal.on) #banner,body:has(.modal.on) #toasts,body.menu-open #coach,body.menu-open #mapNav,body.menu-open #wirePanel,body.menu-open #charBtn,body.menu-open #obj,body.menu-open #act,body.menu-open #menuBtn{visibility:hidden!important;pointer-events:none!important}
 body.menu-open .modal.on:not(#sumM){z-index:31;background:transparent;pointer-events:none;padding:0}
 body.menu-open:has(#ring.drawer.rail-open) .modal.on:not(#sumM){z-index:19}
-body.menu-open .modal.on:not(#sumM) .sheet{pointer-events:auto;position:fixed;margin:0;max-width:none;width:auto;border-radius:0;box-shadow:inset 0 0 0 1px rgba(214,248,255,.72),inset 0 0 18px rgba(120,220,255,.12);padding:28px 40px 16px;background:rgba(6,4,16,.16);color:#f7fbff;clip-path:polygon(14% 0,86% 0,100% 50%,86% 100%,14% 100%,0 50%)}
+body.menu-open .modal.on:not(#sumM) .sheet{pointer-events:auto;position:fixed;margin:0;max-width:none;width:auto;border-radius:0;box-shadow:inset 0 0 0 1px rgba(214,248,255,.4);padding:28px 40px 16px;background:rgba(4,2,12,.08);color:#f7fbff;clip-path:polygon(14% 0,86% 0,100% 50%,86% 100%,14% 100%,0 50%)}
 body.menu-open .sheet .row div,body.menu-open .sheet .sh-h,body.menu-open .sheet .spell b{color:#f7fbff}
 body.menu-open .sheet .row small,body.menu-open .sheet .hint,body.menu-open .sheet .spell small{color:#d7ecf8;font-size:16px}
 body.menu-open .sheet .tg{background:rgba(255,255,255,.28);transition:none}
@@ -158,7 +153,7 @@ body.menu-open .sheet .tg::after{transition:none}
 body.menu-open .sheet .tg.on{background:#ff4fb4}
 body.menu-open .sheet .tg.on::after{left:24px}
 body.menu-open .sheet .seg button.on{background:#ff4fb4;color:#fff}
-body.menu-open #ringHome{background:rgba(6,4,16,.16);color:#f7fbff;box-shadow:inset 0 0 0 1px rgba(214,248,255,.72),inset 0 0 18px rgba(120,220,255,.12);padding:28px 40px 16px;clip-path:polygon(14% 0,86% 0,100% 50%,86% 100%,14% 100%,0 50%)}
+body.menu-open #ringHome{background:rgba(4,2,12,.08);color:#f7fbff;box-shadow:inset 0 0 0 1px rgba(214,248,255,.4);padding:28px 40px 16px;clip-path:polygon(14% 0,86% 0,100% 50%,86% 100%,14% 100%,0 50%)}
 body.menu-open:has(#ring.tight) .modal.on:not(#sumM) .sheet,body.menu-open:has(#ring.tight) #ringHome{clip-path:polygon(12% 0,88% 0,100% 50%,88% 100%,12% 100%,0 50%);padding:14px 28px 16px}
 body.menu-open .sheet .row{flex-direction:column;align-items:stretch}
 body.menu-open .sheet .row div,body.menu-open .sheet .hint,body.menu-open #ringHome{font-size:16px}
@@ -557,7 +552,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
   <div class="focus-nav"><button type="button" data-back>Back</button><button type="button" data-home>Home</button></div>
 </div></div>
 <div id="ring" role="dialog" aria-modal="true" aria-label="Menu" aria-hidden="true">
-  <div id="ringBack" aria-hidden="true"><div id="ringVeil"></div><div id="ringGrid"></div><svg class="hex-land" viewBox="0 0 138 100" preserveAspectRatio="none" focusable="false"><defs><linearGradient id="landBevel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9af6ff" stop-opacity="0.95"/><stop offset="0.4" stop-color="#d4c4ff" stop-opacity="0.28"/><stop offset="1" stop-color="#ff4fb4" stop-opacity="0.95"/></linearGradient><linearGradient id="landFace" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9f7ff" stop-opacity="0.16"/><stop offset="0.22" stop-color="#140818" stop-opacity="0.12"/><stop offset="1" stop-color="#240818" stop-opacity="0.28"/></linearGradient><filter id="landBloom" x="-12%" y="-12%" width="124%" height="124%" primitiveUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="1.15"/></filter></defs><path fill="url(#landBevel)" fill-rule="evenodd" d="M69 1 L136 22 L136 78 L69 99 L2 78 L2 22 Z M69 5 L131 23.6 L131 76.4 L69 95 L7 76.4 L7 23.6 Z"/><path d="M69 1 L136 22 L136 78 L69 99 L2 78 L2 22 Z" fill="none" stroke="url(#landBevel)" stroke-width="2.1" filter="url(#landBloom)"/><polygon points="69,5 131,23.6 131,76.4 69,95 7,76.4 7,23.6" fill="url(#landFace)" stroke="rgba(226,250,255,.8)" stroke-width="0.55"/><polygon points="69,11 122,27.5 122,72.5 69,89 16,72.5 16,27.5" fill="none" stroke="rgba(186,244,255,.55)" stroke-width="0.4"/></svg><svg class="hex-port" viewBox="0 0 100 150" preserveAspectRatio="none" focusable="false"><defs><linearGradient id="portBevel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9af6ff" stop-opacity="0.95"/><stop offset="0.4" stop-color="#d4c4ff" stop-opacity="0.28"/><stop offset="1" stop-color="#ff4fb4" stop-opacity="0.95"/></linearGradient><linearGradient id="portFace" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9f7ff" stop-opacity="0.16"/><stop offset="0.22" stop-color="#140818" stop-opacity="0.12"/><stop offset="1" stop-color="#240818" stop-opacity="0.28"/></linearGradient><filter id="portBloom" x="-12%" y="-12%" width="124%" height="124%" primitiveUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="1.1"/></filter></defs><path fill="url(#portBevel)" fill-rule="evenodd" d="M50 1 L98 28 L98 122 L50 149 L2 122 L2 28 Z M50 7 L93 31 L93 119 L50 143 L7 119 L7 31 Z"/><path d="M50 1 L98 28 L98 122 L50 149 L2 122 L2 28 Z" fill="none" stroke="url(#portBevel)" stroke-width="1.8" filter="url(#portBloom)"/><polygon points="50,7 93,31 93,119 50,143 7,119 7,31" fill="url(#portFace)" stroke="rgba(226,250,255,.8)" stroke-width="0.55"/><polygon points="50,16 84,36 84,114 50,134 16,114 16,36" fill="none" stroke="rgba(186,244,255,.55)" stroke-width="0.4"/></svg></div>
+  <div id="ringBack" aria-hidden="true"><div id="ringVeil"></div><canvas id="ringGlass" width="2" height="2"></canvas></div>
   <div id="ringFrame">
     <div id="ringHead">
       <button type="button" id="sectionsBtn">Sections</button>
@@ -4268,6 +4263,135 @@ const MENU_MODAL = { bag: 'bagM', craft: 'craftM', fish: 'fishM', skills: 'skill
 let menuHist = [];
 const menuScroll = {};
 function menuZoom() { const z = parseFloat(getComputedStyle(document.documentElement).zoom); return z > 0 ? z : 1; }
+function drawMenuGlass(w, h, wide) {
+  const c = document.getElementById('ringGlass');
+  if (!c || w < 8 || h < 8) return;
+  const dpr = 2;
+  c.width = Math.round(w * dpr);
+  c.height = Math.round(h * dpr);
+  c.style.width = w + 'px';
+  c.style.height = h + 'px';
+  const ctx = c.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const norm = wide
+    ? [[.5,.01],[.985,.22],[.985,.78],[.5,.99],[.015,.78],[.015,.22]]
+    : [[.5,.007],[.98,.187],[.98,.813],[.5,.993],[.02,.813],[.02,.187]];
+  const front = norm.map(([x, y]) => [x * w, y * h]);
+  const n = front.length;
+  let cx = 0, cy = 0;
+  front.forEach(p => { cx += p[0]; cy += p[1]; });
+  cx /= n; cy /= n;
+  const vanish = [w * .5, -h * .55];
+  const back = front.map(p => {
+    const k = .12;
+    return [p[0] + (vanish[0] - p[0]) * k, p[1] + (vanish[1] - p[1]) * k];
+  });
+  const toward = (pts, f) => pts.map(p => [cx + (p[0] - cx) * f, cy + (p[1] - cy) * f]);
+  const face = toward(front, .9);
+  const well = toward(front, .84);
+  const trace = pts => { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.closePath(); };
+  trace(front);
+  ctx.fillStyle = 'rgba(4,1,10,.94)';
+  ctx.fill();
+  ctx.save();
+  trace(well);
+  ctx.clip();
+  const Ru = .105, Rv = .072;
+  const xStep = Math.sqrt(3) * Ru, yStep = Rv * 1.5;
+  const project = (u, v) => {
+    const t = Math.pow(Math.min(1, Math.max(0, v)), .78);
+    return [w * .5 + u * w * (.22 + t * .7), h * (.14 + t * .8)];
+  };
+  for (let row = -1; row < 18; row++) {
+    for (let col = -10; col < 12; col++) {
+      const u = (col + ((row & 1) ? .5 : 0)) * xStep;
+      const v = .02 + row * yStep;
+      if (v < -.08 || v > 1.15) continue;
+      const verts = [];
+      for (let i = 0; i < 6; i++) {
+        const a = -Math.PI / 2 + i * Math.PI / 3;
+        verts.push(project(u + Math.cos(a) * Ru, v + Math.sin(a) * Rv));
+      }
+      const near = Math.min(1, Math.max(0, v));
+      ctx.beginPath();
+      ctx.moveTo(verts[0][0], verts[0][1]);
+      for (let i = 1; i < 6; i++) ctx.lineTo(verts[i][0], verts[i][1]);
+      ctx.closePath();
+      ctx.strokeStyle = `rgba(255,150,205,${(.04 + near * .14).toFixed(3)})`;
+      ctx.lineWidth = 2.2 + near * 1.6;
+      ctx.stroke();
+      ctx.strokeStyle = `rgba(255,214,236,${(.12 + near * .36).toFixed(3)})`;
+      ctx.lineWidth = .8 + near * .5;
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    const drop = ((front[i][1] - back[i][1]) + (front[j][1] - back[j][1])) * .5;
+    const yN = ((front[i][1] + front[j][1]) * .5) / h;
+    const mag = Math.min(1, Math.max(0, (yN - .28) / .62));
+    const r = Math.round(150 + mag * 105);
+    const g = Math.round(236 - mag * 176);
+    const b = Math.round(255 - mag * 80);
+    const grd = ctx.createLinearGradient(back[i][0], back[i][1], front[i][0], front[i][1]);
+    grd.addColorStop(0, `rgba(${r},${g},${b},${(0.28 + Math.min(.35, drop / 80)).toFixed(3)})`);
+    grd.addColorStop(1, `rgba(${Math.min(255, r + 40)},${Math.min(255, g + 16)},${b},${(0.72 + Math.min(.25, drop / 90)).toFixed(3)})`);
+    ctx.beginPath();
+    ctx.moveTo(front[i][0], front[i][1]);
+    ctx.lineTo(front[j][0], front[j][1]);
+    ctx.lineTo(back[j][0], back[j][1]);
+    ctx.lineTo(back[i][0], back[i][1]);
+    ctx.closePath();
+    ctx.fillStyle = grd;
+    ctx.fill();
+  }
+  ctx.beginPath();
+  ctx.moveTo(back[2][0], back[2][1]);
+  ctx.lineTo(back[3][0], back[3][1]);
+  ctx.lineTo(back[4][0], back[4][1]);
+  ctx.strokeStyle = 'rgba(255,150,210,.8)';
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+  trace(face);
+  const sheen = ctx.createLinearGradient(cx, face[0][1], cx, face[3][1]);
+  sheen.addColorStop(0, 'rgba(190,248,255,.2)');
+  sheen.addColorStop(.18, 'rgba(10,6,22,.04)');
+  sheen.addColorStop(1, 'rgba(40,8,24,.1)');
+  ctx.fillStyle = sheen;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(214,248,255,.62)';
+  ctx.lineWidth = 1.25;
+  ctx.stroke();
+  const lip = toward(front, .8);
+  trace(lip);
+  ctx.strokeStyle = 'rgba(186,244,255,.38)';
+  ctx.lineWidth = .8;
+  ctx.stroke();
+  ctx.save();
+  ctx.shadowColor = 'rgba(140,246,255,.95)';
+  ctx.shadowBlur = 18;
+  ctx.strokeStyle = 'rgba(188,250,255,.95)';
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(front[5][0], front[5][1]);
+  ctx.lineTo(front[0][0], front[0][1]);
+  ctx.lineTo(front[1][0], front[1][1]);
+  ctx.stroke();
+  ctx.restore();
+  ctx.save();
+  ctx.shadowColor = 'rgba(255,70,180,.9)';
+  ctx.shadowBlur = 16;
+  ctx.strokeStyle = 'rgba(255,120,196,.95)';
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.moveTo(front[2][0], front[2][1]);
+  ctx.lineTo(front[3][0], front[3][1]);
+  ctx.lineTo(front[4][0], front[4][1]);
+  ctx.stroke();
+  ctx.restore();
+}
 function layoutMenu() {
   const ring = $('#ring'); if (!ring || !ring.classList.contains('on')) return;
   const z = menuZoom();
@@ -4317,6 +4441,7 @@ function layoutMenu() {
     back.style.top = backTop + 'px';
     back.style.width = Math.max(180, backW) + 'px';
     back.style.height = Math.max(180, backH) + 'px';
+    drawMenuGlass(Math.max(180, backW), Math.max(180, backH), fit);
   }
   const stage = $('#ringStage').getBoundingClientRect();
   document.querySelectorAll('.modal.on').forEach(m => {
