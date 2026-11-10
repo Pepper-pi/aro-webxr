@@ -968,7 +968,7 @@ function mapContext() {
   if (G.step === 2) return ['Walk to the dome', () => goPlace(DOME.q, DOME.r), false];
   if (G.step === 4 && !G.day.hack) return ['Walk to the pond', () => goPlace(POI.q, POI.r), false];
   if (G.step === 5) return ['Open the Cook Nook', openCraft, true];
-  if (G.step === 6) return ['Cast at your pond spot', openFish, true];
+  if (G.step === 6) return ['Step inside', enterHome, true];
   if (G.step === 7) return ['Fast travel home', flyHome, true];
   return null;
 }
@@ -5104,7 +5104,7 @@ $$('.modal').forEach(m => { m.addEventListener('click', e => { if (e.target === 
 const RING = [
   { k: 'bag', n: 'Bag', i: 'bag', a: -150, r: 1, go: () => { renderBag(); openModal('bagM'); } },
   { k: 'craft', n: 'Nook', i: 'core', a: -40, r: 1, go: () => openCraft() },
-  { k: 'fish', n: 'Fishing', i: 'fish', a: 20, r: 1, go: () => { if (fishReady()) openFish(); else toast('Fishing opens at the pond after the Cook Nook.'); } },
+  { k: 'fish', n: 'Fishing', i: 'fish', a: 20, r: 1, go: () => { if (fishReady()) enterHome(); else toast('Fishing opens at the pond after the Cook Nook.'); } },
   { k: 'skills', n: 'Spellbook', i: 'book', a: 150, r: 1, go: () => { renderSpells(); openModal('skillM'); } },
   { k: 'log', n: 'Collection', i: 'star', a: 100, r: 1.35, go: () => { renderLog(); openModal('logM'); } },
   { k: 'set', n: 'Settings', i: 'gear', a: -100, r: 1.35, go: () => { renderSettings(); openModal('setM'); } },
@@ -5372,7 +5372,7 @@ function afterHack() {
 }
 function flowAfterCraft() {
   if (G.step !== 5) return; G.step = 6; setTime(.74);
-  setTimeout(() => { closeModal('craftM'); setObj('<b>Dusk</b> · the pond opens where you stand'); coach(`${G.fishBait === 'bait' ? 'Honey Bait is ready. ' : ''}The pond opens in front of you. Flick toward the ripple.`); setAct('Cast at your pond spot', openFish, true); }, 1300);
+  setTimeout(() => { closeModal('craftM'); setObj('<b>Dusk</b> · home, then the lake door'); coach(`${G.fishBait === 'bait' ? 'Honey Bait is ready. ' : ''}Step inside. The round door opens onto the lake.`); setAct('Step inside', enterHome, true); }, 1300);
 }
 function afterFish() {
   closeModal('fishM'); if (G.step !== 6) return; G.step = 7; setTime(.84); setObj('<b>Dusk</b> · fly home');
@@ -5499,9 +5499,15 @@ function dayTint() {
 function vignette() { const gr = ctx.createRadialGradient(W / 2, H * .5, Math.min(W, H) * .35, W / 2, H * .5, Math.max(W, H) * .75); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(.6, 'rgba(6,1,10,.35)'); gr.addColorStop(1, 'rgba(4,0,8,.85)'); ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H); }
 const perf = { frames: 0, ms: 0, worst: 0, fps: 0, _t: 0, _n: 0 };
 let last = performance.now(), T = 0;
+function enterHome() {
+  if (window.__home && window.__home.enter && window.__home.enter()) return true;
+  openFish();
+  return false;
+}
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(.05, Math.max(0, (now - last) / 1000)); last = now; if (window.__aroFreeze) return; T += dt;
+  if (window.__homeCovers && window.__homeCovers()) { if ($('#craftM').classList.contains('on')) drawBall(T, dt); return; }
   const t0 = performance.now();
   updFX(dt);
   if (G.formFx) { G.formFx.left -= dt; if (G.formFx.left <= 0) G.formFx = null; }
@@ -7325,7 +7331,7 @@ cv.addEventListener('wheel', e => {
 document.getElementById('titleTrain').addEventListener('click', () => { SFX.tap(); startTrain(); });
 document.getElementById('titleKing').addEventListener('click', () => { SFX.tap(); startKing(); });
 document.getElementById('titleMap').addEventListener('click', () => { SFX.tap(); openMapNav(); });
-document.getElementById('navHome').addEventListener('click', () => goPlace(HOME.q, HOME.r));
+document.getElementById('navHome').addEventListener('click', () => enterHome());
 document.getElementById('navDome').addEventListener('click', () => goPlace(DOME.q, DOME.r));
 document.getElementById('navPond').addEventListener('click', () => goPlace(POI.q, POI.r));
 document.getElementById('navCmd').addEventListener('click', () => openCommand());
@@ -7488,6 +7494,7 @@ function renderCommand() {
     renderCommand();
   });
   drawLookPreview();
+  if (window.__homeCommandExtra) window.__homeCommandExtra(list);
 }
 function openCommand() { renderCommand(); openModal('cmdM'); if (typeof disc3dStart === 'function') disc3dStart(); }
 function syncMapNav() {
@@ -8269,4 +8276,5 @@ window.__disc3d = {
   }
 };
 </script>
+<script type="module" src="home-cabin.js"></script>
 </body></html>

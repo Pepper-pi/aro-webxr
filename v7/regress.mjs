@@ -1503,6 +1503,43 @@ check('fishing poses move the off hand, and the spell hand stays available for l
 check('the fishing slice does not throw', fishErr.length === 0, JSON.stringify(fishErr));
 await fishPage.close();
 
+const cabin = await open(844, 390);
+const cabinErr = [];
+cabin.on('pageerror', err => cabinErr.push(String(err && err.message || err)));
+await cabin.waitForFunction(() => window.__home && window.__home.enter, { timeout: 20000 });
+const home = await cabin.evaluate(() => {
+  const entered = window.__home.enter();
+  const nook = window.__home.activate('nook');
+  const craft = document.getElementById('craftM').classList.contains('on');
+  closeModal('craftM');
+  const board = window.__home.activate('board');
+  const cmd = document.getElementById('cmdM').classList.contains('on');
+  const friends = document.getElementById('cmdM').textContent.includes('Friend quests');
+  closeModal('cmdM');
+  window.__home.activate('spot');
+  const bounce = window.__home.state().bounce;
+  const slotted = window.__home.setSlot('gold') && window.__home.state().slot === 'gold';
+  window.__home.setSlot('billboard');
+  const sound = window.__home.state().sound;
+  window.__home.activate('door');
+  for (let i = 0; i < 60; i++) window.__home.step(0.05);
+  const fishing = document.getElementById('fishM').classList.contains('on');
+  const phase = window.__home.state().phase;
+  const backBtn = document.getElementById('homeDoorBack').classList.contains('on');
+  window.__home.back();
+  for (let i = 0; i < 50; i++) window.__home.step(0.05);
+  const after = window.__home.state();
+  const fishClosed = !document.getElementById('fishM').classList.contains('on');
+  const homeAgain = document.body.classList.contains('home-in');
+  return { entered, nook, craft, board, cmd, friends, bounce, slotted, sound, fishing, phase, backBtn, after, fishClosed, homeAgain };
+});
+check('the cabin door opens onto fishing and the door comes back home', home.entered && home.fishing && home.phase === 'fishing' && home.backBtn && home.fishClosed && home.homeAgain && home.after.phase === 'inside' && home.after.door < 0.35, JSON.stringify(home));
+check('the Cook Nook counter opens the Cook Nook', home.nook && home.craft, JSON.stringify({ nook: home.nook, craft: home.craft }));
+check('the wall board opens Command with Friend quests', home.board && home.cmd && home.friends, JSON.stringify({ board: home.board, cmd: home.cmd, friends: home.friends }));
+check('a tap on the character spot bounces, and the fire stays quiet', home.bounce === 1 && home.sound === false && home.slotted, JSON.stringify({ bounce: home.bounce, sound: home.sound, slot: home.slotted }));
+check('the home interior does not throw', cabinErr.length === 0, JSON.stringify(cabinErr));
+await cabin.close();
+
 await browser.close();
 console.log(fails.length ? '\n' + fails.length + ' failed' : '\nall passed');
 process.exit(fails.length ? 1 : 0);
