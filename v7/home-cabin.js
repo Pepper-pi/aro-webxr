@@ -411,6 +411,21 @@ function renderBook(open) {
   }
   const note = document.getElementById('homeBondNote');
   if (note) note.textContent = 'Bond ' + b.taps + ' · tier ' + b.tier;
+  const pins = document.getElementById('homePinList');
+  if (pins) {
+    pins.innerHTML = '';
+    const saved = window.__world && window.__world.pins ? window.__world.pins() : [];
+    if (!saved.length) {
+      const empty = document.createElement('li');
+      empty.textContent = 'No pins yet';
+      pins.appendChild(empty);
+    }
+    for (const pin of saved) {
+      const li = document.createElement('li');
+      li.textContent = pin.date + ' · ' + pin.weather + ' · ' + Number(pin.lat).toFixed(2) + ', ' + Number(pin.lon).toFixed(2);
+      pins.appendChild(li);
+    }
+  }
   if (open) panel.classList.add('on');
 }
 function playGold(move, loop) {
@@ -853,6 +868,13 @@ function enter() {
   goldEnter();
   return true;
 }
+function goOutside() {
+  leave();
+  if (window.__train && window.__train.startTrain) {
+    window.__train.startTrain();
+    if (window.__train.setTrainView) window.__train.setTrainView('fp');
+  }
+}
 function leave() {
   HOME.on = false; HOME.phase = 'inside';
   show(false);
@@ -993,7 +1015,7 @@ function mount() {
   document.body.appendChild(canvas);
   const hud = document.createElement('div');
   hud.id = 'homeHud';
-  hud.innerHTML = '<div id="homeHudRow"><button type="button" id="homeCrackle" aria-pressed="false">Fire sound off</button><button type="button" id="homeTable">Place on a table</button><button type="button" id="homePortal">Place the door</button><button type="button" id="homeBookBtn">Collection</button><button type="button" id="homeOutside">Outside</button></div><p id="homeArNote"></p><div id="homeBook"><b>Collection</b><p id="homeBondNote"></p><ul id="homeBookList"></ul></div>';
+  hud.innerHTML = '<div id="homeHudRow"><button type="button" id="homeCrackle" aria-pressed="false">Fire sound off</button><button type="button" id="homeTable">Place on a table</button><button type="button" id="homePortal">Place the door</button><button type="button" id="homeBookBtn">Collection</button><button type="button" id="homeOutside" title="Future AR entry. On this screen it opens the field.">Outside</button><button type="button" id="homePin">Pin this world</button></div><p id="homeArNote"></p><div id="homeBook"><b>Collection</b><p id="homeBondNote"></p><ul id="homeBookList"></ul><b>Pins</b><ul id="homePinList"></ul></div>';
   document.body.appendChild(hud);
   const back = document.createElement('button');
   back.id = 'homeDoorBack'; back.type = 'button'; back.textContent = 'Door home';
@@ -1008,7 +1030,8 @@ function mount() {
   document.getElementById('homeCrackle').onclick = () => setSound(!HOME.sound);
   document.getElementById('homeTable').onclick = () => startAr('dollhouse');
   document.getElementById('homePortal').onclick = () => startAr('portal');
-  document.getElementById('homeOutside').onclick = () => leave();
+  document.getElementById('homeOutside').onclick = () => goOutside();
+  document.getElementById('homePin').onclick = () => { if (window.__world && window.__world.pin) { window.__world.pin(); renderBook(true); } };
   document.getElementById('homeBookBtn').onclick = () => {
     renderBook(false);
     document.getElementById('homeBook').classList.toggle('on');
@@ -1023,6 +1046,8 @@ function boot() {
     enter, leave, activate, back: backHome, pose, step, setSound, setSlot, hitName, targets,
     ar: { probe: probeAr, start: startAr },
     covers: () => HOME.on && HOME.phase !== 'fishing',
+    refreshBook: () => renderBook(false),
+    goOutside,
     bond: () => { const b = bondState(); return { taps: b.taps, tier: b.tier, collected: b.collected.slice() }; },
     collection: () => bondState().collected.map(id => ({ id, title: CARD_TITLE[id] || id })),
     state: () => ({ on: HOME.on, phase: HOME.phase, door: HOME.door, bounce: HOME.bounce, sound: HOME.sound, slot: HOME.slot, yaw: HOME.yaw, dressed: !!HOME.dressed, ar: Object.assign({}, HOME.ar) }),

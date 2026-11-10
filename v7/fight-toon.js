@@ -118,24 +118,55 @@ function live() {
 }
 function hexOf(q, r) { return { x: SQ3 * (q + r / 2), z: 1.5 * r }; }
 
+const hexCells = [];
+const halos = [];
+const cracks = [];
+const scatterProps = [];
 function buildHexes() {
-  const cells = [];
   for (let q = -4; q <= 4; q++) for (let r = -4; r <= 4; r++) {
     const dist = (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
-    if (dist <= 3) cells.push({ q, r, pit: dist === 2 && (q + r) % 2 === 0 });
+    if (dist <= 3) hexCells.push({ q, r });
   }
-  state.hexes = cells.length;
+  state.hexes = hexCells.length;
   const top = new THREE.CylinderGeometry(0.94, 0.98, 0.14, 6);
   const rim = new THREE.CylinderGeometry(1.02, 1.02, 0.05, 6, 1, true);
   const inkGeo = top.clone(); inkGeo.scale(1.05, 1.5, 1.05);
-  hexMesh = new THREE.InstancedMesh(top, toon('#3a4c66'), cells.length);
-  hexInk = new THREE.InstancedMesh(inkGeo, INK.clone(), cells.length);
-  edgeMesh = new THREE.InstancedMesh(rim, new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }), cells.length);
-  const neon = [new THREE.Color('#3de0ff'), new THREE.Color('#b06bff'), new THREE.Color('#ff3355')];
-  cells.forEach((c, i) => {
+  hexMesh = new THREE.InstancedMesh(top, toon('#3a4c66'), hexCells.length);
+  hexInk = new THREE.InstancedMesh(inkGeo, INK.clone(), hexCells.length);
+  edgeMesh = new THREE.InstancedMesh(rim, new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }), hexCells.length);
+  hexCells.forEach(() => halos.push(halo('#3de0ff', 0, 0, 0, 1.05)));
+  for (let i = 0; i < 4; i++) {
+    const crack = new THREE.Mesh(new THREE.PlaneGeometry(1.05, 0.22), new THREE.MeshBasicMaterial({ color: 0xff4466 }));
+    crack.rotation.x = -Math.PI / 2;
+    crack.visible = false;
+    scene.add(crack);
+    cracks.push(crack);
+  }
+  for (let i = 0; i < 5; i++) {
+    const prop = new THREE.Mesh(i % 2 ? new THREE.SphereGeometry(0.16, 8, 6) : new THREE.BoxGeometry(0.28, 0.22, 0.28), toon(i % 2 ? '#e6c07a' : '#6a4030'));
+    prop.visible = false;
+    scene.add(prop);
+    scatterProps.push(prop);
+  }
+  scene.add(hexMesh, hexInk, edgeMesh);
+  paintField(null);
+}
+
+function storyPits() {
+  return hexCells.filter(c => {
+    const dist = (Math.abs(c.q) + Math.abs(c.r) + Math.abs(c.q + c.r)) / 2;
+    return (dist === 2 && (c.q + c.r) % 2 === 0) || (c.q === 0 && c.r === -1);
+  }).map(c => ({ q: c.q, r: c.r, deep: c.q === 0 && c.r === -1 }));
+}
+function paintField(look) {
+  const neon = (look ? look.neon : ['#3de0ff', '#b06bff', '#ff3355']).map(h => new THREE.Color(h));
+  const pits = look ? look.pits : storyPits();
+  const pitKey = new Map(pits.map(p => [p.q + ',' + p.r, p]));
+  hexCells.forEach((c, i) => {
+    const hit = pitKey.get(c.q + ',' + c.r);
+    const deep = !!(hit && hit.deep);
+    const y = deep ? -0.55 : hit ? -0.08 : 0;
     const p = hexOf(c.q, c.r);
-    const deep = c.q === 0 && c.r === -1;
-    const y = deep ? -0.55 : c.pit ? -0.08 : 0;
     dummy.position.set(p.x, y, p.z);
     dummy.rotation.set(0, Math.PI / 6, 0);
     dummy.scale.set(1, 1, 1);
@@ -143,23 +174,65 @@ function buildHexes() {
     hexMesh.setMatrixAt(i, dummy.matrix);
     hexInk.setMatrixAt(i, dummy.matrix);
     edgeMesh.setMatrixAt(i, dummy.matrix);
-    const tint = c.pit || deep ? neon[2] : neon[(c.q + c.r + 6) % 3];
+    const tint = hit ? neon[2] : neon[(Math.abs(c.q + c.r) + 6) % 3];
     edgeMesh.setColorAt(i, tint);
-    halo(tint, p.x, y + 0.16, p.z, deep ? 2.1 : 1.05);
-    if (c.pit || deep) {
-      const crack = new THREE.Mesh(new THREE.PlaneGeometry(deep ? 1.5 : 1.05, deep ? 0.36 : 0.18), new THREE.MeshBasicMaterial({ color: deep ? 0xff4466 : (i % 2) ? 0xff3355 : 0xd56bff }));
-      crack.rotation.x = -Math.PI / 2;
-      crack.position.set(p.x, y + 0.08, p.z);
-      scene.add(crack);
-    }
+    halos[i].position.set(p.x, y + 0.16, p.z);
+    halos[i].material = glowMat(tint);
+    const s = deep ? 2.1 : 1.05;
+    halos[i].scale.set(s, s, 1);
   });
   hexMesh.instanceMatrix.needsUpdate = true;
   hexInk.instanceMatrix.needsUpdate = true;
   edgeMesh.instanceMatrix.needsUpdate = true;
-  edgeMesh.instanceColor.needsUpdate = true;
-  scene.add(hexMesh, hexInk, edgeMesh);
+  if (edgeMesh.instanceColor) edgeMesh.instanceColor.needsUpdate = true;
+  cracks.forEach((cr, i) => {
+    const pit = pits[i];
+    cr.visible = !!pit;
+    if (!pit) return;
+    const p = hexOf(pit.q, pit.r);
+    cr.position.set(p.x, pit.deep ? -0.47 : 0.02, p.z);
+    cr.scale.set(pit.deep ? 1.45 : 1, 1, pit.deep ? 1.6 : 1);
+    cr.material.color.set(pit.deep ? '#ff4466' : '#d56bff');
+  });
+  const scatter = look ? look.scatter : [];
+  scatterProps.forEach((m, i) => {
+    const s = scatter[i];
+    m.visible = !!s;
+    if (!s) return;
+    const p = hexOf(s.q, s.r);
+    m.position.set(p.x + (s.kind === 'lantern' ? 0.2 : -0.15), s.kind === 'lantern' ? 0.28 : 0.12, p.z);
+  });
+  const sky = look ? look.sky : '#070814';
+  scene.background = new THREE.Color(sky);
+  if (scene.fog) {
+    scene.fog.color.set(look ? look.fog : sky);
+    scene.fog.near = look ? look.fogNear : 8;
+    scene.fog.far = look ? look.fogFar : 18;
+  }
+  if (sun) {
+    sun.color.set(look ? look.sun : '#dde7ff');
+    sun.intensity = look ? look.sunLevel : 1.35;
+  }
+  state.weatherKind = look ? look.weather : 'storm';
+  state.story = !look;
+  if (rainMesh) {
+    const wet = state.story || ['rain', 'storm', 'snow', 'wind'].includes(state.weatherKind);
+    rainMesh.visible = wet;
+    rainMesh.material.color.set(state.weatherKind === 'snow' ? '#f4f7ff' : '#9ec7ff');
+  }
 }
-
+function storySpace(g) {
+  return !!(g && g.TRAIN && g.TRAIN.king);
+}
+function syncWorld(g) {
+  const story = storySpace(g);
+  const w = window.__world;
+  const rev = w && w.revision ? w.revision() : 0;
+  const key = (story ? 'story' : 'field') + ':' + rev;
+  if (key === state.worldKey) return;
+  state.worldKey = key;
+  paintField(story ? null : (w && w.look && w.look()));
+}
 function buildRain() {
   const geo = new THREE.BoxGeometry(0.03, 0.28, 0.03);
   rainMesh = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ color: 0x9ec7ff }), RAIN);
@@ -377,6 +450,7 @@ function resize() {
 
 function show(on) {
   state.on = on;
+  document.body.classList.toggle('field-on', on);
   const canvas = document.getElementById('fightCv');
   if (canvas) canvas.classList.toggle('on', on);
   if (reticle) reticle.classList.toggle('on', on && !!(game() && game().TRAIN && window.__aro && window.__aro.G && window.__aro.G.cls === 'gunner'));
@@ -479,6 +553,7 @@ function syncActors(g) {
   }
   const flinch = state.flash > 0 ? 0.35 * state.flash : 0;
   const baseY = state.bossHp <= 0 ? -0.4 : 0;
+  boss.scale.setScalar(state.weatherKind === 'storm' && !state.story ? 1.9 : 1.55);
   boss.position.set(bx, baseY + Math.sin(state.t * 1.4) * 0.06, bz + flinch);
   boss.rotation.y = Math.sin(state.t * 0.7) * 0.22;
   boss.rotation.z = Math.sin(state.t * 0.9) * 0.05;
@@ -503,9 +578,13 @@ function syncGun(g) {
 }
 
 function stepRain(t) {
+  const snow = state.weatherKind === 'snow';
+  const wind = state.weatherKind === 'wind' || state.weatherKind === 'storm';
+  const speed = snow ? 1.2 : 3;
   for (let i = 0; i < RAIN; i++) {
-    const y = (6 - ((t * 3 + i * 0.37) % 6));
-    dummy.position.set(((i * 1.3) % 8) - 4, y, -((i * 1.7) % 11) + 3);
+    const y = (6 - ((t * speed + i * 0.37) % 6));
+    const x = ((i * 1.3) % 8) - 4 + (wind ? Math.sin(t + i) * 0.8 : 0);
+    dummy.position.set(x, y, -((i * 1.7) % 11) + 3);
     dummy.rotation.set(0.2, 0, 0);
     dummy.scale.set(1, 1, 1);
     dummy.updateMatrix();
@@ -526,13 +605,15 @@ function frame(now) {
   state.t += dt;
   state.flash = Math.max(0, state.flash - dt * 3.2);
   state.sky = Math.max(0, state.sky - dt);
-  if (state.sky <= 0 && Math.random() < dt * 0.28) state.sky = 0.14;
+  const stormRate = state.weatherKind === 'storm' ? 0.85 : state.weatherKind === 'rain' ? 0.05 : state.story ? 0.28 : 0;
+  if (state.sky <= 0 && Math.random() < dt * stormRate) state.sky = 0.14;
   if (boltSky) boltSky.material.opacity = state.sky > 0 ? 0.72 : 0;
   if (streak) streak.material.opacity = state.sky > 0.03 ? 0.95 : 0;
   state.kick = Math.max(0, state.kick - dt * 6);
   state.muzzle = Math.max(0, state.muzzle - dt);
   state.cast = Math.max(0, state.cast - dt);
   placeCamera(g);
+  syncWorld(g);
   const fp = !!(g.TRAIN.on && g.TRAIN.view === 'fp');
   document.body.classList.toggle('fight-fp', fp);
   document.body.classList.toggle('fp-clear', fp && !state.practice);
