@@ -18,13 +18,16 @@ const state = {
   muzzle: 0,
   reload: 0,
   cast: 0,
+  t: 0,
+  sky: 0,
+  practice: false,
   hexes: 0,
   built: false,
 };
 
 let renderer, scene, camera, sun, grad;
 let hexMesh, hexInk, edgeMesh, rainMesh;
-let hands, rifle, glass, rune, boss, bossWire, bossEyes, bossBar;
+let hands, rifle, glass, rune, boss, bossWire, bossEyes, bossBar, boltSky, streak;
 let reticle;
 const posts = [];
 const mobBlobs = [];
@@ -56,6 +59,38 @@ function toon(hex, extra) {
   return m;
 }
 const INK = new THREE.MeshBasicMaterial({ color: 0x140810, side: THREE.BackSide });
+let glowMap;
+const glowMats = {};
+function glowTex() {
+  if (glowMap) return glowMap;
+  const c = document.createElement('canvas');
+  c.width = c.height = 32;
+  const g = c.getContext('2d');
+  const grd = g.createRadialGradient(16, 16, 1, 16, 16, 16);
+  grd.addColorStop(0, 'rgba(255,255,255,.95)');
+  grd.addColorStop(0.4, 'rgba(255,255,255,.28)');
+  grd.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, 32, 32);
+  glowMap = new THREE.CanvasTexture(c);
+  return glowMap;
+}
+function glowMat(hex) {
+  const key = hex && hex.isColor ? hex.getHexString() : String(hex);
+  if (!glowMats[key]) {
+    glowMats[key] = new THREE.SpriteMaterial({
+      map: glowTex(), color: hex && hex.isColor ? hex.getHex() : hex, blending: THREE.AdditiveBlending,
+      depthWrite: false, transparent: true, opacity: 0.9,
+    });
+  }
+  return glowMats[key];
+}
+function halo(hex, x, y, z, s) {
+  const sp = new THREE.Sprite(glowMat(hex));
+  sp.position.set(x, y, z);
+  sp.scale.set(s, s, 1);
+  scene.add(sp);
+  return sp;
+}
 function ink(mesh, s) {
   const g = mesh.geometry.clone();
   g.scale(s || 1.07, s || 1.07, s || 1.07);
@@ -99,7 +134,8 @@ function buildHexes() {
   const neon = [new THREE.Color('#3de0ff'), new THREE.Color('#b06bff'), new THREE.Color('#ff3355')];
   cells.forEach((c, i) => {
     const p = hexOf(c.q, c.r);
-    const y = c.pit ? -0.08 : 0;
+    const deep = c.q === 0 && c.r === -1;
+    const y = deep ? -0.55 : c.pit ? -0.08 : 0;
     dummy.position.set(p.x, y, p.z);
     dummy.rotation.set(0, Math.PI / 6, 0);
     dummy.scale.set(1, 1, 1);
@@ -107,11 +143,13 @@ function buildHexes() {
     hexMesh.setMatrixAt(i, dummy.matrix);
     hexInk.setMatrixAt(i, dummy.matrix);
     edgeMesh.setMatrixAt(i, dummy.matrix);
-    edgeMesh.setColorAt(i, c.pit ? neon[2] : neon[(c.q + c.r + 6) % 3]);
-    if (c.pit) {
-      const crack = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 0.22), new THREE.MeshBasicMaterial({ color: (i % 2) ? 0xff3355 : 0xd56bff }));
+    const tint = c.pit || deep ? neon[2] : neon[(c.q + c.r + 6) % 3];
+    edgeMesh.setColorAt(i, tint);
+    halo(tint, p.x, y + 0.16, p.z, deep ? 2.1 : 1.05);
+    if (c.pit || deep) {
+      const crack = new THREE.Mesh(new THREE.PlaneGeometry(deep ? 1.5 : 1.05, deep ? 0.36 : 0.18), new THREE.MeshBasicMaterial({ color: deep ? 0xff4466 : (i % 2) ? 0xff3355 : 0xd56bff }));
       crack.rotation.x = -Math.PI / 2;
-      crack.position.set(p.x, 0.02, p.z);
+      crack.position.set(p.x, y + 0.08, p.z);
       scene.add(crack);
     }
   });
@@ -138,34 +176,34 @@ function buildRain() {
 function buildHands() {
   hands = new THREE.Group();
   camera.add(hands);
-  const skin = toon('#e7b48a');
-  const cuff = toon('#1c2430');
+  const skin = toon('#f0c09a');
+  const cuff = toon('#2c3448');
   const makeHand = (side) => {
     const h = new THREE.Group();
-    h.position.set(side * 0.34, -0.16, -0.62);
-    h.scale.setScalar(1.35);
-    part(new THREE.BoxGeometry(0.16, 0.08, 0.2), skin, 0, 0, 0, h);
-    part(new THREE.BoxGeometry(0.12, 0.1, 0.12), cuff, side * -0.02, 0.02, 0.12, h);
-    part(new THREE.BoxGeometry(0.1, 0.035, 0.08), skin, 0, 0.02, -0.12, h);
+    h.position.set(side * 0.48, -0.36, -0.72);
+    const palm = part(new THREE.SphereGeometry(0.085, 12, 8), skin, 0, 0, 0, h);
+    palm.scale.set(1.2, 0.78, 1.28);
+    const thumb = part(new THREE.SphereGeometry(0.032, 8, 6), skin, side * 0.07, -0.015, 0.01, h);
+    thumb.scale.set(0.9, 1.35, 0.75);
+    part(new THREE.CylinderGeometry(0.05, 0.055, 0.07, 8), cuff, 0, 0.01, 0.07, h);
     return h;
   };
   const left = makeHand(-1), right = makeHand(1);
   hands.add(left, right);
-  glass = new THREE.Mesh(new THREE.CircleGeometry(0.22, 18), toon('#9eefff', { transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide }));
-  glass.position.set(-0.02, 0.04, -0.16);
+  glass = new THREE.Mesh(new THREE.CircleGeometry(0.09, 16), toon('#9eefff', { transparent: true, opacity: 0.4, depthWrite: false, side: THREE.DoubleSide }));
+  glass.position.set(0, 0.02, -0.08);
   left.add(glass);
-  ink(glass, 1.08);
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.012, 6, 18), new THREE.MeshBasicMaterial({ color: 0xcff6ff }));
-  rim.position.copy(glass.position);
-  left.add(rim);
+  const rimG = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.005, 6, 16), new THREE.MeshBasicMaterial({ color: 0xcff6ff }));
+  rimG.position.copy(glass.position);
+  left.add(rimG);
   rune = new THREE.Group();
-  rune.position.set(0.02, 0.08, -0.28);
+  rune.position.set(0, 0.04, -0.16);
   right.add(rune);
-  rune.add(new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.016, 6, 24), new THREE.MeshBasicMaterial({ color: 0xffb15a })));
-  for (let i = 0; i < 6; i++) {
-    const mark = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.01), new THREE.MeshBasicMaterial({ color: 0xfff1c2 }));
-    const a = i / 6 * Math.PI * 2;
-    mark.position.set(Math.cos(a) * 0.2, Math.sin(a) * 0.2, 0);
+  rune.add(new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.004, 6, 18), new THREE.MeshBasicMaterial({ color: 0xffb15a })));
+  for (let i = 0; i < 5; i++) {
+    const mark = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.012, 0.006), new THREE.MeshBasicMaterial({ color: 0xfff1c2 }));
+    const a = i / 5 * Math.PI * 2;
+    mark.position.set(Math.cos(a) * 0.07, Math.sin(a) * 0.07, 0);
     rune.add(mark);
   }
   rune.visible = false;
@@ -173,20 +211,27 @@ function buildHands() {
 
 function buildRifle() {
   rifle = new THREE.Group();
-  rifle.position.set(0.28, -0.14, -0.55);
+  rifle.position.set(0.42, -0.3, -0.64);
   camera.add(rifle);
-  const body = toon('#3a2a28');
-  const metal = toon('#8d97a6');
-  part(new THREE.BoxGeometry(0.08, 0.1, 0.34), body, 0, 0, 0.02, rifle);
-  part(new THREE.BoxGeometry(0.07, 0.08, 0.16), body, 0, -0.02, 0.16, rifle);
-  const barrel = part(new THREE.CylinderGeometry(0.025, 0.03, 0.36, 6), metal, 0, 0.04, -0.22, rifle);
+  const wood = toon('#6b3d2a');
+  const metal = toon('#b7c0ce');
+  const body = part(new THREE.CapsuleGeometry(0.05, 0.26, 4, 8), wood, 0, 0.02, 0.02, rifle);
+  body.rotation.x = Math.PI / 2;
+  const stock = part(new THREE.SphereGeometry(0.065, 10, 8), wood, 0, -0.01, 0.2, rifle);
+  stock.scale.set(0.72, 1.15, 1.25);
+  const barrel = part(new THREE.CapsuleGeometry(0.026, 0.24, 3, 8), metal, 0, 0.055, -0.2, rifle);
   barrel.rotation.x = Math.PI / 2;
-  rifle.userData.mag = part(new THREE.BoxGeometry(0.05, 0.12, 0.06), toon('#1a1c22'), 0, -0.1, 0.02, rifle);
-  const flash = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.14, 6), new THREE.MeshBasicMaterial({ color: 0xfff2c0 }));
-  flash.rotation.x = -Math.PI / 2;
-  flash.position.set(0, 0.04, -0.46);
+  const scope = part(new THREE.SphereGeometry(0.038, 8, 6), metal, 0, 0.1, -0.02, rifle);
+  scope.scale.set(0.75, 0.65, 1.45);
+  rifle.userData.mag = part(new THREE.CapsuleGeometry(0.028, 0.07, 3, 6), toon('#1c1e26'), 0, -0.07, 0.04, rifle);
+  const flash = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfff2c0 }));
+  flash.position.set(0, 0.055, -0.38);
   flash.visible = false;
   rifle.add(flash);
+  const flashGlow = new THREE.Sprite(glowMat(0xfff2a8));
+  flashGlow.scale.set(0.45, 0.45, 1);
+  flashGlow.position.copy(flash.position);
+  flash.add(flashGlow);
   rifle.userData.flash = flash;
   rifle.visible = false;
 }
@@ -194,29 +239,52 @@ function buildRifle() {
 function buildBoss() {
   boss = new THREE.Group();
   scene.add(boss);
-  const glassMat = toon('#17304a', { transparent: true, opacity: 0.55, depthWrite: false });
-  part(new THREE.BoxGeometry(0.7, 0.55, 0.4), glassMat, 0, 0.85, 0, boss);
-  part(new THREE.BoxGeometry(0.42, 0.36, 0.36), glassMat, 0, 1.35, 0, boss);
-  part(new THREE.BoxGeometry(0.22, 0.55, 0.22), glassMat, -0.5, 0.9, 0, boss);
-  part(new THREE.BoxGeometry(0.22, 0.55, 0.22), glassMat, 0.5, 0.9, 0, boss);
-  bossWire = new THREE.Mesh(new THREE.IcosahedronGeometry(1.05, 1), new THREE.MeshBasicMaterial({ color: 0x7fd0ff, wireframe: true }));
-  bossWire.position.y = 0.95;
+  const meat = toon('#121820');
+  const glassMat = toon('#1a4568', { transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide });
+  const torso = part(new THREE.SphereGeometry(0.48, 12, 8), meat, 0, 1.15, 0, boss);
+  torso.scale.set(1.15, 1.35, 0.9);
+  part(new THREE.SphereGeometry(0.28, 10, 8), meat, 0, 1.78, 0.04, boss);
+  part(new THREE.CapsuleGeometry(0.14, 0.46, 3, 6), meat, -0.62, 1.05, 0, boss);
+  part(new THREE.CapsuleGeometry(0.14, 0.46, 3, 6), meat, 0.62, 1.05, 0, boss);
+  part(new THREE.CapsuleGeometry(0.16, 0.35, 3, 6), meat, -0.2, 0.42, 0, boss);
+  part(new THREE.CapsuleGeometry(0.16, 0.35, 3, 6), meat, 0.2, 0.42, 0, boss);
+  const shell = new THREE.Mesh(new THREE.IcosahedronGeometry(1.05, 1), glassMat);
+  shell.position.y = 1.15;
+  shell.scale.set(1.15, 1.35, 1);
+  boss.add(shell);
+  bossWire = new THREE.Mesh(new THREE.IcosahedronGeometry(1.18, 1), new THREE.MeshBasicMaterial({ color: 0x8fe8ff, wireframe: true, transparent: true, opacity: 0.85 }));
+  bossWire.position.y = 1.15;
+  bossWire.scale.set(1.15, 1.35, 1);
   boss.add(bossWire);
+  const aura = new THREE.Sprite(glowMat(0x66e0ff));
+  aura.position.y = 1.2;
+  aura.scale.set(3.4, 3.4, 1);
+  boss.add(aura);
   bossEyes = [];
-  for (const x of [-0.1, 0.1]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff2244 }));
-    eye.position.set(x, 1.38, 0.16);
+  for (const x of [-0.12, 0.12]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff2244 }));
+    eye.position.set(x, 1.82, 0.22);
     boss.add(eye);
+    const eg = new THREE.Sprite(glowMat(0xff2244));
+    eg.position.copy(eye.position);
+    eg.scale.set(0.45, 0.45, 1);
+    boss.add(eg);
     bossEyes.push(eye);
   }
-  const back = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.06, 0.04), new THREE.MeshBasicMaterial({ color: 0x1a1018 }));
-  const fill = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.04, 0.05), new THREE.MeshBasicMaterial({ color: 0x3de07a }));
-  back.position.set(0, 1.85, 0);
-  fill.position.set(0, 1.85, 0.01);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.07, 0.04), new THREE.MeshBasicMaterial({ color: 0x1a1018 }));
+  const fill = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.045, 0.05), new THREE.MeshBasicMaterial({ color: 0x3de07a }));
+  back.position.set(0, 2.25, 0);
+  fill.position.set(0, 2.25, 0.02);
   boss.add(back, fill);
   bossBar = fill;
   boss.position.set(0, 0, -4.6);
-  boss.scale.setScalar(1.7);
+  boss.scale.setScalar(1.55);
+  boltSky = new THREE.Mesh(new THREE.PlaneGeometry(9, 2.4), new THREE.MeshBasicMaterial({ color: 0xe7f3ff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
+  boltSky.position.set(0.4, 4.4, -2.2);
+  streak = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 3.2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
+  streak.position.set(-3.4, 4.2, -1.2);
+  streak.rotation.z = 0.4;
+  scene.add(boltSky, streak);
 }
 
 function buildPools() {
@@ -236,9 +304,13 @@ function buildPools() {
   }
   for (let i = 0; i < BOLTS; i++) {
     const g = new THREE.Group();
-    const core = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfff6d0 }));
-    core.scale.set(1, 1, 2.4);
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfff6d0 }));
+    core.scale.set(1, 1, 2.2);
     g.add(core);
+    const glow = new THREE.Sprite(glowMat(0xffd27a));
+    glow.scale.set(0.7, 0.7, 1);
+    g.add(glow);
+    g.userData.glow = glow;
     const trail = [];
     for (let t = 0; t < 4; t++) {
       const s = new THREE.Mesh(new THREE.SphereGeometry(0.05 - t * 0.008, 6, 4), new THREE.MeshBasicMaterial({ color: 0xff8a3d, transparent: true, opacity: 0.8 - t * 0.15 }));
@@ -361,7 +433,8 @@ function syncShots(g) {
     slot.g.position.set(x, 0.85, z);
     const col = gun ? 0xff4455 : 0xffd27a;
     slot.core.material.color.setHex(col);
-    slot.trail.forEach((p, i) => { p.position.set(0, 0, 0.16 + i * 0.12); });
+    if (slot.g.userData.glow) slot.g.userData.glow.material = glowMat(col);
+    slot.trail.forEach((p, i) => { p.position.set(0, 0, 0.12 + i * 0.08); });
     if (!seen.has(s) && s.x1 !== undefined) { state.muzzle = 0.16; state.kick = 1; }
     takeShot(s, x, z, k);
   }
@@ -369,7 +442,7 @@ function syncShots(g) {
   hands.visible = hands.visible && !gun;
   rifle.visible = gun && g.TRAIN.on && g.TRAIN.view === 'fp';
   rune.visible = !gun && ((g.TRAIN.charge || 0) > 0.04 || state.cast > 0);
-  const sc = 0.45 + (g.TRAIN.charge || 0) * 0.9;
+  const sc = 0.8 + (g.TRAIN.charge || 0) * 0.15;
   rune.scale.setScalar(sc);
   rune.rotation.z += 0.08;
   glass.material.opacity = 0.28 + Math.min(0.4, (g.TRAIN.guide || 0) * 0.35 + (g.TRAIN.charge || 0) * 0.2);
@@ -398,25 +471,31 @@ function syncActors(g) {
   }
   for (let i = b; i < mobBlobs.length; i++) mobBlobs[i].visible = false;
   const raidBoss = mobs.find(m => m.tier === 'boss');
+  const bx = raidBoss ? raidBoss.x : 0;
+  const bz = raidBoss ? raidBoss.y : -4.6;
   if (raidBoss) {
-    boss.position.set(raidBoss.x, 0, raidBoss.y);
     state.bossHp = Math.max(0, raidBoss.hp);
     state.bossMax = raidBoss.max || BOSS_MAX;
   }
+  const flinch = state.flash > 0 ? 0.35 * state.flash : 0;
+  const baseY = state.bossHp <= 0 ? -0.4 : 0;
+  boss.position.set(bx, baseY + Math.sin(state.t * 1.4) * 0.06, bz + flinch);
+  boss.rotation.y = Math.sin(state.t * 0.7) * 0.22;
+  boss.rotation.z = Math.sin(state.t * 0.9) * 0.05;
+  boss.rotation.x = state.flash > 0 ? -0.45 * state.flash : Math.sin(state.t * 0.55) * 0.04;
   const hpK = state.bossMax ? state.bossHp / state.bossMax : 0;
   bossBar.scale.x = Math.max(0.04, hpK);
   bossBar.position.x = -0.33 * (1 - hpK);
   bossBar.material.color.set(hpK > 0.35 ? '#3de07a' : '#ff4455');
-  const flash = state.flash > 0;
-  bossWire.material.color.set(flash ? '#ffffff' : '#7fd0ff');
-  bossEyes.forEach(e => { e.scale.setScalar(flash ? 1.6 : 1); });
-  boss.position.y = state.bossHp <= 0 ? -0.35 : 0;
+  const hit = state.flash > 0;
+  bossWire.material.color.set(hit ? '#ffffff' : '#8fe8ff');
+  bossEyes.forEach(e => { e.scale.setScalar(hit ? 1.7 : 1); });
 }
 
 function syncGun(g) {
   state.reload = g.TRAIN.shotCd || 0;
   const kick = state.kick * 0.08;
-  rifle.position.z = -0.55 + kick;
+  rifle.position.z = -0.64 + kick;
   rifle.rotation.x = state.reload > 0 ? 0.35 : kick * 2;
   rifle.userData.mag.position.y = -0.1 - (state.reload > 0 ? 0.06 : 0);
   rifle.userData.flash.visible = state.muzzle > 0;
@@ -444,11 +523,19 @@ function frame(now) {
   const g = game();
   const dt = Math.min(0.05, (now - (frame.then || now)) / 1000 || 0.016);
   frame.then = now;
-  state.flash = Math.max(0, state.flash - dt * 4);
+  state.t += dt;
+  state.flash = Math.max(0, state.flash - dt * 3.2);
+  state.sky = Math.max(0, state.sky - dt);
+  if (state.sky <= 0 && Math.random() < dt * 0.28) state.sky = 0.14;
+  if (boltSky) boltSky.material.opacity = state.sky > 0 ? 0.72 : 0;
+  if (streak) streak.material.opacity = state.sky > 0.03 ? 0.95 : 0;
   state.kick = Math.max(0, state.kick - dt * 6);
   state.muzzle = Math.max(0, state.muzzle - dt);
   state.cast = Math.max(0, state.cast - dt);
   placeCamera(g);
+  const fp = !!(g.TRAIN.on && g.TRAIN.view === 'fp');
+  document.body.classList.toggle('fight-fp', fp);
+  document.body.classList.toggle('fp-clear', fp && !state.practice);
   syncShots(g);
   syncActors(g);
   syncGun(g);
@@ -474,6 +561,9 @@ function mount() {
     '#fightReticle:before,#fightReticle:after{content:"";position:absolute;background:#ff3355}',
     '#fightReticle:before{left:50%;top:6px;bottom:6px;width:2px;margin-left:-1px}',
     '#fightReticle:after{top:50%;left:6px;right:6px;height:2px;margin-top:-1px}',
+    '#fpPractice{position:fixed;left:12px;top:calc(8px + env(safe-area-inset-top,0px));z-index:16;display:none;min-height:36px;padding:6px 12px;border-radius:12px;border:1px solid rgba(226,196,138,.7);background:rgba(20,12,18,.88);color:#f6e2c4;font:800 13px sans-serif}',
+    'body.fight-fp #fpPractice{display:block}',
+    'body.fp-clear #trainHud .rowb,body.fp-clear #trainHud .note,body.fp-clear #trainHelp,body.fp-clear #obj,body.fp-clear #castFeed,body.fp-clear #cellBtn,body.fp-clear #itemBoard,body.fp-clear #itemBubble{display:none !important}',
   ].join('');
   document.head.appendChild(style);
   const canvas = document.createElement('canvas');
@@ -482,6 +572,16 @@ function mount() {
   reticle = document.createElement('div');
   reticle.id = 'fightReticle';
   document.body.appendChild(reticle);
+  const practice = document.createElement('button');
+  practice.id = 'fpPractice';
+  practice.type = 'button';
+  practice.textContent = 'Practice';
+  practice.onclick = () => {
+    state.practice = !state.practice;
+    practice.textContent = state.practice ? 'Close' : 'Practice';
+    practice.setAttribute('aria-expanded', state.practice ? 'true' : 'false');
+  };
+  document.body.appendChild(practice);
   window.addEventListener('resize', resize);
   window.__fight = {
     status: () => ({
