@@ -240,6 +240,8 @@ input[type=range]{accent-color:var(--pink);width:120px}
 #trainHud button.on{background:#ff4fb4;border-color:#ff9ad2;color:#fff}
 #trainHelpBtn{flex:none !important;padding:7px 10px !important;font-size:12px !important;pointer-events:auto}
 #castFeed{position:fixed;left:10px;right:auto;transform:none;top:calc(258px + var(--sat));bottom:auto;z-index:14;max-width:68vw;pointer-events:none;background:rgba(12,6,16,.92);border:1px solid rgba(255,201,77,.75);border-radius:12px;padding:6px 12px;font-weight:900;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#mealChip{position:fixed;left:50%;top:calc(54px + var(--sat));transform:translateX(-50%);z-index:22;display:none;padding:6px 12px;border-radius:999px;background:rgba(42,24,16,.94);border:1px solid #ffd36a;color:#ffe7a8;font:800 14px sans-serif;pointer-events:none;white-space:nowrap}
+#mealChip.on{display:block}
 @media (max-width:520px){
   body:has(#mapNav:not(.hide)) #act:not(.hide){left:136px;right:8px;width:auto;min-width:0;transform:none;text-align:center}
   body:has(#mapNav:not(.hide)) #act:not(.hide):active{transform:translateY(3px)}
@@ -542,6 +544,7 @@ body.fishing #fishM .focus-nav button{min-height:36px;padding:6px 8px}
 <button type="button" id="itemBoard" class="hide">Board</button>
 <button type="button" id="itemBubble" class="hide">Item<small>Not tracked</small></button>
 <div id="castFeed" class="hide"></div>
+<div id="mealChip"></div>
 <div id="mapNav" class="hide">
   <button type="button" id="navHome">Home</button>
   <button type="button" id="navDome">Dome</button>
@@ -2617,6 +2620,7 @@ const SPELLS = [
   { k: 'ember', n: 'Ember Bolt', dmg: 12, cd: .3, col: '#ff8a3d', d: 'Fast fire bolt from your hand.' },
   { k: 'frost', n: 'Frost Shard', dmg: 8, cd: 1.4, col: '#8fe3ff', slow: 3, d: 'Chills: the mob winds up 50% slower for 3s.' },
   { k: 'nova', n: 'Honey Nova', dmg: 14, cd: 7, col: '#ffc94d', d: 'Burst that hits every live mob.' },
+  { k: 'ward', n: 'Ward', dmg: 0, cd: 4, col: '#9dffc8', d: 'A green guard. Restores 8 HP.' },
 ];
 const MOBDEF = {
   slime: { n: 'Gel Slime', rar: 0, hp: 30, r: .42, aggroR: 2.75, atk: 'slam', tele: 1.25, cd: [2.2, 3.2], sp: .35, drop: ['gel'], elem: 'neon' },
@@ -4969,6 +4973,21 @@ function drawFishWorld(T) {
       drawAvatar(ctx, 0, 0, rs, { t: T, view: 'front', race: G.race, form: G.form, hands: gestureHands(rs, { x: 0, y: -1, flip: false }), hop: 0 });
       ctx.restore();
     }
+    const glow = window.__profile && window.__profile.get && window.__profile.get().cosmetic === 'glow-trace';
+    if (glow) {
+      const me = playerScreen();
+      ctx.save();
+      ctx.strokeStyle = '#fff3a8';
+      ctx.shadowColor = '#ffe14a';
+      ctx.shadowBlur = 18;
+      ctx.lineWidth = 7;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(me.x, me.y);
+      ctx.lineTo(sx, sy);
+      ctx.stroke();
+      ctx.restore();
+    }
     if (FI.phase === 'aim' || FI.phase === 'fly' || FI.phase === 'wait' || FI.phase === 'nibble') {
       const rad = (rippleScreen() || { r: 28 }).r;
       const hot = FI.phase === 'nibble';
@@ -5918,7 +5937,15 @@ document.addEventListener('keydown', e => {
 });
 $$('.race').forEach(b => b.onclick = () => { G.race = b.dataset.r; G.fieldAvatar = ''; if (G.race === 'slime') G.form = 'boba'; $$('.race').forEach(x => x.classList.toggle('sel', x === b)); if (typeof goldFieldTag === 'function') goldFieldTag(); SFX.tap(); });
 $('#titleGo').onclick = () => startDay();
-$$('.sp').forEach(b => b.addEventListener('click', () => { dropCanvasPress(); const i = +b.dataset.i; selSpell(i); cast(i, 1, null); }));
+$$('.sp').forEach(b => b.addEventListener('click', () => {
+  dropCanvasPress();
+  const i = +b.dataset.i;
+  const skill = b.dataset.skill || (SPELLS[i] && SPELLS[i].k);
+  if (skill === 'ward') { castWard(); return; }
+  const si = SPELLS.findIndex(s => s.k === skill);
+  const idx = si >= 0 ? si : i;
+  selSpell(idx); cast(idx, 1, null);
+}));
 $('#iceWall').addEventListener('click', () => raiseWall());
 $('#dodgeL').addEventListener('pointerdown', e => { e.preventDefault(); dodge(-1); });
 $('#dodgeR').addEventListener('pointerdown', e => { e.preventDefault(); dodge(1); });
@@ -6356,13 +6383,49 @@ const MAGE_RIM = [
   { id: 'nova', name: 'Nova', col: '#ffc94d', el: 'Honey' },
   { id: 'iceberg', name: 'Iceberg', col: '#bff4ff', el: 'Ice' },
   { id: 'slash', name: 'Slash', col: '#ff5ad8', el: 'Cut' },
+  { id: 'ward', name: 'Ward', col: '#9dffc8', el: 'Guard' },
 ];
 const GUN_RIM = [
   { id: 'shot', name: 'Shot', col: '#ff3b4e', el: 'Round' },
   { id: 'frag', name: 'Frag', col: '#ffb45a', el: 'Fire' },
   { id: 'turret', name: 'Turret', col: '#ffd36a', el: 'Gold' },
   { id: 'drone', name: 'Drone', col: '#7fd8ff', el: 'Cyan' },
+  { id: 'flare', name: 'Flare', col: '#ffe14a', el: 'Mark' },
 ];
+const MEAL = { on: false, name: '', mul: 1 };
+function syncMealChip() {
+  const el = document.getElementById('mealChip');
+  if (!el) return;
+  el.textContent = MEAL.on ? MEAL.name + ' · +25% damage' : '';
+  el.classList.toggle('on', !!MEAL.on);
+}
+function armMeal() {
+  const name = window.__profile && window.__profile.takeBuff ? window.__profile.takeBuff() : '';
+  MEAL.on = !!name;
+  MEAL.name = name || '';
+  MEAL.mul = name ? 1.25 : 1;
+  syncMealChip();
+}
+function clearMeal() {
+  MEAL.on = false; MEAL.name = ''; MEAL.mul = 1; syncMealChip();
+}
+function equippedIds(cls) {
+  const all = cls === 'gunner' ? GUN_RIM : MAGE_RIM;
+  const saved = window.__profile && window.__profile.loadout && window.__profile.loadout(cls);
+  const ids = saved && saved.length ? saved : all.slice(0, 3).map(s => s.id);
+  const picked = ids.map(id => all.find(s => s.id === id)).filter(Boolean);
+  return picked.length ? picked : all.slice(0, 3);
+}
+function syncWheel() {
+  const rim = equippedIds('mage');
+  document.querySelectorAll('.sp').forEach((b, i) => {
+    const s = rim[i];
+    if (!s) return;
+    const span = b.querySelector('span');
+    if (span) span.innerHTML = s.name;
+    b.dataset.skill = s.id;
+  });
+}
 const TRAIN = {
   on: false, view: 'tactical', helpOpen: false, aim: null, charge: 0, focus: 0, hb: 0, speed: 0, shotCd: 0,
   cap: null, drag: null, disc: null, sel: { mage: 0, gunner: 0 }, bolts: [], last: null, labels: [],
@@ -6560,7 +6623,11 @@ function discHit(X, Y) {
 function selectRim(i) {
   const key = GUN.cls === 'gunner' ? 'gunner' : 'mage';
   TRAIN.sel[key] = i;
-  if (key === 'mage' && i < 3) selSpell(i);
+  if (key === 'mage') {
+    const rim = currentRim()[i];
+    const si = rim ? SPELLS.findIndex(s => s.k === rim.id) : -1;
+    if (si >= 0) selSpell(si);
+  }
   SFX.tap();
 }
 function castSlash() {
@@ -6568,8 +6635,20 @@ function castSlash() {
   if (!aim || !Number.isFinite(aim.x) || !Number.isFinite(aim.y)) return false;
   return shadowSlash(aim);
 }
+function castWard() {
+  if (!spendMana(MANA_COST.spell)) return false;
+  G.hp = Math.min(G.maxHp, (G.hp || 0) + 8);
+  if (typeof renderHearts === 'function') renderHearts();
+  const slot = equippedIds('mage').findIndex(s => s.id === 'ward');
+  if (slot >= 0 && slot < AR.cds.length) AR.cds[slot] = 4;
+  AR.castT = .3;
+  const [X, Y] = proj(AR.cam, AR.ppx, AR.ppy);
+  popText(X, Y - 70, 'Ward +8', '#9dffc8', 16);
+  SFX.cast();
+  return true;
+}
 function releaseMage() {
-  const rim = MAGE_RIM[TRAIN.sel.mage] || MAGE_RIM[0];
+  const rim = currentRim()[TRAIN.sel.mage] || MAGE_RIM[0];
   const shown = Math.round(clamp(TRAIN.charge || 0, 0, 1) * 100);
   const power = 0.5 + clamp(TRAIN.charge || 0, 0, 1) * 1.15;
   TRAIN.charge = 0;
@@ -6577,6 +6656,7 @@ function releaseMage() {
   let ok = false;
   if (rim.id === 'iceberg') ok = !!raiseWall();
   else if (rim.id === 'slash') ok = !!castSlash();
+  else if (rim.id === 'ward') ok = !!castWard();
   else {
     const idx = rim.id === 'frost' ? 1 : rim.id === 'nova' ? 2 : 0;
     const wallAim = rim.id === 'ember' ? aimedOwnWall(TRAIN.aim) : null;
@@ -6612,8 +6692,9 @@ function fireGun(power) {
     if (d < best) { best = d; hit = m; }
   }
   const tight = TRAIN.focus || 0;
-  const dmg = Math.max(1, Math.round(14 * clamp(power, 0.4, 1.8) * (1 + tight * 0.35)));
-  TRAIN.bolts.push({ x0: px, y0: py, x1: aim.x, y1: aim.y, t: 0, life: 0.32, col: '#ff2438' });
+  const flare = (GUN_RIM[TRAIN.sel.gunner] || GUN_RIM[0]).id === 'flare';
+  const dmg = Math.max(1, Math.round((flare ? 9 : 14) * clamp(power, 0.4, 1.8) * (1 + tight * 0.35)));
+  TRAIN.bolts.push({ x0: px, y0: py, x1: aim.x, y1: aim.y, t: 0, life: 0.32, col: flare ? '#ffe14a' : '#ff2438' });
   TRAIN.shotCd = 0.26;
   TRAIN.charge = 0;
   if (hit) damage(hit, dmg, { col: '#ff4a55', k: 'shot' }, tight > 0.62);
@@ -6623,8 +6704,8 @@ function fireGun(power) {
   return !!hit;
 }
 function useGunRim(i) {
-  const id = GUN_RIM[i].id;
-  if (id === 'shot') { popPlayer('drag to aim', '#ff8a9a'); return; }
+  const id = (GUN_RIM[i] || GUN_RIM[0]).id;
+  if (id === 'shot' || id === 'flare') { popPlayer(id === 'flare' ? 'Flare · drag to aim' : 'drag to aim', '#ffe14a'); return; }
   if (id === 'frag') {
     const aim = TRAIN.aim || { x: AR.ppx, y: AR.ppy - 2.2 };
     const [q, r] = xyHex(aim.x, aim.y);
@@ -7304,6 +7385,8 @@ function startTrain() {
   setAct(null);
   if (typeof resetCell === 'function') resetCell();
   if (typeof itemReset === 'function') itemReset();
+  armMeal();
+  syncWheel();
 }
 function resetTrain() {
   if (TRAIN.king) { interruptCharge(); kingRetry(); return; }
@@ -7615,6 +7698,9 @@ function drawCellAim() {
   ctx.fillText(travel >= CELL_TUNABLE.flick ? 'Release to kick' : 'Flick to kick', X, Y - 86);
   if (travel > 6) {
     const ux = dx / travel, uy = dy / travel, len = Math.min(78, 16 + travel * 0.5);
+    const glow = window.__profile && window.__profile.get && window.__profile.get().cosmetic === 'glow-trace';
+    if (glow) { ctx.shadowColor = '#fff6b0'; ctx.shadowBlur = 16; ctx.strokeStyle = '#fff6b0'; ctx.lineWidth = 10; ctx.beginPath(); ctx.moveTo(X, Y - 18); ctx.lineTo(X + ux * len, Y - 18 + uy * len); ctx.stroke(); }
+    ctx.shadowBlur = 0;
     ctx.strokeStyle = '#ffe7a4'; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.moveTo(X, Y - 18); ctx.lineTo(X + ux * len, Y - 18 + uy * len); ctx.stroke();
     ctx.beginPath();
@@ -7732,6 +7818,7 @@ function drawCellRig() {
 }
 function leaveTrain() {
   interruptCharge();
+  clearMeal();
   TRAIN.on = false; TRAIN.cap = null; TRAIN.drag = null;
   REACH.kind = null;
   resetCell();
@@ -8031,7 +8118,7 @@ function drillLine() {
   if (n >= 3) return `<b>Round ${d.round} clear</b> · Reset for the next`;
   return `<b>Round ${d.round}</b> · ${d.hits} hits · ${d.dmg} dmg`;
 }
-{ const _damage = damage; damage = function (m, dmg, sp, focus) { const r = _damage(m, dmg, sp, focus); if (m && m.dummy) { m.aggro = false; m.atkT = 99; const left = Math.max(0, Math.ceil(m.hp)); showCast('Hit ' + dmg + ' · ' + m.D.n + '  ' + left + ' HP'); if (!TRAIN.drill) TRAIN.drill = { round: 1, hits: 0, dmg: 0, who: {}, said: false }; const dr = TRAIN.drill; dr.hits++; dr.dmg += dmg; dr.who[m.D.n] = true; const [q, rhex] = xyHex(m.x, m.y); if (!TRAIN.pulses) TRAIN.pulses = []; TRAIN.pulses.push({ q, r: rhex, col: (sp && sp.col) || '#ffd36a', t: 0 }); if (TRAIN.pulses.length > 6) TRAIN.pulses.shift(); if (!m.rolled && !AR.mobs.some(x => x.rolled) && Object.keys(dr.who).length >= 3 && !dr.said) { dr.said = true; showCast('Round ' + dr.round + ' clear · Reset for the next'); } AR.objT = null; } return r; }; }
+{ const _damage = damage; damage = function (m, dmg, sp, focus) { if (MEAL.on) dmg = Math.max(1, Math.round(dmg * MEAL.mul)); const r = _damage(m, dmg, sp, focus); if (m && m.dummy) { m.aggro = false; m.atkT = 99; const left = Math.max(0, Math.ceil(m.hp)); showCast('Hit ' + dmg + ' · ' + m.D.n + '  ' + left + ' HP'); if (!TRAIN.drill) TRAIN.drill = { round: 1, hits: 0, dmg: 0, who: {}, said: false }; const dr = TRAIN.drill; dr.hits++; dr.dmg += dmg; dr.who[m.D.n] = true; const [q, rhex] = xyHex(m.x, m.y); if (!TRAIN.pulses) TRAIN.pulses = []; TRAIN.pulses.push({ q, r: rhex, col: (sp && sp.col) || '#ffd36a', t: 0 }); if (TRAIN.pulses.length > 6) TRAIN.pulses.shift(); if (!m.rolled && !AR.mobs.some(x => x.rolled) && Object.keys(dr.who).length >= 3 && !dr.said) { dr.said = true; showCast('Round ' + dr.round + ' clear · Reset for the next'); } AR.objT = null; } return r; }; }
 { const _lock = lockUpdate; lockUpdate = function (dt) { const n = FX.length; _lock(dt); if (TRAIN.on) { for (let i = FX.length - 1; i >= n; i--) if (FX[i].kind === 'text' && FX[i].txt === 'steady') FX.splice(i, 1); } }; }
 { const _cubes = cubesFor; cubesFor = function (m) { if (m && m.dummy) { const [X, Y, f] = proj(AR.cam, m.x, m.y); popText(X, Y - 36 * f, m.rolled ? 'defeated' : 'down', '#ffd36a', 16); SFX.cube(); return; } return _cubes(m); }; }
 { const _drawMob = drawArenaMob; drawArenaMob = function (m, T) { if (m && m.dummy) return drawDummy(m); return _drawMob(m, T); }; }
@@ -8251,8 +8338,8 @@ function renderCommand() {
   const sel = TRAIN.sel[key] || 0;
   const list = document.getElementById('cmdList');
   let h = '<div class="hint" style="margin-top:0"><b>Fighting kit</b> · switches the yard for real</div>';
-  h += `<button type="button" data-cls="mage" class="${gun ? '' : 'on'}">Mage · Ember, Frost, Nova, Iceberg, Slash</button>`;
-  h += `<button type="button" data-cls="gunner" class="${gun ? 'on' : ''}">Gunner · Shot, Frag, Turret, Drone</button>`;
+  h += `<button type="button" data-cls="mage" class="${gun ? '' : 'on'}">Mage · Ember, Frost, Nova, Iceberg, Slash, Ward</button>`;
+  h += `<button type="button" data-cls="gunner" class="${gun ? 'on' : ''}">Gunner · Shot, Frag, Turret, Drone, Flare</button>`;
   h += '<div class="hint"><b>Ready action</b> · selected when the yard opens</div>';
   kit.forEach((s, i) => { h += `<button type="button" data-act="${i}" class="${i === sel ? 'on' : ''}">${s.name} · ${s.el}</button>`; });
   h += '<div class="hint"><b>Stage companions</b> · local list only</div>';
@@ -8289,7 +8376,7 @@ function renderCommand() {
     if (window.__profile && window.__profile.setClass) window.__profile.setClass(b.dataset.cls);
     renderCommand();
   });
-  list.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { TRAIN.sel[key] = +b.dataset.act; if (!gun && +b.dataset.act < 3) selSpell(+b.dataset.act); renderCommand(); });
+  list.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { selectRim(+b.dataset.act); renderCommand(); });
   list.querySelectorAll('[data-bond]').forEach(b => b.onclick = () => { const n = BONDS[+b.dataset.bond].n; BOARD.staged[n] = !BOARD.staged[n]; saveBoard(); renderCommand(); });
   document.getElementById('cmdStage').onclick = () => { saveBoard(); document.getElementById('cmdNote').textContent = boardNote(); SFX.tap(); };
   list.querySelectorAll('[data-look]').forEach(b => b.onclick = () => {
@@ -8374,7 +8461,7 @@ window.__train = {
   trainSelfTest, MAGE_RIM, GUN_RIM, applyZoom, layoutMapCam, setClass, setTrainView, slashUpdate,
   openMapNav, openCommand, goPlace, BOARD, boardNote, discPlate, discCenter, discRadius, discHit,
   startKing, kingLine,
-  trainUpdate, releaseDisc, interruptCharge, aimedOwnWall,
+  trainUpdate, releaseDisc, interruptCharge, aimedOwnWall, syncWheel, armMeal, clearMeal,
   DISC_IDLE, DISC_CHARGED,
   stepArena: dt => arenaUpdate(dt),
   CELL, CELL_TUNABLE, CELL_ELEMENTS, CELL_TOPOLOGY, loadCell, startCellBolt, kickCell, cancelCell, spendCell, resetCell, cellNet, cellFold, cellAnchor,

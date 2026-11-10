@@ -864,6 +864,17 @@ function buildArcade() {
   strike.position.set(0, 0.8, 0.15);
   tag(strike, 'arcade-strike');
   room.add(strike);
+  const prize = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.08, 0.24), new THREE.MeshBasicMaterial({ color: 0x7ec8ff }));
+  prize.position.set(0.42, 0.86, 0.05);
+  prize.visible = false;
+  room.add(prize);
+  const prizeLabel = labelSprite('Sticker', 256, 48);
+  prizeLabel.position.set(0.42, 1.08, 0.05);
+  prizeLabel.scale.set(0.5, 0.12, 1);
+  prizeLabel.visible = false;
+  room.add(prizeLabel);
+  HOME.prize = prize;
+  HOME.prizeLabel = prizeLabel;
   const board = labelSprite('Pet board', 256, 48);
   board.position.set(0, 1.05, 0.15);
   board.scale.set(0.8, 0.18, 1);
@@ -887,6 +898,28 @@ function enterArcade() {
   camera.position.set(-7.4, 1.85, 4.2);
   camera.lookAt(-7.4, 1.15, 0);
   show(true);
+  refreshPrize();
+  return true;
+}
+function refreshPrize() {
+  const prize = HOME.prize, label = HOME.prizeLabel;
+  if (!prize) return false;
+  const list = window.__profile && window.__profile.get ? window.__profile.get().prizes : [];
+  const name = list && list[0];
+  prize.visible = !!name;
+  if (label) label.visible = !!name;
+  if (!name) return false;
+  const color = /trinket/i.test(name) ? 0xd7b4ff : /snack/i.test(name) ? 0xffd36a : 0x7ec8ff;
+  prize.material.color.setHex(color);
+  if (label && label.userData.ctx) {
+    const ctx = label.userData.ctx, canvas = label.userData.canvas;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#fff6d4';
+    ctx.font = '700 28px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(name, canvas.width / 2, canvas.height * 0.7);
+    label.material.map.needsUpdate = true;
+  }
   return true;
 }
 function leaveArcade() {
@@ -1011,6 +1044,7 @@ function enter() {
   applyOrbit();
   renderer.render(scene, camera);
   goldEnter();
+  if (HOME.paintLoadout) HOME.paintLoadout();
   return true;
 }
 function goOutside() {
@@ -1181,6 +1215,8 @@ function mount() {
     '#homeHudRow{display:flex;flex-wrap:wrap;gap:8px}',
     '#homeHud button,#homeDoorBack{pointer-events:auto;min-height:48px;min-width:48px;padding:10px 14px;border-radius:12px;font:800 15px sans-serif;background:rgba(42,24,16,.82);border:1px solid rgba(226,196,138,.7);color:#f6e2c4}',
     '#homeHud button.on{outline:2px solid #ffd36a}',
+    '#homeLoadout{display:flex;flex-wrap:wrap;gap:6px;max-width:100%}',
+    '#homeLoadout button.on{outline:2px solid #9dffc8}',
     '#homeArNote{display:none;margin:0;max-width:34rem;padding:10px 12px;border-radius:12px;background:rgba(42,24,16,.9);color:#f6e2c4;font:600 15px/1.35 sans-serif}',
     '#homeArNote.on{display:block}',
     '#homeBook{display:none;margin:0;max-width:16rem;padding:10px 12px;border-radius:12px;background:rgba(42,24,16,.92);color:#f6e2c4}',
@@ -1197,7 +1233,7 @@ function mount() {
   document.body.appendChild(canvas);
   const hud = document.createElement('div');
   hud.id = 'homeHud';
-  hud.innerHTML = '<div id="homeHudRow"><button type="button" id="homeCrackle" aria-pressed="false">Fire sound off</button><button type="button" id="homeTable">Place on a table</button><button type="button" id="homePortal">Place the door</button><button type="button" id="homeBookBtn">Collection</button><button type="button" id="homeArcade">Arcade</button><button type="button" id="homeArcadeOut">Step out</button><button type="button" id="homeBoard">Pet board</button><button type="button" id="homeMage">Mage</button><button type="button" id="homeGun">Gunner</button><button type="button" id="homeOutside" title="Future AR entry. On this screen it opens the field.">Outside</button><button type="button" id="homePin">Pin this world</button></div><p id="homeArNote"></p><div id="homeBook"><b>Collection</b><p id="homeBondNote"></p><ul id="homeBookList"></ul><b>Pins</b><ul id="homePinList"></ul></div>';
+  hud.innerHTML = '<div id="homeHudRow"><button type="button" id="homeCrackle" aria-pressed="false">Fire sound off</button><button type="button" id="homeTable">Place on a table</button><button type="button" id="homePortal">Place the door</button><button type="button" id="homeBookBtn">Collection</button><button type="button" id="homeArcade">Arcade</button><button type="button" id="homeArcadeOut">Step out</button><button type="button" id="homeBoard">Pet board</button><button type="button" id="homeMage">Mage</button><button type="button" id="homeGun">Gunner</button><button type="button" id="homeOutside" title="Future AR entry. On this screen it opens the field.">Outside</button><button type="button" id="homePin">Pin this world</button></div><div id="homeLoadout"></div><p id="homeArNote"></p><div id="homeBook"><b>Collection</b><p id="homeBondNote"></p><ul id="homeBookList"></ul><b>Pins</b><ul id="homePinList"></ul></div>';
   document.body.appendChild(hud);
   const back = document.createElement('button');
   back.id = 'homeDoorBack'; back.type = 'button'; back.textContent = 'Door home';
@@ -1229,10 +1265,30 @@ function mount() {
     document.getElementById('homeGun').classList.toggle('on', c === 'gunner');
     const note = document.getElementById('homeArNote');
     if (note) {
-      note.textContent = (c === 'gunner' ? 'Gunner' : 'Mage') + ' saved. Swap it here any time.';
+      note.textContent = (c === 'gunner' ? 'Gunner' : 'Mage') + ' saved. Swap the wheel below.';
       note.classList.add('on');
     }
+    paintLoadout();
   };
+  function paintLoadout() {
+    const host = document.getElementById('homeLoadout');
+    if (!host || !window.__profile || !window.__profile.loadout) return;
+    const cls = window.__profile.get().cls === 'gunner' ? 'gunner' : 'mage';
+    const names = cls === 'gunner'
+      ? { shot: 'Shot', frag: 'Frag', turret: 'Turret', drone: 'Drone', flare: 'Flare' }
+      : { ember: 'Ember', frost: 'Frost', nova: 'Nova', iceberg: 'Iceberg', slash: 'Slash', ward: 'Ward' };
+    const on = window.__profile.loadout(cls);
+    host.innerHTML = '';
+    Object.keys(names).forEach(id => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = names[id];
+      b.classList.toggle('on', on.indexOf(id) >= 0);
+      b.onclick = () => { window.__profile.toggleLoadout(cls, id); paintLoadout(); if (window.__train && window.__train.syncWheel) window.__train.syncWheel(); };
+      host.appendChild(b);
+    });
+  }
+  HOME.paintLoadout = paintLoadout;
   document.getElementById('homeMage').onclick = () => pickClass('mage');
   document.getElementById('homeGun').onclick = () => pickClass('gunner');
   back.onclick = () => backHome();
@@ -1246,7 +1302,7 @@ function boot() {
     ar: { probe: probeAr, start: startAr },
     covers: () => HOME.on && HOME.phase !== 'fishing',
     refreshBook: () => renderBook(false),
-    goOutside, enterArcade, leaveArcade, fishFromNook,
+    goOutside, enterArcade, leaveArcade, fishFromNook, refreshPrize,
     markFromField: () => { HOME.fromField = true; },
     bond: () => { const b = bondState(); return { taps: b.taps, tier: b.tier, collected: b.collected.slice() }; },
     collection: () => bondState().collected.map(id => ({ id, title: CARD_TITLE[id] || id })),

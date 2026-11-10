@@ -15,7 +15,8 @@ const PRIZES = [
 function blank() {
   return {
     coins: 40, tokens: 6, xp: 0, cls: '',
-    cells: 2, potions: 2, treats: 0, cosmetic: '',
+    cells: 2, potions: 2, treats: 0, cosmetic: '', buff: '',
+    loadout: { mage: ['ember', 'frost', 'nova'], gunner: ['shot', 'frag', 'turret'] },
     fieldWins: 0, captures: 0, raidDate: '', friendRaid: '',
     friends: {},
     quests: null,
@@ -38,6 +39,10 @@ function load() {
   if (!Array.isArray(state.pins)) state.pins = [];
   if (!state.bonds || !Array.isArray(state.bonds.collected)) state.bonds = { taps: 0, tier: 0, collected: [] };
   if (!Array.isArray(state.catches)) state.catches = [];
+  if (typeof state.buff !== 'string') state.buff = '';
+  if (!state.loadout || typeof state.loadout !== 'object') state.loadout = { mage: ['ember', 'frost', 'nova'], gunner: ['shot', 'frag', 'turret'] };
+  if (!Array.isArray(state.loadout.mage) || !state.loadout.mage.length) state.loadout.mage = ['ember', 'frost', 'nova'];
+  if (!Array.isArray(state.loadout.gunner) || !state.loadout.gunner.length) state.loadout.gunner = ['shot', 'frag', 'turret'];
   if (!Array.isArray(state.prizes)) state.prizes = [];
   if (state.cls !== 'mage' && state.cls !== 'gunner') state.cls = '';
   if (typeof state.fieldWins !== 'number') state.fieldWins = 0;
@@ -544,13 +549,30 @@ function mount() {
     takePrize: (id) => {
       load();
       const item = PRIZES.find(p => p.id === id);
-      return item ? buyPrize(item) : false;
+      const ok = item ? buyPrize(item) : false;
+      if (ok && window.__home && window.__home.refreshPrize) window.__home.refreshPrize();
+      return ok;
     },
     active: activePet,
     addPet, setActive, giveTreat,
     notePin: (pin) => { load(); state.pins = [pin].concat(state.pins).slice(0, 8); save(); },
     noteBond: (b) => { load(); state.bonds = { taps: b.taps || 0, tier: b.tier || 0, collected: (b.collected || []).slice() }; save(); },
     catches: () => { load(); return state.catches.slice(); },
+    takeBuff: () => { load(); const name = state.buff || ''; if (name) { state.buff = ''; save(); } return name; },
+    loadout: (cls) => { load(); const key = cls === 'gunner' ? 'gunner' : 'mage'; return state.loadout[key].slice(); },
+    toggleLoadout: (cls, id) => {
+      load();
+      const key = cls === 'gunner' ? 'gunner' : 'mage';
+      const allow = key === 'gunner' ? ['shot', 'frag', 'turret', 'drone', 'flare'] : ['ember', 'frost', 'nova', 'iceberg', 'slash', 'ward'];
+      if (allow.indexOf(id) < 0) return state.loadout[key].slice();
+      const cur = state.loadout[key].slice();
+      const at = cur.indexOf(id);
+      if (at >= 0) { if (cur.length > 1) cur.splice(at, 1); }
+      else { if (cur.length >= 3) cur.shift(); cur.push(id); }
+      state.loadout[key] = cur;
+      save();
+      return cur.slice();
+    },
     cookCatch: (index, kind) => {
       load();
       const fish = state.catches[index | 0];
