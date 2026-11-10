@@ -31,6 +31,7 @@ const lookTo = new THREE.Vector3();
 const lookNow = new THREE.Vector3();
 
 let renderer, scene, camera, fireLight, doorPivot, skyTex, skyCanvas, skyCtx, cabinRoot, reticle, hitSource, slotPlane;
+let doorPlate, doorPaint, doorHolo, doorBack, shipDoor, shipLeaf;
 let goldRoot, goldMixer, goldAction, goldReady = false;
 let slotRoot, slotArm, slotCanvas, slotCtx, slotTex, visitor;
 let cat, cheebSprite, cheebShadow, cheebPad;
@@ -238,6 +239,106 @@ function buildDoor() {
   tag(g, 'door');
   doorPivot.add(g);
   pad(g, 'door', 1.9, 1.9, 0.6, 0);
+  buildDoorPlate();
+}
+function buildDoorPlate() {
+  const tex = new THREE.Texture();
+  tex.colorSpace = THREE.SRGBColorSpace;
+  doorPaint = new THREE.MeshBasicMaterial({
+    map: tex, transparent: true, depthWrite: true, side: THREE.FrontSide, toneMapped: false,
+  });
+  doorHolo = new THREE.MeshBasicMaterial({
+    map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending, opacity: 0.5, color: 0xffb0e8, toneMapped: false,
+  });
+  doorPlate = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 2.2), doorPaint);
+  doorPlate.position.set(3.08, 1.3, 0.46);
+  doorPlate.rotation.y = -Math.PI / 2;
+  doorPlate.visible = false;
+  doorPlate.renderOrder = 2;
+  doorPlate.userData.home = 'door';
+  const meshRay = THREE.Mesh.prototype.raycast;
+  doorPlate.raycast = function (caster, hits) { if (this.visible) meshRay.call(this, caster, hits); };
+  scene.add(doorPlate);
+  doorBack = new THREE.Mesh(doorPlate.geometry, new THREE.MeshBasicMaterial({ color: 0x120c08, side: THREE.FrontSide }));
+  doorBack.position.set(3.14, 1.3, 0.46);
+  doorBack.rotation.y = -Math.PI / 2;
+  doorBack.visible = false;
+  doorBack.raycast = () => {};
+  scene.add(doorBack);
+  new THREE.TextureLoader().load('ship_door_plate.jpg', loaded => {
+    loaded.colorSpace = THREE.SRGBColorSpace;
+    const aspect = loaded.image.width / loaded.image.height;
+    const height = 2.5;
+    const width = height * aspect;
+    doorPlate.geometry.dispose();
+    doorPlate.geometry = new THREE.PlaneGeometry(width, height);
+    if (doorBack) doorBack.geometry = doorPlate.geometry;
+    // The oval sits left of center. Shift the plate so the swirl lands on the round door.
+    doorPlate.position.z = 0.15 + (0.5 - 0.344) * width;
+    doorPlate.position.y = 1.22 + (0.532 - 0.5) * height;
+    doorPaint.map = loaded;
+    doorHolo.map = loaded;
+    doorPaint.needsUpdate = true;
+    doorHolo.needsUpdate = true;
+    HOME.doorPlateReady = true;
+  });
+}
+function syncDoorPlate() {
+  const live = !!(doorPlate && HOME.on && HOME.phase !== 'fishing' && HOME.phase !== 'arcade');
+  if (!live) {
+    if (doorPlate) doorPlate.visible = false;
+    if (doorBack) doorBack.visible = false;
+    if (shipDoor) shipDoor.visible = true;
+    if (shipLeaf) shipLeaf.visible = true;
+    HOME.doorView = { on: false, ready: !!HOME.doorPlateReady, mode: 'off' };
+    return HOME.doorView;
+  }
+  const doorX = 3.2, doorY = 1.28, doorZ = 0.15;
+  const dx = camera.position.x - doorX;
+  const dy = camera.position.y - doorY;
+  const dz = camera.position.z - doorZ;
+  const dist = Math.hypot(dx, dy, dz);
+  const frontDepth = doorX - camera.position.x;
+  const behind = frontDepth < 0.4;
+  const side = Math.abs(dz) > Math.max(0.7, Math.abs(frontDepth) * 1.25);
+  const close = dist < 1.45;
+  const holo = behind || side || close;
+  doorPlate.visible = true;
+  doorPlate.material = holo ? doorHolo : doorPaint;
+  if (holo) {
+    doorHolo.opacity = 0.34 + 0.22 * (0.5 + 0.5 * Math.sin(HOME.t * 6));
+    doorHolo.color.setHex((HOME.t % 0.8) < 0.4 ? 0xff9ad4 : 0xb7f0ff);
+  } else doorPaint.opacity = 0.96 + 0.04 * (0.5 + 0.5 * Math.sin(HOME.t * 2.2));
+  if (shipDoor) shipDoor.visible = false;
+  if (shipLeaf) shipLeaf.visible = false;
+  if (doorBack) {
+    doorBack.position.set(doorPlate.position.x + 0.06, doorPlate.position.y, doorPlate.position.z);
+    doorBack.rotation.copy(doorPlate.rotation);
+    doorBack.visible = !behind;
+  }
+  HOME.doorView = {
+    on: true, ready: !!HOME.doorPlateReady, mode: holo ? 'holo' : 'paint',
+    dist: Math.round(dist * 100) / 100,
+  };
+  return HOME.doorView;
+}
+function faceDoor(which) {
+  if (!ensure()) return { on: false, mode: 'off' };
+  HOME.phase = 'inside';
+  HOME.door = 0; HOME.doorTo = 0;
+  show(true);
+  target.set(3.2, 1.28, 0.15);
+  HOME.pitch = 0.04;
+  const name = which || 'front';
+  if (name === 'close') { HOME.yaw = -Math.PI / 2; HOME.radius = 0.85; }
+  else if (name === 'behind') { HOME.yaw = Math.PI / 2; HOME.radius = 2.2; }
+  else if (name === 'side') { HOME.yaw = -0.22; HOME.radius = 2.4; }
+  else { HOME.yaw = -Math.PI / 2; HOME.radius = 1.72; }
+  applyOrbit();
+  syncDoorPlate();
+  if (renderer) renderer.render(scene, camera);
+  return Object.assign({}, HOME.doorView);
 }
 function buildLake() {
   const g = new THREE.Group();
@@ -616,6 +717,7 @@ async function dressCabin() {
       for (const x of [-2, 0, 2]) putProp(beamSrc.clone(true), x, 2.52, z, 0);
     }
     const doorRoot = (await loadGltf('cabin_round_door.glb')).scene;
+    shipDoor = doorRoot;
     doorRoot.position.set(3.32, 1.22, 0.15);
     doorRoot.rotation.y = -Math.PI / 2;
     cabinRoot.add(doorRoot);
@@ -624,6 +726,7 @@ async function dressCabin() {
     if (swinging && doorPivot) {
       doorPivot.attach(swinging);
       tag(swinging, 'door');
+      shipLeaf = swinging;
     }
     const goldGltf = await loadGltf('gold_cabin.glb');
     goldRoot = goldGltf.scene;
@@ -843,7 +946,10 @@ function ensure() {
   const canvas = document.getElementById('homeCv');
   if (!canvas) return false;
   try {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance' });
+    renderer = new THREE.WebGLRenderer({
+      canvas, antialias: false, alpha: false, powerPreference: 'high-performance',
+      preserveDrawingBuffer: /(?:^|[?&])shot3d=1/.test(location.search),
+    });
   } catch (e) { return false; }
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.setPixelRatio(Math.min(1.25, window.devicePixelRatio || 1));
@@ -1107,6 +1213,7 @@ function step(dt) {
     if (HOME.bounce > 0) HOME.bounce = Math.max(0, HOME.bounce - dt * 1.35);
   }
   paintSky(HOME.t * 0.15);
+  syncDoorPlate();
   if (HOME.sound) {
     HOME.nextCrackle -= dt;
     if (HOME.nextCrackle <= 0) { crackle(); HOME.nextCrackle = 0.05 + Math.random() * 0.14; }
@@ -1242,6 +1349,7 @@ function enter() {
   const back = document.getElementById('homeDoorBack');
   if (back) back.classList.remove('on');
   applyOrbit();
+  syncDoorPlate();
   renderer.render(scene, camera);
   goldEnter();
   if (HOME.paintLoadout) HOME.paintLoadout();
@@ -1511,6 +1619,7 @@ function boot() {
     refreshBook: () => renderBook(false),
     goOutside, enterArcade, leaveArcade, fishFromNook, refreshPrize, syncVisitor,
     doorRooms: () => DOOR_ROOMS.map(r => ({ id: r.id, name: r.name })),
+    doorPlate: { state: () => syncDoorPlate(), face: faceDoor },
     chooseDoor, openDoor: openDoorPortrait, closeDoor: closeDoorPortrait,
     markFromField: () => { HOME.fromField = true; },
     bond: () => { const b = bondState(); return { taps: b.taps, tier: b.tier, collected: b.collected.slice() }; },

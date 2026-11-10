@@ -1629,6 +1629,15 @@ const ar = await cabin.evaluate(async () => {
 check('WebXR is reported missing and the full-screen cabin stays', ar.probe.available === false && ar.doll.stub === true && ar.doll.active === false && ar.doll.mode === 'dollhouse' && ar.doll.scale === 0.07 && ar.port.mode === 'portal' && ar.port.scale === 1 && ar.port.stub === true && ar.entered && ar.on && ar.phase === 'inside' && /full-screen cabin/.test(ar.note), JSON.stringify(ar));
 check('cabin taps are large enough for a hand or a pinch', ar.pads.nook >= 1.5 && ar.pads.board >= 1.5 && ar.pads.door >= 1.5 && ar.pads.spot >= 1.5 && ar.hudH >= 44, JSON.stringify({ pads: ar.pads, hudH: ar.hudH }));
 check('the AR fallback does not throw', cabinErr.length === 0, JSON.stringify(cabinErr));
+await cabin.waitForFunction(() => window.__home.doorPlate && window.__home.doorPlate.state().ready, { timeout: 8000 });
+const doorPlate = await cabin.evaluate(() => {
+  window.__home.enter();
+  const front = window.__home.doorPlate.face('front');
+  const close = window.__home.doorPlate.face('close');
+  window.__home.enter();
+  return { front, close };
+});
+check('door plate is the painting from the front and a hologram up close', doorPlate.front.on && doorPlate.front.mode === 'paint' && doorPlate.close.on && doorPlate.close.mode === 'holo', JSON.stringify(doorPlate));
 const travel = await cabin.evaluate(() => {
   window.__home.enter();
   window.__home.activate('door');
