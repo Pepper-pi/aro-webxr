@@ -1638,6 +1638,16 @@ const doorPlate = await cabin.evaluate(() => {
   return { front, close };
 });
 check('door plate is the painting from the front and a hologram up close', doorPlate.front.on && doorPlate.front.mode === 'paint' && doorPlate.close.on && doorPlate.close.mode === 'holo', JSON.stringify(doorPlate));
+await cabin.waitForFunction(() => window.__home.roomPlate && window.__home.roomPlate.state().ready, { timeout: 8000 });
+const cabinRoom = await cabin.evaluate(() => {
+  window.__home.enter();
+  const front = window.__home.roomPlate.face('front');
+  const close = window.__home.roomPlate.face('close');
+  const door = window.__home.doorPlate.face('front');
+  window.__home.enter();
+  return { front, close, door };
+});
+check('cabin backdrop is the painting from the front and a hologram up close', cabinRoom.front.on && cabinRoom.front.mode === 'paint' && cabinRoom.close.on && cabinRoom.close.mode === 'holo' && cabinRoom.door.on && cabinRoom.door.mode === 'paint', JSON.stringify(cabinRoom));
 const travel = await cabin.evaluate(() => {
   window.__home.enter();
   window.__home.activate('door');

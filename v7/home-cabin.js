@@ -32,6 +32,9 @@ const lookNow = new THREE.Vector3();
 
 let renderer, scene, camera, fireLight, doorPivot, skyTex, skyCanvas, skyCtx, cabinRoot, reticle, hitSource, slotPlane;
 let doorPlate, doorPaint, doorHolo, doorBack, shipDoor, shipLeaf;
+let roomPlate, roomPaint, roomHolo, roomBack;
+const roomToCam = new THREE.Vector3();
+const ROOM_IMG_ASPECT = 1280 / 450;
 let goldRoot, goldMixer, goldAction, goldReady = false;
 let slotRoot, slotArm, slotCanvas, slotCtx, slotTex, visitor;
 let cat, cheebSprite, cheebShadow, cheebPad;
@@ -189,6 +192,7 @@ function buildRoom() {
   buildLamp();
   buildSeat();
   buildCheeb();
+  buildRoomPlate();
   wrapCabin();
   dressCabin();
 }
@@ -285,12 +289,14 @@ function buildDoorPlate() {
   });
 }
 function syncDoorPlate() {
-  const live = !!(doorPlate && HOME.on && HOME.phase !== 'fishing' && HOME.phase !== 'arcade');
+  const live = !!(doorPlate && HOME.on && HOME.phase !== 'fishing' && HOME.phase !== 'arcade' && doorPlateFocused());
   if (!live) {
     if (doorPlate) doorPlate.visible = false;
     if (doorBack) doorBack.visible = false;
-    if (shipDoor) shipDoor.visible = true;
-    if (shipLeaf) shipLeaf.visible = true;
+    if (!HOME.on || HOME.phase === 'fishing' || HOME.phase === 'arcade') {
+      if (shipDoor) shipDoor.visible = true;
+      if (shipLeaf) shipLeaf.visible = true;
+    }
     HOME.doorView = { on: false, ready: !!HOME.doorPlateReady, mode: 'off' };
     return HOME.doorView;
   }
@@ -336,9 +342,145 @@ function faceDoor(which) {
   else if (name === 'side') { HOME.yaw = -0.22; HOME.radius = 2.4; }
   else { HOME.yaw = -Math.PI / 2; HOME.radius = 1.72; }
   applyOrbit();
-  syncDoorPlate();
+  syncCabinPlates();
   if (renderer) renderer.render(scene, camera);
   return Object.assign({}, HOME.doorView);
+}
+function heroEye() {
+  const yaw = -0.85, pitch = 0.22, radius = 4.15;
+  const look = new THREE.Vector3(0.15, 0.95, -0.15);
+  const cp = Math.cos(pitch), sp = Math.sin(pitch);
+  const cam = new THREE.Vector3(
+    look.x + Math.sin(yaw) * cp * radius,
+    look.y + sp * radius,
+    look.z + Math.cos(yaw) * cp * radius,
+  );
+  return { cam, look };
+}
+function buildRoomPlate() {
+  const tex = new THREE.Texture();
+  tex.colorSpace = THREE.SRGBColorSpace;
+  roomPaint = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, side: THREE.DoubleSide });
+  roomHolo = new THREE.MeshBasicMaterial({
+    map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending, opacity: 0.5, color: 0xffb0e8, toneMapped: false,
+  });
+  roomPlate = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_IMG_ASPECT, 1), roomPaint);
+  const eye = heroEye();
+  const dir = eye.look.clone().sub(eye.cam).normalize();
+  const dist = 3.35;
+  roomPlate.position.copy(eye.cam).addScaledVector(dir, dist);
+  const zAxis = dir.clone().negate();
+  const up = new THREE.Vector3(0, 1, 0);
+  const xAxis = new THREE.Vector3().crossVectors(up, zAxis).normalize();
+  const yAxis = new THREE.Vector3().crossVectors(zAxis, xAxis).normalize();
+  roomPlate.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis));
+  roomPlate.visible = false;
+  roomPlate.renderOrder = 3;
+  const meshRay = THREE.Mesh.prototype.raycast;
+  roomPlate.raycast = function (caster, hits) {
+    if (!this.visible) return;
+    const before = hits.length;
+    meshRay.call(this, caster, hits);
+    for (let i = before; i < hits.length; i++) {
+      const u = hits[i].uv ? hits[i].uv.x : 0.5;
+      this.userData.home = (u > 0.64 && u < 0.92) ? 'door' : (u < 0.30 ? 'nook' : '');
+    }
+  };
+  scene.add(roomPlate);
+  roomBack = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_IMG_ASPECT, 1), new THREE.MeshBasicMaterial({ color: 0x24160f, side: THREE.DoubleSide }));
+  roomBack.position.copy(roomPlate.position).addScaledVector(dir, 0.05);
+  roomBack.quaternion.copy(roomPlate.quaternion);
+  roomBack.visible = false;
+  roomBack.raycast = () => {};
+  scene.add(roomBack);
+  HOME.roomAnchor = { dist, normal: eye.cam.clone().sub(roomPlate.position).normalize() };
+  new THREE.TextureLoader().load('cabin_room_plate.jpg', loaded => {
+    loaded.colorSpace = THREE.SRGBColorSpace;
+    roomPaint.map = loaded;
+    roomHolo.map = loaded;
+    HOME.roomPlateReady = true;
+  });
+}
+function fitRoomPlate() {
+  const dist = HOME.roomAnchor.dist;
+  const viewH = 2 * Math.tan((camera.fov * Math.PI / 180) / 2) * dist;
+  const viewW = viewH * Math.max(0.35, camera.aspect);
+  const height = Math.min(viewH * 0.9, viewW * 0.94 / ROOM_IMG_ASPECT);
+  roomPlate.scale.setScalar(height);
+  const backH = viewH * 1.45;
+  const backW = Math.max(viewW * 1.45, height * ROOM_IMG_ASPECT * 1.08);
+  roomBack.scale.set(backW / ROOM_IMG_ASPECT, backH, 1);
+}
+function doorPlateFocused() {
+  if (!camera) return false;
+  const dz = camera.position.z - 0.15;
+  const dist = Math.hypot(camera.position.x - 3.2, camera.position.y - 1.28, dz);
+  return camera.position.x > 0.35 && Math.abs(dz) < 1.05 && dist < 5;
+}
+function syncRoomPlate(doorOn) {
+  const live = !!(roomPlate && HOME.on && HOME.phase !== 'fishing' && HOME.phase !== 'arcade' && !doorOn);
+  if (!live) {
+    if (roomPlate) roomPlate.visible = false;
+    if (roomBack) roomBack.visible = false;
+    HOME.roomView = { on: false, ready: !!HOME.roomPlateReady, mode: 'off' };
+    return HOME.roomView;
+  }
+  fitRoomPlate();
+  roomToCam.copy(camera.position).sub(roomPlate.position);
+  const dist = roomToCam.length();
+  const frontDepth = roomToCam.dot(HOME.roomAnchor.normal);
+  const lateral = Math.sqrt(Math.max(0, dist * dist - frontDepth * frontDepth));
+  const behind = frontDepth < 0.4;
+  const side = lateral > Math.max(0.7, Math.abs(frontDepth) * 1.25);
+  const close = dist < 1.45;
+  const holo = behind || side || close;
+  roomPlate.visible = true;
+  roomPlate.material = holo ? roomHolo : roomPaint;
+  if (holo) {
+    roomHolo.opacity = 0.34 + 0.22 * (0.5 + 0.5 * Math.sin(HOME.t * 6));
+    roomHolo.color.setHex((HOME.t % 0.8) < 0.4 ? 0xff9ad4 : 0xb7f0ff);
+  } else roomPaint.opacity = 1;
+  if (roomBack) roomBack.visible = !behind;
+  HOME.roomView = {
+    on: true, ready: !!HOME.roomPlateReady, mode: holo ? 'holo' : 'paint',
+    dist: Math.round(dist * 100) / 100,
+  };
+  return HOME.roomView;
+}
+function setCabinDress(hide) {
+  if (!cabinRoot) return;
+  for (const ch of cabinRoot.children) {
+    if (ch === roomPlate || ch === roomBack || ch === doorPlate || ch === doorBack) continue;
+    if (hide) {
+      if (ch.userData._plateHold == null) ch.userData._plateHold = ch.visible;
+      ch.visible = false;
+    } else if (ch.userData._plateHold != null) {
+      ch.visible = ch.userData._plateHold;
+      ch.userData._plateHold = null;
+    }
+  }
+}
+function syncCabinPlates() {
+  const door = syncDoorPlate();
+  const room = syncRoomPlate(!!door.on);
+  const plates = !!(door.on || room.on);
+  setCabinDress(plates);
+  document.body.classList.toggle('cabin-plate', plates);
+  return { door, room };
+}
+function faceRoom(which) {
+  if (!ensure()) return { on: false, mode: 'off' };
+  HOME.phase = 'inside';
+  HOME.door = 0; HOME.doorTo = 0;
+  show(true);
+  heroCamera();
+  if (which === 'close') HOME.radius = 1.9;
+  else if (which === 'behind' || which === 'side') { HOME.yaw += Math.PI; HOME.radius = 3.3; }
+  applyOrbit();
+  const view = syncCabinPlates();
+  if (renderer) renderer.render(scene, camera);
+  return Object.assign({}, view.room);
 }
 function buildLake() {
   const g = new THREE.Group();
@@ -1213,7 +1355,7 @@ function step(dt) {
     if (HOME.bounce > 0) HOME.bounce = Math.max(0, HOME.bounce - dt * 1.35);
   }
   paintSky(HOME.t * 0.15);
-  syncDoorPlate();
+  syncCabinPlates();
   if (HOME.sound) {
     HOME.nextCrackle -= dt;
     if (HOME.nextCrackle <= 0) { crackle(); HOME.nextCrackle = 0.05 + Math.random() * 0.14; }
@@ -1349,7 +1491,7 @@ function enter() {
   const back = document.getElementById('homeDoorBack');
   if (back) back.classList.remove('on');
   applyOrbit();
-  syncDoorPlate();
+  syncCabinPlates();
   renderer.render(scene, camera);
   goldEnter();
   if (HOME.paintLoadout) HOME.paintLoadout();
@@ -1522,6 +1664,7 @@ function mount() {
     'body.home-in #homeCv{display:block}',
     'body.home-in #mapNav,body.home-in #act,body.home-in #menuBtn,body.home-in #obj,body.home-in #coach,body.home-in #wirePanel,body.home-in #charBtn,body.home-in #title{visibility:hidden!important}',
     '#homeHud{position:fixed;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top,0px));z-index:19;display:none;flex-direction:column;align-items:flex-start;gap:8px;pointer-events:none}',
+    'body.cabin-plate #homeHud{top:auto;bottom:calc(8px + env(safe-area-inset-bottom,0px));max-height:30vh}',
     '#homeHud.on{display:flex}',
     '#homeHudRow{display:flex;flex-wrap:wrap;gap:8px}',
     '#homeHud button,#homeDoorBack{pointer-events:auto;min-height:48px;min-width:48px;padding:10px 14px;border-radius:12px;font:800 15px sans-serif;background:rgba(42,24,16,.82);border:1px solid rgba(226,196,138,.7);color:#f6e2c4}',
@@ -1557,7 +1700,7 @@ function mount() {
   canvas.addEventListener('pointerup', onUp);
   canvas.addEventListener('wheel', e => {
     if (!HOME.on) return;
-    HOME.radius = Math.max(2.4, Math.min(4.8, HOME.radius + Math.sign(e.deltaY) * 0.15));
+    HOME.radius = Math.max(1.05, Math.min(4.8, HOME.radius + Math.sign(e.deltaY) * 0.15));
   }, { passive: true });
   document.getElementById('homeCrackle').onclick = () => setSound(!HOME.sound);
   document.getElementById('homeTable').onclick = () => startAr('dollhouse');
@@ -1619,7 +1762,8 @@ function boot() {
     refreshBook: () => renderBook(false),
     goOutside, enterArcade, leaveArcade, fishFromNook, refreshPrize, syncVisitor,
     doorRooms: () => DOOR_ROOMS.map(r => ({ id: r.id, name: r.name })),
-    doorPlate: { state: () => syncDoorPlate(), face: faceDoor },
+    doorPlate: { state: () => syncCabinPlates().door, face: faceDoor },
+    roomPlate: { state: () => syncCabinPlates().room, face: faceRoom },
     chooseDoor, openDoor: openDoorPortrait, closeDoor: closeDoorPortrait,
     markFromField: () => { HOME.fromField = true; },
     bond: () => { const b = bondState(); return { taps: b.taps, tier: b.tier, collected: b.collected.slice() }; },
