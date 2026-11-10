@@ -793,6 +793,7 @@ function syncVisitor() {
   const pal = window.__profile && window.__profile.visitor && window.__profile.visitor();
   const show = !!(pal && HOME.on && (HOME.phase === 'inside' || HOME.phase === 'opening'));
   visitor.visible = show;
+  paintHelpers();
   if (!show || visitor.userData.shown === pal.name) return;
   const ctx = visitor.userData.canvas.getContext('2d');
   ctx.clearRect(0, 0, 256, 48);
@@ -802,6 +803,29 @@ function syncVisitor() {
   ctx.fillText(pal.name, 128, 34);
   visitor.userData.sprite.material.map.needsUpdate = true;
   visitor.userData.shown = pal.name;
+}
+function paintHelpers() {
+  const host = document.getElementById('homeHelpers');
+  if (!host || !window.__profile || !window.__profile.readyFriends) return;
+  const list = window.__profile.readyFriends();
+  const cur = window.__profile.visitor ? window.__profile.visitor() : null;
+  const key = list.map(f => f.id + ':' + f.name).join(',') + '|' + (cur ? cur.id : '');
+  if (host.dataset.key === key) return;
+  host.dataset.key = key;
+  host.innerHTML = '';
+  if (!list.length) return;
+  const tag = document.createElement('span');
+  tag.textContent = 'At the fire';
+  host.appendChild(tag);
+  for (const f of list) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    const on = cur && cur.id === f.id;
+    b.textContent = on ? f.name + ' · visiting' : f.name;
+    if (on) b.className = 'on';
+    b.onclick = () => { window.__profile.setHelper(f.id); };
+    host.appendChild(b);
+  }
 }
 function labelSprite(text, w, h) {
   const canvas = document.createElement('canvas');
@@ -1226,6 +1250,9 @@ function mount() {
     '#homeHud button.on{outline:2px solid #ffd36a}',
     '#homeLoadout{display:flex;flex-wrap:wrap;gap:6px;max-width:100%}',
     '#homeLoadout button.on{outline:2px solid #9dffc8}',
+    '#homeHelpers{display:flex;flex-wrap:wrap;gap:6px;max-width:100%;align-items:center}',
+    '#homeHelpers span{pointer-events:none;color:#f6e2c4;font:800 13px sans-serif;background:rgba(42,24,16,.82);border-radius:12px;padding:8px 10px}',
+    '#homeHelpers button.on{outline:2px solid #9ecbff}',
     '#homeArNote{display:none;margin:0;max-width:34rem;padding:10px 12px;border-radius:12px;background:rgba(42,24,16,.9);color:#f6e2c4;font:600 15px/1.35 sans-serif}',
     '#homeArNote.on{display:block}',
     '#homeBook{display:none;margin:0;max-width:16rem;padding:10px 12px;border-radius:12px;background:rgba(42,24,16,.92);color:#f6e2c4}',
@@ -1242,7 +1269,7 @@ function mount() {
   document.body.appendChild(canvas);
   const hud = document.createElement('div');
   hud.id = 'homeHud';
-  hud.innerHTML = '<div id="homeHudRow"><button type="button" id="homeCrackle" aria-pressed="false">Fire sound off</button><button type="button" id="homeTable">Place on a table</button><button type="button" id="homePortal">Place the door</button><button type="button" id="homeBookBtn">Collection</button><button type="button" id="homeArcade">Arcade</button><button type="button" id="homeArcadeOut">Step out</button><button type="button" id="homeBoard">Pet board</button><button type="button" id="homeMage">Mage</button><button type="button" id="homeGun">Gunner</button><button type="button" id="homeOutside" title="Opens the world map.">Outside</button><button type="button" id="homePin">Pin this world</button></div><div id="homeLoadout"></div><p id="homeArNote"></p><div id="homeBook"><b>Collection</b><p id="homeBondNote"></p><ul id="homeBookList"></ul><b>Pins</b><ul id="homePinList"></ul></div>';
+  hud.innerHTML = '<div id="homeHudRow"><button type="button" id="homeCrackle" aria-pressed="false">Fire sound off</button><button type="button" id="homeTable">Place on a table</button><button type="button" id="homePortal">Place the door</button><button type="button" id="homeBookBtn">Collection</button><button type="button" id="homeArcade">Arcade</button><button type="button" id="homeArcadeOut">Step out</button><button type="button" id="homeBoard">Pet board</button><button type="button" id="homeMage">Mage</button><button type="button" id="homeGun">Gunner</button><button type="button" id="homeOutside" title="Opens the world map.">Outside</button><button type="button" id="homePin">Pin this world</button></div><div id="homeHelpers"></div><div id="homeLoadout"></div><p id="homeArNote"></p><div id="homeBook"><b>Collection</b><p id="homeBondNote"></p><ul id="homeBookList"></ul><b>Pins</b><ul id="homePinList"></ul></div>';
   document.body.appendChild(hud);
   const back = document.createElement('button');
   back.id = 'homeDoorBack'; back.type = 'button'; back.textContent = 'Door home';
@@ -1312,7 +1339,7 @@ function boot() {
     ar: { probe: probeAr, start: startAr },
     covers: () => HOME.on && HOME.phase !== 'fishing',
     refreshBook: () => renderBook(false),
-    goOutside, enterArcade, leaveArcade, fishFromNook, refreshPrize,
+    goOutside, enterArcade, leaveArcade, fishFromNook, refreshPrize, syncVisitor,
     markFromField: () => { HOME.fromField = true; },
     bond: () => { const b = bondState(); return { taps: b.taps, tier: b.tier, collected: b.collected.slice() }; },
     collection: () => bondState().collected.map(id => ({ id, title: CARD_TITLE[id] || id })),

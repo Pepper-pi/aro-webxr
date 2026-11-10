@@ -2045,6 +2045,39 @@ function drawEncounterMarkers(c) {
     ctx.restore();
   }
 }
+function petHasSticker() {
+  const p = window.__profile && window.__profile.get && window.__profile.get();
+  return !!(p && Array.isArray(p.prizes) && p.prizes.indexOf('Dock sticker') >= 0);
+}
+function drawPetSticker(x, y, s) {
+  if (!petHasSticker()) return;
+  const w = Math.max(36, s * 1.6);
+  const h = Math.max(14, s * 0.7);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = '#7ec8ff';
+  ctx.strokeStyle = '#102030';
+  ctx.lineWidth = 2;
+  ctx.fillRect(-w / 2, -h / 2, w, h);
+  ctx.strokeRect(-w / 2, -h / 2, w, h);
+  ctx.fillStyle = '#102030';
+  ctx.font = '800 ' + Math.max(10, Math.round(h * 0.62)) + 'px ui-rounded,system-ui';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('Dock', 0, 1);
+  ctx.restore();
+}
+function drawFollowerSticker() {
+  if (G.scene !== 'arena' || !petHasSticker()) return;
+  if (typeof TRAIN !== 'undefined' && TRAIN.on && TRAIN.view === 'fp') return;
+  const pet = window.__profile && window.__profile.active && window.__profile.active();
+  if (!pet) return;
+  const c = AR.cam;
+  const [px, py] = pPos();
+  const [X, Y, f] = proj(c, px, py);
+  const sz = .7 * c.hz * f;
+  drawPetSticker(X - .9 * c.hz * f + sz * 0.35, Y - sz * 0.2, Math.max(18, sz * 0.7));
+}
 function drawActivePetMap(c, you) {
   const pet = window.__profile && window.__profile.active && window.__profile.active();
   if (!pet) return;
@@ -2065,6 +2098,17 @@ function drawActivePetMap(c, you) {
   ctx.fillStyle = '#fff6d4';
   ctx.fillText(pet.name, X, Y - 12);
   ctx.restore();
+}
+function drawMapPetSticker() {
+  if (G.scene !== 'map' || !petHasSticker()) return;
+  const pet = window.__profile && window.__profile.active && window.__profile.active();
+  if (!pet) return;
+  const you = window.__world && window.__world.you ? window.__world.you() : null;
+  const h = MAP.house;
+  const x = you ? you.x : h.x;
+  const y = you ? you.y : h.y;
+  const [X, Y, f] = proj(MAP.cam, x - 0.45, y + 0.28);
+  drawPetSticker(X + Math.max(10, 12 * f), Y - Math.max(2, 2 * f), Math.max(16, 16 * f));
 }
 const PORTAL_MAP = { q: -1, r: 1 };
 const PORTAL_FIELD = { q: 0, r: 2 };
@@ -7624,7 +7668,8 @@ function startDayRaid(fromArea) {
   AR.kind = 'raid';
   AR.phase = 'wave';
   setObj('<b>Wire brute</b> · ' + m.hp);
-  showCast(back ? back + ' raid · wire brute' : (pal ? pal.name + ' helps · -12' : 'The day raid · wire brute'));
+  const help = pal ? pal.name + ' helps · -12' : '';
+  showCast(help ? (back ? help + ' · ' + back : help) : (back ? back + ' raid · wire brute' : 'The day raid · wire brute'));
   document.getElementById('trainHud').classList.remove('king');
   layoutArenaCam();
   return true;
@@ -8487,7 +8532,7 @@ function drawFpFrame() {
   ctx.stroke();
   ctx.restore();
 }
-{ const _vignette = vignette; vignette = function () { _vignette(); if (G.scene === 'arena') { drawFpFrame(); drawAimLayer(); drawDisc(); drawForearm(); drawHoldDemo(); if (typeof drawCellRig === 'function') drawCellRig(); if (typeof drawCellAim === 'function') drawCellAim(); } if (G.scene === 'map') { drawMarkChevrons(); drawDockHud(); } }; }
+{ const _vignette = vignette; vignette = function () { _vignette(); if (G.scene === 'arena') { drawFpFrame(); drawAimLayer(); drawDisc(); drawForearm(); drawHoldDemo(); if (typeof drawCellRig === 'function') drawCellRig(); if (typeof drawCellAim === 'function') drawCellAim(); if (typeof drawFollowerSticker === 'function') drawFollowerSticker(); } if (G.scene === 'map') { drawMarkChevrons(); drawDockHud(); if (typeof drawMapPetSticker === 'function') drawMapPetSticker(); } }; }
 { const _obj = arenaObjective; arenaObjective = function () { if (!TRAIN.on) return _obj(); const t = TRAIN.king ? kingLine() : drillLine(); if (t !== AR.objT) { AR.objT = t; setObj(t); } }; }
 { const _setClass = setClass; setClass = function (c) { if (TRAIN.on && c !== GUN.cls) interruptCharge('Charge cancelled'); const r = _setClass(c); syncClassBtn(); const help = document.getElementById('trainHelp'); if (help && TRAIN.on) help.textContent = trainHelpText(); return r; }; }
 { const _manaUI = manaUI; manaUI = function () {

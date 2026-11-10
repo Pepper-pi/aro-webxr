@@ -17,7 +17,7 @@ function blank() {
     coins: 40, tokens: 6, xp: 0, cls: '',
     cells: 2, potions: 2, treats: 0, cosmetic: '', buff: '',
     loadout: { mage: ['ember', 'frost', 'nova'], gunner: ['shot', 'frag', 'turret'] },
-    fieldWins: 0, captures: 0, raidDate: '', friendRaid: '',
+    fieldWins: 0, captures: 0, raidDate: '', friendRaid: '', helper: '',
     friends: {},
     quests: null,
     pets: [{ id: 'pip', species: 'pip', name: 'Pip', note: 'Honey carbuncle', level: 1, xp: 0, bond: 0, active: true }],
@@ -58,6 +58,7 @@ function load() {
   if (typeof state.captures !== 'number') state.captures = 0;
   if (typeof state.raidDate !== 'string') state.raidDate = '';
   if (typeof state.friendRaid !== 'string') state.friendRaid = '';
+  if (typeof state.helper !== 'string') state.helper = '';
   if (!state.friends || typeof state.friends !== 'object') state.friends = {};
   const guideSteps = ['class', 'fish', 'out', 'fight', 'home', 'done'];
   if (fresh && !existed) state.guide = 'class';
@@ -167,8 +168,25 @@ function friendList() {
     return { id, name: f.name || id, points: f.points || 0, level: lv.level, rest: lv.rest, need: lv.need, talked: f.talked || '' };
   });
 }
+function readyFriends() {
+  return friendList().filter(f => f.level >= 3);
+}
 function visitor() {
-  return friendList().find(f => f.level >= 3) || null;
+  const ready = readyFriends();
+  if (!ready.length) return null;
+  load();
+  return ready.find(f => f.id === state.helper) || ready[0];
+}
+function setHelper(id) {
+  load();
+  if (!readyFriends().some(f => f.id === id)) return visitor();
+  state.helper = id;
+  save();
+  const panel = document.getElementById('spineBook');
+  const body = document.getElementById('spineBookBody');
+  if (panel && body && panel.classList.contains('on') && panel.dataset.tab === 'friends') renderFriends(body);
+  if (window.__home && window.__home.syncVisitor) window.__home.syncVisitor();
+  return visitor();
 }
 function talkFriend(id, name) {
   load();
@@ -358,14 +376,27 @@ function renderFriends(host) {
     host.appendChild(p);
     return;
   }
+  const pal = visitor();
+  const note = document.createElement('p');
+  note.textContent = pal ? 'Cabin fire: ' + pal.name : 'Level 3 friends can visit the cabin fire.';
+  host.appendChild(note);
   for (const f of rows) {
     const title = document.createElement('p');
-    title.textContent = f.name + ' · Lv ' + f.level + ' · ' + f.rest + '/' + f.need + (f.level >= 3 ? ' · visits' : '');
+    title.textContent = f.name + ' · Lv ' + f.level + ' · ' + f.rest + '/' + f.need;
+    host.appendChild(title);
+    if (f.level >= 3) {
+      const visit = document.createElement('button');
+      visit.type = 'button';
+      const on = pal && pal.id === f.id;
+      visit.textContent = on ? 'Visiting the fire' : 'Visit the fire';
+      if (on) visit.className = 'on';
+      visit.onclick = () => { setHelper(f.id); };
+      host.appendChild(visit);
+    }
     const treat = document.createElement('button');
     treat.type = 'button';
     treat.textContent = 'Give treat · ' + state.treats + ' left';
     treat.onclick = () => { giveFriendTreat(f.id); openBook('friends'); };
-    host.appendChild(title);
     host.appendChild(treat);
   }
 }
@@ -495,6 +526,7 @@ function mount() {
     '#spineBook,#spineShop,#spineArcade,#spineBoard{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;display:none;width:min(92vw,420px);max-height:min(78vh,560px);overflow:auto;padding:14px;border-radius:16px;background:#24160f;border:1px solid rgba(226,196,138,.8);color:#f6e2c4;font:700 14px/1.4 sans-serif}',
     '#spineBook.on,#spineShop.on,#spineArcade.on,#spineBoard.on{display:block}',
     '#spineBook button,#spineShop button,#spineArcade button,#spineBoard button{display:block;width:100%;min-height:44px;margin:8px 0 0;padding:8px 10px;border-radius:12px;border:1px solid rgba(226,196,138,.55);background:#3a2618;color:#f6e2c4;font:800 14px sans-serif}',
+    '#spineBook button.on{outline:2px solid #9ecbff}',
     '#catchChip{position:fixed;left:50%;top:calc(78px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:18;display:none;padding:6px 12px;border-radius:999px;background:rgba(18,32,28,.92);border:1px solid rgba(120,220,160,.8);color:#e7fff2;font:800 13px sans-serif;pointer-events:none}',
     '#levelPop{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);z-index:45;display:none;padding:14px 22px;border-radius:16px;background:rgba(42,24,16,.94);border:1px solid rgba(255,211,106,.9);color:#ffe7a8;font:800 28px sans-serif}',
     '#levelPop.on{display:block}',
@@ -569,7 +601,9 @@ function mount() {
     raidCleared: () => { load(); return state.raidDate === todayKey(); },
     talk: talkFriend,
     giveFriendTreat,
+    readyFriends,
     visitor,
+    setHelper,
     noteFriendRaid: () => { load(); state.friendRaid = todayKey(); save(); },
     quests: questRows,
     claimQuest,
