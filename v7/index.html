@@ -7372,6 +7372,23 @@ function drawDockHud() {
       popText(W * 0.5, H * 0.34, 'wave down', '#ffd36a', 18);
     }
     if (AR.phase !== 'wave') { AR.phase = 'wave'; setAct(null); }
+    const [px, py] = pPos();
+    for (const m of AR.mobs) {
+      if (!m.rolled || m.state !== 'live') continue;
+      if (m.rollId !== 'blob' && m.rollId !== 'scout' && m.rollId !== 'glass-brute') { m.moving = false; m.atkSwing = false; continue; }
+      const dx = px - m.x, dy = py - m.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      m.atkSwing = dist < 1.65;
+      m.moving = dist > 1.6;
+      if (m.moving) {
+        const step = Math.min(0.7 * dt, dist - 1.55);
+        m.x += dx / dist * step;
+        m.y += dy / dist * step;
+      } else {
+        m.nip = (m.nip == null ? 0.6 : m.nip) - dt;
+        if (m.nip <= 0) { m.nip = 1.45; hurtP(3); }
+      }
+    }
   }
   trainUpdate(dt);
 }; }

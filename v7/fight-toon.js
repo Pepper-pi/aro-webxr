@@ -3,6 +3,7 @@
    No post-processing. The 2D canvas underneath keeps the disc, the forearm
    mark, and the existing controls. This view does not open a WebXR session. */
 import * as THREE from './vendor/three.module.min.js';
+import { GLTFLoader } from './gltf-loader.js';
 
 const SQ3 = Math.sqrt(3);
 const BOSS_MAX = 90;
@@ -34,6 +35,10 @@ const mobBlobs = [];
 const weatherBlobs = [];
 const weatherBeasts = [];
 const weatherFolk = [];
+const rigActors = [];
+let rigWire = null;
+let rigGlass = null;
+let mobsReady = false;
 const bolts = [];
 const bursts = [];
 const seen = new WeakSet();
@@ -226,10 +231,162 @@ function paintField(look) {
   }
 }
 function standKind(id) {
-  if (id === 'slime' || id === 'blob') return 'blob';
-  if (id === 'scout' || id === 'goblin') return 'beast';
-  if (id === 'glass-brute') return 'brute';
+  if (id === 'blob') return 'rig-blob';
+  if (id === 'slime') return 'blob';
+  if (id === 'scout') return 'rig-beast';
+  if (id === 'goblin') return 'beast';
+  if (id === 'glass-brute') return 'rig-brute';
   return '';
+}
+const RIG_CLIP = {
+  blob: { idle: 'Idle', move: 'Hop', attack: 'Lunge', hit: 'HitReact', death: 'Death' },
+  beast: { idle: 'Idle', move: 'Run', attack: 'Bite', hit: 'HitReact', death: 'Death' },
+  brute: { idle: 'Idle', move: 'Walk', attack: 'Swipe', hit: 'HitReact', death: 'Death' },
+};
+function dressMob(root) {
+  root.traverse(o => {
+    if (!o.isMesh || !o.material) return;
+    o.frustumCulled = false;
+    const list = Array.isArray(o.material) ? o.material : [o.material];
+    const next = list.map(src => {
+      const name = ((src && src.name) || '') + ' ' + (o.name || '');
+      if (/glass|ghost/i.test(name)) {
+        const m = src.clone();
+        m.transparent = true;
+        m.depthWrite = false;
+        m.opacity = Math.min(0.48, src.opacity || 0.4);
+        m.roughness = 0.2;
+        m.metalness = 0.05;
+        m.emissiveIntensity = Math.max(src.emissiveIntensity || 1, 0.6);
+        return m;
+      }
+      if (/wire/i.test(name)) {
+        const col = src.emissive ? src.emissive.clone() : new THREE.Color(0x38ebff);
+        return new THREE.MeshBasicMaterial({
+          color: col, transparent: true, opacity: 0.95,
+          blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false,
+        });
+      }
+      if (/eye|spark|heart/i.test(name)) {
+        const col = src.emissive && src.emissive.getHex() ? src.emissive.clone() : new THREE.Color(0xff1405);
+        return new THREE.MeshBasicMaterial({ color: col, toneMapped: false, side: THREE.DoubleSide });
+      }
+      return new THREE.MeshToonMaterial({
+        color: src.color ? src.color.clone() : new THREE.Color(0xffffff),
+        gradientMap: grad,
+        emissive: src.emissive ? src.emissive.clone() : new THREE.Color(0x000000),
+        emissiveIntensity: src.emissiveIntensity || 1,
+      });
+    });
+    o.material = Array.isArray(o.material) ? next : next[0];
+  });
+}
+function cloneRig(src) {
+  const root = src.clone(true);
+  const byName = new Map();
+  root.traverse(o => { if (o.isBone) byName.set(o.name, o); });
+  root.traverse(o => {
+    if (!o.isSkinnedMesh || !o.skeleton) return;
+    const bones = o.skeleton.bones.map(b => byName.get(b.name));
+    if (bones.some(b => !b)) return;
+    o.bind(new THREE.Skeleton(bones, o.skeleton.boneInverses), o.bindMatrix);
+    o.frustumCulled = false;
+  });
+  return root;
+}
+function makeActor(template, clips, scale, set) {
+  const root = cloneRig(template);
+  root.scale.setScalar(scale);
+  root.visible = false;
+  scene.add(root);
+  const mixer = new THREE.AnimationMixer(root);
+  const actions = {};
+  for (const c of clips) {
+    const act = mixer.clipAction(c);
+    act.clampWhenFinished = true;
+    actions[c.name] = act;
+  }
+  const actor = { root, mixer, actions, set, clip: '', mob: null, hold: 0, hit: false, death: false };
+  mixer.addEventListener('finished', (e) => {
+    const name = e.action && e.action.getClip().name;
+    if (name === 'HitReact' || name === RIG_CLIP[set].attack) actor.clip = '';
+  });
+  rigActors.push(actor);
+  return actor;
+}
+function playRig(actor, name, once) {
+  const next = actor.actions[name];
+  if (!next || actor.clip === name) return;
+  const prev = actor.actions[actor.clip];
+  actor.clip = name;
+  next.reset();
+  next.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat, once ? 1 : Infinity);
+  next.clampWhenFinished = !!once;
+  next.enabled = true;
+  if (prev && prev !== next) next.crossFadeFrom(prev, 0.1, false);
+  next.play();
+}
+function driveActor(actor, m, px, pz) {
+  const set = RIG_CLIP[actor.set];
+  const dying = !m || m.state === 'dying' || m.state === 'gone' || m.hp <= 0;
+  if (dying) {
+    if (!actor.death) {
+      actor.death = true;
+      playRig(actor, set.death, true);
+      actor.hold = 1.15;
+    }
+    actor.root.visible = actor.hold > 0;
+    return;
+  }
+  actor.death = false;
+  actor.hold = 0;
+  actor.root.visible = true;
+  actor.root.position.set(m.x, 0, m.y);
+  actor.root.rotation.y = Math.atan2(px - m.x, pz - m.y);
+  if (m.fl > 0.35 && !actor.hit) {
+    actor.hit = true;
+    actor.clip = '';
+    playRig(actor, set.hit, true);
+  } else if (m.fl <= 0) actor.hit = false;
+  if (actor.clip === set.hit) return;
+  if (m.atkSwing) playRig(actor, set.attack, false);
+  else if (m.moving) playRig(actor, set.move, false);
+  else playRig(actor, set.idle, false);
+}
+function claimActor(pool, m) {
+  let actor = pool.find(a => a.mob === m);
+  if (!actor) actor = pool.find(a => !a.mob || (a.death && a.hold <= 0));
+  if (!actor) return null;
+  if (actor.mob !== m) {
+    actor.mob = m;
+    actor.clip = '';
+    actor.hit = false;
+    actor.death = false;
+    actor.hold = 0;
+  }
+  return actor;
+}
+async function loadMobRigs() {
+  const loader = new GLTFLoader();
+  const load = (file) => loader.loadAsync('assets/mobs/' + file);
+  const [blob, beast, glassB, wireB] = await Promise.all([
+    load('mob_blob_r002.glb'),
+    load('mob_raid_beast_r002.glb'),
+    load('mob_raid_brute_glass_r002.glb'),
+    load('mob_raid_brute_wire_r002.glb'),
+  ]);
+  for (const g of [blob, beast, glassB, wireB]) dressMob(g.scene);
+  for (let i = 0; i < 4; i++) makeActor(blob.scene, blob.animations, 1.85, 'blob');
+  for (let i = 0; i < 4; i++) makeActor(beast.scene, beast.animations, 1.15, 'beast');
+  rigGlass = makeActor(glassB.scene, glassB.animations, 0.92, 'brute');
+  rigWire = makeActor(wireB.scene, wireB.animations, 0.92, 'brute');
+  mobsReady = true;
+}
+function rigPools() {
+  return {
+    blob: rigActors.filter(a => a.set === 'blob'),
+    beast: rigActors.filter(a => a.set === 'beast'),
+  };
 }
 function buildWeatherMobs() {
   for (let i = 0; i < 4; i++) {
@@ -285,34 +442,55 @@ function placeWeatherMobs(look) {
 function syncRolledFigures(g) {
   weatherBlobs.forEach(m => { m.visible = false; });
   weatherBeasts.forEach(m => { m.visible = false; });
+  const px = g.AR.ppx || 0, pz = g.AR.ppy || 3;
   if (state.story) {
     state.showBrute = false;
     weatherFolk.forEach(m => { m.visible = false; });
+    rigActors.forEach(a => { if (a !== rigWire) { a.root.visible = false; } });
     return;
   }
   const mobs = (g.AR.mobs || []).filter(m => m.rollId && m.state !== 'gone' && m.state !== 'panel');
   let bi = 0, ei = 0;
   state.showBrute = false;
   state.bruteFlinch = 0;
+  const pools = rigPools();
+  const used = new Set();
   for (const m of mobs) {
     const kind = standKind(m.rollId);
-    const y = m.state === 'dying' ? -0.25 : 0;
     if (kind === 'blob' && bi < weatherBlobs.length) {
       const o = weatherBlobs[bi++];
       o.visible = true;
-      o.position.set(m.x, y, m.y);
+      o.position.set(m.x, 0, m.y);
       o.scale.setScalar(m.fl > 0 ? 0.82 : 1);
     } else if (kind === 'beast' && ei < weatherBeasts.length) {
       const o = weatherBeasts[ei++];
       o.visible = true;
-      o.position.set(m.x, y, m.y);
+      o.position.set(m.x, 0, m.y);
       o.rotation.z = m.fl > 0 ? 0.35 : 0;
-      o.scale.setScalar(1);
-    } else if (kind === 'brute') {
-      state.showBrute = m.state !== 'dying';
-      state.bruteAt = { x: m.x, z: m.y };
-      state.bruteFlinch = m.fl > 0 ? 1 : 0;
+    } else if (kind === 'rig-blob' || kind === 'rig-beast') {
+      const pool = kind === 'rig-blob' ? pools.blob : pools.beast;
+      const actor = mobsReady ? claimActor(pool, m) : null;
+      if (actor) { used.add(actor); driveActor(actor, m, px, pz); }
+      else if (kind === 'rig-blob' && bi < weatherBlobs.length) {
+        const o = weatherBlobs[bi++];
+        o.visible = true;
+        o.position.set(m.x, 0, m.y);
+      }
+    } else if (kind === 'rig-brute') {
+      const wire = state.weatherKind === 'storm' || m.tier === 'elite';
+      const actor = mobsReady ? (wire ? rigWire : rigGlass) : null;
+      if (actor) { used.add(actor); driveActor(actor, m, px, pz); }
+      else {
+        state.showBrute = true;
+        state.bruteAt = { x: m.x, z: m.y };
+        state.bruteFlinch = m.fl > 0 ? 1 : 0;
+      }
     }
+  }
+  for (const a of rigActors) {
+    if (used.has(a)) continue;
+    if (a.mob && (a.mob.state === 'dying' || a.mob.state === 'gone' || a.mob.hp <= 0)) driveActor(a, a.mob, px, pz);
+    else if (!a.death) { a.root.visible = false; a.mob = null; }
   }
   const folk = g.AR.folk || [];
   weatherFolk.forEach((o, i) => {
@@ -320,6 +498,26 @@ function syncRolledFigures(g) {
     o.visible = !!f;
     if (f) o.position.set(f.x, 0, f.y);
   });
+}
+function syncBossRig(g, mobs) {
+  const bossMob = (mobs || []).find(m => m.tier === 'boss' && m.state !== 'gone');
+  const use = !!(mobsReady && rigWire && (state.story || bossMob));
+  boss.children.forEach(ch => { if (!ch.userData.keep) ch.visible = !use; });
+  if (!use) return false;
+  const px = g.AR.ppx || 0, pz = g.AR.ppy || 3;
+  const stand = {
+    x: bossMob ? bossMob.x : 0,
+    y: bossMob ? bossMob.y : -4.6,
+    fl: bossMob ? bossMob.fl : state.flash,
+    hp: bossMob ? bossMob.hp : state.bossHp,
+    state: (bossMob && (bossMob.state === 'dying' || bossMob.hp <= 0)) || state.bossHp <= 0 ? 'dying' : 'live',
+    moving: false,
+    atkSwing: false,
+  };
+  driveActor(rigWire, stand, px, pz);
+  rigWire.root.position.set(stand.x, 0, stand.y);
+  rigWire.mob = stand;
+  return true;
 }
 function storySpace(g) {
   return !!(g && g.TRAIN && g.TRAIN.king);
@@ -448,6 +646,8 @@ function buildBoss() {
   const fill = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.045, 0.05), new THREE.MeshBasicMaterial({ color: 0x3de07a }));
   back.position.set(0, 2.25, 0);
   fill.position.set(0, 2.25, 0.02);
+  back.userData.keep = true;
+  fill.userData.keep = true;
   boss.add(back, fill);
   bossBar = fill;
   boss.position.set(0, 0, -4.6);
@@ -534,6 +734,7 @@ function ensure() {
   buildBoss();
   buildPools();
   buildWeatherMobs();
+  loadMobRigs().catch(err => console.warn('mob rigs', err));
   state.built = true;
   resize();
   return true;
@@ -649,17 +850,18 @@ function syncActors(g) {
   }
   if (state.story) for (let i = b; i < mobBlobs.length; i++) mobBlobs[i].visible = false;
   const raidBoss = mobs.find(m => m.tier === 'boss');
+  const rigBoss = syncBossRig(g, mobs);
   let bx = 0, bz = -4.6;
   if (raidBoss) { bx = raidBoss.x; bz = raidBoss.y; }
   else if (!state.story && state.showBrute && state.bruteAt) { bx = state.bruteAt.x; bz = state.bruteAt.z; }
-  boss.visible = state.story || !!raidBoss || !!state.showBrute;
+  boss.visible = rigBoss || state.story || !!raidBoss || !!state.showBrute;
   if (raidBoss) {
     state.bossHp = Math.max(0, raidBoss.hp);
     state.bossMax = raidBoss.max || BOSS_MAX;
   }
   const flinch = state.bruteFlinch ? 0.28 : (state.flash > 0 ? 0.35 * state.flash : 0);
   const baseY = state.bossHp <= 0 ? -0.4 : 0;
-  boss.scale.setScalar(!state.story && state.showBrute ? (state.weatherKind === 'storm' ? 1.25 : 1.1) : 1.55);
+  boss.scale.setScalar(rigBoss ? 1 : (!state.story && state.showBrute ? (state.weatherKind === 'storm' ? 1.25 : 1.1) : 1.55));
   boss.position.set(bx, baseY + Math.sin(state.t * 1.4) * 0.06, bz + flinch);
   boss.rotation.y = Math.sin(state.t * 0.7) * 0.22;
   boss.rotation.z = Math.sin(state.t * 0.9) * 0.05;
@@ -727,6 +929,10 @@ function frame(now) {
   syncActors(g);
   syncGun(g);
   stepRain(now / 1000);
+  for (const a of rigActors) {
+    if (a.root.visible || a.hold > 0) a.mixer.update(dt);
+    if (a.hold > 0) a.hold -= dt;
+  }
   bursts.forEach(b => {
     if (b.life <= 0) { b.g.visible = false; return; }
     b.life -= dt;
@@ -773,7 +979,7 @@ function mount() {
   window.__fight = {
     status: () => ({
       on: state.on, hexes: state.hexes, gradient: 2, bossHp: state.bossHp, bossMax: state.bossMax,
-      lights: 1, rain: RAIN, outlined: true, toon: true,
+      lights: 1, rain: RAIN, outlined: true, toon: true, rigs: mobsReady ? rigActors.length : 0,
     }),
     strike: () => { if (ensure()) hurtBoss(18); return state.bossHp; },
   };
