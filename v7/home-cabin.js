@@ -2,6 +2,8 @@
    Primitives and canvas textures only. One moving light (the fire).
    The round door is the way to the existing fishing slice, and the way back. */
 import * as THREE from './vendor/three.module.min.js';
+import { GLTFLoader } from './gltf-loader.js';
+import { applyToon } from './toon_three.js';
 
 const HOME = {
   on: false,
@@ -15,7 +17,7 @@ const HOME = {
   yaw: 0.62,
   pitch: 0.26,
   radius: 3.55,
-  slot: 'billboard',
+  slot: 'gold',
   nextCrackle: 0,
   ar: { active: false, stub: true, mode: 'screen', placed: false, scale: 1, reason: 'Full-screen cabin. AR has not been asked for.' },
 };
@@ -27,7 +29,8 @@ const lookFrom = new THREE.Vector3();
 const lookTo = new THREE.Vector3();
 const lookNow = new THREE.Vector3();
 
-let renderer, scene, camera, fireLight, doorPivot, skyTex, skyCanvas, skyCtx, cabinRoot, reticle, hitSource;
+let renderer, scene, camera, fireLight, doorPivot, skyTex, skyCanvas, skyCtx, cabinRoot, reticle, hitSource, slotPlane;
+let goldRoot, goldMixer, goldAction, goldReady = false;
 let slotRoot, slotArm, slotCanvas, slotCtx, slotTex;
 let cat;
 let ac, master;
@@ -152,16 +155,13 @@ function buildRoom() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color('#1a120e');
   scene.fog = new THREE.Fog('#1a120e', 8, 16);
-  scene.add(new THREE.AmbientLight(0xffe6cc, 0.42));
-  fireLight = new THREE.PointLight(0xff7a32, 3.1, 7.2, 1.5);
+  scene.add(new THREE.HemisphereLight(0xffe2b0, 0x8a5430, 0.72));
+  fireLight = new THREE.PointLight(0xffb15a, 2.6, 8, 1.4);
   fireLight.position.set(0.05, 0.72, -1.35);
   scene.add(fireLight);
 
   mesh(new THREE.BoxGeometry(6.9, 0.12, 5.3), lambert({ map: TEX.plank }), 0, -0.06, 0);
-  mesh(new THREE.BoxGeometry(6.9, 2.55, 0.14), lambert({ map: TEX.log }), 0, 1.28, -2.55);
-  mesh(new THREE.BoxGeometry(0.14, 2.55, 5.3), lambert({ map: TEX.log }), -3.42, 1.28, 0);
   mesh(new THREE.BoxGeometry(6.9, 0.1, 5.4), lambert({ map: TEX.beam }), 0, 2.62, 0);
-  for (const z of [-1.8, -0.6, 0.6, 1.6]) mesh(new THREE.BoxGeometry(6.5, 0.08, 0.1), lambert({ color: 0x3a2414 }), 0, 2.52, z);
 
   const wall = new THREE.Shape();
   wall.moveTo(-2.6, 0); wall.lineTo(2.6, 0); wall.lineTo(2.6, 2.55); wall.lineTo(-2.6, 2.55); wall.closePath();
@@ -170,10 +170,6 @@ function buildRoom() {
   wall.holes.push(hole);
   const wallMesh = mesh(new THREE.ShapeGeometry(wall), lambert({ map: TEX.log, side: THREE.DoubleSide }), 3.4, 0, 0);
   wallMesh.rotation.y = Math.PI / 2;
-
-  const rug = mesh(new THREE.BoxGeometry(2.5, 0.015, 1.7), lambert({ map: TEX.rug }), 0.05, 0.01, -0.55);
-  const fluff = mesh(new THREE.CircleGeometry(0.72, 20), lambert({ map: TEX.fluff }), -0.05, 0.03, -0.45);
-  fluff.rotation.x = -Math.PI / 2;
 
   buildHearth();
   buildPorthole();
@@ -187,27 +183,9 @@ function buildRoom() {
   buildLamp();
   buildSeat();
   wrapCabin();
+  dressCabin();
 }
 function buildHearth() {
-  const stone = lambert({ map: TEX.stone });
-  const g = new THREE.Group();
-  scene.add(g);
-  const block = (w, h, d, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), stone); m.position.set(x, y, z); g.add(m); };
-  block(2.15, 0.42, 0.85, 0, 0.21, 0);
-  block(0.32, 1.15, 0.7, -0.85, 0.95, 0);
-  block(0.32, 1.15, 0.7, 0.85, 0.95, 0);
-  block(2.2, 0.16, 0.78, 0, 1.55, 0);
-  block(0.55, 0.7, 0.4, 0, 1.95, 0);
-  const mouth = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.72, 0.08), new THREE.MeshBasicMaterial({ color: 0x1a0c08 }));
-  mouth.position.set(0, 0.78, 0.36);
-  g.add(mouth);
-  for (let i = 0; i < 3; i++) {
-    const log = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.55, 6), lambert({ color: 0x4a2c18 }));
-    log.rotation.z = Math.PI / 2; log.rotation.y = i * 0.5;
-    log.position.set(0, 0.48, 0.22);
-    g.add(log);
-  }
-  g.position.set(0.05, 0, -2.15);
   const flames = new THREE.Group();
   flames.position.set(0.05, 0.5, -1.82);
   scene.add(flames);
@@ -236,35 +214,6 @@ function buildNook() {
   g.position.set(-2.35, 0, 0.15);
   tag(g, 'nook');
   scene.add(g);
-  const counter = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.78, 0.62), lambert({ color: 0x6a4128, map: TEX.plank }));
-  counter.position.y = 0.39;
-  g.add(counter);
-  const box = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.42, 0.28), lambert({ color: 0x2a241c }));
-  box.position.set(0, 0.95, 0);
-  g.add(box);
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.3), new THREE.MeshBasicMaterial({ map: TEX.screen }));
-  screen.position.set(0, 0.98, 0.15);
-  g.add(screen);
-  const kettle = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 10), lambert({ color: 0xb87333 }));
-  kettle.position.set(0.38, 0.86, 0.05);
-  kettle.scale.y = 0.8;
-  g.add(kettle);
-  const handle = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.012, 6, 10, Math.PI), lambert({ color: 0xb87333 }));
-  handle.position.set(0.38, 0.96, 0.05);
-  g.add(handle);
-  for (const x of [-0.28, 0.05]) {
-    const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.04, 0.07, 8), lambert({ color: 0xd9cfc2 }));
-    mug.position.set(x, 0.82, 0.16);
-    g.add(mug);
-  }
-  const shelf = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.06, 0.28), lambert({ color: 0x5c3a22 }));
-  shelf.position.set(0, 1.7, -0.05);
-  g.add(shelf);
-  for (let i = 0; i < 3; i++) {
-    const jar = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.12, 8), lambert({ color: i === 1 ? 0x8a9a78 : 0xc4b49a }));
-    jar.position.set(-0.35 + i * 0.32, 1.8, -0.05);
-    g.add(jar);
-  }
   pad(g, 'nook', 1.8, 1.8, 1.6, 0.9);
 }
 function buildBoard() {
@@ -272,27 +221,6 @@ function buildBoard() {
   g.position.set(1.55, 0, 1.25);
   tag(g, 'board');
   scene.add(g);
-  const table = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.08, 0.62), lambert({ color: 0x6a4128, map: TEX.plank }));
-  table.position.y = 0.62;
-  g.add(table);
-  const leg = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.58, 0.4), lambert({ color: 0x4e301c }));
-  leg.position.y = 0.29;
-  g.add(leg);
-  const face = canvasTex(256, 160, (ctx, w, h) => {
-    ctx.fillStyle = '#102018'; ctx.fillRect(0, 0, w, h);
-    ctx.strokeStyle = '#d7b15a'; ctx.lineWidth = 2;
-    for (let i = 0; i < 5; i++) {
-      ctx.beginPath(); ctx.arc(w / 2, h / 2, 18 + i * 16, 0, Math.PI * 2); ctx.stroke();
-    }
-    ctx.strokeStyle = '#7ee7c8';
-    ctx.beginPath(); ctx.moveTo(40, h / 2); ctx.lineTo(w - 40, h / 2); ctx.moveTo(w / 2, 16); ctx.lineTo(w / 2, h - 16); ctx.stroke();
-    ctx.fillStyle = '#f3e2a8'; ctx.font = '700 22px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('Command', w / 2, 28);
-  });
-  const board = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.46), new THREE.MeshBasicMaterial({ map: face }));
-  board.position.set(0, 0.78, 0.02);
-  board.rotation.x = -0.7;
-  g.add(board);
   pad(g, 'board', 1.7, 1.6, 1.6, 0.7);
 }
 function buildDoor() {
@@ -303,17 +231,7 @@ function buildDoor() {
   g.position.set(0, 0, 0.9);
   tag(g, 'door');
   doorPivot.add(g);
-  const door = new THREE.Mesh(new THREE.CylinderGeometry(0.84, 0.84, 0.08, 32), lambert({ map: TEX.door }));
-  door.rotation.z = Math.PI / 2;
-  g.add(door);
-  const handle = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.016, 6, 14), lambert({ color: 0xd7c08a }));
-  handle.position.set(-0.06, 0, 0.22);
-  g.add(handle);
   pad(g, 'door', 1.9, 1.9, 0.6, 0);
-  const frame = new THREE.Mesh(new THREE.TorusGeometry(0.96, 0.055, 8, 32), lambert({ color: 0xc9a15a }));
-  frame.position.set(3.38, 1.22, 0.15);
-  frame.rotation.y = Math.PI / 2;
-  scene.add(frame);
 }
 function buildLake() {
   const g = new THREE.Group();
@@ -388,6 +306,8 @@ function buildSlot() {
   tag(slotRoot, 'spot');
   scene.add(slotRoot);
   const body = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 1.24), new THREE.MeshBasicMaterial({ map: slotTex, transparent: true, depthWrite: false }));
+  slotPlane = body;
+  body.visible = HOME.slot !== 'gold';
   body.position.y = 0.62;
   slotRoot.add(body);
   slotArm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.36, 0.08), lambert({ color: 0xf3d2c3 }));
@@ -408,18 +328,6 @@ function buildBee() {
   g.add(band);
 }
 function buildSeat() {
-  const g = new THREE.Group();
-  g.position.set(1.7, 0, -0.85);
-  scene.add(g);
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.32, 0.7), lambert({ color: 0x7a3a32 }));
-  seat.position.y = 0.28;
-  g.add(seat);
-  const back = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.55, 0.12), lambert({ color: 0x8a4036 }));
-  back.position.set(0, 0.62, -0.28);
-  g.add(back);
-  const throwRug = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.04, 0.4), lambert({ color: 0xc45a3a }));
-  throwRug.position.set(0.05, 0.46, 0.05);
-  g.add(throwRug);
   for (let i = 0; i < 2; i++) {
     const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.012, 1.15, 5), lambert({ color: 0x8a6a3a }));
     rod.position.set(0.72 + i * 0.08, 0.7, -1.85);
@@ -435,6 +343,205 @@ function buildLamp() {
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xffd29a, transparent: true, opacity: 0.45, depthWrite: false }));
   glow.scale.set(0.42, 0.42, 1);
   g.add(glow);
+}
+const MOVES = [
+  { id: 'homeIdle', clip: 'HomeIdle_Fire', when: 'idle', bondTier: 0 },
+  { id: 'wave', clip: 'Wave', when: 'enter', bondTier: 0 },
+  { id: 'tap', clip: 'TapReact', when: 'tap', bondTier: 0 },
+  { id: 'sit', clip: 'Sit', when: 'fire', bondTier: 0, optional: true },
+  { id: 'rare', clip: 'Victory', when: 'tap', bondTier: 2, rare: true, collect: 'first-ember-watch' },
+];
+const BOND_TIERS = [0, 8, 20, 40];
+const CARD_TITLE = { 'first-ember-watch': 'First ember watch' };
+const BOND_KEY = 'aro.home.gold.bond';
+let bondMem = null;
+const goldClips = {};
+
+function tierFor(taps) {
+  let tier = 0;
+  for (let i = 0; i < BOND_TIERS.length; i++) if (taps >= BOND_TIERS[i]) tier = i;
+  return tier;
+}
+function bondState() {
+  if (!bondMem) {
+    try { bondMem = JSON.parse(localStorage.getItem(BOND_KEY)); } catch (e) { bondMem = null; }
+    if (!bondMem || typeof bondMem.taps !== 'number') bondMem = { taps: 0, tier: 0, collected: [] };
+    if (!Array.isArray(bondMem.collected)) bondMem.collected = [];
+    bondMem.tier = tierFor(bondMem.taps);
+  }
+  return bondMem;
+}
+function saveBond() {
+  const b = bondState();
+  b.tier = tierFor(b.taps);
+  try { localStorage.setItem(BOND_KEY, JSON.stringify(b)); } catch (e) { /* private mode */ }
+  renderBook(false);
+  return b;
+}
+function pickMove(when, tier) {
+  const open = MOVES.filter(m => m.when === when && tier >= (m.bondTier || 0));
+  const fresh = open.filter(m => m.rare && m.collect && !bondState().collected.includes(m.collect));
+  if (fresh.length) return fresh[0];
+  const plain = open.filter(m => !m.rare);
+  return plain[0] || open[0] || null;
+}
+function grantCard(id) {
+  const b = bondState();
+  if (!id || b.collected.includes(id)) return false;
+  b.collected.push(id);
+  saveBond();
+  renderBook(true);
+  return true;
+}
+function renderBook(open) {
+  const list = document.getElementById('homeBookList');
+  const panel = document.getElementById('homeBook');
+  if (!list || !panel) return;
+  const b = bondState();
+  list.innerHTML = '';
+  if (!b.collected.length) {
+    const empty = document.createElement('li');
+    empty.textContent = 'No cards yet';
+    list.appendChild(empty);
+  }
+  for (const id of b.collected) {
+    const li = document.createElement('li');
+    li.textContent = CARD_TITLE[id] || id;
+    list.appendChild(li);
+  }
+  const note = document.getElementById('homeBondNote');
+  if (note) note.textContent = 'Bond ' + b.taps + ' · tier ' + b.tier;
+  if (open) panel.classList.add('on');
+}
+function playGold(move, loop) {
+  if (!move || !goldMixer || !goldClips[move.clip]) return false;
+  const next = goldMixer.clipAction(goldClips[move.clip]);
+  next.reset();
+  next.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, loop ? Infinity : 1);
+  next.clampWhenFinished = !loop;
+  next.enabled = true;
+  if (goldAction && goldAction !== next) goldAction.fadeOut(0.25);
+  next.fadeIn(0.25).play();
+  goldAction = next;
+  next._move = move;
+  return true;
+}
+function onGoldFinished(e) {
+  if (!goldAction || e.action !== goldAction) return;
+  const move = e.action._move;
+  if (move && move.collect) grantCard(move.collect);
+  if (!move || move.when === 'idle') return;
+  if (move.when === 'enter') {
+    const sit = pickMove('fire', bondState().tier);
+    if (sit) { playGold(sit, false); return; }
+  }
+  playGold(pickMove('idle', bondState().tier), true);
+}
+function goldEnter() {
+  if (!goldReady) { HOME.greet = true; return; }
+  HOME.greet = false;
+  const wave = pickMove('enter', bondState().tier);
+  if (!playGold(wave, false)) playGold(pickMove('idle', bondState().tier), true);
+}
+function goldTap() {
+  const b = bondState();
+  b.taps += 1;
+  saveBond();
+  const move = pickMove('tap', b.tier);
+  if (playGold(move, false) && move && move.collect) grantCard(move.collect);
+}
+function meshHeight(root) {
+  const box = new THREE.Box3();
+  let any = false;
+  root.updateMatrixWorld(true);
+  root.traverse(o => {
+    if (!o.isMesh || !o.geometry) return;
+    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+    const b = o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld);
+    box.union(b);
+    any = true;
+  });
+  if (!any || !isFinite(box.min.y)) return null;
+  return box;
+}
+function fitGold(root) {
+  root.position.set(0, 0, 0);
+  root.scale.set(1, 1, 1);
+  root.rotation.set(0, 0, 0);
+  const box = meshHeight(root);
+  if (!box) return;
+  const h = Math.max(0.001, box.max.y - box.min.y);
+  const s = 1.2 / h;
+  root.scale.setScalar(s);
+  root.updateMatrixWorld(true);
+  const fitted = meshHeight(root);
+  if (fitted) root.position.y -= fitted.min.y;
+  root.rotation.y = 0;
+}
+const gltfLoader = new GLTFLoader();
+function loadGltf(file) {
+  return gltfLoader.loadAsync('assets/cabin/' + file);
+}
+function putProp(root, x, y, z, rot) {
+  root.position.set(x, y, z);
+  if (rot) root.rotation.y = rot;
+  cabinRoot.add(root);
+  applyToon(root);
+  return root;
+}
+async function dressCabin() {
+  try {
+    const hearth = (await loadGltf('cabin_hearth.glb')).scene;
+    putProp(hearth, 0.05, 0, -2.15, 0);
+    const baked = hearth.getObjectByName('Flames');
+    if (baked) baked.visible = false;
+    putProp((await loadGltf('cabin_armchair.glb')).scene, 1.7, 0, -0.85, Math.PI);
+    const nook = (await loadGltf('cooknook_counter.glb')).scene;
+    putProp(nook, -2.35, 0, 0.15, Math.PI / 2);
+    tag(nook, 'nook');
+    const board = (await loadGltf('command_board.glb')).scene;
+    putProp(board, 1.55, 0, 1.25, 0);
+    tag(board, 'board');
+    putProp((await loadGltf('cabin_rug.glb')).scene, 0.05, 0, -0.55, 0);
+    putProp((await loadGltf('cabin_fluff.glb')).scene, -0.05, 0, -0.45, 0);
+    const wallSrc = (await loadGltf('cabin_log_wall.glb')).scene;
+    for (const x of [-2, 0, 2]) putProp(wallSrc.clone(true), x, 0, -2.55, 0);
+    for (const z of [-2, 0, 2]) putProp(wallSrc.clone(true), -3.42, 0, z, Math.PI / 2);
+    const beamSrc = (await loadGltf('cabin_beam.glb')).scene;
+    for (const z of [-1.8, -0.6, 0.6, 1.6]) {
+      for (const x of [-2, 0, 2]) putProp(beamSrc.clone(true), x, 2.52, z, 0);
+    }
+    const doorRoot = (await loadGltf('cabin_round_door.glb')).scene;
+    doorRoot.position.set(3.32, 1.22, 0.15);
+    doorRoot.rotation.y = -Math.PI / 2;
+    cabinRoot.add(doorRoot);
+    applyToon(doorRoot);
+    const swinging = doorRoot.getObjectByName('Door');
+    if (swinging && doorPivot) {
+      doorPivot.attach(swinging);
+      tag(swinging, 'door');
+    }
+    const goldGltf = await loadGltf('gold_cabin.glb');
+    goldRoot = goldGltf.scene;
+    fitGold(goldRoot);
+    applyToon(goldRoot, {
+      thickness: 0.008,
+      colorSnap: { Gold_Skin: 0xf0c090, Gold_Hair: 0xf2c14a, Gold_Suit_Gold: 0xe6b23c, Gold_Bow: 0xc4522a },
+    });
+    if (slotRoot) slotRoot.add(goldRoot);
+    else cabinRoot.add(goldRoot);
+    goldRoot.visible = HOME.slot === 'gold';
+    if (slotPlane) slotPlane.visible = HOME.slot !== 'gold';
+    goldMixer = new THREE.AnimationMixer(goldRoot);
+    goldMixer.addEventListener('finished', onGoldFinished);
+    for (const clip of goldGltf.animations) goldClips[clip.name] = clip;
+    goldReady = true;
+    HOME.dressed = true;
+    if (HOME.on && HOME.greet !== false) goldEnter();
+    else playGold(pickMove('idle', bondState().tier), true);
+  } catch (err) {
+    console.warn('cabin dress failed', err);
+  }
 }
 function pad(parent, name, w, h, d, y) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ visible: false, depthWrite: false }));
@@ -673,6 +780,7 @@ function placeRide(out) {
 }
 function step(dt) {
   if (!HOME.on) return;
+  if (goldMixer) goldMixer.update(dt);
   HOME.t += dt;
   HOME.door += (HOME.doorTo - HOME.door) * Math.min(1, dt * 3.2);
   if (doorPivot) doorPivot.rotation.y = -HOME.door * 2.05;
@@ -742,6 +850,7 @@ function enter() {
   if (back) back.classList.remove('on');
   applyOrbit();
   renderer.render(scene, camera);
+  goldEnter();
   return true;
 }
 function leave() {
@@ -753,7 +862,7 @@ function leave() {
 function activate(name) {
   if (name === 'nook' && typeof openCraft === 'function') { openCraft(); return true; }
   if (name === 'board' && typeof openCommand === 'function') { openCommand(); return true; }
-  if (name === 'spot') { HOME.bounce = 1; return true; }
+  if (name === 'spot') { HOME.bounce = 1; goldTap(); return true; }
   if (name === 'door') {
     if (HOME.phase !== 'inside' && HOME.phase !== 'opening') return false;
     HOME.phase = 'opening'; HOME.doorTo = 1; return true;
@@ -822,10 +931,10 @@ function setSlot(kind) {
   if (kind !== 'billboard' && kind !== 'cheeb' && kind !== 'gold') return false;
   HOME.slot = kind;
   if (slotCanvas) paintSlot();
-  if (slotRoot) {
-    const s = kind === 'gold' ? 1.12 : 1;
-    slotRoot.scale.set(s, kind === 'cheeb' ? 0.82 : s, s);
-  }
+  if (slotPlane) slotPlane.visible = kind !== 'gold';
+  if (slotArm) slotArm.visible = kind !== 'gold';
+  if (goldRoot) goldRoot.visible = kind === 'gold';
+  if (slotRoot) slotRoot.scale.set(1, kind === 'cheeb' ? 0.82 : 1, 1);
   return true;
 }
 function hitName(x, y) {
@@ -872,6 +981,9 @@ function mount() {
     '#homeHud button,#homeDoorBack{pointer-events:auto;min-height:48px;min-width:48px;padding:10px 14px;border-radius:12px;font:800 15px sans-serif;background:rgba(42,24,16,.82);border:1px solid rgba(226,196,138,.7);color:#f6e2c4}',
     '#homeArNote{display:none;margin:0;max-width:34rem;padding:10px 12px;border-radius:12px;background:rgba(42,24,16,.9);color:#f6e2c4;font:600 15px/1.35 sans-serif}',
     '#homeArNote.on{display:block}',
+    '#homeBook{display:none;margin:0;max-width:16rem;padding:10px 12px;border-radius:12px;background:rgba(42,24,16,.92);color:#f6e2c4}',
+    '#homeBook.on{display:block}',
+    '#homeBook ul{margin:6px 0 0;padding-left:18px}',
     '#homeDoorBack{position:fixed;right:12px;top:calc(10px + env(safe-area-inset-top,0px));z-index:45;display:none}',
     '#homeDoorBack.on{display:block}',
   ].join('');
@@ -881,7 +993,7 @@ function mount() {
   document.body.appendChild(canvas);
   const hud = document.createElement('div');
   hud.id = 'homeHud';
-  hud.innerHTML = '<div id="homeHudRow"><button type="button" id="homeCrackle" aria-pressed="false">Fire sound off</button><button type="button" id="homeTable">Place on a table</button><button type="button" id="homePortal">Place the door</button><button type="button" id="homeOutside">Outside</button></div><p id="homeArNote"></p>';
+  hud.innerHTML = '<div id="homeHudRow"><button type="button" id="homeCrackle" aria-pressed="false">Fire sound off</button><button type="button" id="homeTable">Place on a table</button><button type="button" id="homePortal">Place the door</button><button type="button" id="homeBookBtn">Collection</button><button type="button" id="homeOutside">Outside</button></div><p id="homeArNote"></p><div id="homeBook"><b>Collection</b><p id="homeBondNote"></p><ul id="homeBookList"></ul></div>';
   document.body.appendChild(hud);
   const back = document.createElement('button');
   back.id = 'homeDoorBack'; back.type = 'button'; back.textContent = 'Door home';
@@ -897,6 +1009,10 @@ function mount() {
   document.getElementById('homeTable').onclick = () => startAr('dollhouse');
   document.getElementById('homePortal').onclick = () => startAr('portal');
   document.getElementById('homeOutside').onclick = () => leave();
+  document.getElementById('homeBookBtn').onclick = () => {
+    renderBook(false);
+    document.getElementById('homeBook').classList.toggle('on');
+  };
   back.onclick = () => backHome();
   window.addEventListener('resize', resize);
   requestAnimationFrame(loop);
@@ -907,7 +1023,9 @@ function boot() {
     enter, leave, activate, back: backHome, pose, step, setSound, setSlot, hitName, targets,
     ar: { probe: probeAr, start: startAr },
     covers: () => HOME.on && HOME.phase !== 'fishing',
-    state: () => ({ on: HOME.on, phase: HOME.phase, door: HOME.door, bounce: HOME.bounce, sound: HOME.sound, slot: HOME.slot, yaw: HOME.yaw, ar: Object.assign({}, HOME.ar) }),
+    bond: () => { const b = bondState(); return { taps: b.taps, tier: b.tier, collected: b.collected.slice() }; },
+    collection: () => bondState().collected.map(id => ({ id, title: CARD_TITLE[id] || id })),
+    state: () => ({ on: HOME.on, phase: HOME.phase, door: HOME.door, bounce: HOME.bounce, sound: HOME.sound, slot: HOME.slot, yaw: HOME.yaw, dressed: !!HOME.dressed, ar: Object.assign({}, HOME.ar) }),
   };
   window.__homeCovers = () => window.__home.covers();
   window.__homeCommandExtra = list => {
