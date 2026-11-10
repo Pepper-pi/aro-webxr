@@ -24,12 +24,19 @@ const state = {
   practice: false,
   hexes: 0,
   built: false,
+  guard: 0,
+  wardN: -1,
+  nova: 0,
+  novaAt: { x: 0, z: 0 },
+  flare: 0,
+  flareAt: { x: 0, z: 0 },
 };
 
 let renderer, scene, camera, sun, grad;
 let hexMesh, hexInk, edgeMesh, rainMesh;
 let hands, rifle, glass, rune, boss, bossWire, bossEyes, bossBar, boltSky, streak;
 let reticle, petFollow, petSphere, slamRing;
+let wardMesh, wardShell, novaRing, slashBar, fragMesh, turretMesh, droneMesh, flareMark;
 const petRigs = {};
 const posts = [];
 const mobBlobs = [];
@@ -42,6 +49,7 @@ let rigGlass = null;
 let mobsReady = false;
 const bolts = [];
 const bursts = [];
+const wallBits = [];
 const seen = new WeakSet();
 const dummy = new THREE.Object3D();
 const color = new THREE.Color();
@@ -624,10 +632,13 @@ function syncRolledFigures(g) {
   });
 }
 function syncBossRig(g, mobs) {
-  const bossMob = (mobs || []).find(m => m.tier === 'boss' && m.state !== 'gone');
-  const use = !!(mobsReady && rigWire && (state.story || bossMob));
+  const bossMob = (mobs || []).find(m => (m.tier === 'boss' || m.rollId === 'wire-brute') && m.state !== 'gone');
+  const use = !!(mobsReady && rigWire && bossMob && bossMob.rollId === 'wire-brute');
   boss.children.forEach(ch => { if (!ch.userData.keep) ch.visible = !use; });
-  if (!use) return false;
+  if (!use) {
+    if (state.story && rigWire) rigWire.root.visible = false;
+    return false;
+  }
   const px = g.AR.ppx || 0, pz = g.AR.ppy || 3;
   const stand = {
     x: bossMob ? bossMob.x : 0,
@@ -881,6 +892,206 @@ function syncPet(g) {
     petFollow.userData.shown = pet.name;
   }
 }
+const SPELL_COL = { ember: 0xff8a3d, frost: 0x8fe3ff, nova: 0xffc94d, shot: 0xff4455, flare: 0xffe14a, ward: 0x9dffc8, frag: 0xffb45a };
+function spellKind(s, gun) {
+  if (s && s.sp && s.sp.k) return s.sp.k;
+  if (s && s.kind) return s.kind;
+  if (s && s.col === '#ffe14a') return 'flare';
+  if (s && s.col === '#ffd36a') return 'shot';
+  return gun ? 'shot' : 'ember';
+}
+function makeBolt() {
+  const g = new THREE.Group();
+  const shapes = {};
+  const add = (kind, mesh) => { mesh.visible = false; g.add(mesh); shapes[kind] = mesh; };
+  const ember = ink(new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.9, 8), toon('#ff8a3d')));
+  ember.rotation.x = Math.PI / 2;
+  add('ember', ember);
+  const frost = ink(new THREE.Mesh(new THREE.OctahedronGeometry(0.34, 0), toon('#bff4ff')));
+  frost.scale.set(0.85, 1.9, 0.85);
+  add('frost', frost);
+  const nova = ink(new THREE.Mesh(new THREE.TorusGeometry(0.48, 0.1, 8, 20), toon('#ffc94d')));
+  nova.rotation.x = Math.PI / 2;
+  add('nova', nova);
+  const shot = ink(new THREE.Mesh(new THREE.CapsuleGeometry(0.09, 0.62, 3, 6), toon('#ff4455')));
+  shot.rotation.x = Math.PI / 2;
+  add('shot', shot);
+  add('flare', ink(new THREE.Mesh(new THREE.OctahedronGeometry(0.42, 0), toon('#ffe14a'))));
+  add('ward', ink(new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.08, 8, 18), toon('#9dffc8'))));
+  const glow = new THREE.Sprite(glowMat(0xffd27a));
+  glow.scale.set(1.8, 1.8, 1);
+  const mark = new THREE.Mesh(new THREE.RingGeometry(0.2, 0.55, 20), new THREE.MeshBasicMaterial({
+    color: 0xffffff, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false,
+  }));
+  mark.rotation.x = -Math.PI / 2;
+  mark.position.y = -0.7;
+  g.add(mark);
+  g.userData.mark = mark;
+  g.add(glow);
+  g.visible = false;
+  scene.add(g);
+  return { g, shapes, glow, mark, life: 0 };
+}
+function buildCasts() {
+  wardMesh = new THREE.Group();
+  const band = part(new THREE.TorusGeometry(1.15, 0.08, 8, 28), toon('#9dffc8'), 0, 1.15, 0, wardMesh);
+  band.rotation.x = Math.PI / 2;
+  const collar = part(new THREE.TorusGeometry(1.05, 0.06, 8, 24), toon('#eafff4'), 0, 0.35, 0, wardMesh);
+  collar.rotation.x = Math.PI / 2;
+  wardShell = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.05, 1.15, 2.3, 16, 1, true),
+    toon('#9dffc8', { transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide })
+  );
+  wardShell.position.y = 1.15;
+  wardMesh.add(wardShell);
+  wardMesh.visible = false;
+  scene.add(wardMesh);
+  novaRing = new THREE.Mesh(
+    new THREE.TorusGeometry(0.55, 0.07, 8, 28),
+    toon('#ffc94d', { transparent: true, opacity: 0.9, depthWrite: false })
+  );
+  novaRing.rotation.x = Math.PI / 2;
+  novaRing.position.y = 0.08;
+  novaRing.visible = false;
+  scene.add(novaRing);
+  slashBar = ink(new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 1), toon('#ff5ad8')));
+  slashBar.visible = false;
+  scene.add(slashBar);
+  for (let i = 0; i < 6; i++) {
+    const slab = part(new THREE.BoxGeometry(0.72, 1.15, 0.22), toon('#d7f6ff').clone(), 0, 0, 0);
+    const cap = part(new THREE.BoxGeometry(0.5, 0.16, 0.28), toon('#ffffff').clone(), 0, 0.62, 0, slab);
+    cap.position.y = 0.62;
+    slab.visible = false;
+    scene.add(slab);
+    wallBits.push(slab);
+  }
+  fragMesh = ink(new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), toon('#ffb45a')));
+  fragMesh.visible = false;
+  scene.add(fragMesh);
+  turretMesh = new THREE.Group();
+  part(new THREE.CylinderGeometry(0.16, 0.22, 0.28, 8), toon('#ffd36a'), 0, 0.2, 0, turretMesh);
+  const barrel = part(new THREE.CapsuleGeometry(0.045, 0.28, 3, 6), toon('#b7c0ce'), 0, 0.34, 0.16, turretMesh);
+  barrel.rotation.x = Math.PI / 2;
+  turretMesh.visible = false;
+  scene.add(turretMesh);
+  droneMesh = new THREE.Group();
+  part(new THREE.OctahedronGeometry(0.16, 0), toon('#7fd8ff'), 0, 0, 0, droneMesh);
+  part(new THREE.BoxGeometry(0.34, 0.04, 0.1), toon('#d7f4ff'), 0, 0.02, 0, droneMesh);
+  droneMesh.visible = false;
+  scene.add(droneMesh);
+  flareMark = new THREE.Mesh(
+    new THREE.RingGeometry(0.28, 0.42, 24),
+    new THREE.MeshBasicMaterial({ color: 0xffe14a, side: THREE.DoubleSide, transparent: true, opacity: 0.9, depthWrite: false })
+  );
+  flareMark.rotation.x = -Math.PI / 2;
+  flareMark.position.y = 0.06;
+  flareMark.visible = false;
+  scene.add(flareMark);
+}
+function layBar(mesh, x0, z0, x1, z1, y) {
+  const dx = x1 - x0, dz = z1 - z0;
+  const len = Math.max(0.2, Math.hypot(dx, dz));
+  mesh.position.set((x0 + x1) / 2, y, (z0 + z1) / 2);
+  mesh.scale.set(1, 1, len);
+  mesh.rotation.y = Math.atan2(dx, dz);
+  mesh.visible = true;
+}
+function syncCasts(g, dt) {
+  const field = window.__aro && window.__aro.FIELD;
+  const gun = window.__gun && window.__gun.GUN;
+  const tr = g.TRAIN;
+  if (state.wardN < 0) state.wardN = tr ? (tr.casts || 0) : 0;
+  if (tr && tr.last && tr.last.ok && tr.last.spell === 'ward' && state.wardN !== tr.casts) {
+    state.wardN = tr.casts;
+    state.guard = 2.6;
+  }
+  if (g.AR.guardT > 0) state.guard = g.AR.guardT;
+  else state.guard = Math.max(0, state.guard - dt);
+  if (wardMesh) {
+    wardMesh.visible = state.guard > 0;
+    if (wardMesh.visible) {
+      wardMesh.position.set(g.AR.ppx || 0, 0, g.AR.ppy || 0);
+      wardMesh.rotation.y = state.t * 1.4;
+      const s = 0.92 + Math.sin(state.t * 5) * 0.05;
+      wardMesh.scale.setScalar(s);
+      if (wardShell) wardShell.material.opacity = 0.22 + 0.22 * Math.min(1, state.guard);
+    }
+  }
+  if (g.AR.novaT >= 0) {
+    state.nova = Math.max(state.nova, 0.9 - g.AR.novaT);
+    state.novaAt = { x: g.AR.ppx || 0, z: g.AR.ppy || 0 };
+  }
+  if (novaRing) {
+    novaRing.visible = state.nova > 0;
+    if (novaRing.visible) {
+      const k = 1 - Math.min(1, state.nova / 0.9);
+      novaRing.position.set(state.novaAt.x, 0.08, state.novaAt.z);
+      novaRing.scale.setScalar(0.35 + k * 3.4);
+      novaRing.material.opacity = Math.max(0.05, state.nova);
+    }
+    state.nova = Math.max(0, state.nova - dt);
+  }
+  if (slashBar) {
+    slashBar.visible = false;
+    const cut = field && field.cut && field.cut.t < 0.45 ? field.cut : null;
+    const wind = field && field.pslash;
+    const line = cut || wind;
+    if (line) layBar(slashBar, line.x0, line.y0, line.x1, line.y1, cut ? 0.72 : 0.55);
+  }
+  wallBits.forEach(m => { m.visible = false; });
+  const wall = field && field.wall;
+  if (wall && wall.hexes) {
+    wall.hexes.forEach((h, i) => {
+      if (!wallBits[i]) return;
+      const p = hexOf(h[0], h[1]);
+      const slab = wallBits[i];
+      const shake = (wall.shake || 0) * (i % 2 ? 0.1 : -0.1);
+      const k = wall.max ? Math.max(0.2, wall.hp / wall.max) : 1;
+      slab.visible = true;
+      slab.position.set(p.x + shake, 0.55 * k, p.z);
+      slab.scale.y = k;
+    });
+  }
+  if (fragMesh) {
+    const frag = gun && gun.frag;
+    fragMesh.visible = !!frag;
+    if (frag) {
+      const span = (frag.warn || 0.5) + 0.45;
+      const u = Math.min(1, (frag.t || 0) / span);
+      fragMesh.position.set(
+        frag.x0 + (frag.x - frag.x0) * u,
+        0.25 + Math.sin(u * Math.PI) * 1.35,
+        frag.y0 + (frag.y - frag.y0) * u
+      );
+      fragMesh.rotation.y = state.t * 6;
+    }
+  }
+  if (turretMesh) {
+    const turret = gun && gun.turret;
+    turretMesh.visible = !!turret;
+    if (turret) {
+      turretMesh.position.set(turret.x, 0, turret.y);
+      turretMesh.rotation.y = Math.PI / 2 - (turret.aim || 0);
+    }
+  }
+  if (droneMesh) {
+    const drone = gun && gun.drone;
+    droneMesh.visible = !!drone;
+    if (drone) {
+      droneMesh.position.set(drone.x, 0.9 - (drone.dip || 0), drone.y);
+      droneMesh.rotation.y = state.t * 3;
+    }
+  }
+  state.flare = Math.max(0, state.flare - dt);
+  if (flareMark) {
+    flareMark.visible = state.flare > 0;
+    if (flareMark.visible) {
+      flareMark.position.set(state.flareAt.x, 0.06, state.flareAt.z);
+      flareMark.material.opacity = Math.min(0.95, state.flare);
+    }
+  }
+}
+
 function buildPools() {
   for (let i = 0; i < 3; i++) {
     const p = part(new THREE.CylinderGeometry(0.16, 0.2, 1.25, 6), toon('#6a3a32').clone(), 0, 0.62, 0);
@@ -896,25 +1107,7 @@ function buildPools() {
     b.visible = false;
     mobBlobs.push(b);
   }
-  for (let i = 0; i < BOLTS; i++) {
-    const g = new THREE.Group();
-    const core = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfff6d0 }));
-    core.scale.set(1, 1, 2.2);
-    g.add(core);
-    const glow = new THREE.Sprite(glowMat(0xffd27a));
-    glow.scale.set(0.7, 0.7, 1);
-    g.add(glow);
-    g.userData.glow = glow;
-    const trail = [];
-    for (let t = 0; t < 4; t++) {
-      const s = new THREE.Mesh(new THREE.SphereGeometry(0.05 - t * 0.008, 6, 4), new THREE.MeshBasicMaterial({ color: 0xff8a3d, transparent: true, opacity: 0.8 - t * 0.15 }));
-      g.add(s);
-      trail.push(s);
-    }
-    g.visible = false;
-    scene.add(g);
-    bolts.push({ g, core, trail, life: 0 });
-  }
+  for (let i = 0; i < BOLTS; i++) bolts.push(makeBolt());
   for (let i = 0; i < 4; i++) {
     const g = new THREE.Group();
     for (let k = 0; k < 6; k++) {
@@ -934,7 +1127,10 @@ function ensure() {
   const canvas = document.getElementById('fightCv');
   if (!canvas) return false;
   try {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance' });
+    renderer = new THREE.WebGLRenderer({
+      canvas, antialias: false, alpha: false, powerPreference: 'high-performance',
+      preserveDrawingBuffer: /(?:^|[?&])shot3d=1/.test(location.search),
+    });
   } catch (e) { return false; }
   renderer.setPixelRatio(Math.min(window.innerWidth < 700 ? 1 : 1.25, window.devicePixelRatio || 1));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -956,6 +1152,7 @@ function ensure() {
   buildPools();
   buildPet();
   buildSlamRing();
+  buildCasts();
   buildWeatherMobs();
   loadMobRigs().catch(err => console.warn('mob rigs', err));
   state.built = true;
@@ -1015,32 +1212,47 @@ function takeShot(s, x, z, k) {
 }
 
 function syncShots(g) {
-  const gun = g.G.cls === 'gunner';
+  const gunner = g.G.cls === 'gunner';
   const list = [];
   for (const s of g.AR.shots || []) list.push(s);
   for (const s of g.TRAIN.bolts || []) list.push(s);
+  const tracers = window.__gun && window.__gun.GUN && window.__gun.GUN.tracers;
+  if (tracers) for (const s of tracers) list.push(Object.assign({ kind: 'shot' }, s));
   let n = 0;
   for (const s of list) {
     if (n >= bolts.length) break;
-    const dur = s.dur || s.life || 0.3;
+    const dur = s.dur || s.life || 0.12;
     const k = Math.min(1, (s.t || 0) / dur);
     const x1 = s.mob ? s.mob.x : s.x1, z1 = s.mob ? s.mob.y : s.y1;
+    if (x1 == null || z1 == null) continue;
     const x = s.x0 + (x1 - s.x0) * k, z = s.y0 + (z1 - s.y0) * k;
+    const kind = spellKind(s, gunner);
     const slot = bolts[n++];
     slot.life = 1 - k;
     slot.g.visible = true;
-    slot.g.position.set(x, 0.85, z);
-    const col = gun ? 0xff4455 : 0xffd27a;
-    slot.core.material.color.setHex(col);
-    if (slot.g.userData.glow) slot.g.userData.glow.material = glowMat(col);
-    slot.trail.forEach((p, i) => { p.position.set(0, 0, 0.12 + i * 0.08); });
+    const y = kind === 'nova' ? 0.55 + Math.sin(k * Math.PI) * 0.45 : 0.85;
+    slot.g.position.set(x, y, z);
+    slot.g.rotation.y = Math.atan2(x1 - s.x0, z1 - s.y0);
+    Object.keys(slot.shapes).forEach(key => { slot.shapes[key].visible = key === kind || (kind === 'frag' && key === 'shot'); });
+    if (!slot.shapes[kind] && slot.shapes.ember) slot.shapes.ember.visible = true;
+    const col = s.col ? new THREE.Color(s.col).getHex() : (SPELL_COL[kind] || (gunner ? 0xff4455 : 0xff8a3d));
+    if (slot.glow) slot.glow.material = glowMat(col);
+    if (slot.mark) slot.mark.material.color.setHex(col);
+    if (slot.shapes.frost && slot.shapes.frost.visible) slot.shapes.frost.rotation.z = state.t * 9;
+    if (slot.shapes.flare && slot.shapes.flare.visible) slot.shapes.flare.rotation.y = state.t * 7;
+    if (kind === 'nova') {
+      state.nova = Math.max(state.nova, 0.7);
+      state.novaAt = { x: x1, z: z1 };
+    }
+    if (kind === 'ward') state.guard = Math.max(state.guard, 2.6);
+    if (kind === 'flare' && k > 0.72) { state.flare = Math.max(state.flare, 2.2); state.flareAt = { x: x1, z: z1 }; }
     if (!seen.has(s) && s.x1 !== undefined) { state.muzzle = 0.16; state.kick = 1; }
     takeShot(s, x, z, k);
   }
   for (let i = n; i < bolts.length; i++) bolts[i].g.visible = false;
-  hands.visible = hands.visible && !gun;
-  rifle.visible = gun && g.TRAIN.on && g.TRAIN.view === 'fp';
-  rune.visible = !gun && ((g.TRAIN.charge || 0) > 0.04 || state.cast > 0);
+  hands.visible = hands.visible && !gunner;
+  rifle.visible = gunner && g.TRAIN.on && g.TRAIN.view === 'fp';
+  rune.visible = !gunner && ((g.TRAIN.charge || 0) > 0.04 || state.cast > 0);
   const sc = 0.8 + (g.TRAIN.charge || 0) * 0.15;
   rune.scale.setScalar(sc);
   rune.rotation.z += 0.08;
@@ -1066,6 +1278,8 @@ function syncActors(g) {
   if (!state.story) mobBlobs.forEach(bl => { bl.visible = false; });
   else for (const m of mobs) {
     if (m.dummy || b >= mobBlobs.length) continue;
+    const kind = standKind(m.rollId);
+    if (m.tier === 'boss' || kind === 'rig-blob' || kind === 'rig-beast' || kind === 'rig-brute') continue;
     const blob = mobBlobs[b++];
     blob.visible = true;
     blob.position.set(m.x, 0.4, m.y);
@@ -1149,6 +1363,7 @@ function frame(now) {
   document.body.classList.toggle('fight-fp', fp);
   document.body.classList.toggle('fp-clear', fp && !state.practice);
   syncShots(g);
+  syncCasts(g, dt);
   syncActors(g);
   syncPet(g);
   syncSlam(g);
@@ -1208,6 +1423,10 @@ function mount() {
       on: state.on, hexes: state.hexes, gradient: 2, bossHp: state.bossHp, bossMax: state.bossMax,
       lights: 1, rain: RAIN, outlined: true, toon: true, rigs: mobsReady ? rigActors.length : 0,
       follow: Object.keys(petRigs).length, weather: state.weatherKind, story: !!state.story,
+      guard: state.guard > 0, nova: state.nova > 0, flare: state.flare > 0,
+      wall: wallBits.some(m => m.visible), slash: !!(slashBar && slashBar.visible),
+      frag: !!(fragMesh && fragMesh.visible), turret: !!(turretMesh && turretMesh.visible),
+      drone: !!(droneMesh && droneMesh.visible),
     }),
     strike: () => { if (ensure()) hurtBoss(18); return state.bossHp; },
     setPractice: (on) => { state.practice = !!on; },

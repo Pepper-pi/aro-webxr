@@ -3018,6 +3018,7 @@ function arenaUpdate(dt) {
     if (s.t >= s.dur) { AR.shots.splice(i, 1); if (s.mob.state === 'live') { damage(s.mob, s.dmg, s.sp, s.focus); fieldOnHit(s.sp, s.mob, [s.x0, s.y0]); } }
   }
   if (AR.novaT >= 0) { AR.novaT += dt; if (AR.novaT > .9) AR.novaT = -1; }
+  if (AR.guardT > 0) AR.guardT = Math.max(0, AR.guardT - dt);
   if (AR.phase === 'claim') { AR.claimK += dt / 2.2; if (AR.claimK >= 1 && !AR.claimed) claimEnd(); }
   // charging
   if (AR.ptr && !AR.ptr.swiped) {
@@ -7082,6 +7083,7 @@ function castWard() {
   const slot = equippedIds('mage').findIndex(s => s.id === 'ward');
   if (slot >= 0 && slot < AR.cds.length) AR.cds[slot] = 4;
   AR.castT = .3;
+  AR.guardT = 2.6;
   const [X, Y] = proj(AR.cam, AR.ppx, AR.ppy);
   popText(X, Y - 70, 'Ward +8', '#9dffc8', 16);
   SFX.cast();
