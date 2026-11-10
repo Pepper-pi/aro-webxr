@@ -375,6 +375,7 @@ function saveBond() {
   const b = bondState();
   b.tier = tierFor(b.taps);
   try { localStorage.setItem(BOND_KEY, JSON.stringify(b)); } catch (e) { /* private mode */ }
+  if (window.__profile && window.__profile.noteBond) window.__profile.noteBond(b);
   renderBook(false);
   return b;
 }
@@ -1015,7 +1016,7 @@ function mount() {
   document.body.appendChild(canvas);
   const hud = document.createElement('div');
   hud.id = 'homeHud';
-  hud.innerHTML = '<div id="homeHudRow"><button type="button" id="homeCrackle" aria-pressed="false">Fire sound off</button><button type="button" id="homeTable">Place on a table</button><button type="button" id="homePortal">Place the door</button><button type="button" id="homeBookBtn">Collection</button><button type="button" id="homeOutside" title="Future AR entry. On this screen it opens the field.">Outside</button><button type="button" id="homePin">Pin this world</button></div><p id="homeArNote"></p><div id="homeBook"><b>Collection</b><p id="homeBondNote"></p><ul id="homeBookList"></ul><b>Pins</b><ul id="homePinList"></ul></div>';
+  hud.innerHTML = '<div id="homeHudRow"><button type="button" id="homeCrackle" aria-pressed="false">Fire sound off</button><button type="button" id="homeTable">Place on a table</button><button type="button" id="homePortal">Place the door</button><button type="button" id="homeBookBtn">Collection</button><button type="button" id="homeArcade">Arcade</button><button type="button" id="homeOutside" title="Future AR entry. On this screen it opens the field.">Outside</button><button type="button" id="homePin">Pin this world</button></div><p id="homeArNote"></p><div id="homeBook"><b>Collection</b><p id="homeBondNote"></p><ul id="homeBookList"></ul><b>Pins</b><ul id="homePinList"></ul></div>';
   document.body.appendChild(hud);
   const back = document.createElement('button');
   back.id = 'homeDoorBack'; back.type = 'button'; back.textContent = 'Door home';
@@ -1034,8 +1035,10 @@ function mount() {
   document.getElementById('homePin').onclick = () => { if (window.__world && window.__world.pin) { window.__world.pin(); renderBook(true); } };
   document.getElementById('homeBookBtn').onclick = () => {
     renderBook(false);
-    document.getElementById('homeBook').classList.toggle('on');
+    if (window.__profile && window.__profile.openBook) window.__profile.openBook('pins');
+    else document.getElementById('homeBook').classList.toggle('on');
   };
+  document.getElementById('homeArcade').onclick = () => { if (window.__profile && window.__profile.openArcade) window.__profile.openArcade(); };
   back.onclick = () => backHome();
   window.addEventListener('resize', resize);
   requestAnimationFrame(loop);

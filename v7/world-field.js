@@ -277,6 +277,7 @@ function pin() {
     lon: look.place.lon,
   });
   try { localStorage.setItem(PIN_KEY, JSON.stringify(list.slice(0, 8))); } catch (e) { /* private mode */ }
+  if (window.__profile && window.__profile.notePin) window.__profile.notePin(list[0]);
   if (window.__home && window.__home.refreshBook) window.__home.refreshBook();
   return list.slice(0, 8);
 }

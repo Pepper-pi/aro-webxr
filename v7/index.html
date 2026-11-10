@@ -3336,7 +3336,11 @@ const FIELD_CAP = 28, FP_CAP = 60, RAIN_CAP = 2, WALL_HP = 90, WALL_LIFE = 16, W
 const ROCK_HP = 36, FORM_HP = 24, ICE_BLOCK_HP = 24, DEBRIS_HP = 18, DEBRIS_CAP = 2, DEBRIS_BUDGET = 4;
 const FIELD = { iceWallLevel: +(new URLSearchParams(location.search).get('wall')) || 3, terr: new Map(), chunks: [], fogs: [], hex: new Map(), wall: null, barricades: [], barricadeN: 0, inspect: null, rains: [], fp: [], step: null, combos: 0, lastCombo: '', shatters: 0, wallCD: 0, rainT: 0, born: 0, msgT: {} };
 const hk = (q, r) => q + ',' + r;
-function fieldReset() { AR.objT = null; FIELD.floodTele = null; FIELD.floodBossT = 0; FIELD.hex.clear(); FIELD.terr.clear(); Object.assign(FIELD, { mana: 100, pots: 2, potCD: 0, chunks: [], fogs: [], wall: null, barricades: [], inspect: null, rains: [], fp: [], step: null, combos: 0, lastCombo: '', shatters: 0, wallCD: 0, rainT: 0 }); }
+function purseCount(key, fallback) {
+  const p = window.__profile && window.__profile.get && window.__profile.get();
+  return p && typeof p[key] === 'number' ? p[key] : fallback;
+}
+function fieldReset() { AR.objT = null; FIELD.floodTele = null; FIELD.floodBossT = 0; FIELD.hex.clear(); FIELD.terr.clear(); Object.assign(FIELD, { mana: 100, pots: purseCount('potions', 2), potCD: 0, chunks: [], fogs: [], wall: null, barricades: [], inspect: null, rains: [], fp: [], step: null, combos: 0, lastCombo: '', shatters: 0, wallCD: 0, rainT: 0 }); }
 const hexState = (q, r) => { const h = FIELD.hex.get(hk(q, r)); return h ? h.s : 'normal'; };
 const onField = (q, r) => (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2 <= 4;
 function hexPop(q, r, txt, col) { const [x, y] = hexXY(q, r), [X, Y, f] = proj(AR.cam, x, y); popText(X, Y - 26 * f, txt, col, 14); }
@@ -3377,7 +3381,7 @@ const hexDist = (a, b, c, d) => (Math.abs(a - c) + Math.abs(b - d) + Math.abs(a 
 /* ---------- mana ---------- */
 const MANA_MAX = 100, MANA_REGEN = 3, MANA_COST = { spell: 10, wall: 50, slash: 30 }, POT_MANA = 60, POT_CD = 20;
 function spendMana(n) { if (FIELD.mana == null) FIELD.mana = MANA_MAX; if (FIELD.mana < n) { const [X, Y] = proj(AR.cam, AR.ppx, AR.ppy); popText(X, Y - 110, 'low mana', '#9fb6ff', 13); return false; } FIELD.mana -= n; return true; }
-function drinkPot() { if (!(FIELD.pots > 0) || FIELD.potCD > 0 || G.scene !== 'arena') return false; FIELD.pots--; FIELD.potCD = POT_CD; FIELD.mana = Math.min(MANA_MAX, (FIELD.mana || 0) + POT_MANA); const [X, Y] = proj(AR.cam, AR.ppx, AR.ppy); popText(X, Y - 110, '+' + POT_MANA + ' mana', '#7fa8ff', 15); return true; }
+function drinkPot() { if (!(FIELD.pots > 0) || FIELD.potCD > 0 || G.scene !== 'arena') return false; FIELD.pots--; if (window.__profile && window.__profile.use) window.__profile.use('potions'); FIELD.potCD = POT_CD; FIELD.mana = Math.min(MANA_MAX, (FIELD.mana || 0) + POT_MANA); const [X, Y] = proj(AR.cam, AR.ppx, AR.ppy); popText(X, Y - 110, '+' + POT_MANA + ' mana', '#7fa8ff', 15); return true; }
 function slashUpdate(dt) {
   FIELD.slashCD = Math.max(0, (FIELD.slashCD || 0) - dt); if (FIELD.cut) FIELD.cut.t += dt;
   if (FIELD.scars) { FIELD.scars.forEach(s => s.t += dt); FIELD.scars = FIELD.scars.filter(s => s.t < s.life); }
@@ -3417,7 +3421,7 @@ function mobObstacle(m, step, dt) {
     m.climbT = (m.climbT || 0) + dt; if (m.climbT < 1.2 * PACE()) return true; m.climbT = 0; FIELD.mobClimbs = (FIELD.mobClimbs || 0) + 1; return false; }
   m.climbT = 0; return false;
 }
-function manaUpdate(dt) { slashUpdate(dt); if (FIELD.mana == null) Object.assign(FIELD, { mana: MANA_MAX, pots: 2, potCD: 0 }); FIELD.mana = Math.min(MANA_MAX, FIELD.mana + MANA_REGEN * dt); FIELD.potCD = Math.max(0, FIELD.potCD - dt); manaUI(); }
+function manaUpdate(dt) { slashUpdate(dt); if (FIELD.mana == null) Object.assign(FIELD, { mana: MANA_MAX, pots: purseCount('potions', 2), potCD: 0 }); FIELD.mana = Math.min(MANA_MAX, FIELD.mana + MANA_REGEN * dt); FIELD.potCD = Math.max(0, FIELD.potCD - dt); manaUI(); }
 function manaUI() {
   let bar = document.getElementById('manaBar'), wb = document.getElementById('iceWall'); if (!wb) return;
   if (!bar) { bar = document.createElement('div'); bar.id = 'manaBar'; bar.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 6px);width:150px;height:8px;border-radius:5px;background:#1a1030;border:1px solid #6a5cff;overflow:hidden;pointer-events:none'; bar.innerHTML = '<b style="display:block;height:100%;background:linear-gradient(90deg,#3a6bff,#8fd0ff)"></b>'; wb.parentElement.style.position ||= 'relative'; wb.parentElement.appendChild(bar);
@@ -4595,6 +4599,7 @@ function landFish() {
   SFX.win(); buzz([12, 20, 28]);
   if (!G.day.castGrade && FI.grade) G.day.castGrade = FI.grade;
   addItem('fish'); G.day.fish = FI.fish; addAether(3);
+  if (window.__profile && window.__profile.addCatch) window.__profile.addCatch(FI.fish);
   if (cap) { G.caps++; }
   const last = (FI.used || 0) >= FISH_CASTS;
   fishMsg('<img src="' + ICON_URL.fish + '" alt="">' + FI.fish.n + ' · ' + FI.fish.cm + ' cm' + (last ? ' · the spot goes quiet' : ''));
@@ -5415,6 +5420,7 @@ function mapTap(X, Y) {
     if (hit) {
       if (!markerNearYou(hit)) { popText(X, Y - 16, 'step closer', '#ffe7a8', 13); return; }
       if (hit.group === 'mob') { startEncounter(hit); return; }
+      if (hit.group === 'vendor' && window.__profile && window.__profile.openShop) { window.__profile.openShop(hit); return; }
       showCast(hit.name + ': ' + hit.line);
       popText(X, Y - 18, hit.line, '#ffe7a8', 13);
       return;
@@ -6632,6 +6638,7 @@ function folkAt(X, Y) {
   return null;
 }
 function greetFolk(f) {
+  if (f.group === 'vendor' && window.__profile && window.__profile.openShop) { window.__profile.openShop(f); return; }
   showCast(f.name + ': ' + f.line);
   const [X, Y, sc] = proj(AR.cam, f.x, f.y);
   popText(X, Y - 46 * sc, f.line, '#ffe7a8', 14);
@@ -7061,6 +7068,7 @@ function itemPop() {
   } else if (kind === 'cell') {
     if (CELL.loaded || CELL.charge || CELL.bolt || CELL.puzzle || CELL.phase !== 'idle') return false;
     if (!loadCell({ hold: true }) || !startCellBolt('fire')) return false;
+    if (window.__profile && window.__profile.use) window.__profile.use('cells');
   } else return false;
   REACH.pops++;
   REACH.at++;
@@ -7458,6 +7466,8 @@ function drawDockHud() {
         const key = TRAIN.encounter;
         TRAIN.encounter = null;
         if (window.__world && window.__world.clearMarker) window.__world.clearMarker(key);
+        const pay = window.__profile && window.__profile.grantWin && window.__profile.grantWin();
+        if (pay) showCast('+' + pay.coins + ' coins · +' + pay.xp + ' xp');
         setTimeout(() => { if (G.scene === 'arena' && TRAIN.on) leaveTrain(); }, 650);
       }
     }
@@ -8543,6 +8553,7 @@ window.__disc3d = {
   }
 };
 </script>
+<script type="module" src="profile.js"></script>
 <script type="module" src="home-cabin.js"></script>
 <script type="module" src="world-field.js"></script>
 <script type="module" src="fight-toon.js"></script>
