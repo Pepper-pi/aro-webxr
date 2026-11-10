@@ -3771,6 +3771,7 @@ function drawArena(T) {
 }
 function drawArenaMob(m, T) {
   if (m.art === 'king' && typeof TRAIN !== 'undefined' && TRAIN.king && window.__fight && window.__fight.plate && window.__fight.plate().on) return;
+  if (m.raidBoss && typeof TRAIN !== 'undefined' && TRAIN.dayRaid && TRAIN.view === 'fp') return;
   const c = AR.cam, [X, Y, f] = proj(c, m.x, m.y), sz = m.D.r * c.hz * f * 1.6, h = MOBART[m.art].h * sz, rc = RAR[m.rar];
   const wire = mobCol(m);
   if (m.state === 'panel') return;
@@ -9407,7 +9408,7 @@ window.__train = {
   TRAIN, startTrain, resetTrain, leaveTrain, releaseMage, fireGun, raiseWall, shadowSlash,
   trainSelfTest, MAGE_RIM, GUN_RIM, applyZoom, layoutMapCam, setClass, setTrainView, slashUpdate,
   openMapNav, openCommand, goPlace, BOARD, boardNote, discPlate, discCenter, discRadius, discHit,
-  startKing, kingLine,
+  startKing, startDayRaid, kingLine,
   trainUpdate, releaseDisc, interruptCharge, aimedOwnWall, syncWheel, armMeal, clearMeal,
   DISC_IDLE, DISC_CHARGED,
   stepArena: dt => arenaUpdate(dt),

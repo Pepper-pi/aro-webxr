@@ -36,6 +36,7 @@ let renderer, scene, camera, sun, grad;
 let hexMesh, hexInk, edgeMesh, rainMesh;
 let hands, rifle, glass, rune, boss, bossWire, bossEyes, bossBar, boltSky, streak;
 let kingPlate, kingPaint, kingHolo, kingShadow;
+let boarPlate, boarPaint, boarHolo, boarShadow;
 let reticle, petFollow, petSphere, slamRing;
 let wardMesh, wardShell, novaRing, slashBar, fragMesh, turretMesh, droneMesh, flareMark;
 const petRigs = {};
@@ -793,6 +794,7 @@ function buildBoss() {
   boss.position.set(0, 0, -4.6);
   boss.scale.setScalar(1.55);
   buildKingPlate();
+  buildBoarPlate();
   boltSky = new THREE.Mesh(new THREE.PlaneGeometry(9, 2.4), new THREE.MeshBasicMaterial({ color: 0xe7f3ff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
   boltSky.position.set(0.4, 4.4, -2.2);
   streak = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 3.2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
@@ -827,8 +829,8 @@ function gelKingMob(g) {
   if (!kingPlate || !g || !g.TRAIN || !g.TRAIN.king) return null;
   return (g.AR.mobs || []).find(m => m && m.tier === 'boss' && m.art === 'king' && m.state !== 'gone') || null;
 }
-function syncKingPlate(g, raidBoss) {
-  const king = gelKingMob(g) || (raidBoss && raidBoss.art === 'king' ? raidBoss : null);
+function syncKingPlate(g) {
+  const king = gelKingMob(g);
   const on = !!king;
   state.plateOn = on;
   if (!kingPlate) return { on: false, mode: 'off' };
@@ -864,6 +866,73 @@ function syncKingPlate(g, raidBoss) {
     kingShadow.position.set(x, 0.03, z + 0.12);
   }
   return { on: true, mode: state.plateMode, dist: Math.round(dist * 100) / 100 };
+}
+function buildBoarPlate() {
+  const tex = new THREE.TextureLoader().load('boar_plate.png');
+  tex.colorSpace = THREE.SRGBColorSpace;
+  boarPaint = new THREE.MeshBasicMaterial({
+    map: tex, transparent: true, depthWrite: true, side: THREE.FrontSide, toneMapped: false,
+  });
+  boarHolo = new THREE.MeshBasicMaterial({
+    map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending, opacity: 0.5, color: 0xffb0e8, toneMapped: false,
+  });
+  boarPlate = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 3.5), boarPaint);
+  boarPlate.visible = false;
+  boarPlate.renderOrder = 2;
+  scene.add(boarPlate);
+  boarShadow = new THREE.Mesh(
+    new THREE.CircleGeometry(0.7, 18),
+    new THREE.MeshBasicMaterial({ color: 0x120814, transparent: true, opacity: 0.4, depthWrite: false })
+  );
+  boarShadow.rotation.x = -Math.PI / 2;
+  boarShadow.visible = false;
+  scene.add(boarShadow);
+}
+function fieldBoar(g) {
+  if (!boarPlate || !g || !g.TRAIN || !g.TRAIN.dayRaid || g.TRAIN.view !== 'fp') return null;
+  return (g.AR.mobs || []).find(m => m && m.raidBoss && m.state !== 'gone') || null;
+}
+function syncBoarPlate(g) {
+  const mob = fieldBoar(g);
+  const on = !!mob;
+  if (!boarPlate) return { on: false, mode: 'off' };
+  if (!on) {
+    boarPlate.visible = false;
+    if (boarShadow) boarShadow.visible = false;
+    state.boarMode = 'off';
+    state.boar = { on: false, mode: 'off' };
+    return state.boar;
+  }
+  boss.visible = false;
+  if (kingPlate) kingPlate.visible = false;
+  if (kingShadow) kingShadow.visible = false;
+  if (typeof rigWire !== 'undefined' && rigWire && rigWire.root) rigWire.root.visible = false;
+  const x = mob.x, z = mob.y;
+  const bob = Math.sin(state.t * 1.5) * 0.02;
+  boarPlate.position.set(x, 1.75 + bob, z);
+  boarPlate.rotation.set(0, 0, 0);
+  boarPlate.visible = true;
+  const dx = camera.position.x - x;
+  const dy = camera.position.y - (1.75 + bob);
+  const dz = camera.position.z - z;
+  const dist = Math.hypot(dx, dy, dz);
+  const behind = dz < 0.4;
+  const side = Math.abs(dx) > Math.max(0.7, Math.abs(dz) * 1.25);
+  const close = dist < 1.45;
+  const holo = behind || side || close;
+  state.boarMode = holo ? 'holo' : 'paint';
+  boarPlate.material = holo ? boarHolo : boarPaint;
+  if (holo) {
+    boarHolo.opacity = 0.34 + 0.22 * (0.5 + 0.5 * Math.sin(state.t * 6));
+    boarHolo.color.setHex((state.t % 0.8) < 0.4 ? 0xff9ad4 : 0xb7f0ff);
+  } else boarPaint.opacity = 0.96 + 0.04 * (0.5 + 0.5 * Math.sin(state.t * 2.2));
+  if (boarShadow) {
+    boarShadow.visible = !holo;
+    boarShadow.position.set(x, 0.03, z + 0.15);
+  }
+  state.boar = { on: true, mode: state.boarMode, dist: Math.round(dist * 100) / 100 };
+  return state.boar;
 }
 function buildSlamRing() {
   slamRing = new THREE.Group();
@@ -1377,8 +1446,9 @@ function syncActors(g) {
   const hit = state.flash > 0;
   bossWire.material.color.set(hit ? '#ffffff' : '#8fe8ff');
   bossEyes.forEach(e => { e.scale.setScalar(hit ? 1.7 : 1); });
-  const plate = syncKingPlate(g, raidBoss);
+  const plate = syncKingPlate(g);
   state.plate = plate;
+  syncBoarPlate(g);
 }
 
 function syncGun(g) {
@@ -1499,6 +1569,7 @@ function mount() {
       plate: state.plate || { on: false, mode: 'off' },
     }),
     plate: () => state.plate || { on: false, mode: 'off' },
+    boar: () => state.boar || { on: false, mode: 'off' },
     strike: () => { if (ensure()) hurtBoss(18); return state.bossHp; },
     setPractice: (on) => { state.practice = !!on; },
   };

@@ -616,6 +616,23 @@ const marketPlate = await page.evaluate(() => {
   return { front, close };
 });
 check('market plate is the cleaned painting in the room and a hologram up close', marketPlate.front.on && marketPlate.front.mode === 'paint' && marketPlate.close.on && marketPlate.close.mode === 'holo', JSON.stringify(marketPlate));
+const boarPlate = await page.evaluate(async () => {
+  window.__aroFreeze = true;
+  const prof = window.__profile && window.__profile.get && window.__profile.get();
+  if (prof) prof.raidDate = '';
+  window.__train.startDayRaid(null);
+  window.__train.setTrainView('fp');
+  const wait = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const m = window.__aro.AR.mobs.find(x => x.raidBoss);
+  if (m) window.__aro.AR.ppx = m.x;
+  let front = null;
+  for (let i = 0; i < 12; i++) { await wait(); front = window.__fight && window.__fight.boar && window.__fight.boar(); if (front && front.on && front.mode === 'paint') break; }
+  if (m) { window.__aro.AR.ppx = m.x; window.__aro.AR.ppy = m.y - 2.6; }
+  await wait(); await wait();
+  const behind = window.__fight && window.__fight.boar && window.__fight.boar();
+  return { front, behind, view: window.__train.TRAIN.view, day: window.__train.TRAIN.dayRaid };
+});
+check('boar plate is the painting from the front and a hologram from behind', boarPlate.day && boarPlate.view === 'fp' && boarPlate.front && boarPlate.front.on && boarPlate.front.mode === 'paint' && boarPlate.behind && boarPlate.behind.on && boarPlate.behind.mode === 'holo', JSON.stringify(boarPlate));
 
 async function layout(w, h) {
   const p = await open(w, h);
