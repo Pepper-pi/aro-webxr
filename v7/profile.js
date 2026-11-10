@@ -14,8 +14,10 @@ const PRIZES = [
 
 function blank() {
   return {
-    coins: 40, tokens: 6, xp: 0,
+    coins: 40, tokens: 6, xp: 0, cls: '',
     cells: 2, potions: 2, treats: 0, cosmetic: '',
+    fieldWins: 0, captures: 0, raidDate: '',
+    quests: null,
     pets: [{ id: 'pip', species: 'pip', name: 'Pip', note: 'Honey carbuncle', level: 1, xp: 0, bond: 0, active: true }],
     pins: [], bonds: { taps: 0, tier: 0, collected: [] }, catches: [], prizes: [],
   };
@@ -36,6 +38,10 @@ function load() {
   if (!state.bonds || !Array.isArray(state.bonds.collected)) state.bonds = { taps: 0, tier: 0, collected: [] };
   if (!Array.isArray(state.catches)) state.catches = [];
   if (!Array.isArray(state.prizes)) state.prizes = [];
+  if (state.cls !== 'mage' && state.cls !== 'gunner') state.cls = '';
+  if (typeof state.fieldWins !== 'number') state.fieldWins = 0;
+  if (typeof state.captures !== 'number') state.captures = 0;
+  if (typeof state.raidDate !== 'string') state.raidDate = '';
   try {
     const oldPins = JSON.parse(localStorage.getItem('aro.world.pins') || '[]');
     if (Array.isArray(oldPins) && oldPins.length && !state.pins.length) state.pins = oldPins.slice(0, 8);
@@ -52,10 +58,105 @@ function save() {
   paintPurse();
   return state;
 }
+function todayKey() {
+  const look = window.__world && window.__world.look && window.__world.look();
+  if (look && look.date) return look.date;
+  const d = new Date();
+  const p = n => (n < 10 ? '0' : '') + n;
+  return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate());
+}
+function playerLevel(xp) {
+  let level = 1;
+  let rest = xp || 0;
+  while (rest >= level * 20) {
+    rest -= level * 20;
+    level += 1;
+  }
+  return { level, rest, need: level * 20 };
+}
 function paintPurse() {
   const el = document.getElementById('spinePurse');
-  if (!el || !state) return;
-  el.textContent = state.coins + ' coins · ' + state.tokens + ' tokens';
+  const lvEl = document.getElementById('spineLevel');
+  if (!state) return;
+  const lv = playerLevel(state.xp);
+  if (el) el.textContent = state.coins + ' coins · ' + state.tokens + ' tokens';
+  if (lvEl) lvEl.textContent = 'Lv ' + lv.level + ' · ' + lv.rest + '/' + lv.need;
+}
+function showLevel(n) {
+  let el = document.getElementById('levelPop');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'levelPop';
+    document.body.appendChild(el);
+  }
+  el.textContent = 'Level ' + n;
+  el.classList.add('on');
+  clearTimeout(showLevel.timer);
+  showLevel.timer = setTimeout(() => el.classList.remove('on'), 1200);
+}
+function addXp(n) {
+  load();
+  const before = playerLevel(state.xp).level;
+  state.xp += n;
+  const after = playerLevel(state.xp);
+  if (after.level > before) showLevel(after.level);
+  return after;
+}
+const QUEST_POOL = [
+  { id: 'fish', name: 'Catch a fish', need: 1, coins: 8, tokens: 0 },
+  { id: 'fights', name: 'Win 2 field fights', need: 2, coins: 10, tokens: 1 },
+  { id: 'capture', name: 'Capture a pet', need: 1, coins: 8, tokens: 1 },
+  { id: 'raid', name: 'Clear the raid', need: 1, coins: 12, tokens: 2 },
+];
+function mulberry(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = (t + Math.imul(t ^ t >>> 7, 61 | t)) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function ensureQuests() {
+  load();
+  const date = todayKey();
+  if (state.quests && state.quests.date === date && Array.isArray(state.quests.ids) && state.quests.ids.length === 3) return state.quests;
+  const look = window.__world && window.__world.look && window.__world.look();
+  const rng = mulberry((look && look.seed) || 1);
+  const pool = QUEST_POOL.map(q => q.id);
+  const ids = [];
+  while (ids.length < 3 && pool.length) {
+    const j = Math.floor(rng() * pool.length);
+    ids.push(pool.splice(j, 1)[0]);
+  }
+  state.quests = { date, ids, claimed: [] };
+  save();
+  return state.quests;
+}
+function questCount(id) {
+  if (id === 'fish') return state.catches.length;
+  if (id === 'fights') return state.fieldWins || 0;
+  if (id === 'capture') return state.captures || 0;
+  if (id === 'raid') return state.raidDate === todayKey() ? 1 : 0;
+  return 0;
+}
+function questRows() {
+  const quests = ensureQuests();
+  return quests.ids.map(id => {
+    const q = QUEST_POOL.find(x => x.id === id);
+    const n = questCount(id);
+    return { id, name: q.name, need: q.need, have: n, coins: q.coins, tokens: q.tokens, claimed: quests.claimed.indexOf(id) >= 0 };
+  });
+}
+function claimQuest(id) {
+  const rows = questRows();
+  const row = rows.find(r => r.id === id);
+  if (!row || row.claimed || row.have < row.need) return false;
+  state.quests.claimed.push(id);
+  state.coins += row.coins;
+  state.tokens += row.tokens;
+  save();
+  return true;
 }
 function use(key) {
   load();
@@ -150,6 +251,7 @@ function addPet(species, name) {
   const pet = { id: species + '-' + (state.pets.length + 1), species, name: name || species, note: 'Caught', level: 1, xp: 0, bond: 0, active: true };
   state.pets.forEach(p => { p.active = false; });
   state.pets.push(pet);
+  state.captures = (state.captures || 0) + 1;
   save();
   return pet;
 }
@@ -157,6 +259,9 @@ function openBook(tab) {
   load();
   const panel = document.getElementById('spineBook');
   panel.classList.add('on');
+  const lv = playerLevel(state.xp);
+  const who = document.getElementById('spineYou');
+  if (who) who.textContent = 'You · Lv ' + lv.level + ' · ' + lv.rest + '/' + lv.need + ' xp' + (state.cls ? ' · ' + state.cls : '');
   panel.dataset.tab = tab || panel.dataset.tab || 'pins';
   panel.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === panel.dataset.tab));
   const body = document.getElementById('spineBookBody');
@@ -258,12 +363,17 @@ function mount() {
   style.textContent = [
     '#spinePurse{position:fixed;right:12px;top:calc(46px + env(safe-area-inset-top,0px));z-index:18;display:none;padding:6px 10px;border-radius:999px;background:rgba(42,24,16,.92);border:1px solid rgba(226,196,138,.75);color:#f6e2c4;font:800 12px sans-serif;pointer-events:none}',
     'body.out-combat #spinePurse,body.field-on #spinePurse{display:block}',
+    '#spineLevel{position:fixed;left:12px;top:calc(46px + env(safe-area-inset-top,0px));z-index:18;display:none;padding:6px 10px;border-radius:999px;background:rgba(42,24,16,.92);border:1px solid rgba(255,211,106,.8);color:#ffe7a8;font:800 13px sans-serif;pointer-events:none}',
+    'body.out-combat #spineLevel,body.field-on #spineLevel{display:block}',
     '#spineBookBtn{position:fixed;left:12px;top:calc(96px + env(safe-area-inset-top,0px));z-index:16;display:none;min-height:44px;padding:8px 12px;border-radius:12px;border:1px solid rgba(226,196,138,.7);background:rgba(42,24,16,.92);color:#f6e2c4;font:800 13px sans-serif}',
     'body.out-combat #spineBookBtn{display:block}',
     '#spineBook,#spineShop,#spineArcade,#spineBoard{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;display:none;width:min(92vw,420px);max-height:min(78vh,560px);overflow:auto;padding:14px;border-radius:16px;background:#24160f;border:1px solid rgba(226,196,138,.8);color:#f6e2c4;font:700 14px/1.4 sans-serif}',
     '#spineBook.on,#spineShop.on,#spineArcade.on,#spineBoard.on{display:block}',
     '#spineBook button,#spineShop button,#spineArcade button,#spineBoard button{display:block;width:100%;min-height:44px;margin:8px 0 0;padding:8px 10px;border-radius:12px;border:1px solid rgba(226,196,138,.55);background:#3a2618;color:#f6e2c4;font:800 14px sans-serif}',
     '#catchChip{position:fixed;left:50%;top:calc(78px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:18;display:none;padding:6px 12px;border-radius:999px;background:rgba(18,32,28,.92);border:1px solid rgba(120,220,160,.8);color:#e7fff2;font:800 13px sans-serif;pointer-events:none}',
+    '#levelPop{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);z-index:45;display:none;padding:14px 22px;border-radius:16px;background:rgba(42,24,16,.94);border:1px solid rgba(255,211,106,.9);color:#ffe7a8;font:800 28px sans-serif}',
+    '#levelPop.on{display:block}',
+    '#homeClass.on{outline:2px solid #ffd36a}',
     '#spineTabs{display:flex;gap:6px}',
     '#spineTabs button{width:auto;flex:1;margin:0}',
     '#spineTabs button.on{background:#6a4524}',
@@ -273,6 +383,9 @@ function mount() {
   const purse = document.createElement('div');
   purse.id = 'spinePurse';
   document.body.appendChild(purse);
+  const level = document.createElement('div');
+  level.id = 'spineLevel';
+  document.body.appendChild(level);
   const bookBtn = document.createElement('button');
   bookBtn.id = 'spineBookBtn';
   bookBtn.type = 'button';
@@ -282,7 +395,7 @@ function mount() {
   const book = document.createElement('div');
   book.id = 'spineBook';
   book.dataset.tab = 'pins';
-  book.innerHTML = '<b>Collection</b><div id="spineTabs"></div><div id="spineBookBody"></div><button type="button" id="spineBookClose">Close</button>';
+  book.innerHTML = '<b>Collection</b><p id="spineYou"></p><div id="spineTabs"></div><div id="spineBookBody"></div><button type="button" id="spineBookClose">Close</button>';
   document.body.appendChild(book);
   const tabs = book.querySelector('#spineTabs');
   for (const tab of ['pins', 'bonds', 'catches', 'pets']) {
@@ -314,7 +427,14 @@ function mount() {
     get: () => load(),
     use,
     buy,
-    grantWin: () => { load(); state.coins += 12; state.xp += 6; const pet = addPetXp(8, 0); save(); return { coins: 12, xp: 6, total: state.coins, pet }; },
+    grantWin: () => { load(); state.coins += 12; state.fieldWins = (state.fieldWins || 0) + 1; const lv = addXp(6); const pet = addPetXp(8, 0); save(); return { coins: 12, xp: 6, total: state.coins, pet, level: lv.level }; },
+    grantRaid: () => { load(); state.coins += 24; state.tokens += 4; state.cells += 1; state.raidDate = todayKey(); const lv = addXp(16); save(); return { coins: 24, tokens: 4, cells: 1, level: lv.level }; },
+    addXp: (n) => { const lv = addXp(n); save(); return lv; },
+    level: () => { load(); return playerLevel(state.xp); },
+    setClass: (c) => { load(); state.cls = c === 'gunner' ? 'gunner' : 'mage'; save(); return state.cls; },
+    raidCleared: () => { load(); return state.raidDate === todayKey(); },
+    quests: questRows,
+    claimQuest,
     openBook, openShop, openArcade, openBoard,
     active: activePet,
     addPet, setActive, giveTreat,

@@ -2001,6 +2001,7 @@ function drawEncounterMarkers(c) {
   const you = window.__world && window.__world.you ? window.__world.you() : null;
   const house = MAP.house;
   drawPortal(c, (you ? you.x : house.x) - 0.7, (you ? you.y : house.y) + 0.55);
+  drawRaidMarker(c);
   if (!window.__world || !window.__world.markers) return;
   const list = window.__world.markers();
   if (you && window.__world.dev && window.__world.dev()) {
@@ -4135,6 +4136,10 @@ function gunUI() {
   const lab = { turretBtn: ['⛫ Turret', 'turret'], fragBtn: ['✹ Frag', 'frag'], droneBtn: [GUN.drone ? '◈ Recall' : '◈ Drone', 'drone'] };
   for (const id in lab) { const b = document.getElementById(id), [t, k] = lab[id], cd = GUN.cd[k], low = FIELD.mana < GUN_COST[k] && !(k === 'drone' && GUN.drone); const txt = t + (cd > 0 ? ' ' + Math.ceil(cd) + 's' : ''); if (b.textContent !== txt) b.textContent = txt; b.style.opacity = cd > 0 || low ? .45 : 1; b.style.filter = low ? 'grayscale(1)' : ''; }
 }
+function applySavedClass() {
+  const c = window.__profile && window.__profile.get && window.__profile.get().cls;
+  if (c === 'mage' || c === 'gunner') setClass(c);
+}
 function setClass(c) {
   GUN.cls = c; G.cls = c; gunUI(); const gn = c === 'gunner';
   document.querySelectorAll('#spells .sp, #iceWall, #slashBtn, #wallLv').forEach(b => b.style.display = gn ? 'none' : '');
@@ -5558,8 +5563,47 @@ function wakeUp() {
 }
 /* ---------- v7 walking (dice removed) ---------- */
 function canWalkNow() { return G.scene === 'map' && MAP.avOut && G.step >= 2 && G.step <= 7 && MAP.house.mode !== 'fly' && !$('.modal.on') && !$('#ring.on'); }
+function raidMarker() {
+  const look = window.__world && window.__world.look && window.__world.look();
+  if (!look || !SUPER_HEX.length) return null;
+  const s = SUPER_HEX[(look.seed >>> 0) % SUPER_HEX.length];
+  const t = tileAt(s.q, s.r);
+  if (!t) return null;
+  const cleared = window.__profile && window.__profile.raidCleared && window.__profile.raidCleared();
+  return { q: s.q, r: s.r, x: t.x, y: t.y, name: s.name, cleared: !!cleared };
+}
+function drawRaidMarker(c) {
+  const raid = raidMarker();
+  if (!raid) return;
+  let [X, Y, f] = proj(c, raid.x, raid.y);
+  const off = X < 28 || X > W - 28 || Y < 40 || Y > H - 40;
+  if (off) {
+    X = Math.max(54, Math.min(W - 54, X));
+    Y = Math.max(64, Math.min(H - 64, Y));
+  }
+  ctx.save();
+  ctx.strokeStyle = raid.cleared ? '#8a8a8a' : '#c9b6ff';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(X, Y, Math.max(16, 22 * f), 0, TAU);
+  ctx.stroke();
+  ctx.fillStyle = raid.cleared ? '#c8c8c8' : '#fff6d4';
+  ctx.font = '800 13px ui-rounded,system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText((raid.cleared ? 'Raid clear' : 'Raid') + (off ? ' · ' + raid.name : ''), X, Y - Math.max(18, 20 * f));
+  ctx.restore();
+}
 function mapTap(X, Y) {
   if (G.scene === 'map') {
+    const raid = raidMarker();
+    if (raid) {
+      const [sx, sy] = proj(MAP.cam, raid.x, raid.y);
+      if (Math.hypot(sx - X, sy - Y) < 42) {
+        if (raid.cleared) { showCast('The raid is quiet today'); return; }
+        startDayRaid();
+        return;
+      }
+    }
     const hit = markerUnder(X, Y);
     if (hit) {
       if (!markerNearYou(hit)) { popText(X, Y - 16, 'step closer', '#ffe7a8', 13); return; }
@@ -6750,6 +6794,7 @@ function startEncounter(marker) {
   AR.mobs = [m];
   setObj('<b>' + spec.name + '</b> · clear it to return');
   showCast(spec.name + ' is here');
+  applySavedClass();
 }
 function stampRolled(m, spec, practice) {
   if (spec.nudge) m.x += spec.nudge;
@@ -6956,6 +7001,36 @@ function kingRetry() {
   if (m) m.tm = { p: 0.45, l: 0.55, s: 0.3 };
   showCast('Gel King returns');
   setObj(kingLine());
+}
+function startDayRaid() {
+  if (window.__profile && window.__profile.raidCleared && window.__profile.raidCleared()) {
+    showCast('The raid is quiet today');
+    return false;
+  }
+  applySavedClass();
+  startTrain();
+  TRAIN.dayRaid = true;
+  TRAIN.king = false;
+  TRAIN.encounter = null;
+  TRAIN.demo = false;
+  const spec = { k: 'boss', at: [1, -2], full: 1 };
+  const m = mkMob(spec, 0);
+  m.state = 'live';
+  m.st = 1;
+  m.hp = m.max = 220;
+  m.tier = 'boss';
+  m.rollId = 'wire-brute';
+  m.raidBoss = true;
+  m.dummy = false;
+  m.D = Object.assign({}, m.D, { n: 'Wire brute', drop: [] });
+  AR.mobs = [m];
+  AR.kind = 'raid';
+  AR.phase = 'wave';
+  setObj('<b>Wire brute</b> · 220');
+  showCast('The day raid · wire brute');
+  document.getElementById('trainHud').classList.remove('king');
+  layoutArenaCam();
+  return true;
 }
 function startKing() {
   startTrain();
@@ -7675,6 +7750,15 @@ function drawDockHud() {
         setTimeout(() => { if (document.body.classList.contains('home-in')) return; if (G.scene === 'arena' && TRAIN.on) leaveTrain(); }, 650);
       }
     }
+    if (TRAIN.dayRaid && !TRAIN.raidPaid) {
+      const boss = AR.mobs.find(m => m.raidBoss);
+      if (boss && (boss.state === 'gone' || boss.hp <= 0)) {
+        TRAIN.raidPaid = true;
+        const pay = window.__profile && window.__profile.grantRaid && window.__profile.grantRaid();
+        if (pay) showCast('+' + pay.coins + ' coins · +' + pay.tokens + ' tokens · +1 CELL');
+        setTimeout(() => { if (G.scene === 'arena' && TRAIN.on) leaveTrain(); }, 700);
+      }
+    }
     if (AR.phase !== 'wave') { AR.phase = 'wave'; setAct(null); }
     const [px, py] = pPos();
     for (const m of AR.mobs) {
@@ -7965,7 +8049,11 @@ function renderCommand() {
   list.innerHTML = h;
   document.getElementById('cmdNote').textContent = boardNote();
   if (LOOK.body && !LOOKS.entries.some(e => e.id === LOOK.body && e.equip !== false)) LOOK.body = null;
-  list.querySelectorAll('[data-cls]').forEach(b => b.onclick = () => { setClass(b.dataset.cls); renderCommand(); });
+  list.querySelectorAll('[data-cls]').forEach(b => b.onclick = () => {
+    setClass(b.dataset.cls);
+    if (window.__profile && window.__profile.setClass) window.__profile.setClass(b.dataset.cls);
+    renderCommand();
+  });
   list.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { TRAIN.sel[key] = +b.dataset.act; if (!gun && +b.dataset.act < 3) selSpell(+b.dataset.act); renderCommand(); });
   list.querySelectorAll('[data-bond]').forEach(b => b.onclick = () => { const n = BONDS[+b.dataset.bond].n; BOARD.staged[n] = !BOARD.staged[n]; saveBoard(); renderCommand(); });
   document.getElementById('cmdStage').onclick = () => { saveBoard(); document.getElementById('cmdNote').textContent = boardNote(); SFX.tap(); };

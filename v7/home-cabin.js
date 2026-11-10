@@ -873,6 +873,8 @@ function goOutside() {
   leave();
   if (window.__train && window.__train.startTrain) {
     window.__train.startTrain();
+    const c = window.__profile && window.__profile.get && window.__profile.get().cls;
+    if ((c === 'mage' || c === 'gunner') && window.__train.setClass) window.__train.setClass(c);
     if (window.__train.setTrainView) window.__train.setTrainView('fp');
   }
 }
@@ -1011,6 +1013,7 @@ function mount() {
     '#homeHud.on{display:flex}',
     '#homeHudRow{display:flex;flex-wrap:wrap;gap:8px}',
     '#homeHud button,#homeDoorBack{pointer-events:auto;min-height:48px;min-width:48px;padding:10px 14px;border-radius:12px;font:800 15px sans-serif;background:rgba(42,24,16,.82);border:1px solid rgba(226,196,138,.7);color:#f6e2c4}',
+    '#homeHud button.on{outline:2px solid #ffd36a}',
     '#homeArNote{display:none;margin:0;max-width:34rem;padding:10px 12px;border-radius:12px;background:rgba(42,24,16,.9);color:#f6e2c4;font:600 15px/1.35 sans-serif}',
     '#homeArNote.on{display:block}',
     '#homeBook{display:none;margin:0;max-width:16rem;padding:10px 12px;border-radius:12px;background:rgba(42,24,16,.92);color:#f6e2c4}',
@@ -1025,7 +1028,7 @@ function mount() {
   document.body.appendChild(canvas);
   const hud = document.createElement('div');
   hud.id = 'homeHud';
-  hud.innerHTML = '<div id="homeHudRow"><button type="button" id="homeCrackle" aria-pressed="false">Fire sound off</button><button type="button" id="homeTable">Place on a table</button><button type="button" id="homePortal">Place the door</button><button type="button" id="homeBookBtn">Collection</button><button type="button" id="homeArcade">Arcade</button><button type="button" id="homeBoard">Pet board</button><button type="button" id="homeOutside" title="Future AR entry. On this screen it opens the field.">Outside</button><button type="button" id="homePin">Pin this world</button></div><p id="homeArNote"></p><div id="homeBook"><b>Collection</b><p id="homeBondNote"></p><ul id="homeBookList"></ul><b>Pins</b><ul id="homePinList"></ul></div>';
+  hud.innerHTML = '<div id="homeHudRow"><button type="button" id="homeCrackle" aria-pressed="false">Fire sound off</button><button type="button" id="homeTable">Place on a table</button><button type="button" id="homePortal">Place the door</button><button type="button" id="homeBookBtn">Collection</button><button type="button" id="homeArcade">Arcade</button><button type="button" id="homeBoard">Pet board</button><button type="button" id="homeMage">Mage</button><button type="button" id="homeGun">Gunner</button><button type="button" id="homeOutside" title="Future AR entry. On this screen it opens the field.">Outside</button><button type="button" id="homePin">Pin this world</button></div><p id="homeArNote"></p><div id="homeBook"><b>Collection</b><p id="homeBondNote"></p><ul id="homeBookList"></ul><b>Pins</b><ul id="homePinList"></ul></div>';
   document.body.appendChild(hud);
   const back = document.createElement('button');
   back.id = 'homeDoorBack'; back.type = 'button'; back.textContent = 'Door home';
@@ -1049,6 +1052,19 @@ function mount() {
   };
   document.getElementById('homeArcade').onclick = () => { if (window.__profile && window.__profile.openArcade) window.__profile.openArcade(); };
   document.getElementById('homeBoard').onclick = () => { if (window.__profile && window.__profile.openBoard) window.__profile.openBoard(); };
+  const pickClass = (c) => {
+    if (window.__profile && window.__profile.setClass) window.__profile.setClass(c);
+    if (window.__train && window.__train.setClass) window.__train.setClass(c);
+    document.getElementById('homeMage').classList.toggle('on', c === 'mage');
+    document.getElementById('homeGun').classList.toggle('on', c === 'gunner');
+    const note = document.getElementById('homeArNote');
+    if (note) {
+      note.textContent = (c === 'gunner' ? 'Gunner' : 'Mage') + ' saved. Swap it here any time.';
+      note.classList.add('on');
+    }
+  };
+  document.getElementById('homeMage').onclick = () => pickClass('mage');
+  document.getElementById('homeGun').onclick = () => pickClass('gunner');
   back.onclick = () => backHome();
   window.addEventListener('resize', resize);
   requestAnimationFrame(loop);
@@ -1069,13 +1085,40 @@ function boot() {
   window.__homeCovers = () => window.__home.covers();
   window.__homeCommandExtra = list => {
     const sheet = list && list.closest ? list.closest('.sheet') : null;
-    if (!sheet || sheet.querySelector('[data-friend-quests]')) return;
-    const d = document.createElement('div');
-    d.dataset.friendQuests = '1';
-    d.className = 'hint';
-    d.innerHTML = '<b>Friend quests</b><br>Placeholder. Friends are not out yet.';
-    const head = sheet.querySelector('.sh-h');
-    if (head) head.after(d); else list.insertBefore(d, list.firstChild);
+    if (!sheet) return;
+    if (!sheet.querySelector('[data-friend-quests]')) {
+      const d = document.createElement('div');
+      d.dataset.friendQuests = '1';
+      d.className = 'hint';
+      d.innerHTML = '<b>Friend quests</b><br>Placeholder. Friends are not out yet.';
+      const head = sheet.querySelector('.sh-h');
+      if (head) head.after(d); else list.insertBefore(d, list.firstChild);
+    }
+    let box = sheet.querySelector('[data-daily-quests]');
+    if (!box) {
+      box = document.createElement('div');
+      box.dataset.dailyQuests = '1';
+      box.className = 'hint';
+      const friend = sheet.querySelector('[data-friend-quests]');
+      if (friend) friend.after(box);
+      else list.insertBefore(box, list.firstChild);
+    }
+    box.innerHTML = '';
+    const title = document.createElement('b');
+    title.textContent = 'Daily quests';
+    box.appendChild(title);
+    const rows = window.__profile && window.__profile.quests ? window.__profile.quests() : [];
+    rows.forEach(q => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      const pay = q.coins + ' coins' + (q.tokens ? ' · ' + q.tokens + ' tokens' : '');
+      b.textContent = q.name + ' · ' + Math.min(q.have, q.need) + '/' + q.need + ' · ' + (q.claimed ? 'Claimed' : pay);
+      b.disabled = !(q.have >= q.need && !q.claimed);
+      b.onclick = () => {
+        if (window.__profile.claimQuest(q.id)) renderCommand();
+      };
+      box.appendChild(b);
+    });
   };
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

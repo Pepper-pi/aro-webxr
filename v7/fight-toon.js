@@ -551,7 +551,7 @@ function syncBossRig(g, mobs) {
   return true;
 }
 function storySpace(g) {
-  return !!(g && g.TRAIN && g.TRAIN.king);
+  return !!(g && g.TRAIN && (g.TRAIN.king || g.TRAIN.dayRaid));
 }
 function syncWorld(g) {
   const story = storySpace(g);
