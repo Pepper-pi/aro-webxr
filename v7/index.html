@@ -213,6 +213,7 @@ input[type=range]{accent-color:var(--pink);width:120px}
 /* fight wheel (rune disc slices) + dodge pads */
 #wheel{position:fixed;left:0;right:0;bottom:calc(16px + var(--sab));z-index:9;display:flex;justify-content:center;align-items:flex-end;gap:10px;pointer-events:none;transform:translateY(160px);transition:transform .45s cubic-bezier(.3,1.3,.5,1)}
 #wheel.on{transform:translateY(0)}
+body.talk-space #wheel,body.talk-space #hearts,body.talk-space #cellBtn,body.talk-space #itemBoard,body.talk-space #trainClass,body.talk-space #mealChip,body.talk-space #iceWall{display:none !important}
 #wheel>*{pointer-events:auto}
 .dodge{width:62px;height:62px;flex:none;border-radius:50%;background:rgba(127,240,255,.12);border:2px solid rgba(127,240,255,.55);font-size:24px;font-weight:900;color:var(--cyan);margin-bottom:8px}
 .dodge:active{background:rgba(127,240,255,.35)}
@@ -2434,6 +2435,7 @@ const SUPER_HEX = [
   { q: -2, r: 3, name: 'Stone', rad: 1.45, col: '214,196,230' },
   { q: 2, r: -1, name: 'Town', rad: 1.35, col: '255,176,110' },
   { q: -4, r: 1, name: 'Market', rad: 1.35, col: '230,190,120' },
+  { q: 4, r: -2, name: 'Dock', rad: 1.35, col: '190,220,210' },
 ];
 function raidDiscs() {
   return SUPER_HEX.filter(s => s.name === 'Forest' || s.name === 'Meadow' || s.name === 'Stone');
@@ -6023,13 +6025,32 @@ function areaNear(area) {
   const h = MAP.house;
   return Math.hypot(area.x - h.x, area.y - h.y) < 2.2;
 }
+function talkSpace() {
+  const area = typeof TRAIN !== 'undefined' && TRAIN.area;
+  return area === 'Town' || area === 'Market' || area === 'Dock';
+}
+function syncTalkChrome() {
+  document.body.classList.toggle('talk-space', talkSpace());
+  if (!talkSpace()) return;
+  const wheel = document.getElementById('wheel');
+  if (wheel) wheel.classList.remove('on');
+  const hearts = document.getElementById('hearts');
+  if (hearts) hearts.classList.add('hide');
+  const cell = document.getElementById('cellBtn');
+  if (cell) cell.classList.add('hide');
+  const board = document.getElementById('itemBoard');
+  if (board) board.classList.add('hide');
+}
 function placePlaceFolk(kind) {
   const daily = window.__world && window.__world.daily && window.__world.daily();
   const all = (daily && daily.spawns) || [];
   let folks = kind === 'Town'
     ? all.filter(s => s.group === 'npc' && s.place === 'town')
-    : all.filter(s => s.group === 'vendor' && s.place !== 'arcade' && s.place !== 'field');
-  if (!folks.length) folks = kind === 'Town' ? all.filter(s => s.group === 'npc') : all.filter(s => s.group === 'vendor');
+    : kind === 'Dock'
+      ? all.filter(s => (s.group === 'npc' || s.group === 'vendor') && s.place === 'dock')
+      : all.filter(s => s.group === 'vendor' && s.place !== 'arcade' && s.place !== 'field');
+  if (!folks.length && kind === 'Dock') folks = all.filter(s => s.id === 'npc-dock' || s.id === 'npc-fisher' || s.id === 'vendor-bait');
+  if (!folks.length) folks = kind === 'Market' ? all.filter(s => s.group === 'vendor') : all.filter(s => s.group === 'npc');
   const spots = [[-1, 1], [1, 1], [0, 1], [-2, 1], [2, 1]];
   AR.folk = folks.slice(0, spots.length).map((s, i) => {
     const known = FOLK_LINE[s.id];
@@ -6042,12 +6063,12 @@ function enterDiscArea(area) {
   startTrain();
   TRAIN.area = area.name;
   TRAIN.demo = false;
-  const place = area.name === 'Town' || area.name === 'Market';
+  const place = area.name === 'Town' || area.name === 'Market' || area.name === 'Dock';
   if (place) {
     AR.mobs = [];
     placePlaceFolk(area.name);
     setObj('<b>' + area.name + '</b>');
-    showCast(area.name === 'Town' ? 'Town · tap someone' : 'Market · tap a stall');
+    showCast(area.name === 'Town' ? 'Town · tap someone' : area.name === 'Dock' ? 'Dock · tap someone' : 'Market · tap a stall');
   } else {
     const look = window.__world && window.__world.look && window.__world.look();
     const weather = look && look.weather ? look.weather : '';
@@ -6055,6 +6076,7 @@ function enterDiscArea(area) {
     showCast(area.name + ' · ' + weather);
   }
   applySavedClass();
+  syncTalkChrome();
   return true;
 }
 function onStep(t) {
@@ -7117,7 +7139,7 @@ function drawDiscSprite(img, R) {
   ctx.drawImage(img, -dw / 2, -dh / 2 + R * 0.02, dw, dh);
 }
 function drawDisc() {
-  if (!TRAIN.on || G.scene !== 'arena') return;
+  if (!TRAIN.on || G.scene !== 'arena' || talkSpace()) return;
   const d = discCenter(), rim = currentRim(), key = GUN.cls === 'gunner' ? 'gunner' : 'mage';
   const sel = TRAIN.sel[key] || 0, cur = rim[sel] || rim[0], x = d.x, y = d.y, R = discRadius(), n = rim.length, rot = discRot();
   const custom = discImageOk(window.__discArt) ? window.__discArt : null;
@@ -7359,7 +7381,7 @@ function greetFolk(f) {
 }
 function drawFolkSprite(f) {
   const [X, Y, sc] = proj(AR.cam, f.x, f.y);
-  const place = TRAIN.area === 'Town' || TRAIN.area === 'Market';
+  const place = talkSpace();
   const s = (place ? 48 : 22) * sc;
   ctx.save();
   ctx.fillStyle = 'rgba(8,4,12,.4)';
@@ -7540,7 +7562,7 @@ function kingRetry() {
 }
 function discRaidPin() {
   if (!TRAIN.on || !TRAIN.area || TRAIN.dayRaid || TRAIN.king) return null;
-  if (TRAIN.area === 'Town' || TRAIN.area === 'Market') return null;
+  if (talkSpace()) return null;
   const raid = raidSpot();
   if (!raid || raid.name !== TRAIN.area || raid.cleared) return null;
   const [x, y] = hexXY(1, 1);
@@ -7657,6 +7679,7 @@ function startTrain() {
   FIELD.wallTip = true;
   G.hp = G.maxHp; renderHearts();
   document.getElementById('wheel').classList.add('on');
+  syncTalkChrome();
   document.getElementById('trainHud').classList.remove('hide', 'king');
   document.body.classList.add('train-on');
   document.getElementById('trainHelp').textContent = trainHelpText();
@@ -7883,7 +7906,7 @@ function cellUpdate(dt) {
 function cellSyncBtn() {
   const b = document.getElementById('cellBtn');
   if (!b) return;
-  const show = !!(TRAIN.on && !TRAIN.king);
+  const show = !!(TRAIN.on && !TRAIN.king && !talkSpace());
   b.classList.toggle('hide', !show);
   if (!show) return;
   if (CELL.charge) b.textContent = 'Spend ' + CELL.charge.element;
@@ -7937,7 +7960,7 @@ function itemPop() {
 function itemSync() {
   const board = document.getElementById('itemBoard');
   const bubble = document.getElementById('itemBubble');
-  const show = !!(TRAIN.on && !TRAIN.king);
+  const show = !!(TRAIN.on && !TRAIN.king && !talkSpace());
   if (board) board.classList.toggle('hide', !show);
   if (!bubble) return;
   bubble.classList.toggle('hide', !show || !REACH.kind);
@@ -8129,6 +8152,7 @@ function leaveTrain() {
   document.getElementById('wirePanel').style.top = '';
   document.getElementById('wheel').classList.remove('on');
   document.getElementById('hearts').classList.add('hide');
+  document.body.classList.remove('talk-space');
   document.getElementById('bossCD').classList.add('hide');
   document.getElementById('dangerV').style.opacity = 0;
   setAct(null); coach(null);

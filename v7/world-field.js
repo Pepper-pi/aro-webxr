@@ -27,6 +27,7 @@ const AREA = {
   Stone: { sky: '#2a2e34', fog: '#23262c', sun: '#d5d8de', neon: ['#c5ccd4', '#8e98a6', '#6a7380'] },
   Town: { sky: '#3a2418', fog: '#2c1c14', sun: '#ffc48a', neon: ['#ffb06a', '#ffd2a8', '#e09060'] },
   Market: { sky: '#3a2a16', fog: '#2a2012', sun: '#ffe0a0', neon: ['#e2b15a', '#ffd36a', '#c48a4a'] },
+  Dock: { sky: '#243044', fog: '#1c2836', sun: '#ffd0a0', neon: ['#ffd2a8', '#8fd0e0', '#c4a070'] },
 };
 let rev = 0;
 const CELL = 0.02;
@@ -193,12 +194,15 @@ function areaLook(name) {
   built.sun = theme.sun;
   built.neon = theme.neon.slice();
   built.area = name;
-  if (name === 'Town' || name === 'Market') {
+  if (name === 'Town' || name === 'Market' || name === 'Dock') {
     const source = (daily && daily.spawns) || [];
-    const picked = name === 'Town'
+    let picked = name === 'Town'
       ? source.filter(s => s.group === 'npc' && s.place === 'town')
-      : source.filter(s => s.group === 'vendor' && s.place !== 'arcade' && s.place !== 'field');
-    built.spawns = picked.length ? picked : source.filter(s => s.group === (name === 'Town' ? 'npc' : 'vendor')).slice(0, 4);
+      : name === 'Dock'
+        ? source.filter(s => (s.group === 'npc' || s.group === 'vendor') && s.place === 'dock')
+        : source.filter(s => s.group === 'vendor' && s.place !== 'arcade' && s.place !== 'field');
+    if (!picked.length && name === 'Dock') picked = source.filter(s => s.id === 'npc-dock' || s.id === 'npc-fisher' || s.id === 'vendor-bait');
+    built.spawns = picked.length ? picked : source.filter(s => s.group === (name === 'Market' ? 'vendor' : 'npc')).slice(0, 4);
   }
   return built;
 }
