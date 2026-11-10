@@ -2936,7 +2936,8 @@ function yardAiming() {
 function yardPreviewHexes() {
   if (!yardAiming()) return [];
   const gun = GUN.cls === 'gunner';
-  const rim = currentRim()[TRAIN.sel[gun ? 'gunner' : 'mage']] || (gun ? GUN_RIM[0] : MAGE_RIM[0]);
+  const rim = currentRim()[TRAIN.sel[gun ? 'gunner' : 'mage']];
+  if (!rim) return [];
   const aim = TRAIN.aim;
   if (gun) {
     if (rim.id !== 'frag') return [];
@@ -3662,7 +3663,7 @@ function manaUI() {
   let bar = document.getElementById('manaBar'), wb = document.getElementById('iceWall'); if (!wb) return;
   if (!bar) { bar = document.createElement('div'); bar.id = 'manaBar'; bar.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 6px);width:150px;height:8px;border-radius:5px;background:#1a1030;border:1px solid #6a5cff;overflow:hidden;pointer-events:none'; bar.innerHTML = '<b style="display:block;height:100%;background:linear-gradient(90deg,#3a6bff,#8fd0ff)"></b>'; wb.parentElement.style.position ||= 'relative'; wb.parentElement.appendChild(bar);
     const p = document.createElement('button'); p.id = 'manaPot'; p.className = wb.className.replace(/\bcd\b/, ''); p.style.cssText = 'font-size:11px'; p.onclick = e => { e.stopPropagation(); drinkPot(); }; wb.after(p); }
-  if (!document.getElementById('slashBtn')) { const sb = document.createElement('button'); sb.id = 'slashBtn'; sb.className = wb.className.replace(/\bcd\b/, ''); sb.style.cssText = 'font-size:12px;border-color:#ff5ad8;color:#ffd6f5'; sb.onclick = e => { e.stopPropagation(); shadowSlash(); }; wb.before(sb); }
+  if (!document.getElementById('slashBtn')) { const sb = document.createElement('button'); sb.id = 'slashBtn'; sb.className = wb.className.replace(/\bcd\b/, ''); sb.style.cssText = 'font-size:12px;border-color:#ff5ad8;color:#ffd6f5'; sb.onclick = e => { e.stopPropagation(); if (skillOnWheel('slash')) shadowSlash(); }; if (!skillOnWheel('slash')) sb.style.display = 'none'; wb.before(sb); }
   if (!document.getElementById('wallLv')) { const lb = document.createElement('button'); lb.id = 'wallLv'; lb.title = 'debug: Ice Wall level'; lb.style.cssText = 'font:9px sans-serif;padding:1px 4px;margin-left:2px;border-radius:6px;background:#1a1030;color:#8fe3ff;border:1px solid #6a5cff;opacity:.7;align-self:flex-start'; lb.onclick = e => { e.stopPropagation(); FIELD.iceWallLevel = FIELD.iceWallLevel % 3 + 1; }; wb.after(lb); }
   { const lb = document.getElementById('wallLv'); if (lb && lb.textContent !== 'L' + FIELD.iceWallLevel) lb.textContent = 'L' + FIELD.iceWallLevel; }
   bar.firstChild.style.width = (FIELD.mana / MANA_MAX * 100) + '%';
@@ -4237,7 +4238,9 @@ function setClass(c) {
   document.querySelectorAll('.gunK').forEach(b => b.style.display = gn ? '' : 'none');
   const cb = document.getElementById('clsBtn'); if (cb) cb.textContent = gn ? '✦ Mage' : '🎖 Gunner';
   if (!gn) { GUN.turret = null; GUN.drone = null; }
-  if (gunLive()) gunPop(gn ? 'Gunner kit' : 'Mage kit', '#ffd36a'); return c;
+  if (gunLive()) gunPop(gn ? 'Gunner kit' : 'Mage kit', '#ffd36a');
+  if (typeof syncWheel === 'function') syncWheel();
+  return c;
 }
 /* ---------- drawing ---------- */
 function drawGunField(c, T) { // telegraphs on the floor (under sprites)
@@ -4608,6 +4611,10 @@ const FI = {
 };
 const REEL_PROTO = new URLSearchParams(location.search).get('reelproto') === '1';
 const FISH_CASTS = 3;
+function fishCastMax() {
+  const info = window.__profile && window.__profile.fishLevel && window.__profile.fishLevel();
+  return FISH_CASTS + ((info && info.extraCasts) || 0);
+}
 const FISH_RESPAWN_MS = 20000;
 const WATER_PACE = { pond: 1, river: .72, ocean: .48 };
 const FISH_BODY = ['#8d948e', '#7e8a62', '#a88458', '#c49662'];
@@ -4620,7 +4627,7 @@ function showFishBtn(label) { const b = $('#fishBtn'); if (!b) return; b.textCon
 function fishTitle() {
   const where = FI.fromNook ? 'Cook Nook pond' : FI.spot && FI.spot.space === 'ship' ? 'Beside the ship' : 'Pond';
   const bait = G.fishBait === 'bait' ? ' · bait' : '';
-  const left = Math.max(0, FISH_CASTS - (FI.used || 0));
+  const left = Math.max(0, fishCastMax() - (FI.used || 0));
   return where + bait + ' · ' + left + (left === 1 ? ' cast' : ' casts');
 }
 function ensureFishSpot() {
@@ -4742,7 +4749,7 @@ function anotherNibble() {
 function fishSlip() {
   setGesture('idle', { lead: 'offhand', pinch: 0 });
   SFX.splash();
-  if ((FI.used || 0) >= FISH_CASTS) { beginSpent(); fishMsg('It drifts off. The spot is quiet.'); return; }
+  if ((FI.used || 0) >= fishCastMax()) { beginSpent(); fishMsg('It drifts off. The spot is quiet.'); return; }
   FI.phase = 'slip';
   showFishBtn('Cast again');
   fishMsg('It drifts off.');
@@ -4804,7 +4811,7 @@ function tryTug(p, x, y) {
 }
 function gradeAndCast(x0, y0, x1, y1) {
   if (FI.phase !== 'aim') return { grade: '', whiff: true };
-  if ((FI.used || 0) >= FISH_CASTS) { beginSpent(); return { grade: '', whiff: true }; }
+  if ((FI.used || 0) >= fishCastMax()) { beginSpent(); return { grade: '', whiff: true }; }
   const rip = rippleScreen(); if (!rip) return { grade: '', whiff: true };
   const g = gradeFlick({ x: x0, y: y0 }, { x: x1, y: y1 }, rip);
   if (g.whiff) { setGesture('idle', { lead: 'offhand', pinch: 0 }); fishMsg('Flick toward the ripple.'); return g; }
@@ -4816,7 +4823,7 @@ function gradeAndCast(x0, y0, x1, y1) {
   return g;
 }
 function nextCast() {
-  if ((FI.used || 0) >= FISH_CASTS) { beginSpent(); return; }
+  if ((FI.used || 0) >= fishCastMax()) { beginSpent(); return; }
   FI.phase = 'aim'; FI.t = 0; FI.paid = false; FI.grade = ''; FI.nibbles = 0; FI.traceI = 0; FI.castCounted = false; FI.fish = null; FI.lootIcon = '';
   const b = $('#fishBtn'); if (b) b.classList.add('hide');
   setGesture('idle', { lead: 'offhand', pinch: 0 });
@@ -4881,7 +4888,8 @@ function landFish() {
   const r = sc >= 4.2 ? 3 : sc >= 2.6 ? 2 : sc >= 1.1 ? 1 : 0;
   const names = ['Minnow Pip', 'Honeyfin Koi', 'Aether Betta', 'Sunscale Carp'];
   const cap = r >= 2 || rng() < .25;
-  FI.fish = { n: names[r], r, cm: Math.round(18 + r * 9 + rng() * 8), cap };
+  const grown = window.__profile && window.__profile.fishLevel && window.__profile.fishLevel();
+  FI.fish = { n: names[r], r, cm: Math.round(18 + r * 9 + rng() * 8) + ((grown && grown.size) || 0), cap };
   FI.lootIcon = 'fish';
   FI.phase = 'catch'; FI.t = 0; FI.trail = null;
   setGesture('idle', { lead: 'offhand', pinch: 0 });
@@ -4890,7 +4898,7 @@ function landFish() {
   addItem('fish'); G.day.fish = FI.fish; addAether(3);
   if (window.__profile && window.__profile.addCatch) window.__profile.addCatch(FI.fish);
   if (cap) { G.caps++; }
-  const last = (FI.used || 0) >= FISH_CASTS;
+  const last = (FI.used || 0) >= fishCastMax();
   fishMsg('<img src="' + ICON_URL.fish + '" alt="">' + FI.fish.n + ' · ' + FI.fish.cm + ' cm' + (last ? ' · the spot goes quiet' : ''));
   showFishBtn(last ? 'Head home' : 'Cast again');
   $('#fishTitle').textContent = fishTitle();
@@ -5886,7 +5894,7 @@ function endDay() {
   setTimeout(() => openModal('sumM'), 900);
 }
 $('#again').onclick = () => location.reload();
-$('#fishBtn').onclick = () => { if ((FI.phase === 'catch' || FI.phase === 'slip') && (FI.used || 0) < FISH_CASTS) { nextCast(); return; } afterFish(); };
+$('#fishBtn').onclick = () => { if ((FI.phase === 'catch' || FI.phase === 'slip') && (FI.used || 0) < fishCastMax()) { nextCast(); return; } afterFish(); };
 $('#fishAssist').onclick = () => fishAssist();
 $('#act').addEventListener('click', () => { closeRing(); audioInit(); SFX.tap(); const f = actFn; f && f(); });
 $('#menuBtn').addEventListener('click', openRing);
@@ -5946,7 +5954,7 @@ $$('.sp').forEach(b => b.addEventListener('click', () => {
   const idx = si >= 0 ? si : i;
   selSpell(idx); cast(idx, 1, null);
 }));
-$('#iceWall').addEventListener('click', () => raiseWall());
+$('#iceWall').addEventListener('click', () => { if (skillOnWheel('iceberg')) raiseWall(); });
 $('#dodgeL').addEventListener('pointerdown', e => { e.preventDefault(); dodge(-1); });
 $('#dodgeR').addEventListener('pointerdown', e => { e.preventDefault(); dodge(1); });
 
@@ -5978,7 +5986,7 @@ addEventListener('keydown', e => {
     } else arrowStep(e.key);
   }
   if ((e.key === 'w' || e.key === 'W') && G.scene !== 'title' && !e.repeat) setWireView(!WIRE.view);
-  if (G.scene === 'arena') { if (e.key.startsWith('Arrow')) e.preventDefault(); if (e.key === 'ArrowLeft' || e.key === 'a') dodge(-1); if (e.key === 'ArrowRight' || e.key === 'd') dodge(1); if (e.key === 'ArrowUp') moveP(0, -1); if (e.key === 'ArrowDown') moveP(0, 1); if (e.key === '4' || e.key === 'f') raiseWall(); if (e.key === '5' || e.key === 'g') shadowSlash(); if ('123'.includes(e.key)) { selSpell(+e.key - 1); cast(+e.key - 1); } if (e.key === ' ') { if (AR.phase === 'block') punchBlock(); else cast(AR.sel); } }
+  if (G.scene === 'arena') { if (e.key.startsWith('Arrow')) e.preventDefault(); if (e.key === 'ArrowLeft' || e.key === 'a') dodge(-1); if (e.key === 'ArrowRight' || e.key === 'd') dodge(1); if (e.key === 'ArrowUp') moveP(0, -1); if (e.key === 'ArrowDown') moveP(0, 1); if ((e.key === '4' || e.key === 'f') && skillOnWheel('iceberg')) raiseWall(); if ((e.key === '5' || e.key === 'g') && skillOnWheel('slash')) shadowSlash(); if ('123'.includes(e.key)) { selSpell(+e.key - 1); cast(+e.key - 1); } if (e.key === ' ') { if (AR.phase === 'block') punchBlock(); else cast(AR.sel); } }
   else if ($('#fishM').classList.contains('on') && e.key === ' ') { if (!e.repeat) fishKey(); }
 });
 document.addEventListener('gesturestart', e => e.preventDefault());
@@ -6425,6 +6433,11 @@ function syncWheel() {
     if (span) span.innerHTML = s.name;
     b.dataset.skill = s.id;
   });
+  const ice = document.getElementById('iceWall');
+  const slash = document.getElementById('slashBtn');
+  const mage = equippedIds('mage');
+  if (ice && GUN.cls !== 'gunner') ice.style.display = mage.some(s => s.id === 'iceberg') ? '' : 'none';
+  if (slash && GUN.cls !== 'gunner') slash.style.display = mage.some(s => s.id === 'slash') ? '' : 'none';
 }
 const TRAIN = {
   on: false, view: 'tactical', helpOpen: false, aim: null, charge: 0, focus: 0, hb: 0, speed: 0, shotCd: 0,
@@ -6437,7 +6450,8 @@ let dockHud = null;
 let pinchD = 0;
 const mapPtrs = new Map();
 
-function currentRim() { return GUN.cls === 'gunner' ? GUN_RIM : MAGE_RIM; }
+function currentRim() { return equippedIds(GUN.cls === 'gunner' ? 'gunner' : 'mage'); }
+function skillOnWheel(id) { return currentRim().some(s => s.id === id); }
 function trainHelpText() {
   if (GUN.cls === 'gunner') return 'Gunner: drag to aim. Red line is the shot. Hold still and the circle tightens, then release. Rim names: Frag, Turret, Drone. Touch or mouse, no hand tracking. The picture is a rendered sprite, not a live mesh.';
   const fire = TRAIN.autoFull ? 'At full it fires once, then nothing more until you lift. Release early for a weaker cast.' : 'It waits for your lift. Release early for a weaker cast. Full charge fires is off, so you can compare the older release.';
@@ -6648,7 +6662,8 @@ function castWard() {
   return true;
 }
 function releaseMage() {
-  const rim = currentRim()[TRAIN.sel.mage] || MAGE_RIM[0];
+  const rim = currentRim()[TRAIN.sel.mage];
+  if (!rim) return false;
   const shown = Math.round(clamp(TRAIN.charge || 0, 0, 1) * 100);
   const power = 0.5 + clamp(TRAIN.charge || 0, 0, 1) * 1.15;
   TRAIN.charge = 0;
@@ -6683,6 +6698,8 @@ function releaseMage() {
 function fireGun(power) {
   power = Number.isFinite(power) ? power : 0.5;
   const aim = TRAIN.aim;
+  const skill = currentRim()[TRAIN.sel.gunner];
+  if (!skill || (skill.id !== 'shot' && skill.id !== 'flare')) return false;
   if (!aim || !Number.isFinite(aim.x) || !Number.isFinite(aim.y)) { popPlayer('drag to aim', '#ff8a9a'); showCast('No aim'); return false; }
   if (TRAIN.shotCd > 0) { popPlayer('reloading', '#ff8a9a'); return false; }
   const [px, py] = pPos();
@@ -6692,7 +6709,7 @@ function fireGun(power) {
     if (d < best) { best = d; hit = m; }
   }
   const tight = TRAIN.focus || 0;
-  const flare = (GUN_RIM[TRAIN.sel.gunner] || GUN_RIM[0]).id === 'flare';
+  const flare = skill.id === 'flare';
   const dmg = Math.max(1, Math.round((flare ? 9 : 14) * clamp(power, 0.4, 1.8) * (1 + tight * 0.35)));
   TRAIN.bolts.push({ x0: px, y0: py, x1: aim.x, y1: aim.y, t: 0, life: 0.32, col: flare ? '#ffe14a' : '#ff2438' });
   TRAIN.shotCd = 0.26;
@@ -6704,7 +6721,9 @@ function fireGun(power) {
   return !!hit;
 }
 function useGunRim(i) {
-  const id = (GUN_RIM[i] || GUN_RIM[0]).id;
+  const rim = currentRim()[i];
+  if (!rim) return;
+  const id = rim.id;
   if (id === 'shot' || id === 'flare') { popPlayer(id === 'flare' ? 'Flare · drag to aim' : 'drag to aim', '#ffe14a'); return; }
   if (id === 'frag') {
     const aim = TRAIN.aim || { x: AR.ppx, y: AR.ppy - 2.2 };
@@ -6882,7 +6901,7 @@ function drawDiscSprite(img, R) {
 function drawDisc() {
   if (!TRAIN.on || G.scene !== 'arena') return;
   const d = discCenter(), rim = currentRim(), key = GUN.cls === 'gunner' ? 'gunner' : 'mage';
-  const sel = TRAIN.sel[key] || 0, cur = rim[sel], x = d.x, y = d.y, R = discRadius(), n = rim.length, rot = discRot();
+  const sel = TRAIN.sel[key] || 0, cur = rim[sel] || rim[0], x = d.x, y = d.y, R = discRadius(), n = rim.length, rot = discRot();
   const custom = discImageOk(window.__discArt) ? window.__discArt : null;
   const idle = discImageOk(DISC_IDLE) ? DISC_IDLE : null;
   const hot = discImageOk(DISC_CHARGED) ? DISC_CHARGED : null;
@@ -7816,6 +7835,16 @@ function drawCellRig() {
     ctx.fillStyle = CELL_COL[CELL.puzzle]; ctx.fillText('Lock · ' + CELL.puzzle, QX, QY - 18);
   }
 }
+function grantCookLoot(raid) {
+  const common = ['pollen', 'sap', 'gel', 'fang'];
+  const look = window.__world && window.__world.look && window.__world.look();
+  let s = (((look && look.seed) || 1) ^ (raid ? 0x9e3779b9 : 0x85ebca6b) ^ ((G.day.mobs || 0) + 1) * 17) >>> 0;
+  const rnd = () => { s = (s + 0x6D2B79F5) >>> 0; let t = Math.imul(s ^ s >>> 15, s | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const drops = [common[(rnd() * common.length) | 0], common[(rnd() * common.length) | 0]];
+  if (raid ? rnd() < 0.7 : rnd() < 0.1) drops.push('core');
+  drops.forEach(k => addItem(k, 1));
+  return { drops, line: drops.map(k => ITEMS[k].n).join(', ') };
+}
 function leaveTrain() {
   interruptCharge();
   clearMeal();
@@ -8045,9 +8074,10 @@ function drawDockHud() {
         if (window.__world && window.__world.clearMarker) window.__world.clearMarker(key);
         if (!rolled.some(m => m.caught)) {
           const pay = window.__profile && window.__profile.grantWin && window.__profile.grantWin();
-          if (pay) showCast('+' + pay.coins + ' coins · +' + pay.xp + ' xp');
+          const loot = grantCookLoot(false);
+          if (pay) showCast('+' + pay.coins + ' coins · +' + pay.xp + ' xp · ' + loot.line);
         }
-        setTimeout(() => { if (document.body.classList.contains('home-in')) return; if (G.scene === 'arena' && TRAIN.on) leaveTrain(); }, 650);
+        setTimeout(() => { if (document.body.classList.contains('home-in')) return; if (G.scene === 'arena' && TRAIN.on) leaveTrain(); }, 1600);
       }
     }
     if (TRAIN.dayRaid && !TRAIN.raidPaid) {
@@ -8077,7 +8107,8 @@ function drawDockHud() {
       if (down && (down.state === 'gone' || down.hp <= 0)) {
         TRAIN.raidPaid = true;
         const pay = window.__profile && window.__profile.grantRaid && window.__profile.grantRaid();
-        if (pay) showCast('+' + pay.coins + ' coins · +' + pay.tokens + ' tokens · +1 CELL');
+        const loot = grantCookLoot(true);
+        if (pay) showCast('+' + pay.coins + ' coins · +' + pay.tokens + ' tokens · +1 CELL · ' + loot.line);
         setTimeout(() => { if (G.scene === 'arena' && TRAIN.on) leaveTrain(); }, 700);
       }
     }

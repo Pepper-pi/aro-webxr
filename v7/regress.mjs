@@ -425,6 +425,10 @@ const wall = await page.evaluate(() => {
   window.__train.setClass('mage');
   const T = window.__train.TRAIN, FIELD = window.__aro.FIELD, AR = window.__aro.AR;
   T.demo = false; T.sel.mage = 3; T.charge = 1; T.casts = 0;
+  const blocked = !window.__train.releaseMage() && !FIELD.wall;
+  window.__profile.setLoadout('mage', ['ember', 'frost', 'iceberg']);
+  if (window.__train.syncWheel) window.__train.syncWheel();
+  T.sel.mage = 2; T.charge = 1; T.casts = 0; T.spent = false;
   const raised = !!window.__train.releaseMage();
   const startHp = FIELD.wall && FIELD.wall.hp;
   T.sel.mage = 0; T.charge = 1; T.spent = false; AR.cds[0] = 0;
@@ -457,11 +461,12 @@ const wall = await page.evaluate(() => {
     hits++;
   }
   return {
-    raised, startHp, mid, lift, frostSame, emptyOk, hits,
+    blocked, raised, startHp, mid, lift, frostSame, emptyOk, hits,
     gone: !FIELD.wall, chunks: FIELD.chunks.length,
     cracked: [...FIELD.hex.values()].filter(h => h.s === 'cracked').length,
   };
 });
+check('an unequipped iceberg does not raise a wall', wall.blocked, JSON.stringify(wall));
 check('iceberg raises at 90 HP', wall.raised && wall.startHp === 90, JSON.stringify(wall.mid));
 check('ember on own center is weak x2 and one cast', wall.mid.weak && wall.mid.dmg === 40 && wall.mid.hp === 50 && wall.mid.casts === 1, JSON.stringify(wall.mid));
 check('lift after that ember does not hit', wall.lift, '');
@@ -1158,11 +1163,12 @@ const look = await yardLook.evaluate(() => {
   const info = window.__train.yardFloorInfo();
   const world = { x: Math.sqrt(3) * (2 + -2 / 2), y: 1.5 * -2 };
   window.__train.TRAIN.aim = world;
+  window.__profile.setLoadout('mage', ['ember', 'frost', 'slash']);
   window.__train.TRAIN.sel.mage = 0;
   window.__train.TRAIN.cap = { part: 'center', aimed: true, i: 0, x0: 0, y0: 0 };
   const before = { hex: window.__aro.FIELD.hex.size, terr: window.__aro.FIELD.terr.size };
   const ember = window.__train.yardPreviewHexes().map(h => h.join(','));
-  window.__train.TRAIN.sel.mage = 4;
+  window.__train.TRAIN.sel.mage = 2;
   const slash = window.__train.yardPreviewHexes();
   const afterPreview = { hex: window.__aro.FIELD.hex.size, terr: window.__aro.FIELD.terr.size };
   const [px, py] = [window.__aro.AR.ppx, window.__aro.AR.ppy];

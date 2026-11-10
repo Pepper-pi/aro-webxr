@@ -40,6 +40,7 @@ function load() {
   if (!state.bonds || !Array.isArray(state.bonds.collected)) state.bonds = { taps: 0, tier: 0, collected: [] };
   if (!Array.isArray(state.catches)) state.catches = [];
   if (typeof state.buff !== 'string') state.buff = '';
+  if (typeof state.fishXp !== 'number') state.fishXp = 0;
   if (!state.loadout || typeof state.loadout !== 'object') state.loadout = { mage: ['ember', 'frost', 'nova'], gunner: ['shot', 'frag', 'turret'] };
   if (!Array.isArray(state.loadout.mage) || !state.loadout.mage.length) state.loadout.mage = ['ember', 'frost', 'nova'];
   if (!Array.isArray(state.loadout.gunner) || !state.loadout.gunner.length) state.loadout.gunner = ['shot', 'frag', 'turret'];
@@ -268,11 +269,18 @@ function bookRows(tab) {
     return ['Bond taps ' + (b.taps || 0) + ' · tier ' + (b.tier || 0)].concat(cards.length ? cards : ['No cards yet']);
   }
   if (tab === 'catches') {
+    const fl = fishProgress(state.fishXp || 0);
     const fish = state.catches.map(c => c.name + ' · ' + c.cm + ' cm · ' + (c.date || 'no date') + ' · ' + (c.weather || 'clear'));
     const kept = state.prizes.map(n => 'Prize · ' + n);
-    return fish.concat(kept);
+    const bonus = (fl.extraCasts ? ' · +1 cast' : '') + (fl.size ? ' · +' + fl.size + ' cm' : '');
+    return ['Fishing Lv ' + fl.level + ' · ' + fl.rest + '/' + fl.need + bonus].concat(fish, kept);
   }
   return state.pets.map(p => petLine(p));
+}
+function fishProgress(xp) {
+  let level = 1, rest = xp || 0, need = 8;
+  while (rest >= need) { rest -= need; level++; need = level * 8; }
+  return { level, rest, need, extraCasts: level >= 3 ? 1 : 0, size: level >= 2 ? (level - 1) * 2 : 0 };
 }
 function petLine(p) {
   return (p.active ? 'Active · ' : '') + p.name + ' · Lv ' + p.level + ' · bond ' + p.bond + ' · ' + p.xp + '/' + (p.level * 10) + ' xp';
@@ -560,6 +568,16 @@ function mount() {
     catches: () => { load(); return state.catches.slice(); },
     takeBuff: () => { load(); const name = state.buff || ''; if (name) { state.buff = ''; save(); } return name; },
     loadout: (cls) => { load(); const key = cls === 'gunner' ? 'gunner' : 'mage'; return state.loadout[key].slice(); },
+    setLoadout: (cls, ids) => {
+      load();
+      const key = cls === 'gunner' ? 'gunner' : 'mage';
+      const allow = key === 'gunner' ? ['shot', 'frag', 'turret', 'drone', 'flare'] : ['ember', 'frost', 'nova', 'iceberg', 'slash', 'ward'];
+      const clean = (ids || []).filter(id => allow.indexOf(id) >= 0).slice(0, 3);
+      if (clean.length) state.loadout[key] = clean;
+      save();
+      return state.loadout[key].slice();
+    },
+    fishLevel: () => { load(); return fishProgress(state.fishXp || 0); },
     toggleLoadout: (cls, id) => {
       load();
       const key = cls === 'gunner' ? 'gunner' : 'mage';
@@ -597,7 +615,9 @@ function mount() {
         date: fish.date || (look && look.date) || new Date().toISOString().slice(0, 10),
         weather: fish.weather || (look && look.weather) || 'clear',
       });
+      state.fishXp = (state.fishXp || 0) + 4;
       save();
+      return fishProgress(state.fishXp);
     },
   };
 }
