@@ -86,6 +86,9 @@ const discVis = await page.evaluate(() => new Promise(res => {
 }));
 check('the gold ring is visible on the first-person field', discVis.gold > 40 && discVis.gem > 12, JSON.stringify(discVis));
 check('the disc light does not wash the field above it', discVis.far[0] < 170 && discVis.far[1] < 160 && discVis.far[2] < 160, JSON.stringify(discVis.far));
+await new Promise(r => setTimeout(r, 250));
+const toonFight = await page.evaluate(() => window.__fight ? window.__fight.status() : null);
+check('the yard fight is a toon field with a glass boss', !!(toonFight && toonFight.on && toonFight.hexes >= 19 && toonFight.gradient === 2 && toonFight.bossMax >= 40 && toonFight.lights === 1 && toonFight.rain >= 32 && toonFight.outlined), JSON.stringify(toonFight));
 await page.evaluate(() => window.__train.setTrainView('tactical'));
 
 const mage = await page.evaluate(() => {
