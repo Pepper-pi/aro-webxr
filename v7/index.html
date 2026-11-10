@@ -84,15 +84,19 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 #ring.tight .hx{clip-path:polygon(12px 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,12px 100%,0 50%)}
 #ring.tight .hx:nth-child(even){margin-left:8px;width:calc(100% - 8px)}
 #ring.tight .hx .hx-plane{padding:0 10px;gap:6px}
-#ring.tight .hx .hx-mark{width:34px;height:34px}
-#ring.tight .hx .hx-frost{width:30px;height:30px}
+#ring.tight .hx .hx-mark{width:46px;height:46px}
+#ring.tight .hx .hx-frost{width:44px;height:44px}
 #ring .hx .hx-plane{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;height:100%;padding:0 16px;pointer-events:none;background:transparent}
 #ring .hx .hx-mark{position:relative;width:40px;height:40px;display:grid;place-items:center;pointer-events:none;flex:none}
 #ring .hx .hx-glow{position:absolute;left:50%;top:50%;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:radial-gradient(circle,var(--pane) 0%,transparent 72%);opacity:.55;pointer-events:none}
-#ring .hx .hx-frost{position:relative;width:40px;height:40px;display:block;filter:drop-shadow(0 0 4px rgba(120,230,255,.55))}
+#ring .hx .hx-frost{position:relative;width:46px;height:46px;display:block;filter:drop-shadow(0 0 4px rgba(120,230,255,.55))}
 #ring .hx.sel .hx-frost{filter:drop-shadow(0 0 6px rgba(140,246,255,.95))}
-.sg-fish{display:none;width:108px;height:72px;margin:0 0 8px;filter:drop-shadow(0 0 10px rgba(80,220,255,.7))}
+.sg-fish{display:none;width:120px;height:120px;margin:0 0 4px}
+.sg-fish svg{width:120px;height:120px;display:block;filter:drop-shadow(0 0 10px rgba(80,220,255,.7))}
+#ring.land-fit #ringHome p{margin:0 0 6px}
 #ringHome.sg-show .sg-fish{display:block}
+body.menu-open .sheet .x{display:none}
+#ring.land-fit #ringHome{height:calc(100% - 56px);padding:8px 28px 12px}
 #ring .hx .hx-name{font-weight:800;font-size:16px;line-height:1.05;text-align:center;color:#f7fbff;text-shadow:0 1px 2px rgba(0,0,0,.85)}
 #ring .hx.sel{box-shadow:inset 0 0 0 2px #f4fbff,inset 0 0 0 7px rgba(127,240,255,.9),inset 0 0 0 11px rgba(187,166,244,.35),inset 0 0 16px rgba(127,240,255,.45),0 0 10px rgba(127,240,255,.35)}
 #ring .hx:focus{outline:none}
@@ -118,13 +122,13 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 #ring.land-fit #ringTitle{font-size:16px;margin:0;padding-left:28px;align-self:flex-start;flex:0 0 auto;height:auto}
 body.menu-open:has(.modal.on) #ring.land-fit #ringTitle{visibility:hidden}
 #ring.land-fit #ringX{min-height:40px;padding:6px 16px;font-size:16px;align-self:flex-end;flex:0 0 auto;pointer-events:auto;background:rgba(8,16,36,.28);border-color:var(--sg-edge);box-shadow:inset 0 0 0 1px rgba(201,182,255,.45),0 0 12px var(--sg-glow)}
-#ring.land-fit #ringTabs{gap:2px}
-#ring.land-fit .hx{height:36px;min-height:36px;max-height:36px;clip-path:polygon(16px 0,calc(100% - 16px) 0,100% 50%,calc(100% - 16px) 100%,16px 100%,0 50%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.8),inset 0 0 0 5px color-mix(in srgb,var(--pane) 82%,transparent),inset 0 0 0 9px color-mix(in srgb,var(--pane) 32%,transparent),0 0 12px color-mix(in srgb,var(--pane) 55%,transparent),0 2px 0 rgba(255,255,255,.22)}
+#ring.land-fit #ringTabs{gap:1px}
+#ring.land-fit .hx{height:44px;min-height:44px;max-height:44px;clip-path:polygon(16px 0,calc(100% - 16px) 0,100% 50%,calc(100% - 16px) 100%,16px 100%,0 50%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.8),inset 0 0 0 5px color-mix(in srgb,var(--pane) 82%,transparent),inset 0 0 0 9px color-mix(in srgb,var(--pane) 32%,transparent),0 0 12px color-mix(in srgb,var(--pane) 55%,transparent),0 2px 0 rgba(255,255,255,.22)}
 #ring.land-fit .hx.sel{box-shadow:inset 0 0 0 1px #fff,inset 0 0 0 5px rgba(140,236,255,.95),inset 0 0 0 9px rgba(190,170,255,.45),0 0 16px rgba(120,236,255,.8)}
 #ring.land-fit .hx .hx-plane{padding:0 10px;gap:8px}
-#ring.land-fit .hx .hx-mark{width:34px;height:34px}
-#ring.land-fit .hx .hx-glow{width:36px;height:36px;margin:-18px 0 0 -18px;opacity:.85}
-#ring.land-fit .hx .hx-frost{width:32px;height:32px}
+#ring.land-fit .hx .hx-mark{width:44px;height:44px}
+#ring.land-fit .hx .hx-glow{width:46px;height:46px;margin:-23px 0 0 -23px;opacity:.85}
+#ring.land-fit .hx .hx-frost{width:44px;height:44px}
 #ring.land-fit .hx .hx-name{font-size:15px;text-align:left}
 #ring.land-fit .hx:nth-child(1){margin-left:28px;width:calc(100% - 36px)}
 #ring.land-fit .hx:nth-child(2){margin-left:16px;width:calc(100% - 22px)}
@@ -581,7 +585,7 @@ body.fishing #fishM .focus-nav button{min-height:36px;padding:6px 8px}
       </div>
       <div id="ringStage">
         <div id="ringHome">
-          <svg class="sg-fish" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="sgFishPane" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e7fdff"/><stop offset=".45" stop-color="#3ec8ee"/><stop offset="1" stop-color="#145e8c"/></linearGradient></defs><path fill="url(#sgFishPane)" stroke="rgba(233,251,255,.9)" stroke-width="0.45" fill-rule="evenodd" d="M2 12C5 7 11 6 15.5 9.2L22 6.2 22 17.8 15.5 14.8C11 18 5 17 2 12ZM6.1 10.9a1.25 1.25 0 1 0 2.5 0 1.25 1.25 0 0 0-2.5 0z"/></svg>
+          <div class="sg-fish" id="ringFish"></div>
           <p>Choose a section. Opening one does not use an item.</p>
           <p id="ringNote"></p>
         </div>
@@ -5038,7 +5042,7 @@ function layoutMenu() {
     backW = Math.min(availW - 36, Math.round(backH * 1.36));
     backLeft = Math.max(8, (availW - backW) / 2);
     backTop = Math.max(4, (availH - backH) / 2);
-    const insetX = 22, insetTop = Math.round(backH * .2), insetBot = 36;
+    const insetX = 22, insetTop = Math.round(backH * .1), insetBot = 22;
     left = backLeft + insetX;
     top = backTop + insetTop;
     width = backW - insetX * 2;
@@ -5056,7 +5060,7 @@ function layoutMenu() {
   frame.style.width = width + 'px';
   frame.style.height = height + 'px';
   rail.style.width = drawer ? '' : (fit ? 214 : (land ? 300 : 168)) + 'px';
-  rail.style.maxHeight = (drawer || fit) ? '' : '420px';
+  rail.style.maxHeight = '';
   if (back) {
     if (!fit) {
       const padX = 8, padY = 8;
@@ -5115,18 +5119,67 @@ const FROST = {
   set: 'M12 2.2 L14.1 4.4 L16.8 3.4 L17.5 6.2 L20.2 7.2 L19.2 9.8 L21.6 12 L19.2 14.2 L20.2 16.8 L17.5 17.8 L16.8 20.6 L14.1 19.6 L12 21.8 L9.9 19.6 L7.2 20.6 L6.5 17.8 L3.8 16.8 L4.8 14.2 L2.4 12 L4.8 9.8 L3.8 7.2 L6.5 6.2 L7.2 3.4 L9.9 4.4 Z M12 8.7a3.3 3.3 0 1 0 .1 0z',
   cmd: 'M12 2.2 L14.2 9.8 L22 12 L14.2 14.2 L12 21.8 L9.8 14.2 L2 12 L9.8 9.8 Z',
 };
-const STAIN = {
-  bag: ['#f6d48a', '#d0893a', '#7a3e16', '#fff1c9'],
-  craft: ['#f3e0b0', '#e07a4a', '#3d8f6e', '#fff6e4'],
-  fish: ['#e7fdff', '#3ec8ee', '#145e8c', '#e9fbff'],
-  skills: ['#f8e7a0', '#3ecfc4', '#1a6d78', '#fff6d4'],
-  log: ['#e7d4ff', '#9b6bff', '#45d0e6', '#f4e9ff'],
-  set: ['#d9fbff', '#3ec6e8', '#1a6a90', '#eefcff'],
-  cmd: ['#fff3c4', '#f0c14a', '#2ec8e0', '#fff8dc']
+const FACETS = {
+  bag: [
+    ['7,10 12,10 12,21 7,21', '#c47a32'],
+    ['12,10 17,10 17,21 12,21', '#8a4e22'],
+    ['9,8 15,8 15,10 9,10', '#f6d48a'],
+    ['10.5,13 13.5,13 13.5,16 10.5,16', '#fff1c9']
+  ],
+  craft: [
+    ['4,11 12,4 12,11', '#e07a4a'],
+    ['12,4 20,11 12,11', '#f3e0b0'],
+    ['4,11 12,11 12,20 4,20', '#3d8f6e'],
+    ['12,11 20,11 20,20 12,20', '#2a6b54'],
+    ['10,14 14,14 14,20 10,20', '#f6d48a']
+  ],
+  fish: [
+    ['15.5,9.2 22,6.2 22,17.8 15.5,14.8', '#145e8c'],
+    ['2,12 5,7 11,6 15.5,9.2 15.5,12', '#7ee7ff'],
+    ['2,12 15.5,12 15.5,14.8 11,18 5,17', '#1a8fb8'],
+    ['8,8.5 12,10 8,12', '#e7fdff']
+  ],
+  skills: [
+    ['6,5 12,6 12,19 6,18', '#f8e7a0'],
+    ['12,6 15,4 18,7 18,19 15,20 12,19', '#3ecfc4'],
+    ['8,9 11.5,9 11.5,13 8,13', '#9b6bff']
+  ],
+  log: [
+    ['12,3 20,12 12,12', '#e7d4ff'],
+    ['20,12 12,21 12,12', '#9b6bff'],
+    ['12,21 4,12 12,12', '#45d0e6'],
+    ['4,12 12,3 12,12', '#c084fc']
+  ],
+  set: [
+    ['12,12 22,6 22,12', '#7ee7ff'],
+    ['12,12 22,12 18,20', '#1a8fb8'],
+    ['12,12 18,20 6,20', '#9b6bff'],
+    ['12,12 6,20 2,12', '#f0c14a'],
+    ['12,12 2,12 2,6', '#3ecfc4'],
+    ['12,12 2,6 12,2 22,6', '#e7fdff']
+  ],
+  cmd: [
+    ['12,2.2 14.2,9.8 12,12 9.8,9.8', '#fff3c4'],
+    ['22,12 14.2,14.2 12,12 14.2,9.8', '#f0c14a'],
+    ['12,21.8 9.8,14.2 12,12 14.2,14.2', '#2ec8e0'],
+    ['2,12 9.8,9.8 12,12 9.8,14.2', '#7ee7ff']
+  ]
 };
+const LEADS = {
+  bag: 'M12 10 V21 M7 10 H17 M9 8 H15 V10',
+  craft: 'M12 4 V20 M4 11 H20 M10 14 H14 V20',
+  fish: 'M2 12 H15.5 M15.5 9.2 L22 6.2 M15.5 14.8 L22 17.8',
+  skills: 'M12 6 V19 M8 9 H11.5 V13 H8',
+  log: 'M12 3 V21 M4 12 H20',
+  set: 'M12 2.2 V21.8 M2.4 12 H21.6',
+  cmd: 'M12 2.2 V21.8 M2 12 H22'
+};
+function stainedSvg(k, cls) {
+  const bits = FACETS[k].map(f => `<polygon points="${f[0]}" fill="${f[1]}"/>`).join('');
+  return `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><defs><clipPath id="sgc${k}${cls}" clipPathUnits="userSpaceOnUse"><path fill-rule="evenodd" d="${FROST[k]}"/></clipPath><filter id="sgb${k}${cls}"><feGaussianBlur stdDeviation="0.65"/></filter></defs><path d="${FROST[k]}" fill="#7ee7ff" fill-rule="evenodd" filter="url(#sgb${k}${cls})" opacity=".8"/><g clip-path="url(#sgc${k}${cls})">${bits}<path d="${LEADS[k]}" fill="none" stroke="#14081c" stroke-width="0.7" stroke-linejoin="round"/><ellipse cx="9" cy="7.5" rx="2.6" ry="1.3" fill="rgba(255,255,255,.62)" transform="rotate(-30 9 7.5)"/></g><path d="${FROST[k]}" fill="none" stroke="#f4fbff" stroke-width="0.75" fill-rule="evenodd"/></svg>`;
+}
 function frostMark(k) {
-  const c = STAIN[k];
-  return `<span class="hx-mark"><i class="hx-glow"></i><svg class="hx-frost" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="sg${k}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c[0]}"/><stop offset=".48" stop-color="${c[1]}"/><stop offset="1" stop-color="${c[2]}"/></linearGradient></defs><path fill="url(#sg${k})" stroke="${c[3]}" stroke-width="0.55" fill-rule="evenodd" d="${FROST[k]}"/></svg></span>`;
+  return `<span class="hx-mark"><i class="hx-glow"></i>${stainedSvg(k, 'hx-frost')}</span>`;
 }
 function buildRing() {
   const tabs = $('#ringTabs');
@@ -5140,6 +5193,7 @@ function buildRing() {
     b.onclick = e => { e.stopPropagation(); if (b._drag) { b._drag = false; return; } chooseSection(t); };
     tabs.appendChild(b);
   }
+  const fish = $('#ringFish'); if (fish) fish.innerHTML = stainedSvg('fish', 'pane-fish');
   $('#sectionsBtn').onclick = () => { $('#ring').classList.add('rail-open'); const s = $('#sectionsClose'); if (s) s.focus(); };
   $('#sectionsClose').onclick = () => { $('#ring').classList.remove('rail-open'); $('#sectionsBtn').focus(); };
   $('#ringX').onclick = () => { closeRing(); $('#menuBtn').focus(); };

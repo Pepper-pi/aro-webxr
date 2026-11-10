@@ -35,21 +35,23 @@ Defined on `:root` in `v7/index.html`.
 
 ## Icons
 
-- Builder: `frostMark(k)` using `FROST` paths and `STAIN` colors.
-- Class: `.hx-frost` inside `.hx-mark`. Landscape size `32px`. Portrait default `40px`.
-- Each path is `fill-rule="evenodd"` with a `0.55` leading stroke. The fish eye stays a hole.
-- Glow: `drop-shadow(0 0 4px rgba(120,230,255,.55))`. Selected: `drop-shadow(0 0 6px rgba(140,246,255,.95))`.
-- Fishing pane fish: `.sg-fish`, shown only while `#ringHome` has `.sg-show`, `108×72`.
+- Builder: `stainedSvg(k, className)` and `frostMark(k)`.
+- Each icon is clipped to its `FROST` silhouette (`clip-rule: evenodd`, so the fish eye and the gear hole stay open).
+- `FACETS` draws several polygons. `LEADS` draws `#14081c` lines at `0.7` between those facets. The silhouette stroke is `#f4fbff` at `0.75`.
+- A blurred cyan copy of the silhouette sits behind the facets. A small white ellipse is the specular highlight.
+- Landscape `.land-fit .hx-frost` is `44px` inside a `44px` tab. Portrait `.tight .hx-frost` is `44px` inside a `56px` tab.
+- Fishing pane fish: `#ringFish` inside `.sg-fish`, `120px`, shown only while `#ringHome` has `.sg-show`. Landscape `#ringHome` ends `56px` above the stage bottom so the Cook Nook line stays above `#ringX`.
+- While the menu is open, `.sheet .x` is hidden. The one close control is `#ringX`.
 
-| Slot | Key | Stops | Leading |
-| --- | --- | --- | --- |
-| Bag | `bag` | `#f6d48a`, `#d0893a`, `#7a3e16` | `#fff1c9` |
-| Nook | `craft` | `#f3e0b0`, `#e07a4a`, `#3d8f6e` | `#fff6e4` |
-| Fishing | `fish` | `#e7fdff`, `#3ec8ee`, `#145e8c` | `#e9fbff` |
-| Spellbook | `skills` | `#f8e7a0`, `#3ecfc4`, `#1a6d78` | `#fff6d4` |
-| Collection | `log` | `#e7d4ff`, `#9b6bff`, `#45d0e6` | `#f4e9ff` |
-| Settings | `set` | `#d9fbff`, `#3ec6e8`, `#1a6a90` | `#eefcff` |
-| Command | `cmd` | `#fff3c4`, `#f0c14a`, `#2ec8e0` | `#fff8dc` |
+| Slot | Key | Facet colors |
+| --- | --- | --- |
+| Bag | `bag` | `#c47a32`, `#8a4e22`, `#f6d48a`, `#fff1c9` |
+| Nook | `craft` | `#e07a4a`, `#f3e0b0`, `#3d8f6e`, `#2a6b54`, `#f6d48a` |
+| Fishing | `fish` | `#145e8c`, `#7ee7ff`, `#1a8fb8`, `#e7fdff` |
+| Spellbook | `skills` | `#f8e7a0`, `#3ecfc4`, `#9b6bff` |
+| Collection | `log` | `#e7d4ff`, `#9b6bff`, `#45d0e6`, `#c084fc` |
+| Settings | `set` | `#7ee7ff`, `#1a8fb8`, `#9b6bff`, `#f0c14a`, `#3ecfc4`, `#e7fdff` |
+| Command | `cmd` | `#fff3c4`, `#f0c14a`, `#2ec8e0`, `#7ee7ff` |
 
 ## Reuse
 
