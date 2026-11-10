@@ -58,10 +58,13 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 #ring,#ring *{pointer-events:none}
 #ring.on #ringHead,#ring.on #ringHead *,#ring.on #ringRail,#ring.on #ringRail *,#ring.on #ringHome,#ring.on #ringHome *{pointer-events:auto}
 #ringBack{position:absolute;z-index:0;pointer-events:none;background:none;clip-path:none;box-shadow:none}
-#ringGrid{position:absolute;inset:0;pointer-events:none;background-color:rgba(10,4,18,.92);background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='24' viewBox='0 0 28 24'><g fill='none' stroke='%23ffc4e4' stroke-width='0.55' opacity='0.32'><polygon points='7,1 13,4.2 13,11 7,14.2 1,11 1,4.2'/><polygon points='21,1 27,4.2 27,11 21,14.2 15,11 15,4.2'/><polygon points='14,8 20,11.2 20,18 14,21.2 8,18 8,11.2'/></g></svg>");background-size:28px 24px}
-#ring.land-fit #ringGrid{clip-path:polygon(50% 1%,98.5% 22%,98.5% 78%,50% 99%,1.5% 78%,1.5% 22%)}
-#ring:not(.land-fit) #ringGrid{clip-path:polygon(50% .7%,98% 18.7%,98% 81.3%,50% 99.3%,2% 81.3%,2% 18.7%)}
-#ringBack svg{display:block;width:100%;height:100%;overflow:visible;position:relative;filter:drop-shadow(0 0 5px rgba(255,120,200,.75)) drop-shadow(0 0 1.5px rgba(120,240,255,.8))}
+#ringVeil{position:absolute;inset:0;pointer-events:none;background:rgba(5,2,14,.9)}
+#ring.land-fit #ringVeil{clip-path:polygon(50% 1%,98.5% 22%,98.5% 78%,50% 99%,1.5% 78%,1.5% 22%)}
+#ring:not(.land-fit) #ringVeil{clip-path:polygon(50% .7%,98% 18.7%,98% 81.3%,50% 99.3%,2% 81.3%,2% 18.7%)}
+#ringGrid{position:absolute;inset:0;pointer-events:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='112' height='96' viewBox='0 0 112 96'><g fill='none' stroke='%23ff9ed2' stroke-width='3.2' opacity='0.28'><polygon points='28,4 52,16.8 52,44 28,56.8 4,44 4,16.8'/><polygon points='84,4 108,16.8 108,44 84,56.8 60,44 60,16.8'/><polygon points='56,32 80,44.8 80,72 56,84.8 32,72 32,44.8'/></g><g fill='none' stroke='%23ffd4ea' stroke-width='1.15' opacity='0.62'><polygon points='28,4 52,16.8 52,44 28,56.8 4,44 4,16.8'/><polygon points='84,4 108,16.8 108,44 84,56.8 60,44 60,16.8'/><polygon points='56,32 80,44.8 80,72 56,84.8 32,72 32,44.8'/></g></svg>");background-size:112px 96px}
+#ring.land-fit #ringGrid{clip-path:polygon(50% 10%,88% 28%,88% 72%,50% 90%,12% 72%,12% 28%)}
+#ring:not(.land-fit) #ringGrid{clip-path:polygon(50% 9%,86% 26%,86% 74%,50% 91%,14% 74%,14% 26%)}
+#ringBack svg{display:block;width:100%;height:100%;overflow:visible;position:relative}
 #ring.land-fit #ringBack .hex-port{display:none}
 #ring:not(.land-fit) #ringBack .hex-land{display:none}
 #ringFrame{position:absolute;z-index:1;display:flex;flex-direction:column;min-width:0;background:transparent;border:0}
@@ -110,10 +113,11 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 #ring.drawer .hx .hx-name{font-size:14px;text-align:left}
 #ring.land-fit #ringHead{position:absolute;top:0;bottom:0;left:226px;right:12px;width:auto;min-height:0;z-index:5;display:flex;flex-direction:column;justify-content:space-between;align-items:stretch;background:transparent;padding:6px 2px 8px;pointer-events:none}
 #ring.land-fit #ringHead *{pointer-events:none}
-#ring.land-fit #ringTitle{font-size:16px;margin:0;align-self:flex-start;flex:0 0 auto;height:auto}
-#ring.land-fit #ringX{min-height:30px;padding:3px 12px;font-size:15px;align-self:flex-end;flex:0 0 auto;pointer-events:auto;background:rgba(8,16,36,.4);border-color:rgba(150,240,255,.95);box-shadow:0 0 12px rgba(120,230,255,.55)}
+#ring.land-fit #ringTitle{font-size:22px;font-weight:800;line-height:1.1;margin:0;padding:2px 0 0 34px;align-self:flex-start;flex:0 0 auto;height:auto;color:#f4fbff;text-shadow:0 0 12px rgba(140,236,255,.7)}
+body.menu-open:has(.modal.on) #ring.land-fit #ringTitle{visibility:hidden}
+#ring.land-fit #ringX{min-height:44px;min-width:92px;padding:8px 18px;font-size:16px;align-self:flex-end;flex:0 0 auto;pointer-events:auto;background:rgba(8,16,36,.45);border-color:rgba(170,246,255,.95);box-shadow:inset 0 1px 0 #e8fdff,inset 0 -3px 0 rgba(255,70,170,.8),0 0 16px rgba(120,230,255,.5)}
 #ring.land-fit #ringTabs{gap:2px}
-#ring.land-fit .hx{height:36px;min-height:36px;max-height:36px;clip-path:polygon(16px 0,calc(100% - 16px) 0,100% 50%,calc(100% - 16px) 100%,16px 100%,0 50%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.8),inset 0 0 0 5px color-mix(in srgb,var(--pane) 82%,transparent),inset 0 0 0 9px color-mix(in srgb,var(--pane) 32%,transparent),0 0 12px color-mix(in srgb,var(--pane) 55%,transparent),0 2px 0 rgba(255,255,255,.22)}
+#ring.land-fit .hx{height:36px;min-height:36px;max-height:36px;clip-path:polygon(16px 0,calc(100% - 16px) 0,100% 50%,calc(100% - 16px) 100%,16px 100%,0 50%);box-shadow:inset 0 1px 0 #e9fdff,inset 0 -2px 0 rgba(255,70,170,.82),inset 0 0 0 1px rgba(255,255,255,.75),inset 0 0 0 5px color-mix(in srgb,var(--pane) 78%,transparent),inset 0 0 0 9px color-mix(in srgb,var(--pane) 28%,transparent),0 0 12px color-mix(in srgb,var(--pane) 55%,transparent)}
 #ring.land-fit .hx.sel{box-shadow:inset 0 0 0 1px #fff,inset 0 0 0 5px rgba(140,236,255,.95),inset 0 0 0 9px rgba(190,170,255,.4),0 0 14px rgba(140,236,255,.55)}
 #ring.land-fit .hx .hx-plane{padding:0 10px;gap:8px}
 #ring.land-fit .hx .hx-mark{width:32px;height:32px}
@@ -146,7 +150,7 @@ body.out-combat #mapNav,body.out-combat #wirePanel,body.out-combat #charBtn{disp
 body:has(.modal.on) #coach,body:has(.modal.on) #mapNav,body:has(.modal.on) #act,body:has(.modal.on) #menuBtn,body:has(.modal.on) #obj,body:has(.modal.on) #wirePanel,body:has(.modal.on) #charBtn,body:has(.modal.on) #banner,body:has(.modal.on) #toasts,body.menu-open #coach,body.menu-open #mapNav,body.menu-open #wirePanel,body.menu-open #charBtn,body.menu-open #obj,body.menu-open #act,body.menu-open #menuBtn{visibility:hidden!important;pointer-events:none!important}
 body.menu-open .modal.on:not(#sumM){z-index:31;background:transparent;pointer-events:none;padding:0}
 body.menu-open:has(#ring.drawer.rail-open) .modal.on:not(#sumM){z-index:19}
-body.menu-open .modal.on:not(#sumM) .sheet{pointer-events:auto;position:fixed;margin:0;max-width:none;width:auto;border-radius:0;box-shadow:inset 0 0 0 1px rgba(220,250,255,.95),inset 0 0 0 5px rgba(255,140,210,.35),0 0 14px rgba(120,236,255,.7),0 0 22px rgba(255,90,190,.35);padding:34px 30px 16px;background:rgba(8,14,36,.34);color:#f7fbff;clip-path:polygon(8% 0,92% 0,100% 50%,92% 100%,8% 100%,0 50%)}
+body.menu-open .modal.on:not(#sumM) .sheet{pointer-events:auto;position:fixed;margin:0;max-width:none;width:auto;border-radius:0;box-shadow:inset 0 0 0 1px rgba(214,248,255,.72),inset 0 0 18px rgba(120,220,255,.12);padding:28px 40px 16px;background:rgba(6,4,16,.16);color:#f7fbff;clip-path:polygon(14% 0,86% 0,100% 50%,86% 100%,14% 100%,0 50%)}
 body.menu-open .sheet .row div,body.menu-open .sheet .sh-h,body.menu-open .sheet .spell b{color:#f7fbff}
 body.menu-open .sheet .row small,body.menu-open .sheet .hint,body.menu-open .sheet .spell small{color:#d7ecf8;font-size:16px}
 body.menu-open .sheet .tg{background:rgba(255,255,255,.28);transition:none}
@@ -154,8 +158,8 @@ body.menu-open .sheet .tg::after{transition:none}
 body.menu-open .sheet .tg.on{background:#ff4fb4}
 body.menu-open .sheet .tg.on::after{left:24px}
 body.menu-open .sheet .seg button.on{background:#ff4fb4;color:#fff}
-body.menu-open #ringHome{background:rgba(8,14,36,.34);color:#f7fbff;box-shadow:inset 0 0 0 1px rgba(220,250,255,.95),inset 0 0 0 5px rgba(255,140,210,.35),0 0 14px rgba(120,236,255,.7),0 0 22px rgba(255,90,190,.35);padding:34px 30px 16px;clip-path:polygon(8% 0,92% 0,100% 50%,92% 100%,8% 100%,0 50%)}
-body.menu-open:has(#ring.tight) .modal.on:not(#sumM) .sheet,body.menu-open:has(#ring.tight) #ringHome{clip-path:polygon(12% 0,88% 0,100% 50%,88% 100%,12% 100%,0 50%);padding:14px 26px 16px}
+body.menu-open #ringHome{background:rgba(6,4,16,.16);color:#f7fbff;box-shadow:inset 0 0 0 1px rgba(214,248,255,.72),inset 0 0 18px rgba(120,220,255,.12);padding:28px 40px 16px;clip-path:polygon(14% 0,86% 0,100% 50%,86% 100%,14% 100%,0 50%)}
+body.menu-open:has(#ring.tight) .modal.on:not(#sumM) .sheet,body.menu-open:has(#ring.tight) #ringHome{clip-path:polygon(12% 0,88% 0,100% 50%,88% 100%,12% 100%,0 50%);padding:14px 28px 16px}
 body.menu-open .sheet .row{flex-direction:column;align-items:stretch}
 body.menu-open .sheet .row div,body.menu-open .sheet .hint,body.menu-open #ringHome{font-size:16px}
 body.menu-open .sheet .chips{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -553,7 +557,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
   <div class="focus-nav"><button type="button" data-back>Back</button><button type="button" data-home>Home</button></div>
 </div></div>
 <div id="ring" role="dialog" aria-modal="true" aria-label="Menu" aria-hidden="true">
-  <div id="ringBack" aria-hidden="true"><div id="ringGrid"></div><svg class="hex-land" viewBox="0 0 138 100" preserveAspectRatio="none" focusable="false"><polygon points="69,1 136,22 136,78 69,99 2,78 2,22" fill="rgba(255,170,220,.12)" stroke="#ffe6f8" stroke-width="2" vector-effect="non-scaling-stroke"/><polygon points="69,8 124,26 124,74 69,92 14,74 14,26" fill="none" stroke="rgba(255,236,250,.82)" stroke-width="1.2" vector-effect="non-scaling-stroke"/></svg><svg class="hex-port" viewBox="0 0 100 150" preserveAspectRatio="none" focusable="false"><polygon points="50,1 98,28 98,122 50,149 2,122 2,28" fill="rgba(255,170,220,.1)" stroke="#ffe6f8" stroke-width="2" vector-effect="non-scaling-stroke"/><polygon points="50,12 88,34 88,116 50,138 12,116 12,34" fill="none" stroke="rgba(255,232,248,.75)" stroke-width="1.1" vector-effect="non-scaling-stroke"/></svg></div>
+  <div id="ringBack" aria-hidden="true"><div id="ringVeil"></div><div id="ringGrid"></div><svg class="hex-land" viewBox="0 0 138 100" preserveAspectRatio="none" focusable="false"><defs><linearGradient id="landBevel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9af6ff" stop-opacity="0.95"/><stop offset="0.4" stop-color="#d4c4ff" stop-opacity="0.28"/><stop offset="1" stop-color="#ff4fb4" stop-opacity="0.95"/></linearGradient><linearGradient id="landFace" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9f7ff" stop-opacity="0.16"/><stop offset="0.22" stop-color="#140818" stop-opacity="0.12"/><stop offset="1" stop-color="#240818" stop-opacity="0.28"/></linearGradient><filter id="landBloom" x="-12%" y="-12%" width="124%" height="124%" primitiveUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="1.15"/></filter></defs><path fill="url(#landBevel)" fill-rule="evenodd" d="M69 1 L136 22 L136 78 L69 99 L2 78 L2 22 Z M69 5 L131 23.6 L131 76.4 L69 95 L7 76.4 L7 23.6 Z"/><path d="M69 1 L136 22 L136 78 L69 99 L2 78 L2 22 Z" fill="none" stroke="url(#landBevel)" stroke-width="2.1" filter="url(#landBloom)"/><polygon points="69,5 131,23.6 131,76.4 69,95 7,76.4 7,23.6" fill="url(#landFace)" stroke="rgba(226,250,255,.8)" stroke-width="0.55"/><polygon points="69,11 122,27.5 122,72.5 69,89 16,72.5 16,27.5" fill="none" stroke="rgba(186,244,255,.55)" stroke-width="0.4"/></svg><svg class="hex-port" viewBox="0 0 100 150" preserveAspectRatio="none" focusable="false"><defs><linearGradient id="portBevel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9af6ff" stop-opacity="0.95"/><stop offset="0.4" stop-color="#d4c4ff" stop-opacity="0.28"/><stop offset="1" stop-color="#ff4fb4" stop-opacity="0.95"/></linearGradient><linearGradient id="portFace" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9f7ff" stop-opacity="0.16"/><stop offset="0.22" stop-color="#140818" stop-opacity="0.12"/><stop offset="1" stop-color="#240818" stop-opacity="0.28"/></linearGradient><filter id="portBloom" x="-12%" y="-12%" width="124%" height="124%" primitiveUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="1.1"/></filter></defs><path fill="url(#portBevel)" fill-rule="evenodd" d="M50 1 L98 28 L98 122 L50 149 L2 122 L2 28 Z M50 7 L93 31 L93 119 L50 143 L7 119 L7 31 Z"/><path d="M50 1 L98 28 L98 122 L50 149 L2 122 L2 28 Z" fill="none" stroke="url(#portBevel)" stroke-width="1.8" filter="url(#portBloom)"/><polygon points="50,7 93,31 93,119 50,143 7,119 7,31" fill="url(#portFace)" stroke="rgba(226,250,255,.8)" stroke-width="0.55"/><polygon points="50,16 84,36 84,114 50,134 16,114 16,36" fill="none" stroke="rgba(186,244,255,.55)" stroke-width="0.4"/></svg></div>
   <div id="ringFrame">
     <div id="ringHead">
       <button type="button" id="sectionsBtn">Sections</button>
@@ -4321,7 +4325,7 @@ function layoutMenu() {
     sheet.style.left = (stage.left / z) + 'px';
     sheet.style.top = (stage.top / z) + 'px';
     sheet.style.width = Math.max(120, stage.width / z) + 'px';
-    const sheetH = Math.max(120, stage.height / z - (fit ? 42 : 0));
+    const sheetH = Math.max(120, stage.height / z - (fit ? 62 : 0));
     sheet.style.height = sheetH + 'px';
     sheet.style.maxHeight = sheetH + 'px';
   });
