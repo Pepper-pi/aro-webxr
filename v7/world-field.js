@@ -25,6 +25,8 @@ const AREA = {
   Forest: { sky: '#12341c', fog: '#0e2814', sun: '#d7f0b8', neon: ['#7dff9a', '#3de0ff', '#c6ff6a'] },
   Meadow: { sky: '#2c3412', fog: '#24300e', sun: '#ffe7a0', neon: ['#ffd36a', '#ff9ad2', '#e8ff8a'] },
   Stone: { sky: '#2a2e34', fog: '#23262c', sun: '#d5d8de', neon: ['#c5ccd4', '#8e98a6', '#6a7380'] },
+  Town: { sky: '#3a2418', fog: '#2c1c14', sun: '#ffc48a', neon: ['#ffb06a', '#ffd2a8', '#e09060'] },
+  Market: { sky: '#3a2a16', fog: '#2a2012', sun: '#ffe0a0', neon: ['#e2b15a', '#ffd36a', '#c48a4a'] },
 };
 let rev = 0;
 const CELL = 0.02;
@@ -171,8 +173,8 @@ function buildLook(date, disc, weather) {
     place: { lat: place.lat, lon: place.lon, source: place.source },
   };
 }
-function publish(next) {
-  if (look && look.area && next && !next.area) {
+function publish(next, force) {
+  if (!force && look && look.area && next && !next.area) {
     daily = next;
     return;
   }
@@ -191,6 +193,13 @@ function areaLook(name) {
   built.sun = theme.sun;
   built.neon = theme.neon.slice();
   built.area = name;
+  if (name === 'Town' || name === 'Market') {
+    const source = (daily && daily.spawns) || [];
+    const picked = name === 'Town'
+      ? source.filter(s => s.group === 'npc' && s.place === 'town')
+      : source.filter(s => s.group === 'vendor' && s.place !== 'arcade' && s.place !== 'field');
+    built.spawns = picked.length ? picked : source.filter(s => s.group === (name === 'Town' ? 'npc' : 'vendor')).slice(0, 4);
+  }
   return built;
 }
 function enterArea(name) {
@@ -201,8 +210,8 @@ function enterArea(name) {
   return look;
 }
 function leaveArea() {
-  if (daily) publish(daily);
-  else recompute();
+  const next = daily || buildLook(currentDate(), discId(), override || (look && look.weather) || 'clear');
+  publish(next, true);
   return look;
 }
 function currentDate() {

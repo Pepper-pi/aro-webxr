@@ -2396,7 +2396,12 @@ const SUPER_HEX = [
   { q: -1, r: -5, name: 'Forest', rad: 1.45, col: '127,240,255' },
   { q: 3, r: 1, name: 'Meadow', rad: 1.55, col: '255,214,120' },
   { q: -2, r: 3, name: 'Stone', rad: 1.45, col: '214,196,230' },
+  { q: 2, r: -1, name: 'Town', rad: 1.35, col: '255,176,110' },
+  { q: -4, r: 1, name: 'Market', rad: 1.35, col: '230,190,120' },
 ];
+function raidDiscs() {
+  return SUPER_HEX.filter(s => s.name === 'Forest' || s.name === 'Meadow' || s.name === 'Stone');
+}
 function holoFade(t, spr, h) {
   if (window.__noHolo) return 1;
   if (spr === 'hive' || spr === 'crop' || spr === 'house' || spr === 'dome') return 1;
@@ -5820,7 +5825,8 @@ function canWalkNow() { return G.scene === 'map' && MAP.avOut && G.step >= 2 && 
 function raidSpot() {
   const look = window.__world && window.__world.daily ? window.__world.daily() : (window.__world && window.__world.look && window.__world.look());
   if (!look || !SUPER_HEX.length || !window.__world || !window.__world.you) return null;
-  const s = SUPER_HEX[(look.seed >>> 0) % SUPER_HEX.length];
+  const discs = raidDiscs();
+  const s = discs[(look.seed >>> 0) % discs.length];
   const t = tileAt(s.q, s.r);
   if (!t) return null;
   const you = window.__world.you();
@@ -5943,7 +5949,7 @@ function giftFor(t) {
 // returns true to stop walking (reached something worth stopping for)
 function namedAreaAt(t) {
   if (!t) return null;
-  const s = SUPER_HEX.find(a => (a.name === 'Forest' || a.name === 'Meadow' || a.name === 'Stone') && a.q === t.q && a.r === t.r);
+  const s = SUPER_HEX.find(a => a.q === t.q && a.r === t.r);
   if (!s) return null;
   return { name: s.name, q: s.q, r: s.r, x: t.x, y: t.y };
 }
@@ -5951,7 +5957,7 @@ function areaUnder(X, Y) {
   if (G.scene !== 'map') return null;
   let best = null, bd = 42;
   for (const s of SUPER_HEX) {
-    if (s.name !== 'Forest' && s.name !== 'Meadow' && s.name !== 'Stone') continue;
+    if (!s.name) continue;
     const t = tileAt(s.q, s.r);
     if (!t) continue;
     const [sx, sy] = proj(MAP.cam, t.x, t.y);
@@ -5964,15 +5970,37 @@ function areaNear(area) {
   const h = MAP.house;
   return Math.hypot(area.x - h.x, area.y - h.y) < 2.2;
 }
+function placePlaceFolk(kind) {
+  const daily = window.__world && window.__world.daily && window.__world.daily();
+  const all = (daily && daily.spawns) || [];
+  let folks = kind === 'Town'
+    ? all.filter(s => s.group === 'npc' && s.place === 'town')
+    : all.filter(s => s.group === 'vendor' && s.place !== 'arcade' && s.place !== 'field');
+  if (!folks.length) folks = kind === 'Town' ? all.filter(s => s.group === 'npc') : all.filter(s => s.group === 'vendor');
+  const spots = [[-1, 1], [1, 1], [0, 1], [-2, 1], [2, 1]];
+  AR.folk = folks.slice(0, spots.length).map((s, i) => {
+    const known = FOLK_LINE[s.id];
+    const [x, y] = hexXY(spots[i][0], spots[i][1]);
+    return { id: s.id, group: s.group, name: s.name || (known && known[0]) || 'Someone', line: s.line || (known && known[1]) || 'Hello.', x, y };
+  });
+}
 function enterDiscArea(area) {
   if (window.__world && window.__world.enterArea) window.__world.enterArea(area.name);
   startTrain();
   TRAIN.area = area.name;
   TRAIN.demo = false;
-  const look = window.__world && window.__world.look && window.__world.look();
-  const weather = look && look.weather ? look.weather : '';
-  setObj('<b>' + area.name + '</b> · ' + weather);
-  showCast(area.name + ' · ' + weather);
+  const place = area.name === 'Town' || area.name === 'Market';
+  if (place) {
+    AR.mobs = [];
+    placePlaceFolk(area.name);
+    setObj('<b>' + area.name + '</b>');
+    showCast(area.name === 'Town' ? 'Town · tap someone' : 'Market · tap a stall');
+  } else {
+    const look = window.__world && window.__world.look && window.__world.look();
+    const weather = look && look.weather ? look.weather : '';
+    setObj('<b>' + area.name + '</b> · ' + weather);
+    showCast(area.name + ' · ' + weather);
+  }
   applySavedClass();
   return true;
 }
@@ -7277,7 +7305,8 @@ function greetFolk(f) {
 }
 function drawFolkSprite(f) {
   const [X, Y, sc] = proj(AR.cam, f.x, f.y);
-  const s = 22 * sc;
+  const place = TRAIN.area === 'Town' || TRAIN.area === 'Market';
+  const s = (place ? 48 : 22) * sc;
   ctx.save();
   ctx.fillStyle = 'rgba(8,4,12,.4)';
   ctx.beginPath(); ctx.ellipse(X, Y, s * 0.7, s * 0.28, 0, 0, TAU); ctx.fill();
@@ -7285,6 +7314,17 @@ function drawFolkSprite(f) {
   ctx.beginPath(); ctx.ellipse(X, Y - s * 0.85, s * 0.42, s * 0.55, 0, 0, TAU); ctx.fill();
   ctx.fillStyle = '#f0c09a';
   ctx.beginPath(); ctx.arc(X, Y - s * 1.45, s * 0.28, 0, TAU); ctx.fill();
+  ctx.font = '800 ' + Math.max(place ? 16 : 13, Math.round((place ? 20 : 15) * sc)) + 'px ui-rounded,system-ui';
+  ctx.textAlign = 'center';
+  const label = f.name;
+  const tw = ctx.measureText(label).width;
+  const ly = Y - s * 2.05;
+  if (place) {
+    ctx.fillStyle = 'rgba(28,14,18,.82)';
+    ctx.fillRect(X - tw / 2 - 6, ly - 14, tw + 12, 18);
+  }
+  ctx.fillStyle = '#fff6d4';
+  ctx.fillText(label, X, ly);
   ctx.restore();
 }
 function spawnDummies() {
@@ -7444,15 +7484,16 @@ function kingRetry() {
   showCast('Gel King returns');
   setObj(kingLine());
 }
-function meadowRaidPin() {
-  if (!TRAIN.on || TRAIN.area !== 'Meadow' || TRAIN.dayRaid || TRAIN.king) return null;
+function discRaidPin() {
+  if (!TRAIN.on || !TRAIN.area || TRAIN.dayRaid || TRAIN.king) return null;
+  if (TRAIN.area === 'Town' || TRAIN.area === 'Market') return null;
   const raid = raidSpot();
-  if (!raid || raid.name !== 'Meadow' || raid.cleared) return null;
+  if (!raid || raid.name !== TRAIN.area || raid.cleared) return null;
   const [x, y] = hexXY(1, 1);
-  return { q: 1, r: 1, x, y };
+  return { q: 1, r: 1, x, y, name: raid.name };
 }
 function drawMeadowRaid(c) {
-  const pin = meadowRaidPin();
+  const pin = discRaidPin();
   if (!pin || G.scene !== 'arena') return;
   const [X, Y, f] = proj(c, pin.x, pin.y);
   ctx.save();
@@ -7468,17 +7509,17 @@ function drawMeadowRaid(c) {
   ctx.restore();
 }
 function checkMeadowRaid() {
-  const pin = meadowRaidPin();
+  const pin = discRaidPin();
   if (!pin) return;
   const [px, py] = pPos();
-  if (Math.hypot(px - pin.x, py - pin.y) <= 1.85) startDayRaid('Meadow');
+  if (Math.hypot(px - pin.x, py - pin.y) <= 1.85) startDayRaid(TRAIN.area);
 }
 function startDayRaid(fromArea) {
   if (window.__profile && window.__profile.raidCleared && window.__profile.raidCleared()) {
     showCast('The raid is quiet today');
     return false;
   }
-  const back = fromArea === 'Meadow' ? 'Meadow' : null;
+  const back = (fromArea === 'Forest' || fromArea === 'Meadow' || fromArea === 'Stone') ? fromArea : null;
   applySavedClass();
   startTrain();
   TRAIN.dayRaid = true;
@@ -7507,7 +7548,7 @@ function startDayRaid(fromArea) {
   AR.kind = 'raid';
   AR.phase = 'wave';
   setObj('<b>Wire brute</b> · ' + m.hp);
-  showCast(back ? 'Meadow raid · wire brute' : (pal ? pal.name + ' helps · -12' : 'The day raid · wire brute'));
+  showCast(back ? back + ' raid · wire brute' : (pal ? pal.name + ' helps · -12' : 'The day raid · wire brute'));
   document.getElementById('trainHud').classList.remove('king');
   layoutArenaCam();
   return true;
