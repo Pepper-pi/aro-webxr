@@ -2615,7 +2615,69 @@ function raisedPlot(x, y, w, h, kind, ready, name, soil) {
   const labelY = Math.min(y + h * 0.58, H - (W < 560 ? 200 : 150));
   ctx.fillText(name, Math.max(56, Math.min(W - 56, x)), labelY);
 }
+const GARDEN_STILL = new Image();
+GARDEN_STILL.src = 'garden_paradise_room.jpg';
+const GARDEN_PLATE = { z: 4.6, x: 0 };
+function gardenPlateMode() {
+  const z = GARDEN_PLATE.z, x = GARDEN_PLATE.x;
+  const close = z < 1.45;
+  const behind = z < 0.4;
+  const side = Math.abs(x) > Math.max(0.7, Math.abs(z) * 1.25);
+  return (behind || side || close) ? 'holo' : 'paint';
+}
+function gardenPlateState() {
+  const ready = !!(GARDEN_STILL.complete && GARDEN_STILL.naturalWidth > 0);
+  return {
+    on: !!(typeof GARDEN_ROOM !== 'undefined' && GARDEN_ROOM.on) && ready,
+    ready: ready,
+    mode: gardenPlateMode(),
+    z: GARDEN_PLATE.z,
+    x: GARDEN_PLATE.x,
+  };
+}
+function drawGardenPlate(T) {
+  if (!(GARDEN_STILL.complete && GARDEN_STILL.naturalWidth > 0)) return false;
+  const narrow = W < 560;
+  const foot = narrow ? Math.min(188, H * 0.24) : 136;
+  const mode = gardenPlateMode();
+  const zoom = clamp(4.6 / Math.max(0.35, Math.abs(GARDEN_PLATE.z)), 0.75, 1.7);
+  ctx.fillStyle = '#24160f';
+  ctx.fillRect(0, 0, W, H);
+  const aspect = GARDEN_STILL.naturalWidth / GARDEN_STILL.naturalHeight;
+  const margin = narrow ? 18 : 48;
+  let pw = (W - margin * 2) * (mode === 'holo' ? zoom : 1);
+  let ph = pw / aspect;
+  const maxH = (H - foot - (narrow ? 78 : 52)) * (mode === 'holo' ? zoom : 1);
+  if (ph > maxH) { ph = maxH; pw = ph * aspect; }
+  const cx = W * 0.5 + GARDEN_PLATE.x * Math.min(W, 480) * 0.2;
+  const mid = (narrow ? 108 : 48) + (H - foot - (narrow ? 108 : 48)) * 0.46;
+  const top = mid - ph / 2;
+  ctx.fillStyle = 'rgba(8,4,4,.4)';
+  ctx.beginPath();
+  ctx.ellipse(W * 0.5, top + ph + 6, pw * 0.38, 14, 0, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = '#5a3a22';
+  ctx.fillRect(0, top + ph - 8, W, Math.max(18, H - (top + ph)));
+  ctx.save();
+  if (mode === 'holo') {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.5 + 0.18 * Math.sin((T || 0) * 6);
+  }
+  ctx.drawImage(GARDEN_STILL, cx - pw / 2, top, pw, ph);
+  if (mode === 'holo') {
+    ctx.globalAlpha = 0.28;
+    ctx.fillStyle = Math.sin((T || 0) * 6) > 0 ? '#ff8ad4' : '#9ee7ff';
+    ctx.fillRect(cx - pw / 2, top, pw, ph);
+  }
+  ctx.restore();
+  return true;
+}
+window.__gardenPlate = {
+  state: gardenPlateState,
+  setView: v => { if (!v) return; if (v.z != null) GARDEN_PLATE.z = v.z; if (v.x != null) GARDEN_PLATE.x = v.x; },
+};
 function drawGardenRoom(T) {
+  if (drawGardenPlate(T)) return;
   const tone = gardenSky();
   const sky = ctx.createLinearGradient(0, 0, 0, H);
   sky.addColorStop(0, '#f7c4e4');

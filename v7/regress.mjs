@@ -594,6 +594,17 @@ const kingPlate = await page.evaluate(async () => {
   return { front, behind, view: window.__train.TRAIN.view, king: window.__train.TRAIN.king };
 });
 check('gel king plate is the painting from the front and a hologram from behind', kingPlate.king && kingPlate.view === 'fp' && kingPlate.front && kingPlate.front.on && kingPlate.front.mode === 'paint' && kingPlate.behind && kingPlate.behind.on && kingPlate.behind.mode === 'holo', JSON.stringify(kingPlate));
+await page.waitForFunction(() => window.__gardenPlate && window.__gardenPlate.state().ready, { timeout: 8000 });
+const gardenPlate = await page.evaluate(() => {
+  enterGarden();
+  const front = window.__gardenPlate.state();
+  window.__gardenPlate.setView({ z: 0.7, x: 0 });
+  const close = window.__gardenPlate.state();
+  window.__gardenPlate.setView({ z: 4.6, x: 0 });
+  closeGardenRoom();
+  return { front, close };
+});
+check('garden plate is the painting in the room and a hologram up close', gardenPlate.front.on && gardenPlate.front.mode === 'paint' && gardenPlate.close.on && gardenPlate.close.mode === 'holo', JSON.stringify(gardenPlate));
 
 async function layout(w, h) {
   const p = await open(w, h);
