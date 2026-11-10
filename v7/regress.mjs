@@ -1542,6 +1542,9 @@ const home = await cabin.evaluate(() => {
   const sound = window.__home.state().sound;
   window.__home.activate('door');
   for (let i = 0; i < 60; i++) window.__home.step(0.05);
+  const portrait = document.getElementById('doorRooms') && document.getElementById('doorRooms').classList.contains('on');
+  const rooms = window.__home.doorRooms().map(r => r.id);
+  window.__home.chooseDoor('pond');
   const fishing = document.getElementById('fishM').classList.contains('on');
   const phase = window.__home.state().phase;
   const backBtn = document.getElementById('homeDoorBack').classList.contains('on');
@@ -1550,9 +1553,9 @@ const home = await cabin.evaluate(() => {
   const after = window.__home.state();
   const fishClosed = !document.getElementById('fishM').classList.contains('on');
   const homeAgain = document.body.classList.contains('home-in');
-  return { entered, nook, craft, board, cmd, friends, bounce, slotted, sound, fishing, phase, backBtn, after, fishClosed, homeAgain };
+  return { entered, nook, craft, board, cmd, friends, bounce, slotted, sound, fishing, phase, backBtn, after, fishClosed, homeAgain, portrait, rooms };
 });
-check('the cabin door opens onto fishing and the door comes back home', home.entered && home.fishing && home.phase === 'fishing' && home.backBtn && home.fishClosed && home.homeAgain && home.after.phase === 'inside' && home.after.door < 0.35, JSON.stringify(home));
+check('the cabin door opens a room portrait, the pond still fishes, and the door comes back home', home.entered && home.portrait && home.rooms.indexOf('out') >= 0 && home.rooms.indexOf('garden') >= 0 && home.rooms.indexOf('pond') >= 0 && home.fishing && home.phase === 'fishing' && home.backBtn && home.fishClosed && home.homeAgain && home.after.phase === 'inside' && home.after.door < 0.35, JSON.stringify(home));
 check('the Cook Nook counter opens the Cook Nook', home.nook && home.craft, JSON.stringify({ nook: home.nook, craft: home.craft }));
 check('the wall board opens Command with Friend quests', home.board && home.cmd && home.friends, JSON.stringify({ board: home.board, cmd: home.cmd, friends: home.friends }));
 check('a tap on the character spot bounces, and the fire stays quiet', home.bounce === 1 && home.sound === false && home.slotted, JSON.stringify({ bounce: home.bounce, sound: home.sound, slot: home.slotted }));
@@ -1571,6 +1574,29 @@ const ar = await cabin.evaluate(async () => {
 check('WebXR is reported missing and the full-screen cabin stays', ar.probe.available === false && ar.doll.stub === true && ar.doll.active === false && ar.doll.mode === 'dollhouse' && ar.doll.scale === 0.07 && ar.port.mode === 'portal' && ar.port.scale === 1 && ar.port.stub === true && ar.entered && ar.on && ar.phase === 'inside' && /full-screen cabin/.test(ar.note), JSON.stringify(ar));
 check('cabin taps are large enough for a hand or a pinch', ar.pads.nook >= 1.5 && ar.pads.board >= 1.5 && ar.pads.door >= 1.5 && ar.pads.spot >= 1.5 && ar.hudH >= 44, JSON.stringify({ pads: ar.pads, hudH: ar.hudH }));
 check('the AR fallback does not throw', cabinErr.length === 0, JSON.stringify(cabinErr));
+const travel = await cabin.evaluate(() => {
+  window.__home.enter();
+  window.__home.activate('door');
+  for (let i = 0; i < 60; i++) window.__home.step(0.05);
+  const openPortrait = document.getElementById('doorRooms').classList.contains('on');
+  window.__home.chooseDoor('out');
+  const portraitClosed = !document.getElementById('doorRooms').classList.contains('on');
+  const state = window.__profile.get();
+  state.cells = 3;
+  const placed = window.__portal.place();
+  const open = window.__portal.get();
+  const cellsAfter = window.__profile.get().cells;
+  const kingWas = TRAIN.king;
+  TRAIN.king = true;
+  const blocked = window.__portal.step() === false && window.__portal.get() === true;
+  TRAIN.king = kingWas;
+  const stepped = window.__portal.step();
+  const used = window.__portal.get() === false;
+  state.cells = 0;
+  const empty = window.__portal.place() === false;
+  return { openPortrait, portraitClosed, placed, open, cellsAfter, blocked, stepped, used, empty };
+});
+check('the ship door steps out, and one Home door trip spends the placement', travel.openPortrait && travel.portraitClosed && travel.placed && travel.open && travel.cellsAfter === 0 && travel.blocked && travel.stepped && travel.used && travel.empty, JSON.stringify(travel));
 await cabin.close();
 
 await browser.close();

@@ -2240,19 +2240,24 @@ function showWorldMap() {
 }
 function portalMapTile() { return tileAt(PORTAL_MAP.q, PORTAL_MAP.r); }
 function portalFieldXY() { return hexXY(PORTAL_FIELD.q, PORTAL_FIELD.r); }
+function doorBlocked() {
+  return typeof TRAIN !== 'undefined' && !!(TRAIN.dayRaid || TRAIN.king);
+}
 function placePortal() {
   const profile = window.__profile;
   if (!profile || !profile.get) return false;
-  if (PORTAL.open) { showCast('The portal is already by the house'); return false; }
+  if (doorBlocked()) return false;
+  if (PORTAL.open) { showCast('The Home door is already placed'); return false; }
   if (!(profile.get().cells >= 3)) { showCast('Need 3 CELLs'); return false; }
   profile.use('cells'); profile.use('cells'); profile.use('cells');
   PORTAL.open = true;
   PORTAL.busy = false;
-  showCast('Three CELLs · the portal is by the house');
+  showCast('Three CELLs · the Home door is placed');
   syncPortalBtn();
   return true;
 }
 function stepPortal() {
+  if (doorBlocked()) return false;
   if (!PORTAL.open || PORTAL.busy) return false;
   PORTAL.busy = true;
   PORTAL.open = false;
@@ -2281,6 +2286,15 @@ function checkMapPortal() {
   const h = MAP.house;
   if (portalNear(t.x, t.y, h.x, h.y)) stepPortal();
 }
+function fieldDoorTap(X, Y) {
+  if (!PORTAL.open || PORTAL.busy || doorBlocked() || G.scene !== 'arena') return false;
+  const [x, y] = portalFieldXY();
+  const [px, py] = pPos();
+  if (!portalNear(x, y, px, py)) return false;
+  const [sx, sy] = proj(AR.cam, x, y);
+  if (Math.hypot(sx - X, sy - Y) > 56) return false;
+  return stepPortal();
+}
 function checkFieldPortal() {
   if (!PORTAL.open || PORTAL.busy || G.scene !== 'arena') return;
   if (typeof TRAIN !== 'undefined' && (TRAIN.dayRaid || TRAIN.king)) return;
@@ -2295,7 +2309,7 @@ function syncPortalBtn() {
   const training = typeof TRAIN !== 'undefined' && TRAIN.on && !TRAIN.king && !TRAIN.dayRaid;
   const show = !home && (document.body.classList.contains('out-combat') || training);
   b.classList.toggle('hide', !show);
-  b.textContent = PORTAL.open ? 'Portal by the house' : 'Place 3 CELLs';
+  b.textContent = PORTAL.open ? 'Home door is placed' : 'Place 3 CELLs';
 }
 function drawPortal(c, x, y) {
   if (!PORTAL.open || !c) return;
@@ -2360,7 +2374,7 @@ function mountPortal() {
   b.type = 'button';
   b.className = 'hide';
   b.textContent = 'Place 3 CELLs';
-  b.onclick = () => { if (PORTAL.open) showCast('Walk up to the portal'); else placePortal(); };
+  b.onclick = () => { if (PORTAL.open) showCast('Walk onto the Home door'); else placePortal(); };
   document.body.appendChild(b);
   window.__doorClear = doorClear;
   window.__showWorldMap = showWorldMap;
@@ -3382,6 +3396,7 @@ function releaseEmberAt(X, Y, aim, power) {
 function arenaUp(X, Y) {
   const p = AR.ptr; AR.ptr = null; if (!p || p.swiped) return;
   if (Math.hypot(X - p.x0, Y - p.y0) < 18) {
+    if (fieldDoorTap(X, Y)) return;
     const folk = folkAt(X, Y);
     if (folk) { greetFolk(folk); return; }
   }

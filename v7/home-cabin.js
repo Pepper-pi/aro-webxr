@@ -1,6 +1,7 @@
 /* 3D home interior. The house is the inside of the zeppelin: a log cabin.
    Primitives and canvas textures only. One moving light (the fire).
-   The round door is the way to the existing fishing slice, and the way back. */
+   The round door is the travel threshold: step out onto the map, or step
+   into a cozy room that already exists. */
 import * as THREE from './vendor/three.module.min.js';
 import { GLTFLoader } from './gltf-loader.js';
 import { applyToon } from './toon_three.js';
@@ -1084,7 +1085,7 @@ function step(dt) {
     camera.position.lerpVectors(rideFrom, rideTo, k);
     lookNow.lerpVectors(lookFrom, lookTo, k);
     camera.lookAt(lookNow);
-    if (HOME.ride >= 1 && HOME.phase === 'through') beginFishing();
+    if (HOME.ride >= 1 && HOME.phase === 'through') openDoorPortrait();
     if (HOME.ride >= 1 && HOME.phase === 'return') { HOME.phase = 'inside'; HOME.doorTo = 0; }
   } else if ((HOME.phase === 'inside' || HOME.phase === 'opening') && !HOME.ar.active) applyOrbit();
   if (HOME.flames) {
@@ -1118,6 +1119,82 @@ function loop(now) {
   const dt = Math.min(0.05, (now - (loop.then || now)) / 1000);
   loop.then = now;
   step(dt || 0.016);
+}
+const DOOR_ROOMS = [
+  { id: 'out', name: 'Step out', hint: 'The real map' },
+  { id: 'garden', name: 'Home garden', hint: 'Lily pond' },
+  { id: 'pond', name: 'Fishing pond', hint: 'Beside the ship' },
+  { id: 'Town', name: 'Town', hint: 'Already on the map' },
+  { id: 'Market', name: 'Market', hint: 'Already on the map' },
+  { id: 'Dock', name: 'Dock', hint: 'Already on the map' },
+];
+function ensureDoorPortrait() {
+  let el = document.getElementById('doorRooms');
+  if (el) return el;
+  const style = document.createElement('style');
+  style.textContent = '#doorRooms{position:fixed;inset:0;z-index:48;display:none;align-items:flex-end;justify-content:center;pointer-events:none}#doorRooms.on{display:flex}#doorRooms .sheet{pointer-events:auto;width:min(280px,calc(100% - 20px));max-height:min(78vh,640px);margin:0 0 10px;overflow:auto;padding:12px 14px 16px;border-radius:22px 22px 16px 16px;background:linear-gradient(180deg,#3a2048,#140c18);border:1px solid rgba(255,214,160,.7);color:#fff6e4;box-shadow:0 16px 40px rgba(0,0,0,.45)}#doorRooms .sh-h{display:flex;align-items:center;gap:8px}#doorRooms small{display:block;color:#ffd978;font:800 11px sans-serif;letter-spacing:.04em}#doorRooms h2{margin:0;font:800 18px ui-rounded,system-ui}#doorRooms .x{margin-left:auto}#doorRooms .hint{margin:8px 0;color:#f6e2c4;font:600 13px/1.35 sans-serif}#doorRooms button.room{display:block;width:100%;min-height:48px;margin:6px 0 0;padding:8px 10px;text-align:left;border-radius:12px;border:1px solid rgba(190,230,255,.45);background:rgba(18,28,48,.88);color:#f4fbff;font:800 15px ui-rounded,system-ui}#doorRooms button.room small{color:#9ad7ff;font:700 11px sans-serif}';
+  document.head.appendChild(style);
+  el = document.createElement('div');
+  el.id = 'doorRooms';
+  el.innerHTML = '<div class="sheet"><div class="sh-h"><div><small>Ship door</small><h2>Step through</h2></div><button type="button" class="x" id="doorRoomsClose" aria-label="Close">×</button></div><p class="hint">Step out onto the map, or into a room you already have. This door does not roam the wild.</p><div id="doorRoomList"></div></div>';
+  document.body.appendChild(el);
+  document.getElementById('doorRoomsClose').onclick = () => closeDoorPortrait();
+  return el;
+}
+function paintDoorRooms() {
+  const host = document.getElementById('doorRoomList');
+  if (!host) return;
+  host.innerHTML = '';
+  DOOR_ROOMS.forEach(room => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'room';
+    b.dataset.room = room.id;
+    b.innerHTML = room.name + '<br><small>' + room.hint + '</small>';
+    b.onclick = () => chooseDoor(room.id);
+    host.appendChild(b);
+  });
+}
+function openDoorPortrait() {
+  HOME.phase = 'portrait';
+  const el = ensureDoorPortrait();
+  paintDoorRooms();
+  el.classList.add('on');
+}
+function closeDoorPortrait() {
+  const el = document.getElementById('doorRooms');
+  if (el) el.classList.remove('on');
+  if (HOME.phase === 'portrait') { HOME.phase = 'inside'; HOME.doorTo = 0; }
+}
+function afterDoor(label, then) {
+  const go = () => { leave(); if (then) then(); };
+  if (window.__doorClear) window.__doorClear(label, go);
+  else go();
+}
+function chooseDoor(id) {
+  const el = document.getElementById('doorRooms');
+  if (el) el.classList.remove('on');
+  if (id === 'out') {
+    afterDoor('Outside', () => { if (window.__showWorldMap) window.__showWorldMap(); });
+    return true;
+  }
+  if (id === 'garden') {
+    afterDoor('Home garden', () => {
+      if (window.__showWorldMap) window.__showWorldMap();
+      if (typeof enterGarden === 'function') enterGarden();
+    });
+    return true;
+  }
+  if (id === 'pond') { beginFishing(); return true; }
+  const place = DOOR_ROOMS.find(r => r.id === id);
+  if (place && typeof enterDiscArea === 'function') {
+    afterDoor(place.name, () => {
+      if (window.__showWorldMap) window.__showWorldMap();
+      enterDiscArea({ name: place.name, q: 0, r: 0, x: 0, y: 0 });
+    });
+    return true;
+  }
+  return false;
 }
 function beginFishing() {
   HOME.phase = 'fishing';
@@ -1158,6 +1235,8 @@ function enter() {
   heroCamera();
   HOME.phase = 'inside';
   HOME.door = 0; HOME.doorTo = 0; HOME.ride = 0;
+  const rooms = document.getElementById('doorRooms');
+  if (rooms) rooms.classList.remove('on');
   if (doorPivot) doorPivot.rotation.y = 0;
   show(true);
   const back = document.getElementById('homeDoorBack');
@@ -1179,6 +1258,8 @@ function goOutside() {
 }
 function leave() {
   HOME.on = false; HOME.phase = 'inside';
+  const rooms = document.getElementById('doorRooms');
+  if (rooms) rooms.classList.remove('on');
   show(false);
   const back = document.getElementById('homeDoorBack');
   if (back) back.classList.remove('on');
@@ -1429,6 +1510,8 @@ function boot() {
     covers: () => HOME.on && HOME.phase !== 'fishing',
     refreshBook: () => renderBook(false),
     goOutside, enterArcade, leaveArcade, fishFromNook, refreshPrize, syncVisitor,
+    doorRooms: () => DOOR_ROOMS.map(r => ({ id: r.id, name: r.name })),
+    chooseDoor, openDoor: openDoorPortrait, closeDoor: closeDoorPortrait,
     markFromField: () => { HOME.fromField = true; },
     bond: () => { const b = bondState(); return { taps: b.taps, tier: b.tier, collected: b.collected.slice() }; },
     collection: () => bondState().collected.map(id => ({ id, title: CARD_TITLE[id] || id })),
