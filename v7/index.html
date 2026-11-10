@@ -1155,6 +1155,7 @@ const HEAVY_SRC = {
 const HEAVY = { human: {}, slime: {}, king: null };
 for (const r of ['human', 'slime']) for (const v of ['front', 'q', 'back']) { const i = new Image(); i.decoding = 'async'; i.src = HEAVY_SRC[r][v]; HEAVY[r][v] = i; }
 HEAVY.king = Object.assign(new Image(), { src: HEAVY_SRC.king });
+window.__cheebSheet = { name: 'Boba', id: 'boba', front: HEAVY.slime.front, back: HEAVY.slime.back };
 const heavyOk = i => i && i.complete && i.naturalWidth > 0;
 function heavyImg(race, view) { const i = HEAVY[race === 'slime' ? 'slime' : 'human'][view]; return heavyOk(i) ? i : null; }
 function drawGestureMitts(g, x, y, s, o) {

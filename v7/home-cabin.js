@@ -32,8 +32,12 @@ const lookNow = new THREE.Vector3();
 let renderer, scene, camera, fireLight, doorPivot, skyTex, skyCanvas, skyCtx, cabinRoot, reticle, hitSource, slotPlane;
 let goldRoot, goldMixer, goldAction, goldReady = false;
 let slotRoot, slotArm, slotCanvas, slotCtx, slotTex, visitor;
-let cat;
+let cat, cheebSprite, cheebShadow, cheebPad;
 let ac, master;
+const CHEEB = { t: 0, u: 0, leg: 0, mode: 'walk', idle: 0, tap: 0, view: 'front' };
+const CHEEB_A = { x: -1.15, z: 0.42 };
+const CHEEB_B = { x: 0.35, z: 0.62 };
+const cheebTex = { front: null, back: null };
 const ray = new THREE.Raycaster();
 const ptr = { id: null, x: 0, y: 0, drag: false };
 
@@ -182,6 +186,7 @@ function buildRoom() {
   buildSlot();
   buildLamp();
   buildSeat();
+  buildCheeb();
   wrapCabin();
   dressCabin();
 }
@@ -334,6 +339,88 @@ function buildSeat() {
     rod.rotation.z = 0.12;
     scene.add(rod);
   }
+}
+function cheebMap(which) {
+  const pack = window.__cheebSheet;
+  const img = pack && pack[which];
+  if (!img || !img.complete || !img.naturalWidth) return null;
+  if (!cheebTex[which]) {
+    const tex = new THREE.Texture(img);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
+    cheebTex[which] = tex;
+  }
+  return cheebTex[which];
+}
+function buildCheeb() {
+  cheebShadow = new THREE.Mesh(
+    new THREE.CircleGeometry(0.18, 14),
+    new THREE.MeshBasicMaterial({ color: 0x1a100c, transparent: true, opacity: 0.32, depthWrite: false })
+  );
+  cheebShadow.rotation.x = -Math.PI / 2;
+  cheebShadow.position.y = 0.015;
+  scene.add(cheebShadow);
+  cheebSprite = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false }));
+  cheebSprite.center.set(0.5, 0);
+  cheebSprite.visible = false;
+  cheebSprite.userData.home = 'cheeb';
+  scene.add(cheebSprite);
+  cheebPad = new THREE.Mesh(
+    new THREE.BoxGeometry(0.46, 0.9, 0.36),
+    new THREE.MeshBasicMaterial({ visible: false, depthWrite: false })
+  );
+  cheebPad.userData.home = 'cheeb';
+  scene.add(cheebPad);
+}
+function stepCheeb(dt) {
+  if (!cheebSprite) return;
+  const map = cheebMap(CHEEB.view) || cheebMap('front') || cheebMap('back');
+  if (!map) { cheebSprite.visible = false; if (cheebPad) cheebPad.visible = false; return; }
+  cheebSprite.visible = true;
+  if (cheebPad) cheebPad.visible = true;
+  CHEEB.t += dt;
+  if (CHEEB.tap > 0) CHEEB.tap = Math.max(0, CHEEB.tap - dt);
+  else if (CHEEB.mode === 'walk') {
+    CHEEB.u += dt / 3.4;
+    if (CHEEB.u >= 1) {
+      CHEEB.u = 1;
+      CHEEB.mode = 'idle';
+      CHEEB.idle = 0;
+      CHEEB.view = CHEEB.view === 'front' ? 'back' : 'front';
+    }
+  } else {
+    CHEEB.idle += dt;
+    if (CHEEB.idle >= 0.9) {
+      CHEEB.mode = 'walk';
+      CHEEB.u = 0;
+      CHEEB.leg = 1 - CHEEB.leg;
+    }
+  }
+  const shown = cheebMap(CHEEB.view) || map;
+  if (cheebSprite.material.map !== shown) {
+    cheebSprite.material.map = shown;
+    cheebSprite.material.needsUpdate = true;
+  }
+  const from = CHEEB.leg ? CHEEB_B : CHEEB_A;
+  const to = CHEEB.leg ? CHEEB_A : CHEEB_B;
+  const k = CHEEB.u * CHEEB.u * (3 - 2 * CHEEB.u);
+  const x = from.x + (to.x - from.x) * k;
+  const z = from.z + (to.z - from.z) * k;
+  const walking = CHEEB.mode === 'walk' && CHEEB.tap <= 0;
+  const hop = walking ? Math.abs(Math.sin(CHEEB.u * Math.PI * 8)) * 0.045 : 0;
+  const rock = walking ? Math.sin(CHEEB.u * Math.PI * 6) * 0.18 : 0;
+  const breath = 1 + Math.sin(CHEEB.t * 1.7) * 0.02;
+  const tap = CHEEB.tap > 0 ? Math.sin((1 - CHEEB.tap / 0.45) * Math.PI) : 0;
+  const h = 0.92;
+  const aspect = shown.image && shown.image.naturalHeight ? shown.image.naturalWidth / shown.image.naturalHeight : 0.44;
+  cheebSprite.position.set(x, hop, z);
+  cheebSprite.scale.set(h * aspect * (1 + tap * 0.1), h * breath * (1 - tap * 0.14), 1);
+  cheebSprite.material.rotation = rock + tap * 0.28;
+  if (cheebShadow) {
+    cheebShadow.position.set(x, 0.015, z);
+    cheebShadow.visible = true;
+  }
+  if (cheebPad) cheebPad.position.set(x, 0.46, z);
 }
 function buildLamp() {
   const g = new THREE.Group();
@@ -1010,6 +1097,7 @@ function step(dt) {
     });
   }
   if (cat) cat.scale.y = 1 + Math.sin(HOME.t * 1.4) * 0.03;
+  stepCheeb(dt);
   if (slotRoot) {
     const hop = HOME.bounce > 0 ? Math.sin(HOME.bounce * Math.PI) : 0;
     slotRoot.position.y = hop * 0.16;
@@ -1111,6 +1199,7 @@ function activate(name) {
   if (name === 'nook' && typeof openCraft === 'function') { openCraft(); return true; }
   if (name === 'board' && typeof openCommand === 'function') { openCommand(); return true; }
   if (name === 'spot') { HOME.bounce = 1; goldTap(); return true; }
+  if (name === 'cheeb') { CHEEB.tap = 0.45; return true; }
   if (name === 'door') {
     if (HOME.fromField) {
       HOME.fromField = false;
@@ -1343,7 +1432,7 @@ function boot() {
     markFromField: () => { HOME.fromField = true; },
     bond: () => { const b = bondState(); return { taps: b.taps, tier: b.tier, collected: b.collected.slice() }; },
     collection: () => bondState().collected.map(id => ({ id, title: CARD_TITLE[id] || id })),
-    state: () => ({ on: HOME.on, phase: HOME.phase, door: HOME.door, bounce: HOME.bounce, sound: HOME.sound, slot: HOME.slot, yaw: HOME.yaw, dressed: !!HOME.dressed, ar: Object.assign({}, HOME.ar) }),
+    state: () => ({ on: HOME.on, phase: HOME.phase, door: HOME.door, bounce: HOME.bounce, sound: HOME.sound, slot: HOME.slot, yaw: HOME.yaw, dressed: !!HOME.dressed, ar: Object.assign({}, HOME.ar), cheeb: cheebSprite ? { x: cheebSprite.position.x, z: cheebSprite.position.z, view: CHEEB.view, on: cheebSprite.visible, tap: CHEEB.tap, rock: cheebSprite.material.rotation } : null }),
   };
   window.__homeCovers = () => window.__home.covers();
   const guideStep = window.__profile && window.__profile.guide && window.__profile.guide();
