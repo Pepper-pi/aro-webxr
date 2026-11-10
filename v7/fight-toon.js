@@ -37,6 +37,11 @@ let hexMesh, hexInk, edgeMesh, rainMesh;
 let hands, rifle, glass, rune, boss, bossWire, bossEyes, bossBar, boltSky, streak;
 let kingPlate, kingPaint, kingHolo, kingShadow;
 let boarPlate, boarPaint, boarHolo, boarShadow;
+let parkPlate, parkPaint;
+const parkDir = new THREE.Vector3();
+const parkAt = new THREE.Vector3();
+const BOAR_PULL = 2.15;
+const BOAR_Y = 1.28;
 let reticle, petFollow, petSphere, slamRing;
 let wardMesh, wardShell, novaRing, slashBar, fragMesh, turretMesh, droneMesh, flareMark;
 const petRigs = {};
@@ -888,6 +893,60 @@ function buildBoarPlate() {
   boarShadow.rotation.x = -Math.PI / 2;
   boarShadow.visible = false;
   scene.add(boarShadow);
+  buildParkBackdrop();
+}
+function buildParkBackdrop() {
+  const tex = new THREE.TextureLoader().load('park_backdrop.jpg');
+  tex.colorSpace = THREE.SRGBColorSpace;
+  parkPaint = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, side: THREE.DoubleSide });
+  parkPlate = new THREE.Mesh(new THREE.PlaneGeometry(16 / 9, 1), parkPaint);
+  parkPlate.visible = false;
+  parkPlate.renderOrder = 0;
+  scene.add(parkPlate);
+}
+function syncParkBackdrop(g, on, plateX, plateZ) {
+  state.parkOn = !!on;
+  if (!parkPlate) {
+    state.park = { on: false, mode: 'off' };
+    return state.park;
+  }
+  if (!on) {
+    if (state.parkHeld) {
+      state.parkHeld = false;
+      state.worldKey = '';
+      if (hexMesh) hexMesh.visible = true;
+      if (hexInk) hexInk.visible = true;
+      if (edgeMesh) edgeMesh.visible = true;
+      halos.forEach(h => { h.visible = true; });
+    }
+    parkPlate.visible = false;
+    state.park = { on: false, mode: 'off' };
+    return state.park;
+  }
+  state.parkHeld = true;
+  if (hexMesh) hexMesh.visible = false;
+  if (hexInk) hexInk.visible = false;
+  if (edgeMesh) edgeMesh.visible = false;
+  halos.forEach(h => { h.visible = false; });
+  cracks.forEach(c => { c.visible = false; });
+  if (rainMesh) rainMesh.visible = false;
+  if (scene) {
+    scene.background = new THREE.Color('#8ec8f0');
+    if (scene.fog) { scene.fog.color.set('#8ec8f0'); scene.fog.near = 28; scene.fog.far = 40; }
+  }
+  const z = plateZ - 0.35;
+  camera.getWorldDirection(parkDir);
+  const t = Math.abs(parkDir.z) > 0.02 ? (z - camera.position.z) / parkDir.z : 4;
+  parkAt.copy(camera.position).addScaledVector(parkDir, Math.max(0.4, t));
+  parkPlate.position.set(plateX, parkAt.y, z);
+  parkPlate.rotation.set(0, 0, 0);
+  const dist = Math.max(0.6, camera.position.z - z);
+  const viewH = 2 * Math.tan((camera.fov * Math.PI / 180) / 2) * dist;
+  const viewW = viewH * Math.max(0.4, camera.aspect);
+  parkPlate.scale.setScalar(Math.max(viewW / (16 / 9), viewH) * 1.14);
+  parkPlate.visible = true;
+  state.park = { on: true, mode: 'paint' };
+  return state.park;
 }
 function fieldBoar(g) {
   if (!boarPlate || !g || !g.TRAIN || !g.TRAIN.dayRaid || g.TRAIN.view !== 'fp') return null;
@@ -902,19 +961,21 @@ function syncBoarPlate(g) {
     if (boarShadow) boarShadow.visible = false;
     state.boarMode = 'off';
     state.boar = { on: false, mode: 'off' };
+    syncParkBackdrop(g, false);
     return state.boar;
   }
   boss.visible = false;
   if (kingPlate) kingPlate.visible = false;
   if (kingShadow) kingShadow.visible = false;
   if (typeof rigWire !== 'undefined' && rigWire && rigWire.root) rigWire.root.visible = false;
-  const x = mob.x, z = mob.y;
+  const x = mob.x, z = mob.y + BOAR_PULL;
   const bob = Math.sin(state.t * 1.5) * 0.02;
-  boarPlate.position.set(x, 1.75 + bob, z);
+  const y = BOAR_Y + bob;
+  boarPlate.position.set(x, y, z);
   boarPlate.rotation.set(0, 0, 0);
   boarPlate.visible = true;
   const dx = camera.position.x - x;
-  const dy = camera.position.y - (1.75 + bob);
+  const dy = camera.position.y - y;
   const dz = camera.position.z - z;
   const dist = Math.hypot(dx, dy, dz);
   const behind = dz < 0.4;
@@ -927,10 +988,8 @@ function syncBoarPlate(g) {
     boarHolo.opacity = 0.34 + 0.22 * (0.5 + 0.5 * Math.sin(state.t * 6));
     boarHolo.color.setHex((state.t % 0.8) < 0.4 ? 0xff9ad4 : 0xb7f0ff);
   } else boarPaint.opacity = 0.96 + 0.04 * (0.5 + 0.5 * Math.sin(state.t * 2.2));
-  if (boarShadow) {
-    boarShadow.visible = !holo;
-    boarShadow.position.set(x, 0.03, z + 0.15);
-  }
+  if (boarShadow) boarShadow.visible = false;
+  syncParkBackdrop(g, true, x, z);
   state.boar = { on: true, mode: state.boarMode, dist: Math.round(dist * 100) / 100 };
   return state.boar;
 }
@@ -1491,6 +1550,7 @@ function frame(now) {
   state.sky = Math.max(0, state.sky - dt);
   const stormRate = state.weatherKind === 'storm' ? 0.85 : state.weatherKind === 'rain' ? 0.05 : state.story ? 0.28 : 0;
   if (state.sky <= 0 && Math.random() < dt * stormRate) state.sky = 0.14;
+  if (state.parkOn) state.sky = 0;
   if (boltSky) boltSky.material.opacity = state.sky > 0 ? 0.72 : 0;
   if (streak) streak.material.opacity = state.sky > 0.03 ? 0.95 : 0;
   state.kick = Math.max(0, state.kick - dt * 6);
@@ -1570,6 +1630,7 @@ function mount() {
     }),
     plate: () => state.plate || { on: false, mode: 'off' },
     boar: () => state.boar || { on: false, mode: 'off' },
+    park: () => state.park || { on: false, mode: 'off' },
     strike: () => { if (ensure()) hurtBoss(18); return state.bossHp; },
     setPractice: (on) => { state.practice = !!on; },
   };
