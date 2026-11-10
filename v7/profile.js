@@ -107,7 +107,7 @@ function bookRows(tab) {
     return ['Bond taps ' + (b.taps || 0) + ' · tier ' + (b.tier || 0)].concat(cards.length ? cards : ['No cards yet']);
   }
   if (tab === 'catches') {
-    const fish = state.catches.map(c => c.name + ' · ' + c.cm + ' cm');
+    const fish = state.catches.map(c => c.name + ' · ' + c.cm + ' cm · ' + (c.date || 'no date') + ' · ' + (c.weather || 'clear'));
     const kept = state.prizes.map(n => 'Prize · ' + n);
     return fish.concat(kept);
   }
@@ -320,7 +320,17 @@ function mount() {
     addPet, setActive, giveTreat,
     notePin: (pin) => { load(); state.pins = [pin].concat(state.pins).slice(0, 8); save(); },
     noteBond: (b) => { load(); state.bonds = { taps: b.taps || 0, tier: b.tier || 0, collected: (b.collected || []).slice() }; save(); },
-    addCatch: (fish) => { load(); state.catches.push({ name: fish.n || fish.name || 'Fish', cm: fish.cm || 0 }); save(); },
+    addCatch: (fish) => {
+      load();
+      const look = window.__world && window.__world.look && window.__world.look();
+      state.catches.push({
+        name: fish.n || fish.name || 'Fish',
+        cm: fish.cm || 0,
+        date: fish.date || (look && look.date) || new Date().toISOString().slice(0, 10),
+        weather: fish.weather || (look && look.weather) || 'clear',
+      });
+      save();
+    },
   };
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);

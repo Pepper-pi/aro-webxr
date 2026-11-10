@@ -29,7 +29,8 @@ const state = {
 let renderer, scene, camera, sun, grad;
 let hexMesh, hexInk, edgeMesh, rainMesh;
 let hands, rifle, glass, rune, boss, bossWire, bossEyes, bossBar, boltSky, streak;
-let reticle, petFollow;
+let reticle, petFollow, petSphere;
+const petRigs = {};
 const posts = [];
 const mobBlobs = [];
 const weatherBlobs = [];
@@ -385,7 +386,32 @@ async function loadMobRigs() {
   for (let i = 0; i < 4; i++) makeActor(beast.scene, beast.animations, 1.15, 'beast');
   rigGlass = makeActor(glassB.scene, glassB.animations, 0.72, 'brute');
   rigWire = makeActor(wireB.scene, wireB.animations, 0.72, 'brute');
+  petRigs.blob = makeFollow(blob.scene, blob.animations, 0.85, 'blob');
+  petRigs.beast = makeFollow(beast.scene, beast.animations, 0.52, 'beast');
+  petRigs.brute = makeFollow(glassB.scene, glassB.animations, 0.34, 'brute');
+  petRigs.wire = makeFollow(wireB.scene, wireB.animations, 0.34, 'brute');
   mobsReady = true;
+}
+function makeFollow(template, clips, scale, set) {
+  const root = cloneRig(template);
+  root.scale.setScalar(scale);
+  root.visible = false;
+  const mixer = new THREE.AnimationMixer(root);
+  const actions = {};
+  for (const c of clips) {
+    const act = mixer.clipAction(c);
+    act.clampWhenFinished = true;
+    actions[c.name] = act;
+  }
+  const actor = { root, mixer, actions, set, clip: '', follow: true, hold: 0 };
+  return actor;
+}
+function followKey(species) {
+  if (species === 'blob' || species === 'slime') return 'blob';
+  if (species === 'scout' || species === 'goblin') return 'beast';
+  if (species === 'glass-brute') return 'brute';
+  if (species === 'wire-brute') return 'wire';
+  return '';
 }
 function rigPools() {
   return {
@@ -667,16 +693,17 @@ function buildBoss() {
 
 function buildPet() {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffd36a }));
-  body.position.y = 0.26;
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffd36a }));
+  body.position.y = 0.2;
   g.add(body);
+  petSphere = body;
   const canvas = document.createElement('canvas');
   canvas.width = 128;
   canvas.height = 32;
   const tex = new THREE.CanvasTexture(canvas);
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-  sprite.position.y = 0.72;
-  sprite.scale.set(0.9, 0.22, 1);
+  sprite.position.y = 0.42;
+  sprite.scale.set(0.32, 0.08, 1);
   g.add(sprite);
   g.visible = false;
   g.userData.canvas = canvas;
@@ -688,14 +715,30 @@ function syncPet(g) {
   if (!petFollow) return;
   const pet = window.__profile && window.__profile.active && window.__profile.active();
   const show = !!(pet && g.TRAIN && g.TRAIN.on && !g.TRAIN.king);
+  const key = show ? followKey(pet.species) : '';
+  const rig = key && petRigs[key];
+  Object.keys(petRigs).forEach(k => { if (petRigs[k] && petRigs[k] !== rig) petRigs[k].root.visible = false; });
   petFollow.visible = show;
   if (!show) return;
   const px = g.AR.ppx || 0;
   const pz = g.AR.ppy || 0;
   const fp = g.TRAIN.view === 'fp';
-  const bob = Math.abs(Math.sin(state.t * 3.2)) * 0.08;
-  petFollow.scale.setScalar(fp ? 1.7 : 1);
-  petFollow.position.set(px + (fp ? -0.95 : -0.62), bob, pz + (fp ? -1.35 : 0.85));
+  const bob = Math.abs(Math.sin(state.t * 3.2)) * 0.05;
+  const x = px + (fp ? -0.08 : -0.55);
+  const z = pz + (fp ? -0.62 : 0.72);
+  if (rig) {
+    if (petSphere) petSphere.visible = false;
+    if (!rig.root.parent) scene.add(rig.root);
+    rig.root.visible = true;
+    rig.root.position.set(x, (fp ? 0.92 : 0.15) + bob, z);
+    rig.root.rotation.y = fp ? Math.PI : 0.4;
+    if (rig.clip !== 'Idle') playRig(rig, 'Idle', false);
+    petFollow.position.set(x, fp ? 0.7 : 0.35, z);
+  } else {
+    if (petSphere) petSphere.visible = true;
+    petFollow.position.set(x, bob, z);
+  }
+  petFollow.scale.setScalar(1);
   if (petFollow.userData.shown !== pet.name) {
     const ctx = petFollow.userData.canvas.getContext('2d');
     ctx.clearRect(0, 0, 128, 32);
@@ -982,6 +1025,7 @@ function frame(now) {
     if (a.root.visible || a.hold > 0) a.mixer.update(dt);
     if (a.hold > 0) a.hold -= dt;
   }
+  Object.keys(petRigs).forEach(k => { if (petRigs[k] && petRigs[k].root.visible) petRigs[k].mixer.update(dt); });
   bursts.forEach(b => {
     if (b.life <= 0) { b.g.visible = false; return; }
     b.life -= dt;
@@ -1029,6 +1073,7 @@ function mount() {
     status: () => ({
       on: state.on, hexes: state.hexes, gradient: 2, bossHp: state.bossHp, bossMax: state.bossMax,
       lights: 1, rain: RAIN, outlined: true, toon: true, rigs: mobsReady ? rigActors.length : 0,
+      follow: Object.keys(petRigs).length,
     }),
     strike: () => { if (ensure()) hurtBoss(18); return state.bossHp; },
   };

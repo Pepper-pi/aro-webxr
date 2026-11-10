@@ -887,6 +887,15 @@ function activate(name) {
   if (name === 'board' && typeof openCommand === 'function') { openCommand(); return true; }
   if (name === 'spot') { HOME.bounce = 1; goldTap(); return true; }
   if (name === 'door') {
+    if (HOME.fromField) {
+      HOME.fromField = false;
+      if (window.__doorClear) window.__doorClear('Outside', () => {
+        leave();
+        if (window.__showWorldMap) window.__showWorldMap();
+      });
+      else { leave(); if (window.__showWorldMap) window.__showWorldMap(); }
+      return true;
+    }
     if (HOME.phase !== 'inside' && HOME.phase !== 'opening') return false;
     HOME.phase = 'opening'; HOME.doorTo = 1; return true;
   }
@@ -1052,6 +1061,7 @@ function boot() {
     covers: () => HOME.on && HOME.phase !== 'fishing',
     refreshBook: () => renderBook(false),
     goOutside,
+    markFromField: () => { HOME.fromField = true; },
     bond: () => { const b = bondState(); return { taps: b.taps, tier: b.tier, collected: b.collected.slice() }; },
     collection: () => bondState().collected.map(id => ({ id, title: CARD_TITLE[id] || id })),
     state: () => ({ on: HOME.on, phase: HOME.phase, door: HOME.door, bounce: HOME.bounce, sound: HOME.sound, slot: HOME.slot, yaw: HOME.yaw, dressed: !!HOME.dressed, ar: Object.assign({}, HOME.ar) }),
