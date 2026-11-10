@@ -1418,6 +1418,91 @@ const gold = await goldPage.evaluate(async () => {
 check('Original Gold is the hashed mesh and does not replace Boba', gold.loaded.ok && gold.loaded.tris === 118790 && gold.loaded.hash === gold.sha && gold.sha === '54b1f5c7bef848ab2ae364655296214e693e8f3aa196728d071a26413b5fd5aa' && gold.during.race === 'human' && gold.during.field === '' && gold.before.name === 'Boba' && gold.after.race === 'slime' && gold.after.form === 'boba' && gold.after.field === '' && gold.after.sel === 'Boba' && gold.after.closed && gold.side === 'side' && gold.bakeOk && gold.chosen.field === 'gold' && gold.chosen.race === 'human' && gold.chosen.source === gold.sha && gold.chosen.tris === 118790 && gold.chosen.skins === 0 && gold.chosen.anims === 0 && gold.chosen.views.length === 3, JSON.stringify(gold));
 await goldPage.close();
 
+const fishPage = await open(844, 390);
+const fishErr = [];
+fishPage.on('pageerror', err => fishErr.push(String(err && err.message || err)));
+const fish = await fishPage.evaluate(() => {
+  window.__aroFreeze = true;
+  startDay();
+  wakeUp();
+  const home = tileAt(0, 0);
+  MAP.house.q = home.q; MAP.house.r = home.r; MAP.house.x = home.x; MAP.house.y = home.y; MAP.house.face = 1; MAP.avOut = true;
+  const ship = ensureFishSpot();
+  const poi = tileAt(4, -3);
+  MAP.house.q = poi.q; MAP.house.r = poi.r; MAP.house.x = poi.x; MAP.house.y = poi.y;
+  const pond = ensureFishSpot();
+  MAP.house.q = home.q; MAP.house.r = home.r; MAP.house.x = home.x; MAP.house.y = home.y;
+  const zone = { x: 100, y: 100, r: 40 };
+  const perfect = gradeFlick({ x: 100, y: 220 }, { x: 100, y: 100 }, zone);
+  const great = gradeFlick({ x: 100, y: 220 }, { x: 100, y: 118 }, zone);
+  const good = gradeFlick({ x: 100, y: 220 }, { x: 100, y: 136 }, zone);
+  const whiff = gradeFlick({ x: 0, y: 0 }, { x: 8, y: 0 }, zone);
+  const away = gradeFlick({ x: 80, y: 100 }, { x: 0, y: 100 }, zone);
+  SET.hand = 'right';
+  const pose = (name, lead) => { setGesture(name, { lead, pinch: name === 'tug' ? 1 : 0 }); GEST.blend = 1; return gestureHands(100, { x: 1, y: 0 }); };
+  const idle = pose('idle', 'offhand');
+  const wind = pose('wind', 'offhand');
+  const rel = pose('release', 'offhand');
+  const tug = pose('tug', 'offhand');
+  const spell = pose('release', 'spell');
+  openFish();
+  const rip = rippleScreen(), me = playerScreen();
+  const fish0 = G.bag.fish || 0, ae0 = G.aether;
+  const side = gradeAndCast(me.x, me.y, me.x + (rip.y - me.y), me.y - (rip.x - me.x));
+  const usedAfterWhiff = FI.used || 0;
+  const cast = gradeAndCast(me.x, me.y, rip.x, rip.y);
+  fishUpdate(1);
+  const waited = { phase: FI.phase, used: FI.used, echo: FI.echo > 0, who: FI.echoWho, grade: FI.grade };
+  fishUpdate(3);
+  const bad = tryTug({ x0: me.x, y0: me.y }, me.x + 90, me.y);
+  const still = FI.phase;
+  let guard = 0;
+  while (FI.phase !== 'slip' && FI.phase !== 'spent' && guard++ < 8) {
+    if (FI.phase === 'nibble') fishUpdate(nibbleWindow() + 0.05);
+    else fishUpdate((FI.biteAt || 0.5) + 0.05);
+  }
+  const missed = { phase: FI.phase, lost: FI.phase === 'lost' };
+  FI.phase = 'aim'; FI.used = 0; FI.paid = false; FI.castCounted = false; FI.nibbles = 0; FI.hits = 0;
+  gradeAndCast(me.x, me.y, rip.x, rip.y);
+  fishUpdate(1); fishUpdate(3);
+  const tugged = tryTug({ x0: rip.x, y0: rip.y }, me.x, me.y);
+  trailScreen().forEach(p => fishTraceAt(p.x, p.y));
+  const caught = { phase: FI.phase, icon: FI.lootIcon, bag: (G.bag.fish || 0) - fish0, ae: G.aether - ae0, rod: fishUsesRod(), lead: GEST.lead };
+  landFish();
+  const once = (G.bag.fish || 0) === fish0 + 1 && G.aether === ae0 + 3;
+  nextCast();
+  gradeAndCast(me.x, me.y, rip.x, rip.y); fishUpdate(1);
+  FI.nibbles = 3; FI.phase = 'nibble'; anotherNibble();
+  const mid = FI.phase === 'slip' && FI.used === 2;
+  nextCast();
+  gradeAndCast(me.x, me.y, rip.x, rip.y); fishUpdate(1);
+  FI.nibbles = 3; FI.phase = 'nibble'; anotherNibble();
+  const spent = FI.phase === 'spent' && FI.used === 3;
+  FI.respawnAt = performance.now() - 5;
+  fishUpdate(0.01);
+  const back = FI.phase === 'aim' && FI.used === 0;
+  setWater('river'); const river = waterPace();
+  setWater('ocean'); const ocean = waterPace();
+  const badKind = setWater('lake');
+  setWater('pond');
+  const restored = waterPace();
+  return {
+    ship, pond, perfect, great, good, whiff, away, side, usedAfterWhiff, cast, waited, bad, still, missed, tugged, caught, once, mid, spent, back,
+    river, ocean, badKind, restored, poses: { idle, wind, rel, tug, spell },
+  };
+});
+const handApart = (a, b) => Math.hypot(a.L.x - a.R.x, a.L.y - a.R.y) > Math.hypot(b.L.x - b.R.x, b.L.y - b.R.y);
+check('a flick grades Perfect, Great, and Good, and a short or backward flick does not', fish.perfect.grade === 'Perfect' && fish.great.grade === 'Great' && fish.good.grade === 'Good' && fish.whiff.whiff && fish.away.whiff && fish.side.whiff && fish.usedAfterWhiff === 0, JSON.stringify({ perfect: fish.perfect.grade, great: fish.great.grade, good: fish.good.grade }));
+check('the pond opens beside the ship, and on real water when you are already at the pond', fish.ship.kind === 'summon' && fish.ship.space === 'ship' && fish.pond.kind === 'pond' && fish.pond.space === 'pond', JSON.stringify({ ship: fish.ship, pond: fish.pond }));
+check('a flick toward the ripple is graded, then a short wait, and Dock Echo is your own reflection', fish.cast.grade === 'Perfect' && fish.waited.phase === 'wait' && fish.waited.used === 1 && fish.waited.echo && fish.waited.who === 'self', JSON.stringify(fish.waited));
+check('a tug the wrong way is another nibble, not a snapped line', fish.bad === false && fish.still === 'nibble' && fish.missed.phase === 'slip' && fish.missed.lost === false, JSON.stringify({ bad: fish.bad, still: fish.still, missed: fish.missed }));
+check('tracing the glowing trail keeps one fish and an 8-bit icon, with no rod', fish.tugged && fish.caught.phase === 'catch' && fish.caught.icon === 'fish' && fish.caught.rod === false && fish.caught.lead === 'offhand' && fish.once, JSON.stringify(fish.caught));
+check('three casts fish the spot out, and the shortened respawn brings a ripple back', fish.mid && fish.spent && fish.back, JSON.stringify({ mid: fish.mid, spent: fish.spent, back: fish.back }));
+check('river and ocean only change the timing', fish.river < 1 && fish.ocean < fish.river && fish.badKind === false && fish.restored === 1, JSON.stringify({ river: fish.river, ocean: fish.ocean, restored: fish.restored }));
+check('fishing poses move the off hand, and the spell hand stays available for later', fish.poses.wind.L.y < fish.poses.idle.L.y && fish.poses.rel.L.x > fish.poses.idle.L.x + 20 && handApart(fish.poses.idle, fish.poses.tug) && fish.poses.tug.pinch === 1 && fish.poses.spell.R.x > fish.poses.idle.R.x + 20 && Math.abs(fish.poses.spell.L.x - fish.poses.idle.L.x) < 2, JSON.stringify(fish.poses));
+check('the fishing slice does not throw', fishErr.length === 0, JSON.stringify(fishErr));
+await fishPage.close();
+
 await browser.close();
 console.log(fails.length ? '\n' + fails.length + ' failed' : '\nall passed');
 process.exit(fails.length ? 1 : 0);
