@@ -2393,8 +2393,16 @@ function mkMob(s, delay) {
 }
 function spawnMob(spec) { const m = mkMob(Object.assign({ at: [0, -1], full: 1 }, spec), 0); AR.mobs.push(m); if (AR.phase !== 'nodes') AR.phase = 'wave'; return m; }
 function spawnWave(i) {
-  AR.wave = i; const list = AR.kind === 'hack' && AR.phase === 'nodes' ? HACK_NODES : AR.waves[i];
-  AR.mobs = list.map((s, j) => mkMob(s, j * .35)); AR.teles = []; AR.shots = []; AR.zones = []; AR.lines = []; AR.lock = null; AR.boss = null;
+  AR.wave = i; let list = AR.kind === 'hack' && AR.phase === 'nodes' ? HACK_NODES : AR.waves[i];
+  const bossWave = list && list.some(s => s.k === 'boss');
+  const rolled = i === 0 && AR.kind === 'raid' && !bossWave && !(typeof TRAIN !== 'undefined' && TRAIN.king) ? rolledMobSpecs() : null;
+  if (rolled) list = rolled;
+  AR.mobs = list.map((s, j) => {
+    const m = mkMob(s, j * .35);
+    if (s.rollId) stampRolled(m, s, false);
+    return m;
+  }); AR.teles = []; AR.shots = []; AR.zones = []; AR.lines = []; AR.lock = null; AR.boss = null;
+  placeFolk();
   if (AR.kind === 'raid') { const b = list.some(s => s.k === 'boss'); if (!b) banner(`Wave ${i + 1} / ${AR.waves.length}`, i === 0 ? 'Panels charging' : 'Elite incoming'); }
 }
 const liveMobs = () => AR.mobs.filter(m => m.state === 'live');
@@ -2609,6 +2617,10 @@ function releaseEmberAt(X, Y, aim, power) {
 }
 function arenaUp(X, Y) {
   const p = AR.ptr; AR.ptr = null; if (!p || p.swiped) return;
+  if (Math.hypot(X - p.x0, Y - p.y0) < 18) {
+    const folk = folkAt(X, Y);
+    if (folk) { greetFolk(folk); return; }
+  }
   const held = (performance.now() - p.t0) / 1000;
   if (commitFlick(p, X, Y)) return;
   const aim = aimWorld(X, Y);
@@ -2844,6 +2856,7 @@ function drawArena(T) {
   // sprites sorted by depth
   const S = [];
   for (const m of AR.mobs) if (m.state !== 'gone') S.push([m.y, 0, m]);
+  if (AR.folk) for (const f of AR.folk) S.push([f.y + 0.02, 7, f]);
   S.push([AR.ppy, 1]);
   if (AR.block) S.push([AR.block.y, 2]); if (AR.spike && AR.kind === 'hack' && (AR.phase === 'spike' || AR.spike.k > 0 && AR.spike.k < 1)) S.push([AR.spike.y, 3]);
   if (FIELD.wall) for (const h of FIELD.wall.hexes) S.push([hexXY(h[0], h[1])[1] + .01, 4, h]);
@@ -2857,6 +2870,7 @@ function drawArena(T) {
     else if (s[1] === 5) drawChunk(s[2], T);
     else if (s[1] === 6) drawRock(s[2].b, s[2].z);
     else if (s[1] === 2) drawBlock(T);
+    else if (s[1] === 7) drawFolkSprite(s[2], T);
     else drawSpike(T);
   }
   if (AR.ptr && AR.ptr.aiming && raidEmberAim()) {
@@ -6476,15 +6490,99 @@ function drawHoldDemo() {
   ctx.restore();
 }
 
-function spawnDummies() {
-  const spots = [[-1, -2], [1, -2], [0, -3]];
-  AR.mobs = spots.map((at, i) => {
-    const m = mkMob({ k: 'scout', at, full: 1, rar: 0 }, 0);
-    m.state = 'live'; m.st = 0; m.aggro = false; m.atkT = 99; m.dummy = true;
-    m.hp = m.max = 100;
-    m.D = Object.assign({}, MOBDEF.scout, { n: 'Dummy ' + (i + 1), atk: 'none', sp: 0, aggroR: 0, drop: [] });
-    return m;
+const ROLL_FIGHT = {
+  slime: { k: 'slime', hp: 36, name: 'Slime' },
+  blob: { k: 'slime', hp: 28, name: 'Blob' },
+  scout: { k: 'scout', hp: 48, name: 'Scout' },
+  goblin: { k: 'scout', hp: 56, name: 'Goblin' },
+  'glass-brute': { k: 'goblin', hp: 90, name: 'Brute' },
+};
+const FOLK_LINE = {
+  'npc-dock': ['Dock hand', 'The dock is quiet today. Mind the rain.'],
+  'npc-fisher': ['Fisher', 'The pond is biting. Keep the line short.'],
+  'npc-nightwatch': ['Night watch', 'I have the watch. The pits are glowing.'],
+  'vendor-tea': ['Tea stall', 'Tea is hot. I am not selling yet.'],
+  'vendor-ink': ['Ink stall', 'Ink for the map. The stall is closed.'],
+  'vendor-gear': ['Gear stall', 'Gear later. This is only a hello.'],
+};
+const ROLL_SPOTS = [[-1, -2], [1, -2], [0, -3]];
+function rolledMobSpecs() {
+  const look = window.__world && window.__world.look && window.__world.look();
+  const mobs = look && look.spawns ? look.spawns.filter(s => s.group === 'mob') : [];
+  if (!mobs.length) return null;
+  return mobs.map((s, i) => {
+    const def = ROLL_FIGHT[s.id] || ROLL_FIGHT.slime;
+    const lap = Math.floor(i / ROLL_SPOTS.length);
+    return { k: def.k, at: ROLL_SPOTS[i % ROLL_SPOTS.length], nudge: lap ? (i % 2 ? 0.46 : -0.46) : 0, full: 1, rar: 0, rollId: s.id, hp: def.hp, name: def.name };
   });
+}
+function stampRolled(m, spec, practice) {
+  if (spec.nudge) m.x += spec.nudge;
+  m.rolled = true;
+  m.rollId = spec.rollId;
+  m.hp = m.max = spec.hp;
+  const drop = practice ? [] : (m.D.drop.indexOf('gel') >= 0 ? m.D.drop.slice() : m.D.drop.concat(['gel']));
+  m.D = Object.assign({}, m.D, { n: spec.name, drop });
+  if (practice) {
+    m.dummy = true;
+    m.state = 'live'; m.st = 0; m.aggro = false; m.atkT = 99;
+    m.D.atk = 'none'; m.D.sp = 0; m.D.aggroR = 0;
+  } else m.tm = { p: 0.28, l: 0.3, s: 0.2 };
+}
+function placeFolk() {
+  const look = window.__world && window.__world.look && window.__world.look();
+  const folks = look && look.spawns ? look.spawns.filter(s => s.group === 'npc' || s.group === 'vendor') : [];
+  const spots = [[-3, -1], [3, -1]];
+  AR.folk = folks.slice(0, 2).map((s, i) => {
+    const line = FOLK_LINE[s.id] || [s.name || 'Someone', 'Hello.'];
+    const [x, y] = hexXY(spots[i][0], spots[i][1]);
+    return { id: s.id, group: s.group, name: line[0], line: line[1], x, y };
+  });
+}
+function folkAt(X, Y) {
+  if (!AR.folk) return null;
+  for (const f of AR.folk) {
+    const [sx, sy, sc] = proj(AR.cam, f.x, f.y);
+    if (Math.hypot(sx - X, sy - Y) < Math.max(36, 28 * sc)) return f;
+  }
+  return null;
+}
+function greetFolk(f) {
+  showCast(f.name + ': ' + f.line);
+  const [X, Y, sc] = proj(AR.cam, f.x, f.y);
+  popText(X, Y - 46 * sc, f.line, '#ffe7a8', 14);
+}
+function drawFolkSprite(f) {
+  const [X, Y, sc] = proj(AR.cam, f.x, f.y);
+  const s = 22 * sc;
+  ctx.save();
+  ctx.fillStyle = 'rgba(8,4,12,.4)';
+  ctx.beginPath(); ctx.ellipse(X, Y, s * 0.7, s * 0.28, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = f.group === 'vendor' ? '#e2b15a' : '#6aa7d8';
+  ctx.beginPath(); ctx.ellipse(X, Y - s * 0.85, s * 0.42, s * 0.55, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#f0c09a';
+  ctx.beginPath(); ctx.arc(X, Y - s * 1.45, s * 0.28, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+function spawnDummies() {
+  const specs = rolledMobSpecs();
+  if (!specs) {
+    const spots = [[-1, -2], [1, -2], [0, -3]];
+    AR.mobs = spots.map((at, i) => {
+      const m = mkMob({ k: 'scout', at, full: 1, rar: 0 }, 0);
+      m.state = 'live'; m.st = 0; m.aggro = false; m.atkT = 99; m.dummy = true;
+      m.hp = m.max = 100;
+      m.D = Object.assign({}, MOBDEF.scout, { n: 'Dummy ' + (i + 1), atk: 'none', sp: 0, aggroR: 0, drop: [] });
+      return m;
+    });
+  } else {
+    AR.mobs = specs.map(s => {
+      const m = mkMob(s, 0);
+      stampRolled(m, s, true);
+      return m;
+    });
+  }
+  placeFolk();
   AR.phase = 'wave';
   AR.floorDirty = true;
 }
@@ -6494,14 +6592,32 @@ function reviveDummy(m) {
 function drawDummy(m) {
   const [X, Y, f] = proj(AR.cam, m.x, m.y), s = 36 * f;
   ctx.save();
-  if (m.fl > 0) ctx.globalAlpha = 0.65;
+  if (m.fl > 0) ctx.globalAlpha = 0.72;
   shadow(ctx, X, Y, s * 0.7, s * 0.22, 0.45);
-  ctx.fillStyle = '#6b4b34'; ctx.fillRect(X - 4 * f, Y - s * 1.65, 8 * f, s * 1.65);
-  ctx.strokeStyle = '#efc89a'; ctx.lineWidth = 2; ctx.strokeRect(X - 4 * f, Y - s * 1.65, 8 * f, s * 1.65);
-  const rings = ['#2a1018', '#ff3d4e', '#fff6f2', '#ff3d4e', '#ffd36a'];
-  for (let i = 0; i < rings.length; i++) { ctx.fillStyle = rings[i]; ctx.beginPath(); ctx.arc(X, Y - s * 1.15, s * (0.62 - i * 0.1), 0, TAU); ctx.fill(); }
-  ctx.fillStyle = '#14080c'; ctx.beginPath(); ctx.arc(X, Y - s * 1.15, s * 0.07, 0, TAU); ctx.fill();
-  if (m.fl > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.arc(X, Y - s * 1.15, s * 0.66, 0, TAU); ctx.fill(); }
+  if (m.rolled) {
+    const brute = m.rollId === 'glass-brute';
+    const beast = m.rollId === 'scout' || m.rollId === 'goblin';
+    const squash = m.fl > 0 ? 0.8 : 1;
+    ctx.fillStyle = brute ? '#1a2430' : beast ? '#c45a3a' : '#7dffa8';
+    ctx.beginPath();
+    ctx.ellipse(X, Y - s * 0.55, s * (beast ? 0.7 : 0.55), s * 0.42 * squash, 0, 0, TAU);
+    ctx.fill();
+    if (beast) {
+      ctx.beginPath(); ctx.ellipse(X + s * 0.45, Y - s * 0.75, s * 0.22, s * 0.18, 0, 0, TAU); ctx.fill();
+    }
+    if (brute) {
+      ctx.strokeStyle = '#8fe8ff'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(X, Y - s * 0.7, s * 0.72, 0, TAU); ctx.stroke();
+    }
+    if (m.fl > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.beginPath(); ctx.arc(X, Y - s * 0.55, s * 0.5, 0, TAU); ctx.fill(); }
+  } else {
+    ctx.fillStyle = '#6b4b34'; ctx.fillRect(X - 4 * f, Y - s * 1.65, 8 * f, s * 1.65);
+    ctx.strokeStyle = '#efc89a'; ctx.lineWidth = 2; ctx.strokeRect(X - 4 * f, Y - s * 1.65, 8 * f, s * 1.65);
+    const rings = ['#2a1018', '#ff3d4e', '#fff6f2', '#ff3d4e', '#ffd36a'];
+    for (let i = 0; i < rings.length; i++) { ctx.fillStyle = rings[i]; ctx.beginPath(); ctx.arc(X, Y - s * 1.15, s * (0.62 - i * 0.1), 0, TAU); ctx.fill(); }
+    ctx.fillStyle = '#14080c'; ctx.beginPath(); ctx.arc(X, Y - s * 1.15, s * 0.07, 0, TAU); ctx.fill();
+    if (m.fl > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.arc(X, Y - s * 1.15, s * 0.66, 0, TAU); ctx.fill(); }
+  }
   ctx.restore();
   const w = Math.max(46, 54 * Math.min(f, 1.4)), k = clamp(m.hp / m.max, 0, 1);
   const wide = W >= 560 && H < 520;
@@ -6679,7 +6795,8 @@ function resetTrain() {
   TRAIN.drill = { round: next, hits: 0, dmg: 0, who: {}, said: false }; TRAIN.pulses = []; AR.objT = null;
   FIELD.wallTip = true;
   coach(null);
-  showCast(next > was.round ? 'Round ' + next + ' · dummies ready' : 'Dummies reset · HP restored');
+  const rolled = (AR.mobs || []).some(m => m.rolled);
+  showCast(next > was.round ? 'Round ' + next + ' · wave ready' : (rolled ? 'Round reset · HP restored' : 'Dummies reset · HP restored'));
   setAct(null);
   if (typeof resetCell === 'function') resetCell();
 }
@@ -7232,6 +7349,10 @@ function drawDockHud() {
     return _arenaMove(X, Y);
   };
   arenaUp = function (X, Y) {
+    if (AR.ptr && !AR.ptr.swiped && Math.hypot(X - AR.ptr.x0, Y - AR.ptr.y0) < 18) {
+      const folk = folkAt(X, Y);
+      if (folk) { greetFolk(folk); AR.ptr = null; TRAIN.cap = null; return; }
+    }
     if (AR.ptr && AR.ptr.cellAim) return cellAimUp(X, Y);
     if (TRAIN.cap) { releaseDisc(X, Y); return; }
     if (G.scene === 'arena' && GUN.cls === 'gunner' && AR.ptr && !AR.ptr.swiped) { releaseGun(X, Y); return; }
@@ -7243,7 +7364,13 @@ function drawDockHud() {
   if (TRAIN.on) for (const m of AR.mobs) if (m.dummy) { m.aggro = false; m.atkT = 99; }
   _arenaUpdate(dt);
   if (TRAIN.on && !TRAIN.king) {
-    for (const m of AR.mobs) if (m.dummy && (m.state === 'gone' || m.state === 'dying' && m.st > 0.42)) reviveDummy(m);
+    for (const m of AR.mobs) if (m.dummy && !m.rolled && (m.state === 'gone' || m.state === 'dying' && m.st > 0.42)) reviveDummy(m);
+    const rolled = AR.mobs.filter(m => m.rolled);
+    if (rolled.length && rolled.every(m => m.state === 'gone') && TRAIN.drill && !TRAIN.drill.said) {
+      TRAIN.drill.said = true;
+      showCast('Round ' + TRAIN.drill.round + ' clear · the wave is down');
+      popText(W * 0.5, H * 0.34, 'wave down', '#ffd36a', 18);
+    }
     if (AR.phase !== 'wave') { AR.phase = 'wave'; setAct(null); }
   }
   trainUpdate(dt);
@@ -7254,13 +7381,19 @@ function drawDockHud() {
 function drillLine() {
   const d = TRAIN.drill;
   if (!d) return '<b>Training</b>';
+  const rolled = (AR.mobs || []).filter(m => m.rolled);
+  if (rolled.length) {
+    const left = rolled.filter(m => m.state !== 'gone').length;
+    if (!left) return `<b>Round ${d.round} clear</b> · the wave is down`;
+    return `<b>Round ${d.round}</b> · ${left} left · ${d.hits} hits`;
+  }
   const n = Object.keys(d.who).length;
   if (n >= 3) return `<b>Round ${d.round} clear</b> · Reset for the next`;
   return `<b>Round ${d.round}</b> · ${d.hits} hits · ${d.dmg} dmg`;
 }
-{ const _damage = damage; damage = function (m, dmg, sp, focus) { const r = _damage(m, dmg, sp, focus); if (m && m.dummy) { m.aggro = false; m.atkT = 99; const left = Math.max(0, Math.ceil(m.hp)); showCast('Hit ' + dmg + ' · ' + m.D.n + '  ' + left + ' HP'); if (!TRAIN.drill) TRAIN.drill = { round: 1, hits: 0, dmg: 0, who: {}, said: false }; const dr = TRAIN.drill; dr.hits++; dr.dmg += dmg; dr.who[m.D.n] = true; const [q, rhex] = xyHex(m.x, m.y); if (!TRAIN.pulses) TRAIN.pulses = []; TRAIN.pulses.push({ q, r: rhex, col: (sp && sp.col) || '#ffd36a', t: 0 }); if (TRAIN.pulses.length > 6) TRAIN.pulses.shift(); if (Object.keys(dr.who).length >= 3 && !dr.said) { dr.said = true; showCast('Round ' + dr.round + ' clear · Reset for the next'); } AR.objT = null; } return r; }; }
+{ const _damage = damage; damage = function (m, dmg, sp, focus) { const r = _damage(m, dmg, sp, focus); if (m && m.dummy) { m.aggro = false; m.atkT = 99; const left = Math.max(0, Math.ceil(m.hp)); showCast('Hit ' + dmg + ' · ' + m.D.n + '  ' + left + ' HP'); if (!TRAIN.drill) TRAIN.drill = { round: 1, hits: 0, dmg: 0, who: {}, said: false }; const dr = TRAIN.drill; dr.hits++; dr.dmg += dmg; dr.who[m.D.n] = true; const [q, rhex] = xyHex(m.x, m.y); if (!TRAIN.pulses) TRAIN.pulses = []; TRAIN.pulses.push({ q, r: rhex, col: (sp && sp.col) || '#ffd36a', t: 0 }); if (TRAIN.pulses.length > 6) TRAIN.pulses.shift(); if (!m.rolled && !AR.mobs.some(x => x.rolled) && Object.keys(dr.who).length >= 3 && !dr.said) { dr.said = true; showCast('Round ' + dr.round + ' clear · Reset for the next'); } AR.objT = null; } return r; }; }
 { const _lock = lockUpdate; lockUpdate = function (dt) { const n = FX.length; _lock(dt); if (TRAIN.on) { for (let i = FX.length - 1; i >= n; i--) if (FX[i].kind === 'text' && FX[i].txt === 'steady') FX.splice(i, 1); } }; }
-{ const _cubes = cubesFor; cubesFor = function (m) { if (m && m.dummy) { const [X, Y, f] = proj(AR.cam, m.x, m.y); popText(X, Y - 36 * f, 'down', '#ffd36a', 16); SFX.cube(); return; } return _cubes(m); }; }
+{ const _cubes = cubesFor; cubesFor = function (m) { if (m && m.dummy) { const [X, Y, f] = proj(AR.cam, m.x, m.y); popText(X, Y - 36 * f, m.rolled ? 'defeated' : 'down', '#ffd36a', 16); SFX.cube(); return; } return _cubes(m); }; }
 { const _drawMob = drawArenaMob; drawArenaMob = function (m, T) { if (m && m.dummy) return drawDummy(m); return _drawMob(m, T); }; }
 { const _av = drawAvatar; drawAvatar = function (g, x, y, s, o) {
   if (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') return;

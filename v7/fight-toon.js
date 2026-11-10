@@ -33,6 +33,7 @@ const posts = [];
 const mobBlobs = [];
 const weatherBlobs = [];
 const weatherBeasts = [];
+const weatherFolk = [];
 const bolts = [];
 const bursts = [];
 const seen = new WeakSet();
@@ -254,44 +255,70 @@ function buildWeatherMobs() {
     scene.add(g);
     weatherBeasts.push(g);
   }
+  for (let i = 0; i < 2; i++) {
+    const g = new THREE.Group();
+    const cloth = toon(i ? '#e2b15a' : '#6aa7d8').clone();
+    part(new THREE.CylinderGeometry(0.16, 0.18, 0.46, 7), cloth, 0, 0.4, 0, g);
+    part(new THREE.SphereGeometry(0.12, 8, 6), toon('#f0c09a').clone(), 0, 0.78, 0, g);
+    g.visible = false;
+    scene.add(g);
+    weatherFolk.push(g);
+  }
 }
 function placeWeatherMobs(look) {
   weatherBlobs.forEach(m => { m.visible = false; });
   weatherBeasts.forEach(m => { m.visible = false; });
+  weatherFolk.forEach(m => { m.visible = false; });
   state.showBrute = false;
   state.bruteAt = null;
-  if (!look || !weatherBlobs.length) return;
-  const spots = hexCells.filter(c => {
-    const d = (Math.abs(c.q) + Math.abs(c.r) + Math.abs(c.q + c.r)) / 2;
-    return d >= 1 && d <= 2 && c.r < 0 && Math.abs(c.q) <= 2;
+  if (!look) return;
+  const folks = (look.spawns || []).filter(s => s.group === 'npc' || s.group === 'vendor');
+  const spots = [[-3, -1], [3, -1]];
+  folks.slice(0, weatherFolk.length).forEach((s, i) => {
+    const p = hexOf(spots[i][0], spots[i][1]);
+    const g = weatherFolk[i];
+    g.visible = true;
+    g.position.set(p.x, 0, p.z);
+    g.userData.folkId = s.id;
   });
-  const used = new Set();
+}
+function syncRolledFigures(g) {
+  weatherBlobs.forEach(m => { m.visible = false; });
+  weatherBeasts.forEach(m => { m.visible = false; });
+  if (state.story) {
+    state.showBrute = false;
+    weatherFolk.forEach(m => { m.visible = false; });
+    return;
+  }
+  const mobs = (g.AR.mobs || []).filter(m => m.rollId && m.state !== 'gone' && m.state !== 'panel');
   let bi = 0, ei = 0;
-  (look.spawns || []).forEach((s, n) => {
-    const kind = standKind(s.id);
-    if (!kind || !spots.length) return;
-    let cell = null;
-    for (let k = 0; k < spots.length; k++) {
-      const c = spots[(look.seed + n * 5 + k) % spots.length];
-      const key = c.q + ',' + c.r;
-      if (!used.has(key)) { used.add(key); cell = c; break; }
-    }
-    if (!cell) return;
-    const p = hexOf(cell.q, cell.r);
+  state.showBrute = false;
+  state.bruteFlinch = 0;
+  for (const m of mobs) {
+    const kind = standKind(m.rollId);
+    const y = m.state === 'dying' ? -0.25 : 0;
     if (kind === 'blob' && bi < weatherBlobs.length) {
-      weatherBlobs[bi].visible = true;
-      weatherBlobs[bi].position.set(p.x, 0, p.z);
-      bi++;
+      const o = weatherBlobs[bi++];
+      o.visible = true;
+      o.position.set(m.x, y, m.y);
+      o.scale.setScalar(m.fl > 0 ? 0.82 : 1);
     } else if (kind === 'beast' && ei < weatherBeasts.length) {
-      weatherBeasts[ei].visible = true;
-      weatherBeasts[ei].position.set(p.x, 0, p.z);
-      weatherBeasts[ei].rotation.y = p.x > 0 ? -0.6 : 0.6;
-      ei++;
+      const o = weatherBeasts[ei++];
+      o.visible = true;
+      o.position.set(m.x, y, m.y);
+      o.rotation.z = m.fl > 0 ? 0.35 : 0;
+      o.scale.setScalar(1);
     } else if (kind === 'brute') {
-      const far = hexCells.find(c => c.q === 0 && c.r === -3) || cell;
-      state.showBrute = true;
-      state.bruteAt = hexOf(far.q, far.r);
+      state.showBrute = m.state !== 'dying';
+      state.bruteAt = { x: m.x, z: m.y };
+      state.bruteFlinch = m.fl > 0 ? 1 : 0;
     }
+  }
+  const folk = g.AR.folk || [];
+  weatherFolk.forEach((o, i) => {
+    const f = folk[i];
+    o.visible = !!f;
+    if (f) o.position.set(f.x, 0, f.y);
   });
 }
 function storySpace(g) {
@@ -598,6 +625,7 @@ function syncShots(g) {
 }
 
 function syncActors(g) {
+  syncRolledFigures(g);
   const mobs = (g.AR.mobs || []).filter(m => m.state !== 'gone' && m.state !== 'panel');
   const dummies = mobs.filter(m => m.dummy);
   posts.forEach((p, i) => {
@@ -629,7 +657,7 @@ function syncActors(g) {
     state.bossHp = Math.max(0, raidBoss.hp);
     state.bossMax = raidBoss.max || BOSS_MAX;
   }
-  const flinch = state.flash > 0 ? 0.35 * state.flash : 0;
+  const flinch = state.bruteFlinch ? 0.28 : (state.flash > 0 ? 0.35 * state.flash : 0);
   const baseY = state.bossHp <= 0 ? -0.4 : 0;
   boss.scale.setScalar(!state.story && state.showBrute ? (state.weatherKind === 'storm' ? 1.25 : 1.1) : 1.55);
   boss.position.set(bx, baseY + Math.sin(state.t * 1.4) * 0.06, bz + flinch);
