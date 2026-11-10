@@ -29,7 +29,7 @@ const state = {
 let renderer, scene, camera, sun, grad;
 let hexMesh, hexInk, edgeMesh, rainMesh;
 let hands, rifle, glass, rune, boss, bossWire, bossEyes, bossBar, boltSky, streak;
-let reticle, petFollow, petSphere;
+let reticle, petFollow, petSphere, slamRing;
 const petRigs = {};
 const posts = [];
 const mobBlobs = [];
@@ -310,7 +310,7 @@ function makeActor(template, clips, scale, set) {
   const actor = { root, mixer, actions, set, clip: '', mob: null, hold: 0, hit: false, death: false };
   mixer.addEventListener('finished', (e) => {
     const name = e.action && e.action.getClip().name;
-    if (name === 'HitReact' || name === RIG_CLIP[set].attack) actor.clip = '';
+    if (name === 'HitReact' || name === RIG_CLIP[set].attack || name === 'Roar' || name === 'Slam' || name === 'Pounce') actor.clip = '';
   });
   rigActors.push(actor);
   return actor;
@@ -349,7 +349,26 @@ function driveActor(actor, m, px, pz) {
     actor.clip = '';
     playRig(actor, set.hit, true);
   } else if (m.fl <= 0) actor.hit = false;
-  if (actor.clip === set.hit || actor.clip === set.attack) return;
+  if (m.roarOnce) {
+    m.roarOnce = false;
+    actor.clip = '';
+    playRig(actor, 'Roar', true);
+    return;
+  }
+  if (m.slamOnce) {
+    m.slamOnce = false;
+    actor.clip = '';
+    playRig(actor, 'Slam', true);
+    return;
+  }
+  if (actor.clip === set.hit || actor.clip === set.attack || actor.clip === 'Roar' || actor.clip === 'Slam' || actor.clip === 'Pounce') return;
+  if (m.pounceOnce) {
+    m.pounceOnce = false;
+    m.swingOnce = false;
+    actor.clip = '';
+    playRig(actor, 'Pounce', true);
+    return;
+  }
   if (m.swingOnce) {
     m.swingOnce = false;
     actor.clip = '';
@@ -544,7 +563,10 @@ function syncBossRig(g, mobs) {
     state: (bossMob && (bossMob.state === 'dying' || bossMob.hp <= 0)) || state.bossHp <= 0 ? 'dying' : 'live',
     moving: false,
     atkSwing: false,
+    roarOnce: !!(bossMob && bossMob.roarOnce),
+    slamOnce: !!(bossMob && bossMob.slamOnce),
   };
+  if (bossMob) { bossMob.roarOnce = false; bossMob.slamOnce = false; }
   driveActor(rigWire, stand, px, pz);
   rigWire.root.position.set(stand.x, 0, stand.y);
   rigWire.mob = stand;
@@ -691,6 +713,41 @@ function buildBoss() {
   scene.add(boltSky, streak);
 }
 
+function buildSlamRing() {
+  slamRing = new THREE.Group();
+  const disc = new THREE.Mesh(
+    new THREE.CircleGeometry(0.85, 28),
+    new THREE.MeshBasicMaterial({ color: 0xff2233, transparent: true, opacity: 0.72, depthWrite: false, side: THREE.DoubleSide })
+  );
+  disc.rotation.x = -Math.PI / 2;
+  slamRing.add(disc);
+  const rim = new THREE.Mesh(
+    new THREE.RingGeometry(0.85, 1.05, 28),
+    new THREE.MeshBasicMaterial({ color: 0xffe1e4, depthWrite: false, side: THREE.DoubleSide })
+  );
+  rim.rotation.x = -Math.PI / 2;
+  slamRing.add(rim);
+  slamRing.visible = false;
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 40;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff6d4';
+  ctx.font = '700 28px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Slam', 64, 30);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, depthWrite: false }));
+  sprite.position.y = 0.8;
+  sprite.scale.set(0.7, 0.22, 1);
+  slamRing.add(sprite);
+  scene.add(slamRing);
+}
+function syncSlam(g) {
+  if (!slamRing) return;
+  const boss = g && g.AR && (g.AR.mobs || []).find(m => m.raidBoss && m.slamTele > 0 && m.slamAt);
+  slamRing.visible = !!boss;
+  if (boss) slamRing.position.set(boss.slamAt.x, 0.55, boss.slamAt.y);
+}
 function buildPet() {
   const g = new THREE.Group();
   const body = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffd36a }));
@@ -824,6 +881,7 @@ function ensure() {
   buildBoss();
   buildPools();
   buildPet();
+  buildSlamRing();
   buildWeatherMobs();
   loadMobRigs().catch(err => console.warn('mob rigs', err));
   state.built = true;
@@ -1019,6 +1077,7 @@ function frame(now) {
   syncShots(g);
   syncActors(g);
   syncPet(g);
+  syncSlam(g);
   syncGun(g);
   stepRain(now / 1000);
   for (const a of rigActors) {

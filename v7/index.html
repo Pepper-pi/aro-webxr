@@ -2153,6 +2153,25 @@ function drawPortal(c, x, y) {
   ctx.fillText('Portal', X, Y - Math.max(16, 18 * f));
   ctx.restore();
 }
+function drawSlam(c) {
+  if (typeof TRAIN === 'undefined' || !TRAIN.dayRaid) return;
+  const boss = (AR.mobs || []).find(m => m.raidBoss && m.slamTele > 0 && m.slamAt);
+  if (!boss) return;
+  const [X, Y, f] = proj(c, boss.slamAt.x, boss.slamAt.y);
+  ctx.save();
+  ctx.strokeStyle = '#ff4455';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(X, Y, Math.max(28, 46 * f), 0, TAU);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,68,85,.28)';
+  ctx.fill();
+  ctx.fillStyle = '#fff6d4';
+  ctx.font = '800 16px ui-rounded,system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText('Slam', X, Y - 8);
+  ctx.restore();
+}
 function mountPortal() {
   const style = document.createElement('style');
   style.textContent = '#portalBtn{position:fixed;left:12px;top:calc(148px + env(safe-area-inset-top,0px));z-index:17;min-height:44px;padding:8px 12px;border-radius:12px;border:1px solid rgba(160,230,200,.8);background:rgba(16,36,32,.92);color:#e7fff4;font:800 13px sans-serif}#portalBtn.hide{display:none}#doorClear{position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;background:#f6f1e8;color:#3a2414;font:800 28px sans-serif}#doorClear.on{display:flex}body.home-in #portalBtn{display:none!important}';
@@ -3078,6 +3097,7 @@ function drawArena(T) {
     ctx.restore();
   }
   drawPortal(c, (AR.ppx || 0) + 0.7, (AR.ppy || 0) - 0.55);
+  drawSlam(c);
   drawWallWeak(T); drawFieldTop(c, T); drawFog(c, T); drawSlashFX(c, T);
   drawLines(c, T); drawLock(c, T);
   // shots
@@ -5563,43 +5583,70 @@ function wakeUp() {
 }
 /* ---------- v7 walking (dice removed) ---------- */
 function canWalkNow() { return G.scene === 'map' && MAP.avOut && G.step >= 2 && G.step <= 7 && MAP.house.mode !== 'fly' && !$('.modal.on') && !$('#ring.on'); }
-function raidMarker() {
+function raidSpot() {
   const look = window.__world && window.__world.look && window.__world.look();
-  if (!look || !SUPER_HEX.length) return null;
+  if (!look || !SUPER_HEX.length || !window.__world || !window.__world.you) return null;
   const s = SUPER_HEX[(look.seed >>> 0) % SUPER_HEX.length];
   const t = tileAt(s.q, s.r);
   if (!t) return null;
+  const you = window.__world.you();
+  const d = Math.hypot(t.x - you.x, t.y - you.y);
   const cleared = window.__profile && window.__profile.raidCleared && window.__profile.raidCleared();
-  return { q: s.q, r: s.r, x: t.x, y: t.y, name: s.name, cleared: !!cleared };
+  return { q: s.q, r: s.r, x: t.x, y: t.y, name: s.name, cleared: !!cleared, d, near: d <= 2.05 };
 }
+function raidMarker() { return raidSpot(); }
 function drawRaidMarker(c) {
-  const raid = raidMarker();
+  const raid = raidSpot();
   if (!raid) return;
-  let [X, Y, f] = proj(c, raid.x, raid.y);
+  const raw = proj(c, raid.x, raid.y);
+  let X = raw[0], Y = raw[1], f = raw[2];
   const off = X < 28 || X > W - 28 || Y < 40 || Y > H - 40;
+  const label = (raid.cleared ? 'Raid clear' : 'Raid') + ' · ' + raid.d.toFixed(1);
   if (off) {
     X = Math.max(54, Math.min(W - 54, X));
-    Y = Math.max(64, Math.min(H - 64, Y));
+    Y = Math.max(72, Math.min(H - 72, Y));
   }
   ctx.save();
   ctx.strokeStyle = raid.cleared ? '#8a8a8a' : '#c9b6ff';
+  ctx.fillStyle = raid.cleared ? '#8a8a8a' : '#c9b6ff';
   ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.arc(X, Y, Math.max(16, 22 * f), 0, TAU);
-  ctx.stroke();
-  ctx.fillStyle = raid.cleared ? '#c8c8c8' : '#fff6d4';
+  if (off) {
+    const ang = Math.atan2(raw[1] - Y, raw[0] - X);
+    ctx.save();
+    ctx.translate(X, Y);
+    ctx.rotate(ang);
+    ctx.beginPath();
+    ctx.moveTo(16, 0);
+    ctx.lineTo(-10, 9);
+    ctx.lineTo(-10, -9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  } else {
+    ctx.beginPath();
+    ctx.arc(X, Y, Math.max(16, 22 * f), 0, TAU);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#fff6d4';
   ctx.font = '800 13px ui-rounded,system-ui';
   ctx.textAlign = 'center';
-  ctx.fillText((raid.cleared ? 'Raid clear' : 'Raid') + (off ? ' · ' + raid.name : ''), X, Y - Math.max(18, 20 * f));
+  ctx.fillText(label, X, Y - (off ? 22 : Math.max(18, 20 * f)));
   ctx.restore();
 }
 function mapTap(X, Y) {
   if (G.scene === 'map') {
-    const raid = raidMarker();
+    const raid = raidSpot();
     if (raid) {
-      const [sx, sy] = proj(MAP.cam, raid.x, raid.y);
-      if (Math.hypot(sx - X, sy - Y) < 42) {
+      const raw = proj(MAP.cam, raid.x, raid.y);
+      let sx = raw[0], sy = raw[1];
+      const off = sx < 28 || sx > W - 28 || sy < 40 || sy > H - 40;
+      if (off) {
+        sx = Math.max(54, Math.min(W - 54, sx));
+        sy = Math.max(72, Math.min(H - 72, sy));
+      }
+      if (Math.hypot(sx - X, sy - Y) < 46) {
         if (raid.cleared) { showCast('The raid is quiet today'); return; }
+        if (!raid.near) { showCast('Step closer · ' + raid.d.toFixed(1)); popText(X, Y - 16, raid.d.toFixed(1) + ' away', '#ffe7a8', 13); return; }
         startDayRaid();
         return;
       }
@@ -5609,7 +5656,10 @@ function mapTap(X, Y) {
       if (!markerNearYou(hit)) { popText(X, Y - 16, 'step closer', '#ffe7a8', 13); return; }
       if (hit.group === 'mob') { startEncounter(hit); return; }
       if (hit.group === 'vendor' && window.__profile && window.__profile.openShop) { window.__profile.openShop(hit); return; }
-      showCast(hit.name + ': ' + hit.line);
+      if (hit.group === 'npc' && window.__profile && window.__profile.talk) {
+        const bond = window.__profile.talk(hit.id, hit.name);
+        showCast(hit.name + ': ' + hit.line + (bond.talked ? ' · friendship ' + bond.level : ' · already talked today'));
+      } else showCast(hit.name + ': ' + hit.line);
       popText(X, Y - 18, hit.line, '#ffe7a8', 13);
       return;
     }
@@ -6829,7 +6879,10 @@ function folkAt(X, Y) {
 }
 function greetFolk(f) {
   if (f.group === 'vendor' && window.__profile && window.__profile.openShop) { window.__profile.openShop(f); return; }
-  showCast(f.name + ': ' + f.line);
+  if (f.group === 'npc' && window.__profile && window.__profile.talk) {
+    const bond = window.__profile.talk(f.id, f.name);
+    showCast(f.name + ': ' + f.line + (bond.talked ? ' · friendship ' + bond.level : ' · already talked today'));
+  } else showCast(f.name + ': ' + f.line);
   const [X, Y, sc] = proj(AR.cam, f.x, f.y);
   popText(X, Y - 46 * sc, f.line, '#ffe7a8', 14);
 }
@@ -7023,11 +7076,18 @@ function startDayRaid() {
   m.raidBoss = true;
   m.dummy = false;
   m.D = Object.assign({}, m.D, { n: 'Wire brute', drop: [] });
+  m.roarOnce = true;
+  m.slamIn = 1.4;
+  const pal = window.__profile && window.__profile.visitor && window.__profile.visitor();
+  if (pal) {
+    m.hp = Math.max(1, m.hp - 12);
+    if (window.__profile.noteFriendRaid) window.__profile.noteFriendRaid();
+  }
   AR.mobs = [m];
   AR.kind = 'raid';
   AR.phase = 'wave';
-  setObj('<b>Wire brute</b> · 220');
-  showCast('The day raid · wire brute');
+  setObj('<b>Wire brute</b> · ' + m.hp);
+  showCast(pal ? pal.name + ' helps · -12' : 'The day raid · wire brute');
   document.getElementById('trainHud').classList.remove('king');
   layoutArenaCam();
   return true;
@@ -7751,8 +7811,30 @@ function drawDockHud() {
       }
     }
     if (TRAIN.dayRaid && !TRAIN.raidPaid) {
-      const boss = AR.mobs.find(m => m.raidBoss);
-      if (boss && (boss.state === 'gone' || boss.hp <= 0)) {
+      const boss = AR.mobs.find(m => m.raidBoss && m.state === 'live');
+      if (boss) {
+        boss.slamIn = (boss.slamIn == null ? 1.4 : boss.slamIn) - dt;
+        if (!boss.slamTele && boss.slamIn <= 0) {
+          const [px, py] = pPos();
+          boss.slamAt = { x: px, y: py };
+          boss.slamTele = 0.9;
+          showCast('Slam · step off');
+        }
+        if (boss.slamTele > 0) {
+          boss.slamTele -= dt;
+          if (boss.slamTele <= 0) {
+            boss.slamOnce = true;
+            boss.slamTele = 0;
+            const [px, py] = pPos();
+            const hit = Math.hypot(px - boss.slamAt.x, py - boss.slamAt.y) < 0.75;
+            if (hit) hurtP(14);
+            else showCast('Dodged the slam');
+            boss.slamIn = 3.4;
+          }
+        }
+      }
+      const down = AR.mobs.find(m => m.raidBoss);
+      if (down && (down.state === 'gone' || down.hp <= 0)) {
         TRAIN.raidPaid = true;
         const pay = window.__profile && window.__profile.grantRaid && window.__profile.grantRaid();
         if (pay) showCast('+' + pay.coins + ' coins · +' + pay.tokens + ' tokens · +1 CELL');
@@ -7774,7 +7856,7 @@ function drawDockHud() {
         m.y += dy / dist * step;
       } else {
         m.nip = (m.nip == null ? 0.6 : m.nip) - dt;
-        if (m.nip <= 0) { m.nip = 1.45; m.swingOnce = true; hurtP(3); }
+        if (m.nip <= 0) { m.nip = 1.45; m.swingOnce = true; if (m.rollId === 'scout') m.pounceOnce = true; hurtP(3); }
       }
     }
   }

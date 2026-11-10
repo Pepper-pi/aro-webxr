@@ -16,7 +16,8 @@ function blank() {
   return {
     coins: 40, tokens: 6, xp: 0, cls: '',
     cells: 2, potions: 2, treats: 0, cosmetic: '',
-    fieldWins: 0, captures: 0, raidDate: '',
+    fieldWins: 0, captures: 0, raidDate: '', friendRaid: '',
+    friends: {},
     quests: null,
     pets: [{ id: 'pip', species: 'pip', name: 'Pip', note: 'Honey carbuncle', level: 1, xp: 0, bond: 0, active: true }],
     pins: [], bonds: { taps: 0, tier: 0, collected: [] }, catches: [], prizes: [],
@@ -42,6 +43,8 @@ function load() {
   if (typeof state.fieldWins !== 'number') state.fieldWins = 0;
   if (typeof state.captures !== 'number') state.captures = 0;
   if (typeof state.raidDate !== 'string') state.raidDate = '';
+  if (typeof state.friendRaid !== 'string') state.friendRaid = '';
+  if (!state.friends || typeof state.friends !== 'object') state.friends = {};
   try {
     const oldPins = JSON.parse(localStorage.getItem('aro.world.pins') || '[]');
     if (Array.isArray(oldPins) && oldPins.length && !state.pins.length) state.pins = oldPins.slice(0, 8);
@@ -133,20 +136,72 @@ function ensureQuests() {
   save();
   return state.quests;
 }
+function friendLevel(points) {
+  let level = 1;
+  let rest = points || 0;
+  while (rest >= 2) { rest -= 2; level += 1; }
+  return { level, rest, need: 2 };
+}
+function friendList() {
+  load();
+  return Object.keys(state.friends).map(id => {
+    const f = state.friends[id];
+    const lv = friendLevel(f.points || 0);
+    return { id, name: f.name || id, points: f.points || 0, level: lv.level, rest: lv.rest, need: lv.need, talked: f.talked || '' };
+  });
+}
+function visitor() {
+  return friendList().find(f => f.level >= 3) || null;
+}
+function talkFriend(id, name) {
+  load();
+  const today = todayKey();
+  const cur = state.friends[id] || { name: name || id, points: 0, talked: '' };
+  cur.name = name || cur.name;
+  if (cur.talked === today) { state.friends[id] = cur; save(); return { talked: false, level: friendLevel(cur.points).level }; }
+  cur.points += 1;
+  cur.talked = today;
+  state.friends[id] = cur;
+  save();
+  return { talked: true, level: friendLevel(cur.points).level };
+}
+function giveFriendTreat(id) {
+  load();
+  const cur = state.friends[id];
+  if (!cur || !(state.treats > 0)) return false;
+  state.treats--;
+  cur.points += 1;
+  save();
+  return friendLevel(cur.points);
+}
 function questCount(id) {
   if (id === 'fish') return state.catches.length;
   if (id === 'fights') return state.fieldWins || 0;
   if (id === 'capture') return state.captures || 0;
   if (id === 'raid') return state.raidDate === todayKey() ? 1 : 0;
+  if (id === 'friend') return state.friendRaid === todayKey() ? 1 : 0;
   return 0;
 }
 function questRows() {
   const quests = ensureQuests();
-  return quests.ids.map(id => {
+  const rows = quests.ids.map(id => {
     const q = QUEST_POOL.find(x => x.id === id);
     const n = questCount(id);
     return { id, name: q.name, need: q.need, have: n, coins: q.coins, tokens: q.tokens, claimed: quests.claimed.indexOf(id) >= 0 };
   });
+  const pal = visitor();
+  if (pal) {
+    rows.push({
+      id: 'friend',
+      name: 'Bring ' + pal.name + ' to the raid',
+      need: 1,
+      have: questCount('friend'),
+      coins: 6,
+      tokens: 1,
+      claimed: quests.claimed.indexOf('friend') >= 0,
+    });
+  }
+  return rows;
 }
 function claimQuest(id) {
   const rows = questRows();
@@ -266,7 +321,29 @@ function openBook(tab) {
   panel.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === panel.dataset.tab));
   const body = document.getElementById('spineBookBody');
   if (panel.dataset.tab === 'pets') renderPets(body);
+  else if (panel.dataset.tab === 'friends') renderFriends(body);
   else list(body, bookRows(panel.dataset.tab));
+}
+function renderFriends(host) {
+  load();
+  host.innerHTML = '';
+  const rows = friendList();
+  if (!rows.length) {
+    const p = document.createElement('p');
+    p.textContent = 'Talk to someone on the map. A treat raises friendship too.';
+    host.appendChild(p);
+    return;
+  }
+  for (const f of rows) {
+    const title = document.createElement('p');
+    title.textContent = f.name + ' · Lv ' + f.level + ' · ' + f.rest + '/' + f.need + (f.level >= 3 ? ' · visits' : '');
+    const treat = document.createElement('button');
+    treat.type = 'button';
+    treat.textContent = 'Give treat · ' + state.treats + ' left';
+    treat.onclick = () => { giveFriendTreat(f.id); openBook('friends'); };
+    host.appendChild(title);
+    host.appendChild(treat);
+  }
 }
 function renderPets(host) {
   load();
@@ -398,7 +475,7 @@ function mount() {
   book.innerHTML = '<b>Collection</b><p id="spineYou"></p><div id="spineTabs"></div><div id="spineBookBody"></div><button type="button" id="spineBookClose">Close</button>';
   document.body.appendChild(book);
   const tabs = book.querySelector('#spineTabs');
-  for (const tab of ['pins', 'bonds', 'catches', 'pets']) {
+  for (const tab of ['pins', 'bonds', 'catches', 'pets', 'friends']) {
     const b = document.createElement('button');
     b.type = 'button';
     b.dataset.tab = tab;
@@ -433,6 +510,10 @@ function mount() {
     level: () => { load(); return playerLevel(state.xp); },
     setClass: (c) => { load(); state.cls = c === 'gunner' ? 'gunner' : 'mage'; save(); return state.cls; },
     raidCleared: () => { load(); return state.raidDate === todayKey(); },
+    talk: talkFriend,
+    giveFriendTreat,
+    visitor,
+    noteFriendRaid: () => { load(); state.friendRaid = todayKey(); save(); },
     quests: questRows,
     claimQuest,
     openBook, openShop, openArcade, openBoard,

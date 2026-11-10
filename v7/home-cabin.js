@@ -31,7 +31,7 @@ const lookNow = new THREE.Vector3();
 
 let renderer, scene, camera, fireLight, doorPivot, skyTex, skyCanvas, skyCtx, cabinRoot, reticle, hitSource, slotPlane;
 let goldRoot, goldMixer, goldAction, goldReady = false;
-let slotRoot, slotArm, slotCanvas, slotCtx, slotTex;
+let slotRoot, slotArm, slotCanvas, slotCtx, slotTex, visitor;
 let cat;
 let ac, master;
 const ray = new THREE.Raycaster();
@@ -761,8 +761,46 @@ function ensure() {
   renderer.setPixelRatio(Math.min(1.25, window.devicePixelRatio || 1));
   camera = new THREE.PerspectiveCamera(48, 1, 0.08, 40);
   buildRoom();
+  buildVisitor();
   resize();
   return true;
+}
+function buildVisitor() {
+  visitor = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 0.42, 4, 8), new THREE.MeshBasicMaterial({ color: 0x6aa7d8 }));
+  body.position.y = 0.55;
+  visitor.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshBasicMaterial({ color: 0xf0c09a }));
+  head.position.y = 1.05;
+  visitor.add(head);
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 48;
+  const tex = new THREE.CanvasTexture(canvas);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  sprite.position.y = 1.45;
+  sprite.scale.set(0.9, 0.18, 1);
+  visitor.add(sprite);
+  visitor.userData.canvas = canvas;
+  visitor.userData.sprite = sprite;
+  visitor.position.set(-1.15, 0, 0.15);
+  visitor.visible = false;
+  scene.add(visitor);
+}
+function syncVisitor() {
+  if (!visitor) return;
+  const pal = window.__profile && window.__profile.visitor && window.__profile.visitor();
+  const show = !!(pal && HOME.on && (HOME.phase === 'inside' || HOME.phase === 'opening'));
+  visitor.visible = show;
+  if (!show || visitor.userData.shown === pal.name) return;
+  const ctx = visitor.userData.canvas.getContext('2d');
+  ctx.clearRect(0, 0, 256, 48);
+  ctx.fillStyle = '#fff6d4';
+  ctx.font = '700 28px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(pal.name, 128, 34);
+  visitor.userData.sprite.material.map.needsUpdate = true;
+  visitor.userData.shown = pal.name;
 }
 function resize() {
   const canvas = document.getElementById('homeCv');
@@ -796,6 +834,7 @@ function placeRide(out) {
 }
 function step(dt) {
   if (!HOME.on) return;
+  syncVisitor();
   if (goldMixer) goldMixer.update(dt);
   HOME.t += dt;
   HOME.door += (HOME.doorTo - HOME.door) * Math.min(1, dt * 3.2);
