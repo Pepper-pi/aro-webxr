@@ -1994,6 +1994,54 @@ function drawMap(T) {
   for (let i = 0; i < 5; i++) { const wx = -5 + i * 2.6, wy = -4 + Math.sin(i * 2.1) * 3, [X, Y, f] = proj(c, wx, wy); const bob = Math.sin(T * 1.3 + i) * 5; ctx.globalAlpha = .22; ctx.strokeStyle = '#7ff0ff'; ctx.lineWidth = 1.2; poly(ctx, HEXC.map(p => [X + p[0] * 6 * f, Y - 60 * f + bob + p[1] * 7 * f])); ctx.stroke(); ctx.globalAlpha = 1; }
   drawSuperHexNames(c, h);
   drawWorldPins(c);
+  drawEncounterMarkers(c);
+}
+function drawEncounterMarkers(c) {
+  if (G.scene !== 'map' || !window.__world || !window.__world.markers) return;
+  const list = window.__world.markers();
+  const you = window.__world.you ? window.__world.you() : null;
+  if (you && window.__world.dev && window.__world.dev()) {
+    const [X, Y, f] = proj(c, you.x, you.y);
+    ctx.save();
+    ctx.strokeStyle = '#fff6d4';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(X, Y, Math.max(8, 10 * f), 0, TAU);
+    ctx.stroke();
+    ctx.restore();
+  }
+  for (const m of list) {
+    const [X, Y, f] = proj(c, m.x, m.y);
+    const r = Math.max(7, 8 * f);
+    const col = m.group === 'mob' ? '#ff5b7a' : m.group === 'vendor' ? '#ffd36a' : '#7ec8ff';
+    ctx.save();
+    ctx.fillStyle = col;
+    ctx.strokeStyle = '#1a1020';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(X, Y, r, 0, TAU);
+    ctx.fill();
+    ctx.stroke();
+    ctx.font = '800 11px ui-rounded,system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#1a1020';
+    ctx.fillText(m.name, X, Y - r - 4);
+    ctx.restore();
+  }
+}
+function markerUnder(X, Y) {
+  if (!window.__world || !window.__world.markers) return null;
+  let best = null, bd = 28;
+  for (const m of window.__world.markers()) {
+    const [sx, sy] = proj(MAP.cam, m.x, m.y);
+    const d = Math.hypot(sx - X, sy - Y);
+    if (d < bd) { bd = d; best = m; }
+  }
+  return best;
+}
+function markerNearYou(m) {
+  const you = window.__world.you();
+  return Math.hypot(m.x - you.x, m.y - you.y) <= 2.05;
 }
 function drawWorldPins(c) {
   if (!window.__world || !window.__world.pins) return;
@@ -5362,6 +5410,16 @@ function wakeUp() {
 /* ---------- v7 walking (dice removed) ---------- */
 function canWalkNow() { return G.scene === 'map' && MAP.avOut && G.step >= 2 && G.step <= 7 && MAP.house.mode !== 'fly' && !$('.modal.on') && !$('#ring.on'); }
 function mapTap(X, Y) {
+  if (G.scene === 'map') {
+    const hit = markerUnder(X, Y);
+    if (hit) {
+      if (!markerNearYou(hit)) { popText(X, Y - 16, 'step closer', '#ffe7a8', 13); return; }
+      if (hit.group === 'mob') { startEncounter(hit); return; }
+      showCast(hit.name + ': ' + hit.line);
+      popText(X, Y - 18, hit.line, '#ffe7a8', 13);
+      return;
+    }
+  }
   if (!canWalkNow()) return;
   const [wx, wy] = unproj(MAP.cam, X, Y + 4), [q, r] = xyHex(wx, wy), t = tileAt(q, r); if (!t) return;
   if (t.ter === 'water') { popText(X, Y - 10, 'too deep to wade', '#7ff0ff', 13); return; }
@@ -5504,7 +5562,7 @@ let mp = null;
 function pressOwns(e) { return !AR.ptr || AR.ptr.id == null || AR.ptr.id === e.pointerId; }
 cv.addEventListener('pointerdown', e => { e.preventDefault(); audioInit(); if ($('#fishM').classList.contains('on') && FI.open) { fishPointerDown(e); return; } const X = e.clientX, Y = e.clientY; if (G.scene === 'arena') { if (AR.ptr && AR.ptr.id != null && AR.ptr.id !== e.pointerId) return; arenaDown(X, Y); if (AR.ptr) AR.ptr.id = e.pointerId; } else { const [AX, AY, f] = proj(MAP.cam, MAP.house.x, MAP.house.y); mp = { x: X, y: Y, t: performance.now(), onMe: MAP.avOut && Math.hypot(X - AX, Y - (AY - 22 * f)) < 46 }; } }, { passive: false });
 cv.addEventListener('pointermove', e => { if ($('#fishM').classList.contains('on') && FI.open) { fishPointerMove(e); return; } if (G.scene === 'arena') { if (!pressOwns(e)) return; arenaMove(e.clientX, e.clientY); } else if (mp && !mp.onMe && e.clientY - mp.y > 90 && Math.abs(e.clientX - mp.x) < 60 && G.step >= 5) { mp = null; openRing(); } });
-cv.addEventListener('pointerup', e => { if ($('#fishM').classList.contains('on') && FI.open) { fishPointerUp(e); return; } const X = e.clientX, Y = e.clientY; if (G.scene === 'arena') { if (!pressOwns(e)) return; e.preventDefault(); arenaUp(X, Y); } else if (mp) { const dx = X - mp.x, dy = Y - mp.y; if (Math.hypot(dx, dy) < 14) mapTap(X, Y); else if (mp.onMe && Math.hypot(dx, dy) > 24) dragStep(dx, dy); } mp = null; });
+cv.addEventListener('pointerup', e => { if ($('#fishM').classList.contains('on') && FI.open) { fishPointerUp(e); return; } const X = e.clientX, Y = e.clientY; if (G.scene === 'arena') { if (!pressOwns(e)) return; e.preventDefault(); arenaUp(X, Y); } else if (mp) { const dx = X - mp.x, dy = Y - mp.y; const devWalk = window.__world && window.__world.dev && window.__world.dev(); if (devWalk && Math.hypot(dx, dy) > 18) window.__world.nudge(-dy * 0.00005, dx * 0.00006); else if (Math.hypot(dx, dy) < 14) mapTap(X, Y); else if (mp.onMe && Math.hypot(dx, dy) > 24) dragStep(dx, dy); } mp = null; });
 cv.addEventListener('touchend', e => { if (G.scene === 'arena') e.preventDefault(); }, { passive: false });
 cv.addEventListener('pointercancel', e => { if ($('#fishM').classList.contains('on') && FI.open) { if (FI.pts) FI.pts.delete(e.pointerId); FI.down = null; if (FI.phase === 'aim') setGesture('idle', { lead: 'offhand', pinch: 0 }); return; } if (!pressOwns(e)) return; AR.ptr = null; mp = null; FIELD.inspect = null; });
 cv.addEventListener('touchcancel', () => { AR.ptr = null; mp = null; });
@@ -5516,7 +5574,14 @@ const brew = $('#brew');
 brew.addEventListener('pointerdown', e => { e.preventDefault(); if (brew.disabled) return; CR.brewing = true; CR.k = 0; SFX.brew(); });
 ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => brew.addEventListener(ev, () => { if (CR.brewing && CR.k < 1) { CR.brewing = false; CR.k = 0; brew.querySelector('i').style.width = '0'; } }));
 addEventListener('keydown', e => {
-  if (G.scene === 'map' && e.key.startsWith('Arrow')) { e.preventDefault(); arrowStep(e.key); }
+  if (G.scene === 'map' && e.key.startsWith('Arrow')) {
+    e.preventDefault();
+    if (window.__world && window.__world.dev && window.__world.dev()) {
+      const step = 0.006;
+      const d = { ArrowLeft: [0, -step], ArrowRight: [0, step], ArrowUp: [step, 0], ArrowDown: [-step, 0] }[e.key];
+      if (d) window.__world.nudge(d[0], d[1]);
+    } else arrowStep(e.key);
+  }
   if ((e.key === 'w' || e.key === 'W') && G.scene !== 'title' && !e.repeat) setWireView(!WIRE.view);
   if (G.scene === 'arena') { if (e.key.startsWith('Arrow')) e.preventDefault(); if (e.key === 'ArrowLeft' || e.key === 'a') dodge(-1); if (e.key === 'ArrowRight' || e.key === 'd') dodge(1); if (e.key === 'ArrowUp') moveP(0, -1); if (e.key === 'ArrowDown') moveP(0, 1); if (e.key === '4' || e.key === 'f') raiseWall(); if (e.key === '5' || e.key === 'g') shadowSlash(); if ('123'.includes(e.key)) { selSpell(+e.key - 1); cast(+e.key - 1); } if (e.key === ' ') { if (AR.phase === 'block') punchBlock(); else cast(AR.sel); } }
   else if ($('#fishM').classList.contains('on') && e.key === ' ') { if (!e.repeat) fishKey(); }
@@ -6510,11 +6575,29 @@ function rolledMobSpecs() {
   const look = window.__world && window.__world.look && window.__world.look();
   const mobs = look && look.spawns ? look.spawns.filter(s => s.group === 'mob') : [];
   if (!mobs.length) return null;
+  let usedCenter = false;
   return mobs.map((s, i) => {
     const def = ROLL_FIGHT[s.id] || ROLL_FIGHT.slime;
-    const lap = Math.floor(i / ROLL_SPOTS.length);
-    return { k: def.k, at: ROLL_SPOTS[i % ROLL_SPOTS.length], nudge: lap ? (i % 2 ? 0.46 : -0.46) : 0, full: 1, rar: 0, rollId: s.id, hp: def.hp, name: def.name };
+    const center = s.id === 'glass-brute';
+    const at = center ? [1, -2] : ROLL_SPOTS[(i + (usedCenter ? 1 : 0)) % ROLL_SPOTS.length];
+    if (center) usedCenter = true;
+    const lap = !center && i >= ROLL_SPOTS.length;
+    return { k: def.k, at, nudge: lap ? 0.4 : 0, full: 1, rar: 0, rollId: s.id, hp: def.hp, name: def.name };
   });
+}
+function startEncounter(marker) {
+  startTrain();
+  TRAIN.encounter = marker.key;
+  TRAIN.demo = false;
+  const spec = (function () {
+    const def = ROLL_FIGHT[marker.id] || ROLL_FIGHT.slime;
+    return { k: def.k, at: [1, -2], nudge: 0, full: 1, rar: 0, rollId: marker.id, hp: def.hp, name: def.name };
+  })();
+  const m = mkMob(spec, 0);
+  stampRolled(m, spec, true);
+  AR.mobs = [m];
+  setObj('<b>' + spec.name + '</b> · clear it to return');
+  showCast(spec.name + ' is here');
 }
 function stampRolled(m, spec, practice) {
   if (spec.nudge) m.x += spec.nudge;
@@ -7370,6 +7453,12 @@ function drawDockHud() {
       TRAIN.drill.said = true;
       showCast('Round ' + TRAIN.drill.round + ' clear · the wave is down');
       popText(W * 0.5, H * 0.34, 'wave down', '#ffd36a', 18);
+      if (TRAIN.encounter) {
+        const key = TRAIN.encounter;
+        TRAIN.encounter = null;
+        if (window.__world && window.__world.clearMarker) window.__world.clearMarker(key);
+        setTimeout(() => { if (G.scene === 'arena' && TRAIN.on) leaveTrain(); }, 650);
+      }
     }
     if (AR.phase !== 'wave') { AR.phase = 'wave'; setAct(null); }
     const [px, py] = pPos();
@@ -7386,7 +7475,7 @@ function drawDockHud() {
         m.y += dy / dist * step;
       } else {
         m.nip = (m.nip == null ? 0.6 : m.nip) - dt;
-        if (m.nip <= 0) { m.nip = 1.45; hurtP(3); }
+        if (m.nip <= 0) { m.nip = 1.45; m.swingOnce = true; hurtP(3); }
       }
     }
   }
@@ -7519,7 +7608,7 @@ document.getElementById('cellBtn').addEventListener('click', e => { e.stopPropag
 document.getElementById('itemReach').addEventListener('click', e => { e.stopPropagation(); if (itemSend()) { closeModal('cmdM'); showCast('At reach · ' + REACH.kind + ' · not tracked'); } });
 document.getElementById('itemBoard').addEventListener('click', e => { e.stopPropagation(); if (TRAIN.on) openCommand(); });
 document.getElementById('itemBubble').addEventListener('click', e => { e.stopPropagation(); itemPop(); });
-document.getElementById('trainBack').addEventListener('click', e => { e.stopPropagation(); if (TRAIN.king) { TRAIN.king = false; startTrain(); return; } leaveTrain(); });
+document.getElementById('trainBack').addEventListener('click', e => { e.stopPropagation(); if (TRAIN.encounter) { TRAIN.encounter = null; leaveTrain(); return; } if (TRAIN.king) { TRAIN.king = false; startTrain(); return; } leaveTrain(); });
 document.getElementById('trainClass').addEventListener('click', e => { e.stopPropagation(); setClass(GUN.cls === 'gunner' ? 'mage' : 'gunner'); });
 document.getElementById('viewTac').addEventListener('click', e => { e.stopPropagation(); setTrainView('tactical'); });
 document.getElementById('viewLow').addEventListener('click', e => { e.stopPropagation(); setTrainView('low'); });

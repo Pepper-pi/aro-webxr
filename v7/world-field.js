@@ -21,6 +21,23 @@ let override = '';
 let place = Object.assign({}, SEASIDE);
 let look = null;
 let rev = 0;
+const CELL = 0.02;
+const dev = { on: false, lat: SEASIDE.lat, lon: SEASIDE.lon };
+const cleared = new Set();
+const MARK_NAME = {
+  slime: 'Slime', blob: 'Blob', scout: 'Scout', goblin: 'Goblin', 'glass-brute': 'Brute',
+  'npc-dock': 'Dock hand', 'npc-fisher': 'Fisher', 'npc-nightwatch': 'Night watch',
+  'vendor-tea': 'Tea stall', 'vendor-ink': 'Ink stall', 'vendor-gear': 'Gear stall',
+};
+const MARK_LINE = {
+  'npc-dock': 'The dock is quiet today. Mind the rain.',
+  'npc-fisher': 'The pond is biting. Keep the line short.',
+  'npc-nightwatch': 'I have the watch. The pits are glowing.',
+  'vendor-tea': 'Tea is hot. I am not selling yet.',
+  'vendor-ink': 'Ink for the map. The stall is closed.',
+  'vendor-gear': 'Gear later. This is only a hello.',
+};
+const MARK_SLOTS = [[1.35, -1.2], [-1.4, -1.05], [0.1, -1.9], [-1.25, 0.15], [1.4, 0.05], [-0.15, 0.85]];
 
 function mix(str) {
   let h = 2166136261;
@@ -164,6 +181,74 @@ function loadPins() {
     return Array.isArray(list) ? list : [];
   } catch (e) { return []; }
 }
+function here() {
+  if (dev.on) return { lat: dev.lat, lon: dev.lon };
+  return { lat: place.lat, lon: place.lon };
+}
+function cellId(lat, lon) {
+  return Math.round(lat / CELL) + ',' + Math.round(lon / CELL);
+}
+function anchor() {
+  if (dev.on) {
+    const x = (dev.lon + 123.92) * 28;
+    const y = (dev.lat - 45.99) * 34;
+    return { x: Math.max(-4.2, Math.min(4.2, x)), y: Math.max(-3.4, Math.min(3.4, y)) };
+  }
+  const h = window.__aro && window.__aro.MAP && window.__aro.MAP.house;
+  if (h) return { x: h.x, y: h.y };
+  return { x: 0, y: 0 };
+}
+function markers() {
+  if (!look || !table) return [];
+  const h = here();
+  const cell = cellId(h.lat, h.lon);
+  const seed = mix(look.date + '|' + cell + '|' + (look.disc || discId()));
+  const rng = mulberry32(seed ^ mix('mark|' + look.weather));
+  const roll = table.roll || { mob: 2, npc: 1, vendor: 1 };
+  const spawns = []
+    .concat(rollGroup(rng, 'mob', Math.min(2, roll.mob || 2), look.weather))
+    .concat(rollGroup(rng, 'npc', 1, look.weather))
+    .concat(rollGroup(rng, 'vendor', 1, look.weather));
+  const order = MARK_SLOTS.slice();
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = (rng() * (i + 1)) | 0;
+    const swap = order[i]; order[i] = order[j]; order[j] = swap;
+  }
+  const at = anchor();
+  return spawns.map((s, i) => {
+    const slot = order[i % order.length];
+    const key = look.date + '|' + cell + '|' + i + '|' + s.id;
+    return {
+      key, id: s.id, group: s.group,
+      x: at.x + slot[0], y: at.y + slot[1],
+      name: MARK_NAME[s.id] || s.id,
+      line: MARK_LINE[s.id] || 'Hello.',
+      cell,
+    };
+  }).filter(m => !cleared.has(m.key));
+}
+function clearMarker(key) {
+  if (key) cleared.add(key);
+  rev += 1;
+  return true;
+}
+function nudge(dLat, dLon) {
+  dev.on = true;
+  dev.lat += dLat;
+  dev.lon += dLon;
+  rev += 1;
+  const btn = document.getElementById('devWalk');
+  if (btn) btn.textContent = 'Walking';
+  return { lat: dev.lat, lon: dev.lon, cell: cellId(dev.lat, dev.lon) };
+}
+function setDev(on) {
+  dev.on = !!on;
+  if (dev.on) { dev.lat = place.lat; dev.lon = place.lon; }
+  const btn = document.getElementById('devWalk');
+  if (btn) btn.textContent = dev.on ? 'Walking' : 'Dev walk';
+  rev += 1;
+  return dev.on;
+}
 function pin() {
   if (!look) recompute();
   const list = loadPins();
@@ -218,6 +303,8 @@ function mount() {
   style.textContent = [
     '#worldChip{position:fixed;left:50%;top:calc(44px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:16;display:none;padding:6px 14px;border-radius:999px;background:rgba(42,24,16,.9);border:1px solid rgba(226,196,138,.8);color:#f6e2c4;font:800 13px sans-serif;pointer-events:none;letter-spacing:.02em}',
     'body.field-on #worldChip{display:block}',
+    '#devWalk{position:fixed;left:12px;top:calc(52px + env(safe-area-inset-top,0px));z-index:16;display:none;min-height:36px;padding:6px 12px;border-radius:12px;border:1px solid rgba(226,196,138,.7);background:rgba(42,24,16,.9);color:#f6e2c4;font:800 13px sans-serif}',
+    'body.out-combat #devWalk{display:block}',
     '#worldHud{position:fixed;right:12px;top:calc(8px + env(safe-area-inset-top,0px));z-index:16;display:none;width:min(18rem,calc(100% - 24px));pointer-events:none}',
     'body.field-on.fight-fp:not(.fp-clear) #worldHud{display:block}',
     '#worldHud select,#worldHud button{pointer-events:auto;min-height:36px;margin:0 6px 6px 0;padding:6px 10px;border-radius:10px;border:1px solid rgba(180,220,255,.45);background:rgba(12,10,20,.88);color:#f4f7ff;font:700 13px sans-serif}',
@@ -233,6 +320,12 @@ function mount() {
   chip.id = 'worldChip';
   chip.textContent = 'weather';
   document.body.appendChild(chip);
+  const walk = document.createElement('button');
+  walk.id = 'devWalk';
+  walk.type = 'button';
+  walk.textContent = 'Dev walk';
+  walk.onclick = () => setDev(!dev.on);
+  document.body.appendChild(walk);
   document.getElementById('worldWeather').onchange = (e) => {
     override = e.target.value === 'live' ? '' : e.target.value;
     if (override) publish(buildLook(currentDate(), discId(), override));
@@ -244,6 +337,12 @@ function mount() {
     revision: () => rev,
     pins: loadPins,
     pin,
+    markers,
+    you: anchor,
+    dev: () => dev.on,
+    setDev,
+    nudge,
+    clearMarker,
     setWeather: (kind) => {
       override = KINDS.includes(kind) ? kind : '';
       const sel = document.getElementById('worldWeather');
@@ -266,6 +365,8 @@ function mount() {
   };
   loadTable().then(async () => {
     place = await locate();
+    dev.lat = place.lat;
+    dev.lon = place.lon;
     if (!override) await loadWeather();
   });
 }

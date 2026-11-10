@@ -348,9 +348,14 @@ function driveActor(actor, m, px, pz) {
     actor.clip = '';
     playRig(actor, set.hit, true);
   } else if (m.fl <= 0) actor.hit = false;
-  if (actor.clip === set.hit) return;
-  if (m.atkSwing) playRig(actor, set.attack, false);
-  else if (m.moving) playRig(actor, set.move, false);
+  if (actor.clip === set.hit || actor.clip === set.attack) return;
+  if (m.swingOnce) {
+    m.swingOnce = false;
+    actor.clip = '';
+    playRig(actor, set.attack, true);
+    return;
+  }
+  if (m.moving) playRig(actor, set.move, false);
   else playRig(actor, set.idle, false);
 }
 function claimActor(pool, m) {
@@ -378,8 +383,8 @@ async function loadMobRigs() {
   for (const g of [blob, beast, glassB, wireB]) dressMob(g.scene);
   for (let i = 0; i < 4; i++) makeActor(blob.scene, blob.animations, 1.85, 'blob');
   for (let i = 0; i < 4; i++) makeActor(beast.scene, beast.animations, 1.15, 'beast');
-  rigGlass = makeActor(glassB.scene, glassB.animations, 0.92, 'brute');
-  rigWire = makeActor(wireB.scene, wireB.animations, 0.92, 'brute');
+  rigGlass = makeActor(glassB.scene, glassB.animations, 0.72, 'brute');
+  rigWire = makeActor(wireB.scene, wireB.animations, 0.72, 'brute');
   mobsReady = true;
 }
 function rigPools() {
