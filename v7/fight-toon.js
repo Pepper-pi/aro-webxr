@@ -38,6 +38,7 @@ let hands, rifle, glass, rune, boss, bossWire, bossEyes, bossBar, boltSky, strea
 let kingPlate, kingPaint, kingHolo, kingShadow;
 let boarPlate, boarPaint, boarHolo, boarShadow;
 let parkPlate, parkPaint;
+let raidFloor;
 const parkDir = new THREE.Vector3();
 const parkAt = new THREE.Vector3();
 const BOAR_PULL = 2.15;
@@ -181,7 +182,29 @@ function buildHexes() {
     areaDress.Stone.push(dressStone(i));
   });
   scene.add(hexMesh, hexInk, edgeMesh);
+  buildRaidFloor();
   paintField(null);
+}
+function buildRaidFloor() {
+  const tex = new THREE.TextureLoader().load('raid_floor.png');
+  tex.colorSpace = THREE.SRGBColorSpace;
+  raidFloor = new THREE.Mesh(
+    new THREE.PlaneGeometry(28.4, 16),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false })
+  );
+  raidFloor.rotation.x = -Math.PI / 2;
+  raidFloor.position.set(0, 0.1, -2.6);
+  raidFloor.visible = false;
+  raidFloor.renderOrder = 1;
+  scene.add(raidFloor);
+}
+function syncRaidFloor(g) {
+  const king = !!(g && g.TRAIN && g.TRAIN.king && !state.parkOn);
+  if (raidFloor) raidFloor.visible = king;
+  const img = raidFloor && raidFloor.material.map && raidFloor.material.map.image;
+  const ready = !!(img && img.complete && img.naturalWidth);
+  state.raidFloor = { on: !!(raidFloor && raidFloor.visible), art: 'raid-floor', ready };
+  return state.raidFloor;
 }
 
 function dressTree(i) {
@@ -1508,6 +1531,7 @@ function syncActors(g) {
   const plate = syncKingPlate(g);
   state.plate = plate;
   syncBoarPlate(g);
+  syncRaidFloor(g);
 }
 
 function syncGun(g) {
@@ -1629,6 +1653,7 @@ function mount() {
       plate: state.plate || { on: false, mode: 'off' },
     }),
     plate: () => state.plate || { on: false, mode: 'off' },
+    floor: () => state.raidFloor || { on: false, art: 'raid-floor', ready: false },
     boar: () => state.boar || { on: false, mode: 'off' },
     park: () => state.park || { on: false, mode: 'off' },
     strike: () => { if (ensure()) hurtBoss(18); return state.bossHp; },

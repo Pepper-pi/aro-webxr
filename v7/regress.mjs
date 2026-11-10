@@ -585,15 +585,21 @@ const kingPlate = await page.evaluate(async () => {
   window.__train.startKing();
   window.__train.setTrainView('fp');
   const wait = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-  let front = null;
-  for (let i = 0; i < 12; i++) { await wait(); front = window.__fight && window.__fight.plate && window.__fight.plate(); if (front && front.on && front.mode === 'paint') break; }
+  let front = null, floor = null;
+  for (let i = 0; i < 40; i++) {
+    await wait();
+    front = window.__fight && window.__fight.plate && window.__fight.plate();
+    floor = window.__fight && window.__fight.floor && window.__fight.floor();
+    if (front && front.on && front.mode === 'paint' && floor && floor.on && floor.ready) break;
+  }
   const m = window.__aro.AR.mobs.find(x => x.tier === 'boss' && x.art === 'king');
   if (m) { window.__aro.AR.ppx = m.x; window.__aro.AR.ppy = m.y - 2.6; }
   await wait(); await wait();
   const behind = window.__fight && window.__fight.plate && window.__fight.plate();
-  return { front, behind, view: window.__train.TRAIN.view, king: window.__train.TRAIN.king };
+  return { front, behind, floor, view: window.__train.TRAIN.view, king: window.__train.TRAIN.king };
 });
 check('gel king plate is the painting from the front and a hologram from behind', kingPlate.king && kingPlate.view === 'fp' && kingPlate.front && kingPlate.front.on && kingPlate.front.mode === 'paint' && kingPlate.behind && kingPlate.behind.on && kingPlate.behind.mode === 'holo', JSON.stringify(kingPlate));
+check('gel king front fight shows the dressed raid floor', kingPlate.king && kingPlate.front && kingPlate.front.mode === 'paint' && kingPlate.floor && kingPlate.floor.on && kingPlate.floor.art === 'raid-floor' && kingPlate.floor.ready, JSON.stringify(kingPlate.floor));
 await page.waitForFunction(() => window.__gardenPlate && window.__gardenPlate.state().ready, { timeout: 8000 });
 const gardenPlate = await page.evaluate(() => {
   enterGarden();
