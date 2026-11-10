@@ -6561,6 +6561,7 @@ const ROLL_FIGHT = {
   scout: { k: 'scout', hp: 48, name: 'Scout' },
   goblin: { k: 'scout', hp: 56, name: 'Goblin' },
   'glass-brute': { k: 'goblin', hp: 90, name: 'Brute' },
+  'wire-brute': { k: 'goblin', hp: 110, name: 'Wire brute' },
 };
 const FOLK_LINE = {
   'npc-dock': ['Dock hand', 'The dock is quiet today. Mind the rain.'],
@@ -6578,7 +6579,7 @@ function rolledMobSpecs() {
   let usedCenter = false;
   return mobs.map((s, i) => {
     const def = ROLL_FIGHT[s.id] || ROLL_FIGHT.slime;
-    const center = s.id === 'glass-brute';
+    const center = s.id === 'glass-brute' || s.id === 'wire-brute';
     const at = center ? [1, -2] : ROLL_SPOTS[(i + (usedCenter ? 1 : 0)) % ROLL_SPOTS.length];
     if (center) usedCenter = true;
     const lap = !center && i >= ROLL_SPOTS.length;
@@ -6614,12 +6615,12 @@ function stampRolled(m, spec, practice) {
 }
 function placeFolk() {
   const look = window.__world && window.__world.look && window.__world.look();
-  const folks = look && look.spawns ? look.spawns.filter(s => s.group === 'npc' || s.group === 'vendor') : [];
-  const spots = [[-3, -1], [3, -1]];
-  AR.folk = folks.slice(0, 2).map((s, i) => {
-    const line = FOLK_LINE[s.id] || [s.name || 'Someone', 'Hello.'];
+  const folks = look && look.spawns ? look.spawns.filter(s => (s.group === 'npc' || s.group === 'vendor') && s.place === 'field') : [];
+  const spots = [[-3, -1], [3, -1], [-2, 1], [2, 1]];
+  AR.folk = folks.slice(0, spots.length).map((s, i) => {
+    const known = FOLK_LINE[s.id];
     const [x, y] = hexXY(spots[i][0], spots[i][1]);
-    return { id: s.id, group: s.group, name: line[0], line: line[1], x, y };
+    return { id: s.id, group: s.group, name: s.name || (known && known[0]) || 'Someone', line: s.line || (known && known[1]) || 'Hello.', x, y };
   });
 }
 function folkAt(X, Y) {
@@ -7464,7 +7465,7 @@ function drawDockHud() {
     const [px, py] = pPos();
     for (const m of AR.mobs) {
       if (!m.rolled || m.state !== 'live') continue;
-      if (m.rollId !== 'blob' && m.rollId !== 'scout' && m.rollId !== 'glass-brute') { m.moving = false; m.atkSwing = false; continue; }
+      if (m.rollId !== 'blob' && m.rollId !== 'scout' && m.rollId !== 'glass-brute' && m.rollId !== 'wire-brute') { m.moving = false; m.atkSwing = false; continue; }
       const dx = px - m.x, dy = py - m.y;
       const dist = Math.hypot(dx, dy) || 1;
       m.atkSwing = dist < 1.65;

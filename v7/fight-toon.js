@@ -235,7 +235,7 @@ function standKind(id) {
   if (id === 'slime') return 'blob';
   if (id === 'scout') return 'rig-beast';
   if (id === 'goblin') return 'beast';
-  if (id === 'glass-brute') return 'rig-brute';
+  if (id === 'glass-brute' || id === 'wire-brute') return 'rig-brute';
   return '';
 }
 const RIG_CLIP = {
@@ -417,9 +417,9 @@ function buildWeatherMobs() {
     scene.add(g);
     weatherBeasts.push(g);
   }
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 4; i++) {
     const g = new THREE.Group();
-    const cloth = toon(i ? '#e2b15a' : '#6aa7d8').clone();
+    const cloth = toon(i % 2 ? '#e2b15a' : '#6aa7d8').clone();
     part(new THREE.CylinderGeometry(0.16, 0.18, 0.46, 7), cloth, 0, 0.4, 0, g);
     part(new THREE.SphereGeometry(0.12, 8, 6), toon('#f0c09a').clone(), 0, 0.78, 0, g);
     g.visible = false;
@@ -434,9 +434,9 @@ function placeWeatherMobs(look) {
   state.showBrute = false;
   state.bruteAt = null;
   if (!look) return;
-  const folks = (look.spawns || []).filter(s => s.group === 'npc' || s.group === 'vendor');
-  const spots = [[-3, -1], [3, -1]];
-  folks.slice(0, weatherFolk.length).forEach((s, i) => {
+  const folks = (look.spawns || []).filter(s => (s.group === 'npc' || s.group === 'vendor') && s.place === 'field');
+  const spots = [[-3, -1], [3, -1], [-2, 1], [2, 1]];
+  folks.slice(0, Math.min(weatherFolk.length, spots.length)).forEach((s, i) => {
     const p = hexOf(spots[i][0], spots[i][1]);
     const g = weatherFolk[i];
     g.visible = true;
@@ -482,7 +482,7 @@ function syncRolledFigures(g) {
         o.position.set(m.x, 0, m.y);
       }
     } else if (kind === 'rig-brute') {
-      const wire = state.weatherKind === 'storm' || m.tier === 'elite';
+      const wire = m.rollId === 'wire-brute' || m.tier === 'elite';
       const actor = mobsReady ? (wire ? rigWire : rigGlass) : null;
       if (actor) { used.add(actor); driveActor(actor, m, px, pz); }
       else {

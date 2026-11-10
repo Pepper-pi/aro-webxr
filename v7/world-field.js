@@ -37,7 +37,7 @@ const MARK_LINE = {
   'vendor-ink': 'Ink for the map. The stall is closed.',
   'vendor-gear': 'Gear later. This is only a hello.',
 };
-const MARK_SLOTS = [[1.35, -1.2], [-1.4, -1.05], [0.1, -1.9], [-1.25, 0.15], [1.4, 0.05], [-0.15, 0.85]];
+const MARK_SLOTS = [[1.35, -1.2], [-1.4, -1.05], [0.1, -1.9], [-1.25, 0.15], [1.4, 0.05], [-0.15, 0.85], [1.05, -0.45]];
 
 function mix(str) {
   let h = 2166136261;
@@ -93,16 +93,30 @@ function weighted(rng, items) {
   }
   return items[items.length - 1];
 }
-function rollGroup(rng, group, n, weather) {
-  const pool = (table && table.entries || []).filter(e => e.group === group).map(e => ({
-    id: e.id,
-    w: Math.max(0.05, (e.weight || 1) * (e[weather] == null ? 1 : e[weather])),
-  }));
+function entryWeight(e, weather) {
+  const mult = e[weather] == null ? 1 : Number(e[weather]);
+  if (mult === 0) return 0;
+  return Math.max(0.05, (e.weight || 1) * mult);
+}
+function rollCount(rng, spec, fallback) {
+  if (Array.isArray(spec) && spec.length >= 2) {
+    const lo = spec[0] | 0, hi = spec[1] | 0;
+    if (hi <= lo) return lo;
+    return lo + ((rng() * (hi - lo + 1)) | 0);
+  }
+  const n = Number(spec);
+  return Number.isFinite(n) ? n : fallback;
+}
+function rollGroup(rng, group, n, weather, places) {
+  const pool = (table && table.entries || []).filter(e => e.group === group && (!places || places.indexOf(e.place || '') >= 0)).map(e => ({
+    id: e.id, group: e.group, name: e.name || e.id, line: e.line || '', place: e.place || '',
+    w: entryWeight(e, weather),
+  })).filter(e => e.w > 0);
   const left = pool.slice();
   const out = [];
   for (let i = 0; i < n && left.length; i++) {
     const pick = weighted(rng, left);
-    out.push({ id: pick.id, group });
+    out.push({ id: pick.id, group: pick.group, name: pick.name, line: pick.line, place: pick.place });
     left.splice(left.indexOf(pick), 1);
   }
   return out;
@@ -135,12 +149,12 @@ function buildLook(date, disc, weather) {
     used.add(key);
     scatter.push({ q: c.q, r: c.r, kind: rng() < 0.5 ? 'lantern' : 'crate' });
   }
-  const roll = (table && table.roll) || { mob: 4, npc: 1, vendor: 1 };
+  const roll = (table && table.roll) || { mob: 4, npc: [2, 3], vendor: [1, 2] };
   const spawnRng = mulberry32(seed ^ mix('spawn|' + weather));
   const spawns = []
-    .concat(rollGroup(spawnRng, 'mob', roll.mob || 4, weather))
-    .concat(rollGroup(spawnRng, 'npc', roll.npc || 1, weather))
-    .concat(rollGroup(spawnRng, 'vendor', roll.vendor || 1, weather));
+    .concat(rollGroup(spawnRng, 'mob', rollCount(spawnRng, roll.mob, 4), weather))
+    .concat(rollGroup(spawnRng, 'npc', rollCount(spawnRng, roll.npc, 2), weather))
+    .concat(rollGroup(spawnRng, 'vendor', rollCount(spawnRng, roll.vendor, 1), weather));
   const fog = fogFor(weather);
   return {
     seed, date, disc, weather, hour: hour.id,
@@ -170,10 +184,12 @@ function paintReadout() {
   if (chip && look) chip.textContent = look.weather + ' · ' + look.seed.toString(16).slice(0, 6);
   const el = document.getElementById('worldRead');
   if (!el || !look) return;
-  const line = group => look.spawns.filter(s => s.group === group).map(s => s.id).join(', ') || '—';
+  const line = group => look.spawns.filter(s => s.group === group).map(s => s.name || s.id).join(', ') || '—';
+  const arcade = look.spawns.filter(s => s.place === 'arcade');
   const where = look.place.source === 'seaside' ? 'Seaside' : look.place.lat.toFixed(2) + ', ' + look.place.lon.toFixed(2);
   el.textContent = 'seed ' + look.seed.toString(16) + ' · ' + look.hour + ' · ' + look.weather + ' · ' + where
-    + '\nmobs: ' + line('mob') + '\nnpc: ' + line('npc') + '\nvendor: ' + line('vendor');
+    + '\nmobs: ' + line('mob') + '\nnpc: ' + line('npc') + '\nvendor: ' + line('vendor')
+    + (arcade.length ? '\narcade stub: ' + arcade.map(s => s.name + ' — ' + s.line).join(' | ') : '');
 }
 function loadPins() {
   try {
@@ -204,11 +220,11 @@ function markers() {
   const cell = cellId(h.lat, h.lon);
   const seed = mix(look.date + '|' + cell + '|' + (look.disc || discId()));
   const rng = mulberry32(seed ^ mix('mark|' + look.weather));
-  const roll = table.roll || { mob: 2, npc: 1, vendor: 1 };
+  const roll = table.roll || { mob: 2, npc: [2, 3], vendor: [1, 2] };
   const spawns = []
-    .concat(rollGroup(rng, 'mob', Math.min(2, roll.mob || 2), look.weather))
-    .concat(rollGroup(rng, 'npc', 1, look.weather))
-    .concat(rollGroup(rng, 'vendor', 1, look.weather));
+    .concat(rollGroup(rng, 'mob', Math.min(2, rollCount(rng, roll.mob, 2)), look.weather))
+    .concat(rollGroup(rng, 'npc', rollCount(rng, roll.npc, 2), look.weather, ['town', 'market']))
+    .concat(rollGroup(rng, 'vendor', rollCount(rng, roll.vendor, 1), look.weather, ['town', 'market']))
   const order = MARK_SLOTS.slice();
   for (let i = order.length - 1; i > 0; i--) {
     const j = (rng() * (i + 1)) | 0;
@@ -221,8 +237,9 @@ function markers() {
     return {
       key, id: s.id, group: s.group,
       x: at.x + slot[0], y: at.y + slot[1],
-      name: MARK_NAME[s.id] || s.id,
-      line: MARK_LINE[s.id] || 'Hello.',
+      name: s.name || MARK_NAME[s.id] || s.id,
+      line: s.line || MARK_LINE[s.id] || 'Hello.',
+      place: s.place || '',
       cell,
     };
   }).filter(m => !cleared.has(m.key));
