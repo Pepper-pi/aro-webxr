@@ -670,9 +670,9 @@ function mount() {
       const name = String((look && look.name) || '').trim().slice(0, 18);
       const race = String((look && look.race) || '');
       const flavor = String((look && look.flavor) || '');
-      const cls = look && look.cls === 'gunner' ? 'gunner' : 'mage';
+      const cls = look && look.cls === 'gunner' ? 'gunner' : look && look.cls === 'swords' ? 'swords' : 'mage';
       state.look = { name, race, flavor, cls };
-      state.cls = cls;
+      if (cls === 'mage' || cls === 'gunner') state.cls = cls;
       save();
       return state.look;
     },

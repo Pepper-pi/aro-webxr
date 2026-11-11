@@ -131,8 +131,10 @@
       const slime = look.race === 'slime';
       b.classList.toggle('sel', (slime && b.dataset.r === 'slime') || (!slime && b.dataset.r === 'human'));
     });
-    if (typeof setClass === 'function') setClass(cls);
-    if (window.__profile && window.__profile.setClass) window.__profile.setClass(cls);
+    if (cls === 'mage' || cls === 'gunner') {
+      if (typeof setClass === 'function') setClass(cls);
+      if (window.__profile && window.__profile.setClass) window.__profile.setClass(cls);
+    }
     const btn = document.getElementById('titleLook');
     if (btn) btn.textContent = name ? ('Your look · ' + name) : 'Your look';
     closeLook();
@@ -146,7 +148,7 @@
     if (saved && saved.flavor && lookById(saved.flavor).id === saved.flavor) {
       flavor = saved.flavor;
       race = lookById(flavor).race;
-      if (saved.cls === 'gunner' || saved.cls === 'mage') cls = saved.cls;
+      if (saved.cls === 'gunner' || saved.cls === 'mage' || saved.cls === 'swords') cls = saved.cls;
       const input = document.getElementById('lookName');
       if (input && saved.name) input.value = saved.name;
     }
@@ -193,7 +195,7 @@
     const root = document.createElement('div');
     root.id = 'lookPick';
     root.setAttribute('aria-hidden', 'true');
-    root.innerHTML = '<div id="lookCard"><h2>Your look</h2><div id="lookRaces"></div><div id="lookBody"><div id="lookStage"></div><div id="lookSide"><p id="lookNamePlate"></p><p id="lookNote"></p><p id="lookConcept">Concept plate only. This pinup still needs a cleaner cel pass. It is not the final princess art. The cap stays on.</p><div id="lookFlavors"></div><input id="lookName" maxlength="18" placeholder="Name" autocomplete="nickname"><div id="lookCls"><button type="button" data-cls="mage">Mage</button><button type="button" data-cls="gunner">Gunner</button></div><p id="lookPet">Mage and Gunner are the classes this build runs. Neither takes a combat pet. Hunter and Summoner are not a slot yet.</p><div id="lookActions"><button type="button" class="big gold" id="lookWear">Wear this look</button><button type="button" class="big" id="lookClose">Back</button></div></div></div></div>';
+    root.innerHTML = '<div id="lookCard"><h2>Your look</h2><div id="lookRaces"></div><div id="lookBody"><div id="lookStage"></div><div id="lookSide"><p id="lookNamePlate"></p><p id="lookNote"></p><p id="lookConcept">Concept plate only. This pinup still needs a cleaner cel pass. It is not the final princess art. The cap stays on.</p><div id="lookFlavors"></div><input id="lookName" maxlength="18" placeholder="Name" autocomplete="nickname"><div id="lookCls"><button type="button" data-cls="mage">Mage</button><button type="button" data-cls="gunner">Gunner</button><button type="button" data-cls="swords">Swords</button></div><p id="lookPet">Mage, Gunner, and Swords are the starting classes. Mage and Gunner keep the kits this build already runs. Swords is the class slot only. There is no sword kit in this hang.</p><div id="lookActions"><button type="button" class="big gold" id="lookWear">Wear this look</button><button type="button" class="big" id="lookClose">Back</button></div></div></div></div>';
     document.body.appendChild(root);
     const races = root.querySelector('#lookRaces');
     RACES.forEach(r => {
@@ -227,7 +229,7 @@
     races: () => RACES.map(r => r.id),
     flavors: (id) => LOOKS.filter(l => l.race === id).map(l => l.id),
     pick: (id) => { const l = lookById(id); race = l.race; flavor = l.id; render(); return { race: race, flavor: flavor, cls: cls }; },
-    setClass: (c) => { cls = c === 'gunner' ? 'gunner' : 'mage'; render(); return cls; },
+    setClass: (c) => { cls = c === 'gunner' ? 'gunner' : c === 'swords' ? 'swords' : 'mage'; render(); return cls; },
     setName: (n) => { const el = document.getElementById('lookName'); if (el) el.value = String(n || '').slice(0, 18); return el ? el.value : ''; },
     state: () => ({ race: race, flavor: flavor, cls: cls, name: (document.getElementById('lookName') || {}).value || '', open: !!(document.getElementById('lookPick') && document.getElementById('lookPick').classList.contains('on')) }),
     wear: applyLook,
