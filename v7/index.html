@@ -602,14 +602,14 @@ body.fishing #fishM .focus-nav button{min-height:36px;padding:6px 8px}
 </div>
 
 <div class="modal" id="craftM"><div class="sheet">
-  <div class="sh-h"><div><small>Cook Nook</small>Aether crafting</div><button class="x" data-close>×</button></div>
+  <div class="sh-h"><div><small>Craft</small>Aether crafting</div><button class="x" data-close>×</button></div>
   <canvas id="ballC"></canvas>
   <div class="slots"><div class="slot" id="slotA"></div><div style="font-weight:900;color:var(--gold)">+</div><div class="slot" id="slotB"></div><div style="font-weight:900;color:var(--pink)">→</div><div class="slot res" id="slotR"><span style="color:var(--dim)">pick two</span></div></div>
   <div class="chips" id="craftBag"></div>
   <button class="big gold" id="brew" disabled><i></i><span>Hold to brew</span></button>
   <div class="hint" id="craftHint"></div>
   <div class="hint" id="nookLoop">
-    <button type="button" class="big" id="nookPond">Fish the pond</button>
+    <button type="button" class="big" id="nookPond">Fish Long Lake</button>
     <div id="nookCatches"></div>
     <p id="nookCookNote"></p>
   </div>
@@ -978,7 +978,7 @@ function mapContext() {
   if (G.scene !== 'map' || !MAP.avOut || MAP.house.mode === 'fly') return null;
   if (G.step === 2) return ['Walk to the dome', () => goPlace(DOME.q, DOME.r), false];
   if (G.step === 4 && !G.day.hack) return ['Walk to the pond', () => goPlace(POI.q, POI.r), false];
-  if (G.step === 5) return ['Open the Cook Nook', openCraft, true];
+  if (G.step === 5) return ['Open crafting', openCraft, true];
   if (G.step === 6) return ['Step inside', enterHome, true];
   if (G.step === 7) return ['Fast travel home', flyHome, true];
   return null;
@@ -2155,7 +2155,7 @@ function setPractice(on) {
 window.setPractice = setPractice;
 const GUIDE_LINE = {
   class: 'Pick Mage or Gunner.',
-  fish: 'Fish the Cook Nook once.',
+  fish: 'Fish Long Lake once.',
   out: 'Step Outside onto the map.',
   fight: 'Win one fight, or catch one.',
   home: 'Go home. The door, or three CELLs.',
@@ -2951,7 +2951,7 @@ function drawGardenPlots(c) {
     ctx.fillStyle = '#d7f3ff';
     ctx.font = '800 11px ui-rounded,system-ui';
     ctx.textAlign = 'center';
-    ctx.fillText('Nook pond', X, Y - 16 * f);
+    ctx.fillText('Long Lake', X, Y - 16 * f);
   }
   ctx.restore();
 }
@@ -5166,7 +5166,7 @@ function paintNookCook() {
   host.appendChild(head);
   if (!catches.length) {
     const p = document.createElement('p');
-    p.textContent = 'Fish the pond. A catch can become a meal or a treat.';
+    p.textContent = 'Fish Long Lake. A catch can become a meal or a treat.';
     host.appendChild(p);
   } else catches.forEach((c, i) => {
     const row = document.createElement('div');
@@ -5233,7 +5233,7 @@ function brewDone() {
   if ((G.bag[a] || 0) < 1 || (G.bag[b] || 0) < 1 || G.aether < 2) return;
   G.bag[a]--; G.bag[b]--; addItem(res); G.aether -= 2; addAether(0, true); G.day.crafted = res; CR.pop = 1; CR.sel = []; CR.brewing = false; CR.k = 0;
   SFX.win(); buzz(30); toast(`Crafted ${ITEMS[res].n}`, res); renderCraftUI();
-  $('#craftHint').innerHTML = `<b>${ITEMS[res].n}</b> crafted! ${res === 'bait' ? 'It is now on your line.' : ''} Close the Cook Nook when you’re ready.`;
+  $('#craftHint').innerHTML = `<b>${ITEMS[res].n}</b> crafted! ${res === 'bait' ? 'It is now on your line.' : ''} Close crafting when you’re ready.`;
   if (res === 'bait') G.fishBait = 'bait'; if (res === 'hook') G.fishBait = 'hook';
   if (G.step === 5) setTimeout(() => flowAfterCraft(), 900);
 }
@@ -5332,7 +5332,7 @@ function fishMsg(h) { const n = $('#fishMsg'); if (n) n.innerHTML = h; }
 function syncFishAssist() { const b = $('#fishAssist'); if (b) b.classList.toggle('hide', !(REEL_PROTO && FI.phase === 'reel')); }
 function showFishBtn(label) { const b = $('#fishBtn'); if (!b) return; b.textContent = label; b.classList.remove('hide'); }
 function fishTitle() {
-  const where = FI.fromNook ? 'Cook Nook pond' : FI.spot && FI.spot.space === 'ship' ? 'Beside the ship' : 'Pond';
+  const where = FI.fromNook ? 'Long Lake' : FI.spot && FI.spot.space === 'ship' ? 'Beside the ship' : 'Pond';
   const bait = G.fishBait === 'bait' ? ' · bait' : '';
   const left = Math.max(0, fishCastMax() - (FI.used || 0));
   return where + bait + ' · ' + left + (left === 1 ? ' cast' : ' casts');
@@ -5377,7 +5377,7 @@ function nookPondSpot() {
 function openFish(opts) {
   FI.fromNook = !!(opts && opts.nook);
   const small = document.querySelector('#fishM small');
-  if (small) small.textContent = FI.fromNook ? 'Cook Nook' : 'Pond spot';
+  if (small) small.textContent = FI.fromNook ? 'Long Lake' : 'Pond spot';
   if (!FI.water) FI.water = 'pond';
   if (FI.fromNook) FI.spot = nookPondSpot();
   else ensureFishSpot();
@@ -6344,8 +6344,8 @@ $$('.modal').forEach(m => { m.addEventListener('click', e => { if (e.target === 
 
 const RING = [
   { k: 'bag', n: 'Bag', i: 'bag', a: -150, r: 1, go: () => { renderBag(); openModal('bagM'); } },
-  { k: 'craft', n: 'Nook', i: 'core', a: -40, r: 1, go: () => openCraft() },
-  { k: 'fish', n: 'Fishing', i: 'fish', a: 20, r: 1, go: () => { if (fishReady()) enterHome(); else toast('Fishing opens at the pond after the Cook Nook.'); } },
+  { k: 'craft', n: 'Craft', i: 'core', a: -40, r: 1, go: () => openCraft() },
+  { k: 'fish', n: 'Fishing', i: 'fish', a: 20, r: 1, go: () => { if (fishReady()) enterHome(); else toast('Fishing opens at Long Lake after crafting.'); } },
   { k: 'skills', n: 'Spellbook', i: 'book', a: 150, r: 1, go: () => { renderSpells(); openModal('skillM'); } },
   { k: 'log', n: 'Collection', i: 'star', a: 100, r: 1.35, go: () => { renderLog(); openModal('logM'); } },
   { k: 'set', n: 'Settings', i: 'gear', a: -100, r: 1.35, go: () => { renderSettings(); openModal('setM'); } },
@@ -6447,7 +6447,7 @@ function chooseSection(t) {
   $('#ring').classList.remove('rail-open');
   if (t.k === 'fish' && !fishReady()) {
     for (const id of Object.values(MENU_MODAL)) if ($('#' + id).classList.contains('on')) closeModal(id);
-    $('#ringNote').textContent = 'Fishing opens at the pond after the Cook Nook.';
+    $('#ringNote').textContent = 'Fishing opens at Long Lake after crafting.';
     $('#ringHome').classList.add('sg-show');
     $('#ringHome').style.visibility = 'visible';
     $('#ringTitle').textContent = 'Fishing';
@@ -6488,7 +6488,7 @@ function openRing() {
     b.classList.toggle('glow', G.step === 5 && t.k === 'craft');
     const later = t.k === 'fish' && !fishReady();
     b.classList.toggle('soon', later);
-    if (later) b.title = 'Fishing opens at the pond after the Cook Nook.';
+    if (later) b.title = 'Fishing opens at Long Lake after crafting.';
     else b.removeAttribute('title');
   });
   const ring = $('#ring');
@@ -6849,7 +6849,7 @@ function endDay() {
    <div>Mobs calmed<b>${d.mobs}</b>${d.casts} casts · ${d.focused} focused · ${d.charged} charged</div>
    <div>Dodges<b>${d.dodges}</b>${d.lineDodges} bullet lines · ${d.zoneTime.toFixed(1)}s in red${d.rewinds ? ` · ${d.rewinds} Return by Death` : ''}</div>
    <div>Pond spot<b>${d.hack ? 'Hacked' : '—'}</b>fills to ${fill}% by tomorrow</div>
-   <div>Crafted<b>${d.crafted ? ITEMS[d.crafted].n : '—'}</b>in the Cook Nook</div>
+   <div>Crafted<b>${d.crafted ? ITEMS[d.crafted].n : '—'}</b>while crafting</div>
    <div>Fish<b style="color:${f ? RAR[f.r] : '#fff'}">${f ? f.n : '—'}</b>${f ? `pond · ${RARN[f.r]} · ${f.cm} cm · ${d.castGrade} cast` : 'pond cast, not a creature'}</div>
    <div>Aether<b>${G.aether}</b>${G.aether - d.aStart >= 0 ? '+' : ''}${G.aether - d.aStart} today · bees refill overnight</div>
    <div>Bottle caps<b>${G.caps}</b>rare second currency</div>

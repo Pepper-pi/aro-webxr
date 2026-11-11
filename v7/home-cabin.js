@@ -100,7 +100,7 @@ const TEX = {
     for (let x = 12; x < w; x += 18) { g.beginPath(); g.moveTo(x, 8); g.lineTo(x, h - 8); g.stroke(); }
     for (let y = 12; y < h; y += 16) { g.beginPath(); g.moveTo(8, y); g.lineTo(w - 8, y); g.stroke(); }
     g.fillStyle = '#9af0ff'; g.font = '700 18px sans-serif'; g.textAlign = 'center';
-    g.fillText('Cook Nook', w / 2, h / 2 + 12);
+    g.fillText('Craft', w / 2, h / 2 + 12);
   }),
   door: canvasTex(128, 128, (g, w, h) => {
     g.fillStyle = '#6a3c22'; g.fillRect(0, 0, w, h);
@@ -1459,7 +1459,7 @@ function fishFromNook() {
   show(false);
   document.body.classList.remove('home-in');
   const back = document.getElementById('homeDoorBack');
-  if (back) { back.textContent = 'Back to the Nook'; back.classList.add('on'); }
+  if (back) { back.textContent = 'Back to crafting'; back.classList.add('on'); }
   if (typeof window.__showWorldMap === 'function') window.__showWorldMap();
   if (typeof tileAt === 'function' && typeof MAP !== 'undefined') {
     const home = tileAt(0, 0);
