@@ -406,7 +406,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
 #fishC{width:100%;height:min(58vh,420px);display:block;border-radius:18px;touch-action:none}
 #fishMsg{text-align:center;font-weight:900;font-size:15px;min-height:22px;margin-top:8px}
 #fishMsg img{width:28px;height:28px;image-rendering:pixelated;vertical-align:middle;margin-right:6px}
-body.fishing #title{display:none!important}
+body.fishing #title,body.gather-view #title{display:none!important}
 body.fishing #fishM.on{background:transparent;align-items:flex-end;justify-content:center;pointer-events:none}
 body.fishing #fishM .sheet{pointer-events:none;width:min(520px,calc(100% - 12px));margin:0 0 6px;max-height:132px;padding:4px 10px 6px;background:linear-gradient(180deg,rgba(8,4,14,0),rgba(8,4,14,.9) 42%);border-color:transparent;box-shadow:none}
 body.fishing #fishC{display:none}
@@ -2008,6 +2008,7 @@ function drawMap(T) {
   drawSuperHexNames(c, h);
   drawGardenDoor(c);
   drawWorldPins(c);
+  drawGatherPin(c);
   drawEncounterMarkers(c);
 }
 function drawEncounterMarkers(c) {
@@ -2694,6 +2695,93 @@ function drawMarketPlate(T) {
 window.__marketPlate = {
   state: marketPlateState,
   setView: v => { if (!v) return; if (v.z != null) MARKET_PLATE.z = v.z; if (v.x != null) MARKET_PLATE.x = v.x; },
+};
+const PUMPKIN_STILL = new Image();
+PUMPKIN_STILL.src = 'pumpkin_gather.jpg';
+const GATHER_PLATE = { z: 4.6, x: 0 };
+const GATHER = { on: false };
+function gatherAnchor() {
+  const t = tileAt(3, 1);
+  if (!t) return { x: 5.2, y: 1.2 };
+  return { x: t.x + 1.15, y: t.y + 0.35 };
+}
+function gatherNear() {
+  const s = gatherAnchor();
+  return Math.hypot(s.x - MAP.house.x, s.y - MAP.house.y) < 2.2;
+}
+function gatherState() {
+  const ready = !!(PUMPKIN_STILL.complete && PUMPKIN_STILL.naturalWidth > 0);
+  return { on: GATHER.on && ready, ready: ready, mode: plateModeOf(GATHER_PLATE), z: GATHER_PLATE.z, x: GATHER_PLATE.x, art: 'pumpkin-gather' };
+}
+function openGather() {
+  GATHER.on = true;
+  document.body.classList.add('gather-view');
+  const title = $('#title');
+  if (title) title.classList.add('out', 'hide');
+  showCast('Wild pumpkin');
+  return gatherState();
+}
+function closeGather() {
+  GATHER.on = false;
+  document.body.classList.remove('gather-view');
+  GATHER_PLATE.z = 4.6;
+  GATHER_PLATE.x = 0;
+  return gatherState();
+}
+function drawGatherPin(c) {
+  if (GATHER.on || G.scene !== 'map') return;
+  const s = gatherAnchor();
+  const [X, Y, f] = proj(c, s.x, s.y);
+  ctx.save();
+  ctx.fillStyle = '#b6ff8a';
+  ctx.strokeStyle = '#173024';
+  ctx.lineWidth = 3;
+  ctx.shadowColor = '#7dff9a';
+  ctx.shadowBlur = 12;
+  ctx.beginPath();
+  ctx.arc(X, Y, Math.max(10, 14 * f), 0, TAU);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.stroke();
+  ctx.font = '800 13px ui-rounded,system-ui';
+  ctx.textAlign = 'center';
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = '#173024';
+  ctx.strokeText('Wild pumpkin', X, Y - Math.max(22, 26 * f));
+  ctx.fillStyle = '#f3ffe8';
+  ctx.fillText('Wild pumpkin', X, Y - Math.max(22, 26 * f));
+  ctx.restore();
+}
+function drawGatherPlate(T) {
+  const img = PUMPKIN_STILL;
+  ctx.fillStyle = '#16301c';
+  ctx.fillRect(0, 0, W, H);
+  if (!(img.complete && img.naturalWidth)) return;
+  const mode = plateModeOf(GATHER_PLATE);
+  const zoom = mode === 'holo' ? clamp(4.6 / Math.max(0.35, Math.abs(GATHER_PLATE.z)), 0.95, 1.85) : 1;
+  const scale = Math.max(W / img.naturalWidth, H / img.naturalHeight) * zoom;
+  const dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
+  const cx = W * 0.5 + GATHER_PLATE.x * Math.min(W, 480) * 0.16;
+  const dx = cx - dw * 0.48;
+  const dy = H * 0.42 - dh * 0.52;
+  ctx.save();
+  if (mode === 'holo') {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.46 + 0.16 * Math.sin((T || 0) * 6);
+  }
+  ctx.drawImage(img, dx, dy, dw, dh);
+  if (mode === 'holo') {
+    ctx.globalAlpha = 0.24;
+    ctx.fillStyle = Math.sin((T || 0) * 6) > 0 ? '#ff8ad4' : '#9ee7ff';
+    ctx.fillRect(0, 0, W, H);
+  }
+  ctx.restore();
+}
+window.__gather = {
+  state: gatherState,
+  open: openGather,
+  close: closeGather,
+  setView: v => { if (!v) return; if (v.z != null) GATHER_PLATE.z = v.z; if (v.x != null) GATHER_PLATE.x = v.x; },
 };
 window.__gardenPlate = {
   state: gardenPlateState,
@@ -6526,6 +6614,7 @@ function drawRaidMarker(c) {
   ctx.restore();
 }
 function mapTap(X, Y) {
+  if (GATHER.on) { closeGather(); return; }
   if (G.scene === 'map') {
     const raid = raidSpot();
     if (raid) {
@@ -6563,6 +6652,13 @@ function mapTap(X, Y) {
     if (area) {
       if (!areaNear(area)) { showCast('Step closer · ' + area.name); popText(X, Y - 16, 'step closer', '#ffe7a8', 13); return; }
       enterDiscArea(area);
+      return;
+    }
+    const spot = gatherAnchor();
+    const rawG = proj(MAP.cam, spot.x, spot.y);
+    if (Math.hypot(rawG[0] - X, rawG[1] - Y) < 46) {
+      if (!gatherNear()) { showCast('Step closer · Wild pumpkin'); popText(X, Y - 16, 'step closer', '#e7ffd4', 13); return; }
+      openGather();
       return;
     }
     const hit = markerUnder(X, Y);
@@ -6925,11 +7021,11 @@ function frame(now) {
   if (G.day.hack && G.hackFill < 1) G.hackFill = Math.min(1, G.hackFill + dt * .006);
   const fishOpen = $('#fishM').classList.contains('on'), craftOpen = $('#craftM').classList.contains('on');
   if (fishOpen) fishUpdate(dt);
-  if (marketPlateOn()) drawMarketPlate(T); else if (G.scene === 'arena') drawArena(T); else if (GARDEN_ROOM.on) drawGardenRoom(T); else { drawMap(T); drawFX(); dayTint(); weatherWash(); }
+  if (marketPlateOn()) drawMarketPlate(T); else if (G.scene === 'arena') drawArena(T); else if (GARDEN_ROOM.on) drawGardenRoom(T); else if (GATHER.on) drawGatherPlate(T); else { drawMap(T); drawFX(); dayTint(); weatherWash(); }
   if (typeof syncPortalBtn === 'function') syncPortalBtn();
   if (typeof syncGardenHud === 'function') syncGardenHud();
   if (typeof paintGuide === 'function') paintGuide();
-  if (!(GARDEN_ROOM.on || fishOpen || marketPlateOn())) heavyGrade(T, G.scene);
+  if (!(GARDEN_ROOM.on || fishOpen || marketPlateOn() || GATHER.on)) heavyGrade(T, G.scene);
   vignette();
   if (fishOpen) drawFishWorld(T);
   if (craftOpen) drawBall(T, dt);
@@ -9122,7 +9218,7 @@ function drawFpFrame() {
   ctx.stroke();
   ctx.restore();
 }
-{ const _vignette = vignette; vignette = function () { const garden = typeof GARDEN_ROOM !== 'undefined' && GARDEN_ROOM.on; const fishing = typeof FI !== 'undefined' && FI.open; const market = typeof marketPlateOn === 'function' && marketPlateOn(); if (!garden && !fishing && !market) _vignette(); if (G.scene === 'arena' && !market) { drawFpFrame(); drawAimLayer(); drawDisc(); drawForearm(); drawHoldDemo(); if (typeof drawCellRig === 'function') drawCellRig(); if (typeof drawCellAim === 'function') drawCellAim(); if (typeof drawFollowerSticker === 'function') drawFollowerSticker(); } if (G.scene === 'map' && !garden && !fishing) { drawMarkChevrons(); drawDockHud(); if (typeof drawMapPetSticker === 'function') drawMapPetSticker(); } }; }
+{ const _vignette = vignette; vignette = function () { const garden = typeof GARDEN_ROOM !== 'undefined' && GARDEN_ROOM.on; const fishing = typeof FI !== 'undefined' && FI.open; const market = typeof marketPlateOn === 'function' && marketPlateOn(); const gather = typeof GATHER !== 'undefined' && GATHER.on; if (!garden && !fishing && !market && !gather) _vignette(); if (G.scene === 'arena' && !market) { drawFpFrame(); drawAimLayer(); drawDisc(); drawForearm(); drawHoldDemo(); if (typeof drawCellRig === 'function') drawCellRig(); if (typeof drawCellAim === 'function') drawCellAim(); if (typeof drawFollowerSticker === 'function') drawFollowerSticker(); } if (G.scene === 'map' && !garden && !fishing && !gather) { drawMarkChevrons(); drawDockHud(); if (typeof drawMapPetSticker === 'function') drawMapPetSticker(); } }; }
 { const _obj = arenaObjective; arenaObjective = function () { if (!TRAIN.on) return _obj(); const t = TRAIN.king ? kingLine() : drillLine(); if (t !== AR.objT) { AR.objT = t; setObj(t); } }; }
 { const _setClass = setClass; setClass = function (c) { if (TRAIN.on && c !== GUN.cls) interruptCharge('Charge cancelled'); const r = _setClass(c); syncClassBtn(); const help = document.getElementById('trainHelp'); if (help && TRAIN.on) help.textContent = trainHelpText(); return r; }; }
 { const _manaUI = manaUI; manaUI = function () {

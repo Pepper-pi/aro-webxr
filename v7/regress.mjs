@@ -611,6 +611,19 @@ const gardenPlate = await page.evaluate(() => {
   return { front, close };
 });
 check('garden plate is the painting in the room and a hologram up close', gardenPlate.front.on && gardenPlate.front.mode === 'paint' && gardenPlate.close.on && gardenPlate.close.mode === 'holo', JSON.stringify(gardenPlate));
+await page.waitForFunction(() => window.__gather && window.__gather.state().ready, { timeout: 8000 });
+const gatherPlate = await page.evaluate(() => {
+  window.__gather.open();
+  const front = window.__gather.state();
+  const title = document.getElementById('title');
+  const titleHidden = !title || getComputedStyle(title).display === 'none';
+  window.__gather.setView({ z: 0.7, x: 1.1 });
+  const close = window.__gather.state();
+  window.__gather.close();
+  const off = window.__gather.state();
+  return { front, close, titleHidden, off };
+});
+check('wild pumpkin gather is the street painting up front and a hologram up close', gatherPlate.front.on && gatherPlate.front.mode === 'paint' && gatherPlate.front.art === 'pumpkin-gather' && gatherPlate.close.on && gatherPlate.close.mode === 'holo' && gatherPlate.titleHidden && gatherPlate.off.on === false, JSON.stringify(gatherPlate));
 await page.waitForFunction(() => window.__marketPlate && window.__marketPlate.state().ready, { timeout: 8000 });
 const marketPlate = await page.evaluate(() => {
   enterDiscArea({ name: 'Market', q: -4, r: 1, x: 0, y: 0 });
