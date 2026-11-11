@@ -406,6 +406,7 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
 #fishC{width:100%;height:min(58vh,420px);display:block;border-radius:18px;touch-action:none}
 #fishMsg{text-align:center;font-weight:900;font-size:15px;min-height:22px;margin-top:8px}
 #fishMsg img{width:28px;height:28px;image-rendering:pixelated;vertical-align:middle;margin-right:6px}
+body.fishing #title{display:none!important}
 body.fishing #fishM.on{background:transparent;align-items:flex-end;justify-content:center;pointer-events:none}
 body.fishing #fishM .sheet{pointer-events:none;width:min(520px,calc(100% - 12px));margin:0 0 6px;max-height:132px;padding:4px 10px 6px;background:linear-gradient(180deg,rgba(8,4,14,0),rgba(8,4,14,.9) 42%);border-color:transparent;box-shadow:none}
 body.fishing #fishC{display:none}
@@ -5303,6 +5304,8 @@ function openFish(opts) {
   $('#fishBtn') && $('#fishBtn').classList.toggle('hide', FI.phase !== 'catch' && FI.phase !== 'slip' && FI.phase !== 'spent');
   $('#fishTitle').textContent = fishTitle();
   document.body.classList.add('fishing');
+  const title = $('#title');
+  if (title) title.classList.add('out', 'hide');
   syncFishAssist();
   openModal('fishM');
   fishApplyCam(true);
