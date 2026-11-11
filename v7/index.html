@@ -2126,7 +2126,7 @@ function drawMapPetSticker() {
 }
 const PORTAL_MAP = { q: -1, r: 1 };
 const PORTAL_FIELD = { q: 0, r: 2 };
-const PORTAL = { open: false, busy: false };
+const PORTAL = { open: false, busy: false, at: null };
 function catchUnit(n) {
   const page = (+new URLSearchParams(location.search).get('seed')) || 1;
   let a = (Math.imul(page >>> 0, 0x9e3779b1) ^ Math.imul((n | 0) + 1, 0x85ebca6b)) >>> 0;
@@ -2250,10 +2250,25 @@ function showWorldMap() {
   if (typeof syncMapNav === 'function') syncMapNav();
   if (typeof syncOutCombat === 'function') syncOutCombat();
 }
-function portalMapTile() { return tileAt(PORTAL_MAP.q, PORTAL_MAP.r); }
-function portalFieldXY() { return hexXY(PORTAL_FIELD.q, PORTAL_FIELD.r); }
+function portalMapTile() {
+  if (PORTAL.at && PORTAL.at.space === 'map') return PORTAL.at;
+  return tileAt(PORTAL_MAP.q, PORTAL_MAP.r);
+}
+function portalFieldXY() {
+  if (PORTAL.at && PORTAL.at.space === 'field') return [PORTAL.at.x, PORTAL.at.y];
+  return hexXY(PORTAL_FIELD.q, PORTAL_FIELD.r);
+}
 function doorBlocked() {
-  return typeof TRAIN !== 'undefined' && !!(TRAIN.dayRaid || TRAIN.king);
+  return typeof TRAIN !== 'undefined' && !!TRAIN.king;
+}
+function portalHere() {
+  if (G.scene === 'arena') {
+    const [x, y] = pPos();
+    return { space: 'field', x, y };
+  }
+  const h = MAP.house;
+  const t = tileAt(h.q, h.r);
+  return { space: 'map', q: t ? t.q : h.q, r: t ? t.r : h.r, x: t ? t.x : h.x, y: t ? t.y : h.y };
 }
 function placePortal() {
   const profile = window.__profile;
@@ -2262,6 +2277,7 @@ function placePortal() {
   if (PORTAL.open) { showCast('The Home door is already placed'); return false; }
   if (!(profile.get().cells >= 3)) { showCast('Need 3 CELLs'); return false; }
   profile.use('cells'); profile.use('cells'); profile.use('cells');
+  PORTAL.at = portalHere();
   PORTAL.open = true;
   PORTAL.busy = false;
   showCast('Three CELLs · the Home door is placed');
@@ -2283,6 +2299,9 @@ function stepPortal() {
     }
     const title = document.getElementById('title');
     if (title) title.classList.add('hide', 'out');
+    if (typeof closeFishCam === 'function') closeFishCam();
+    const fish = document.getElementById('fishM');
+    if (fish && fish.classList.contains('on')) closeModal('fishM');
     if (window.__home && window.__home.enter) {
       window.__home.enter();
       if (window.__home.markFromField) window.__home.markFromField();
@@ -2292,7 +2311,7 @@ function stepPortal() {
 }
 function portalNear(x, y, px, py) { return Math.hypot(px - x, py - y) <= 0.95; }
 function checkMapPortal() {
-  if (!PORTAL.open || PORTAL.busy || G.scene !== 'map' || !MAP.avOut || FI.open) return;
+  if (!PORTAL.open || PORTAL.busy || G.scene !== 'map' || !MAP.avOut) return;
   const t = portalMapTile();
   if (!t) return;
   const h = MAP.house;
@@ -2309,7 +2328,7 @@ function fieldDoorTap(X, Y) {
 }
 function checkFieldPortal() {
   if (!PORTAL.open || PORTAL.busy || G.scene !== 'arena') return;
-  if (typeof TRAIN !== 'undefined' && (TRAIN.dayRaid || TRAIN.king)) return;
+  if (doorBlocked()) return;
   const [x, y] = portalFieldXY();
   const [px, py] = pPos();
   if (portalNear(x, y, px, py)) stepPortal();
@@ -2973,7 +2992,7 @@ function mountGarden() {
     '#gardenPlots{display:flex;flex-wrap:wrap;gap:0 10px}',
     '#gardenPlots p{margin:0}',
     '#gardenNote:empty{display:none}',
-    'body.garden-room #portalBtn,body.fishing #portalBtn{display:none!important}',
+    'body.garden-room #portalBtn{display:none!important}',
     'body.fishing #gardenHud{left:8px;right:8px;bottom:136px;max-height:112px;overflow:hidden;padding:6px 8px}',
     'body.fishing #gardenTitle,body.fishing #gardenPlots,body.fishing #gardenNote{display:none}',
     'body.fishing #gardenHud button{min-height:36px;margin-top:2px}',
@@ -6896,7 +6915,8 @@ function enterDiscArea(area) {
   return true;
 }
 function onStep(t) {
-  if (PORTAL.open && t && t.q === PORTAL_MAP.q && t.r === PORTAL_MAP.r) { stepPortal(); return true; }
+  const door = portalMapTile();
+  if (PORTAL.open && door && t && t.q === door.q && t.r === door.r) { stepPortal(); return true; }
   if (G.day.tiles.length < 60) G.day.tiles.push(t.ter);
   giftFor(t);
   if (gardenYardAt(t)) { setAct('Enter the garden', enterGarden); return true; }
