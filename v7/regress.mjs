@@ -1503,6 +1503,7 @@ await goldPage.close();
 const fishPage = await open(844, 390);
 const fishErr = [];
 fishPage.on('pageerror', err => fishErr.push(String(err && err.message || err)));
+await fishPage.waitForFunction(() => window.__fish && window.__fish.fishCam && window.__fish.fishCam().painted, { timeout: 8000 });
 const fish = await fishPage.evaluate(() => {
   window.__aroFreeze = true;
   startDay();
@@ -1528,6 +1529,7 @@ const fish = await fishPage.evaluate(() => {
   const tug = pose('tug', 'offhand');
   const spell = pose('release', 'spell');
   openFish();
+  const cam = fishCam();
   const rip = rippleScreen(), me = playerScreen();
   const fish0 = G.bag.fish || 0, ae0 = G.aether;
   const side = gradeAndCast(me.x, me.y, me.x + (rip.y - me.y), me.y - (rip.x - me.x));
@@ -1570,7 +1572,7 @@ const fish = await fishPage.evaluate(() => {
   const restored = waterPace();
   return {
     ship, pond, perfect, great, good, whiff, away, side, usedAfterWhiff, cast, waited, bad, still, missed, tugged, caught, once, mid, spent, back,
-    river, ocean, badKind, restored, poses: { idle, wind, rel, tug, spell },
+    river, ocean, badKind, restored, cam, poses: { idle, wind, rel, tug, spell },
   };
 });
 const handApart = (a, b) => Math.hypot(a.L.x - a.R.x, a.L.y - a.R.y) > Math.hypot(b.L.x - b.R.x, b.L.y - b.R.y);
@@ -1578,7 +1580,8 @@ check('a flick grades Perfect, Great, and Good, and a short or backward flick do
 check('the pond opens beside the ship, and on real water when you are already at the pond', fish.ship.kind === 'summon' && fish.ship.space === 'ship' && fish.pond.kind === 'pond' && fish.pond.space === 'pond', JSON.stringify({ ship: fish.ship, pond: fish.pond }));
 check('a flick toward the ripple is graded, then a short wait, and Dock Echo is your own reflection', fish.cast.grade === 'Perfect' && fish.waited.phase === 'wait' && fish.waited.used === 1 && fish.waited.echo && fish.waited.who === 'self', JSON.stringify(fish.waited));
 check('a tug the wrong way is another nibble, not a snapped line', fish.bad === false && fish.still === 'nibble' && fish.missed.phase === 'slip' && fish.missed.lost === false, JSON.stringify({ bad: fish.bad, still: fish.still, missed: fish.missed }));
-check('tracing the glowing trail keeps one fish and an 8-bit icon, with a spell rod', fish.tugged && fish.caught.phase === 'catch' && fish.caught.icon === 'fish' && fish.caught.rod === true && fish.caught.lead === 'offhand' && fish.once, JSON.stringify(fish.caught));
+check('tracing the glowing trail keeps one fish and an 8-bit icon, with a fishing rod', fish.tugged && fish.caught.phase === 'catch' && fish.caught.icon === 'fish' && fish.caught.rod === true && fish.caught.lead === 'offhand' && fish.once, JSON.stringify(fish.caught));
+check('fishing opens in first person with a rod in hand, not the mid-distance cheeb', fish.cam && fish.cam.mode === 'fp' && fish.cam.zoom === 'in' && fish.cam.rod === 'fishing-rod' && fish.cam.cheeb === false && fish.cam.behind === false && fish.cam.painted, JSON.stringify(fish.cam));
 check('three casts fish the spot out, and the shortened respawn brings a ripple back', fish.mid && fish.spent && fish.back, JSON.stringify({ mid: fish.mid, spent: fish.spent, back: fish.back }));
 check('river and ocean only change the timing', fish.river < 1 && fish.ocean < fish.river && fish.badKind === false && fish.restored === 1, JSON.stringify({ river: fish.river, ocean: fish.ocean, restored: fish.restored }));
 check('fishing poses move the off hand, and the spell hand stays available for later', fish.poses.wind.L.y < fish.poses.idle.L.y && fish.poses.rel.L.x > fish.poses.idle.L.x + 20 && handApart(fish.poses.idle, fish.poses.tug) && fish.poses.tug.pinch === 1 && fish.poses.spell.R.x > fish.poses.idle.R.x + 20 && Math.abs(fish.poses.spell.L.x - fish.poses.idle.L.x) < 2, JSON.stringify(fish.poses));
