@@ -682,6 +682,7 @@ body.fishing #fishM .focus-nav button{min-height:36px;padding:6px 8px}
     <button class="race sel" data-r="human"><canvas id="pvH"></canvas><b>Wayfarer</b><small>Human</small></button>
     <button class="race" data-r="slime"><canvas id="pvS"></canvas><b>Boba</b><small>Milk-tea slime</small></button>
   </div>
+  <button class="big" id="titleLook" type="button">Your look</button>
   <button class="big gold" id="titleGo">Begin the day</button>
   <button class="big" id="titleTrain">Training arena</button>
   <button class="big" id="titleKing">Gel King bout</button>
@@ -4916,6 +4917,13 @@ function setClass(c) {
   if (typeof syncWheel === 'function') syncWheel();
   return c;
 }
+window.__cast = {
+  setBody: (race, form) => {
+    G.race = race === 'slime' ? 'slime' : 'human';
+    if (G.race === 'slime') G.form = form === 'citrine' ? 'citrine' : 'boba';
+    G.fieldAvatar = '';
+  },
+};
 /* ---------- drawing ---------- */
 function drawGunField(c, T) { // telegraphs on the floor (under sprites)
   const g = GUN.frag; if (g) { const k = Math.min(1, g.t / g.warn), bl = .5 + .5 * Math.sin(T * 16);
@@ -10231,6 +10239,7 @@ window.__disc3d = {
   }
 };
 </script>
+<script src="look-select.js"></script>
 <script type="module" src="profile.js"></script>
 <script type="module" src="home-cabin.js"></script>
 <script type="module" src="world-field.js"></script>
