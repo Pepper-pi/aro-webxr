@@ -75,6 +75,17 @@
 
   function lookById(id) { return LOOKS.filter(l => l.id === id)[0] || LOOKS[0]; }
   function paintPlate(el, look, box) {
+    if (box >= 200) {
+      el.style.backgroundImage = 'url(looks/cut/' + look.id + '.png)';
+      el.style.backgroundRepeat = 'no-repeat';
+      el.style.backgroundSize = 'contain';
+      el.style.backgroundPosition = 'center bottom';
+      el.style.backgroundColor = 'transparent';
+      el.style.border = '0';
+      el.style.width = Math.round(box * 0.58) + 'px';
+      el.style.height = box + 'px';
+      return;
+    }
     const scale = box / look.h;
     el.style.backgroundImage = 'url(' + look.sheet + ')';
     el.style.backgroundRepeat = 'no-repeat';

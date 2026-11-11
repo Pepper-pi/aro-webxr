@@ -708,7 +708,6 @@ body.fishing #fishM .focus-nav button{min-height:36px;padding:6px 8px}
       <button type="button" data-v="back">Back</button>
     </div>
     <button type="button" class="big" id="goldWalk">Walk as Original Gold</button>
-    <button type="button" class="big" id="goldAsBoba">Walk as Boba</button>
     <button type="button" class="big hide" id="goldRetry">Try the file again</button>
     <button type="button" class="big" id="goldClose">Back to choices</button>
   </div>
@@ -1194,16 +1193,30 @@ function drawRosterPlate(g, x, y, s, o, id) {
   const spec = rosterPlate(id);
   const race = o.race || G.race;
   if (!spec || (spec.race === 'slime' ? race !== 'slime' : race === 'slime')) return false;
-  let img = plateImg[spec.sheet];
-  if (!img) { img = new Image(); img.src = spec.sheet; plateImg[spec.sheet] = img; }
-  if (!img.complete || !img.naturalWidth) return false;
-  const hk = o.hk || 1.4, Hh = s * hk, hop = o.hop || 0, Ww = Hh * (spec.w / spec.h);
-  shadow(g, x, y, Ww * .46, Hh * .045, .6);
+  const cutKey = 'cut:' + id;
+  let img = plateImg[cutKey];
+  if (!img) { img = new Image(); img.src = 'looks/cut/' + id + '.png'; plateImg[cutKey] = img; }
+  const cut = img.complete && img.naturalWidth;
+  if (!cut) {
+    img = plateImg[spec.sheet];
+    if (!img) { img = new Image(); img.src = spec.sheet; plateImg[spec.sheet] = img; }
+    if (!img.complete || !img.naturalWidth) return false;
+  }
+  const sw = cut ? img.naturalWidth : spec.w, sh = cut ? img.naturalHeight : spec.h;
+  const sx = cut ? 0 : spec.x, sy = cut ? 0 : spec.y;
+  const hk = o.hk || 1.4, Hh = s * hk, hop = o.hop || 0, Ww = Hh * (sw / sh);
+  const breath = 1 + Math.sin((o.t || 0) * 2.2) * 0.012;
+  shadow(g, x, y - hop, Ww * .42, Hh * .035, .45);
   g.save();
   g.translate(x, y - hop);
   if (o.flip) g.scale(-1, 1);
+  g.translate(0, -Hh);
+  g.scale(1, breath);
   if (o.hurt > 0) g.globalAlpha = .55 + .45 * Math.abs(Math.sin((o.t || 0) * 30));
-  g.drawImage(img, spec.x, spec.y, spec.w, spec.h, -Ww / 2, -Hh, Ww, Hh);
+  g.shadowColor = 'rgba(28,10,24,.4)';
+  g.shadowBlur = Math.max(3, Hh * 0.02);
+  g.shadowOffsetY = Math.max(2, Hh * 0.012);
+  g.drawImage(img, sx, sy, sw, sh, -Ww / 2, 0, Ww, Hh);
   g.restore();
   return true;
 }
@@ -10206,22 +10219,12 @@ async function goldBakeFieldNow() {
   goldDraw('front', { keepNote: true });
   return { ok: true, bakeMs: GOLD.bakeMs, manifest: GOLD.manifest, race: G.race };
 }
-function goldUseBoba() {
-  G.fieldAvatar = '';
-  G.race = 'slime';
-  G.form = 'boba';
-  $$('.race').forEach(x => x.classList.toggle('sel', x.dataset.r === 'slime'));
-  goldFieldTag();
-  goldStatus('Field picture is Boba', 'ready');
-  goldNote('Boba is the milk-tea slime again. Original Gold stays a still preview.');
-}
 document.getElementById('goldBtn').addEventListener('click', () => { SFX.tap(); goldOpen(); });
 document.getElementById('goldClose').addEventListener('click', () => { SFX.tap(); goldClose(); });
 document.getElementById('goldRetry').addEventListener('click', () => { SFX.tap(); goldRetry(); });
 document.getElementById('goldWalk').addEventListener('click', () => { SFX.tap(); goldBakeField(); });
-document.getElementById('goldAsBoba').addEventListener('click', () => { SFX.tap(); goldUseBoba(); });
 document.querySelectorAll('#goldViews button').forEach(b => b.addEventListener('click', () => { SFX.tap(); if (GOLD.ready) goldDraw(b.dataset.v); }));
-window.__gold = { open: goldOpen, close: goldClose, retry: goldRetry, draw: goldDraw, bake: goldBakeField, useBoba: goldUseBoba, GOLD, sha: GOLD_SHA };
+window.__gold = { open: goldOpen, close: goldClose, retry: goldRetry, draw: goldDraw, bake: goldBakeField, GOLD, sha: GOLD_SHA };
 const DISCPLAY = { gl: null, prog: null, loc: null, parts: null, canvas: null, fail: '', tris: 0 };
 function discPlayYaw(m, yaw) {
   const c = Math.cos(yaw), s = Math.sin(yaw), o = new Float32Array(16);

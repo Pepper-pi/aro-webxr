@@ -1001,7 +1001,7 @@ function buildBoss() {
 }
 
 function buildKingPlate() {
-  const tex = new THREE.TextureLoader().load('gel_king.png');
+  const tex = new THREE.TextureLoader().load('gel_king_cut.png');
   tex.colorSpace = THREE.SRGBColorSpace;
   kingPaint = new THREE.MeshBasicMaterial({
     map: tex, transparent: true, depthWrite: true, side: THREE.FrontSide, toneMapped: false,
