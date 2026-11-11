@@ -77,9 +77,9 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 #ringStage{flex:1;min-width:0;min-height:0;position:relative;pointer-events:none}
 #ringHome{height:100%;overflow:auto;padding:16px;background:rgba(16,27,42,.96);color:#f4fbff;font-size:16px;line-height:1.4}
 #ringHome p{margin:0 0 12px}
-#ring .hx{--pane:rgba(122,223,240,.95);--tint:rgba(122,223,240,.18);position:relative;display:block;width:100%;height:56px;min-height:56px;max-height:56px;padding:0;overflow:hidden;color:#f7fbff;clip-path:polygon(22px 0,calc(100% - 22px) 0,100% 50%,calc(100% - 22px) 100%,22px 100%,0 50%);background:var(--tint);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--pane) 88%,#fff),inset 0 0 0 7px color-mix(in srgb,var(--pane) 72%,transparent),inset 0 0 0 11px color-mix(in srgb,var(--pane) 28%,transparent),inset 0 0 18px color-mix(in srgb,var(--pane) 42%,transparent),0 0 12px color-mix(in srgb,var(--pane) 34%,transparent)}
-#ring .hx:nth-child(3n+2){--pane:rgba(187,166,244,.92);--tint:rgba(187,166,244,.16)}
-#ring .hx:nth-child(3n){--pane:rgba(150,196,255,.92);--tint:rgba(150,196,255,.16)}
+#ring .hx{--pane:rgba(190,236,255,.72);--tint:rgba(210,245,255,.1);position:relative;display:block;width:100%;height:56px;min-height:56px;max-height:56px;padding:0;overflow:hidden;color:#f7fbff;clip-path:polygon(22px 0,calc(100% - 22px) 0,100% 50%,calc(100% - 22px) 100%,22px 100%,0 50%);background:var(--tint);box-shadow:inset 0 0 0 1px rgba(255,255,255,.72),inset 0 0 0 5px color-mix(in srgb,var(--pane) 55%,transparent),0 0 10px rgba(160,220,255,.28)}
+#ring .hx:nth-child(3n+2){--pane:rgba(214,196,255,.7);--tint:rgba(214,196,255,.1)}
+#ring .hx:nth-child(3n){--pane:rgba(255,186,220,.55);--tint:rgba(255,186,220,.08)}
 #ring .hx:nth-child(even){margin-left:22px;width:calc(100% - 22px)}
 #ring.tight .hx{clip-path:polygon(12px 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,12px 100%,0 50%)}
 #ring.tight .hx:nth-child(even){margin-left:8px;width:calc(100% - 8px)}
@@ -88,7 +88,7 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 #ring.tight .hx .hx-frost{width:44px;height:44px}
 #ring .hx .hx-plane{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;height:100%;padding:0 16px;pointer-events:none;background:transparent}
 #ring .hx .hx-mark{position:relative;width:40px;height:40px;display:grid;place-items:center;pointer-events:none;flex:none}
-#ring .hx .hx-glow{position:absolute;left:50%;top:50%;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:radial-gradient(circle,var(--pane) 0%,transparent 72%);opacity:.55;pointer-events:none}
+#ring .hx .hx-glow{display:none}
 #ring .hx .hx-frost{position:relative;width:46px;height:46px;display:block;filter:drop-shadow(0 0 4px rgba(120,230,255,.55))}
 #ring .hx.sel .hx-frost{filter:drop-shadow(0 0 6px rgba(140,246,255,.95))}
 .sg-fish{display:none;width:120px;height:120px;margin:0 0 4px}
@@ -105,7 +105,7 @@ body.menu-open .sheet .x{display:none}
 #ring .hx.glow{outline:3px solid rgba(255,201,77,.95);outline-offset:2px}
 #ring.drawer #ringBody{display:block;position:relative}
 #ring.drawer #ringHead{gap:4px;padding:0 4px}
-#ring.drawer #ringTitle{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#ring.drawer #ringTitle{min-width:0;overflow:visible;text-overflow:clip;white-space:normal;font-size:20px;line-height:1.15}
 #ring.head-stack #ringHead{flex-wrap:wrap}
 #ring.head-stack #ringTitle{flex:1 0 100%;overflow:visible;text-overflow:clip}
 #ring.drawer #sectionsBtn,#ring.drawer #ringX{padding:8px;font-size:14px}
@@ -119,7 +119,7 @@ body.menu-open .sheet .x{display:none}
 #ring.drawer .hx .hx-name{font-size:14px;text-align:left}
 #ring.land-fit #ringHead{position:absolute;top:0;bottom:0;left:226px;right:12px;width:auto;min-height:0;z-index:5;display:flex;flex-direction:column;justify-content:space-between;align-items:stretch;background:transparent;padding:6px 2px 8px;pointer-events:none}
 #ring.land-fit #ringHead *{pointer-events:none}
-#ring.land-fit #ringTitle{font-size:16px;margin:0;padding-left:28px;align-self:flex-start;flex:0 0 auto;height:auto}
+#ring.land-fit #ringTitle{font-size:22px;margin:10px 0 0;padding-left:64px;align-self:flex-start;flex:0 0 auto;height:auto}
 body.menu-open:has(.modal.on) #ring.land-fit #ringTitle{visibility:hidden}
 #ring.land-fit #ringX{min-height:40px;padding:6px 16px;font-size:16px;align-self:flex-end;flex:0 0 auto;pointer-events:auto;background:rgba(8,16,36,.28);border-color:var(--sg-edge);box-shadow:inset 0 0 0 1px rgba(201,182,255,.45),0 0 12px var(--sg-glow)}
 #ring.land-fit #ringTabs{gap:1px}
@@ -156,7 +156,7 @@ body.out-combat #mapNav,body.out-combat #wirePanel,body.out-combat #charBtn{disp
 body:has(.modal.on) #coach,body:has(.modal.on) #mapNav,body:has(.modal.on) #act,body:has(.modal.on) #menuBtn,body:has(.modal.on) #obj,body:has(.modal.on) #wirePanel,body:has(.modal.on) #charBtn,body:has(.modal.on) #banner,body:has(.modal.on) #toasts,body.menu-open #coach,body.menu-open #mapNav,body.menu-open #wirePanel,body.menu-open #charBtn,body.menu-open #obj,body.menu-open #act,body.menu-open #menuBtn{visibility:hidden!important;pointer-events:none!important}
 body.menu-open .modal.on:not(#sumM){z-index:31;background:transparent;pointer-events:none;padding:0}
 body.menu-open:has(#ring.drawer.rail-open) .modal.on:not(#sumM){z-index:19}
-body.menu-open .modal.on:not(#sumM) .sheet{pointer-events:auto;position:fixed;margin:0;max-width:none;width:auto;border-radius:0;box-shadow:inset 0 0 0 1px var(--sg-edge),inset 0 0 0 4px rgba(201,182,255,.28),0 0 14px var(--sg-glow);padding:34px 30px 16px;background:rgba(8,16,36,.22);color:#f7fbff;clip-path:polygon(8% 0,92% 0,100% 50%,92% 100%,8% 100%,0 50%)}
+body.menu-open .modal.on:not(#sumM) .sheet{pointer-events:auto;position:fixed;margin:0;max-width:none;width:auto;border-radius:0;box-shadow:inset 0 0 0 1px var(--sg-edge),inset 0 0 0 4px rgba(201,182,255,.28),0 0 14px var(--sg-glow);padding:28px 9% 16px 12%;background:rgba(28,12,32,.46);color:#f7fbff;clip-path:polygon(8% 0,92% 0,100% 50%,92% 100%,8% 100%,0 50%)}
 body.menu-open .sheet .row div,body.menu-open .sheet .sh-h,body.menu-open .sheet .spell b{color:#f7fbff}
 body.menu-open .sheet .row small,body.menu-open .sheet .hint,body.menu-open .sheet .spell small{color:#d7ecf8;font-size:16px}
 body.menu-open .sheet .tg{background:rgba(255,255,255,.28);transition:none}
@@ -164,7 +164,9 @@ body.menu-open .sheet .tg::after{transition:none}
 body.menu-open .sheet .tg.on{background:#ff4fb4}
 body.menu-open .sheet .tg.on::after{left:24px}
 body.menu-open .sheet .seg button.on{background:#ff4fb4;color:#fff}
-body.menu-open #ringHome{background:rgba(8,16,36,.22);color:#f7fbff;box-shadow:inset 0 0 0 1px var(--sg-edge),inset 0 0 0 4px rgba(201,182,255,.28),0 0 14px var(--sg-glow);padding:34px 30px 16px;clip-path:polygon(8% 0,92% 0,100% 50%,92% 100%,8% 100%,0 50%)}
+body.menu-open #ringHome{background:rgba(28,12,32,.4);color:#f7fbff;box-shadow:inset 0 0 0 1px var(--sg-edge),inset 0 0 0 4px rgba(201,182,255,.28),0 0 14px var(--sg-glow);padding:28px 9% 16px 12%;clip-path:polygon(8% 0,92% 0,100% 50%,92% 100%,8% 100%,0 50%)}
+#ringLook{width:auto;display:inline-block;margin-top:12px;padding:10px 18px}
+body.menu-open #ring.land-fit #ringHome{padding:56px 10% 16px 18%}
 body.menu-open:has(#ring.tight) .modal.on:not(#sumM) .sheet,body.menu-open:has(#ring.tight) #ringHome{clip-path:polygon(12% 0,88% 0,100% 50%,88% 100%,12% 100%,0 50%);padding:14px 26px 16px}
 body.menu-open .sheet .row{flex-direction:column;align-items:stretch}
 body.menu-open .sheet .row div,body.menu-open .sheet .hint,body.menu-open #ringHome{font-size:16px}
@@ -406,11 +408,12 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
 #fishC{width:100%;height:min(58vh,420px);display:block;border-radius:18px;touch-action:none}
 #fishMsg{text-align:center;font-weight:900;font-size:15px;min-height:22px;margin-top:8px}
 #fishMsg img{width:28px;height:28px;image-rendering:pixelated;vertical-align:middle;margin-right:6px}
-body.fishing #title,body.gather-view #title{display:none!important}
+body.fishing #title,body.gather-view #title,body.menu-open #title{display:none!important}
 body.fishing #fishM.on{background:transparent;align-items:flex-end;justify-content:center;pointer-events:none}
 body.fishing #fishM .sheet{pointer-events:none;width:min(520px,calc(100% - 12px));margin:0 0 6px;max-height:132px;padding:4px 10px 6px;background:linear-gradient(180deg,rgba(8,4,14,0),rgba(8,4,14,.9) 42%);border-color:transparent;box-shadow:none}
 body.fishing #fishC{display:none}
-body.fishing #fishM .sh-h,body.fishing #fishMsg,body.fishing #fishBtn,body.fishing #fishAssist,body.fishing #fishM .focus-nav{pointer-events:auto}
+body.fishing #fishM .sh-h,body.fishing #fishMsg,body.fishing #fishBtn,body.fishing #fishAssist,body.fishing #fishPole,body.fishing #fishM .focus-nav{pointer-events:auto}
+#fishPole{margin-top:6px;padding:8px 12px;border-radius:12px;font-weight:800;background:rgba(16,10,24,.55);color:#fff6d4;border:1px solid rgba(255,214,140,.5)}
 body.fishing #fishMsg{color:#f4fbff;text-shadow:0 1px 2px #000}
 body.fishing #fishM .focus-nav{margin-top:4px}
 body.fishing #fishM .focus-nav button{min-height:36px;padding:6px 8px}
@@ -594,6 +597,7 @@ body.fishing #fishM .focus-nav button{min-height:36px;padding:6px 8px}
           <div class="sg-fish" id="ringFish"></div>
           <p>Choose a section. Opening one does not use an item.</p>
           <p id="ringNote"></p>
+          <button type="button" class="big" id="ringLook">Your look</button>
         </div>
       </div>
     </div>
@@ -653,6 +657,7 @@ body.fishing #fishM .focus-nav button{min-height:36px;padding:6px 8px}
   <canvas id="fishC"></canvas>
   <div id="fishMsg"></div>
   <button class="big hide" id="fishAssist" type="button">Reel assist</button>
+  <button type="button" id="fishPole" title="Two pole vibes only. A full pole log is not in this build.">Pole · Reed</button>
   <button class="big hide" id="fishBtn">Keep it</button>
   <div class="focus-nav"><button type="button" data-back>Back</button><button type="button" data-home>Home</button></div>
 </div></div>
@@ -875,6 +880,10 @@ const SFX = {
   crack: () => { noise(.12, .3, 3200); tone(1800, .05, 'square', .06, -900); },
   roar: () => { tone(150, 1.1, 'sawtooth', .28, -95); tone(92, 1.1, 'square', .16, -40, .05); noise(.9, .3, 380); },
   tick: () => tone(1046, .08, 'triangle', .18),
+  reel: (dir) => {
+    if (dir === 'out') { tone(320, .16, 'sine', .055, -36); tone(220, .2, 'triangle', .04, 0, .07); return; }
+    tone(480, .1, 'sine', .06); tone(310, .14, 'sine', .045, -24, .05);
+  },
   beat: () => { tone(62, .12, 'sine', .5, -15); tone(55, .14, 'sine', .4, -12, .17); },
   shot: () => { noise(.09, .35, 2400); tone(420, .1, 'square', .1, -300); },
   whizz: () => tone(1500, .18, 'sine', .1, -1100),
@@ -5396,6 +5405,9 @@ function openFish(opts) {
     setGesture('idle', { lead: 'offhand', pinch: 0 });
     fishMsg('Flick toward the ripple.');
   }
+  FI.pole = window.__profile && window.__profile.pole ? window.__profile.pole() : (FI.pole || 'reed');
+  const poleBtn = $('#fishPole');
+  if (poleBtn) poleBtn.textContent = 'Pole · ' + poleVibe().name;
   FI.open = true;
   $('#fishBtn') && $('#fishBtn').classList.toggle('hide', FI.phase !== 'catch' && FI.phase !== 'slip' && FI.phase !== 'spent');
   $('#fishTitle').textContent = fishTitle();
@@ -5457,9 +5469,11 @@ function noteCast() {
 }
 function beginNibble() {
   FI.phase = 'nibble'; FI.t = 0; FI.pinched = false;
+  const hard = (FI.nibbles || 0) >= 2 || FI.grade === 'Perfect' ? 3 : FI.grade === 'Great' ? 2 : (FI.nibbles || 0) ? 1 : 0;
+  FI.pull = hard;
   setGesture('tug', { lead: 'offhand', pinch: 0 });
   SFX.bite(); buzz(16);
-  fishMsg('Pinch and tug toward yourself.');
+  fishMsg(hard >= 2 ? 'A hard pull. Pinch and tug toward yourself.' : 'Pinch and tug toward yourself.');
 }
 function anotherNibble() {
   FI.nibbles = (FI.nibbles || 0) + 1;
@@ -5547,7 +5561,7 @@ function gradeAndCast(x0, y0, x1, y1) {
 }
 function nextCast() {
   if ((FI.used || 0) >= fishCastMax()) { beginSpent(); return; }
-  FI.phase = 'aim'; FI.t = 0; FI.paid = false; FI.grade = ''; FI.nibbles = 0; FI.traceI = 0; FI.castCounted = false; FI.fish = null; FI.lootIcon = '';
+  FI.phase = 'aim'; FI.t = 0; FI.paid = false; FI.grade = ''; FI.nibbles = 0; FI.traceI = 0; FI.castCounted = false; FI.fish = null; FI.lootIcon = ''; FI.pull = 0; FI.troll = 0; FI.trollAnim = 0; FI.trollStep = 0;
   const b = $('#fishBtn'); if (b) b.classList.add('hide');
   setGesture('idle', { lead: 'offhand', pinch: 0 });
   $('#fishTitle').textContent = fishTitle();
@@ -5637,6 +5651,7 @@ function fishUpdate(dt) {
     const base = clamp(Math.min(W / 8.6, H / 15), 30, 64), want = clamp(base * 1.72, 56, 108);
     if (Math.abs(MAP.cam.hz - want) > 1) { MAP.cam.hz = want; groundDirty = true; MAP.lastCam = ''; }
   }
+  cozyReel(dt);
   if (FI.phase === 'fly' && FI.t >= (reducedMotion() ? .26 : .46)) {
     FI.phase = 'wait'; FI.t = 0; FI.biteAt = biteDelay(); FI.nibbles = 0;
     noteCast();
@@ -5672,6 +5687,47 @@ function drawRealFish(g, x, y, s, col, flip) {
   g.restore();
 }
 function drawFisher(T) { drawFishRod(ctx, T); }
+function poleVibe() {
+  return FI.pole === 'glass'
+    ? { id: 'glass', name: 'Night glass', tip: '#b9fff2' }
+    : { id: 'reed', name: 'Reed', tip: '#ffe47a' };
+}
+function trollAmount() {
+  const left = FI.trollAnim || 0;
+  if (left <= 0) return 0;
+  const u = 1 - left / 1.8;
+  if (u < 0.35) return u / 0.35;
+  if (u < 0.6) return 1 - (u - 0.35) / 0.25;
+  if (u < 0.85) return ((u - 0.6) / 0.25) * 0.65;
+  return 0.65 * (1 - (u - 0.85) / 0.15);
+}
+function cozyReel(dt) {
+  if (!FI.open || (FI.phase !== 'wait' && FI.phase !== 'aim')) {
+    FI.trollStep = 0;
+    return;
+  }
+  FI.troll = (FI.troll || 0) + dt;
+  if ((FI.trollAnim || 0) <= 0 && FI.troll > (SET.cozy ? 4.2 : 6.2)) {
+    FI.troll = 0;
+    FI.trollAnim = 1.8;
+    FI.trollStep = 0;
+  }
+  if ((FI.trollAnim || 0) <= 0) return;
+  FI.trollAnim = Math.max(0, FI.trollAnim - dt);
+  const u = 1 - (FI.trollAnim / 1.8);
+  const step = u < 0.35 ? 1 : u < 0.6 ? 2 : u < 0.85 ? 3 : 0;
+  if (step && step !== FI.trollStep) {
+    FI.trollStep = step;
+    if (SFX.reel) SFX.reel(step === 2 ? 'out' : 'in');
+  }
+}
+function fishFight() {
+  const pull = FI.pull || 0;
+  const cozy = (FI.phase === 'wait' || FI.phase === 'aim') ? trollAmount() : 0;
+  if (FI.phase === 'nibble') return { bend: 22 + pull * 18, sag: Math.max(4, 26 - pull * 7), hot: true, shake: 1 + pull * 0.7 };
+  if (FI.phase === 'reel') return { bend: 30 + pull * 20, sag: Math.max(2, 12 - pull * 3), hot: true, shake: 1.6 + pull * 0.5 };
+  return { bend: 6 + cozy * 32, sag: 54 - cozy * 46, hot: false, shake: 0 };
+}
 function drawRodHands(g, hx, hy, ux, uy, px, py) {
   const ang = Math.atan2(uy, ux);
   const mitt = (x, y, s) => {
@@ -5684,8 +5740,8 @@ function drawRodHands(g, hx, hy, ux, uy, px, py) {
   mitt(hx + ux * 8, hy + uy * 8, 1);
   mitt(hx + ux * 62, hy + uy * 62, 0.86);
 }
-function drawEnergyLine(g, x0, y0, x1, y1, T, hot) {
-  const sag = hot ? 8 : 36;
+function drawEnergyLine(g, x0, y0, x1, y1, T, hot, sag) {
+  sag = sag == null ? (hot ? 8 : 36) : sag;
   const mx = (x0 + x1) / 2, my = (y0 + y1) / 2 + sag;
   g.save();
   g.lineCap = 'round';
@@ -5712,66 +5768,86 @@ function drawEnergyLine(g, x0, y0, x1, y1, T, hot) {
 }
 function drawFishRod(g, T) {
   const rip = rippleScreen() || { x: W * 0.58, y: H * 0.42 };
-  const hx = Math.min(W * 0.78, W - 28);
-  const hy = Math.max(150, H - 250);
-  let dx = rip.x - hx, dy = rip.y - hy;
+  const hx = Math.min(W * 0.9, W - 16);
+  const hy = H - Math.max(72, Math.min(130, H * 0.14));
+  const dx = rip.x - hx, dy = rip.y - hy;
   const dist = Math.hypot(dx, dy) || 1;
-  const len = Math.min(dist * 0.58, Math.max(140, Math.min(W, H) * 0.32));
+  const len = Math.min(dist * 0.88, Math.max(260, Math.min(W, H) * 0.62));
   const ux = dx / dist, uy = dy / dist;
   const px = -uy, py = ux;
-  const tipx = hx + ux * len, tipy = hy + uy * len;
+  const fight = fishFight();
+  const wob = fight.shake ? Math.sin(T * (5 + fight.shake * 2)) * (3 + fight.shake * 2.4) : 0;
+  const bow = fight.bend + wob;
+  const tipx = hx + ux * len + px * bow * 0.12;
+  const tipy = hy + uy * len + py * bow * 0.12;
+  const cpx = hx + ux * len * 0.58 + px * bow;
+  const cpy = hy + uy * len * 0.58 + py * bow;
+  const at = (t) => {
+    const u = 1 - t;
+    return { x: u * u * hx + 2 * u * t * cpx + t * t * tipx, y: u * u * hy + 2 * u * t * cpy + t * t * tipy };
+  };
+  const strokeSpan = (a, b, width, color) => {
+    g.strokeStyle = color;
+    g.lineWidth = width;
+    g.beginPath();
+    const p0 = at(a);
+    g.moveTo(p0.x, p0.y);
+    for (let i = 1; i <= 8; i++) {
+      const p = at(a + (b - a) * (i / 8));
+      g.lineTo(p.x, p.y);
+    }
+    g.stroke();
+  };
   g.save();
   g.lineCap = 'round';
-  g.strokeStyle = '#1a120e';
-  g.lineWidth = 14;
-  g.beginPath(); g.moveTo(hx - ux * 18, hy - uy * 18); g.lineTo(hx + ux * len * 0.22, hy + uy * len * 0.22); g.stroke();
-  g.strokeStyle = '#3a2a22';
-  g.lineWidth = 7;
-  g.beginPath(); g.moveTo(hx + ux * len * 0.18, hy + uy * len * 0.18); g.lineTo(hx + ux * len * 0.62, hy + uy * len * 0.62); g.stroke();
-  g.strokeStyle = '#2c211b';
-  g.lineWidth = 3.5;
-  g.beginPath(); g.moveTo(hx + ux * len * 0.58, hy + uy * len * 0.58); g.lineTo(tipx, tipy); g.stroke();
+  g.lineJoin = 'round';
+  strokeSpan(0, 0.22, 13, '#1a120e');
+  strokeSpan(0.16, 0.62, 6.5, '#3a2a22');
+  strokeSpan(0.56, 1, 3.2, '#241810');
   g.strokeStyle = '#e6d2ae';
   g.lineWidth = 2;
   for (let i = 1; i <= 5; i++) {
-    const t = 0.02 + (i / 6) * 0.16;
-    const x = hx + ux * len * t, y = hy + uy * len * t;
+    const p = at(0.02 + (i / 6) * 0.16);
     g.beginPath();
-    g.moveTo(x - px * 6, y - py * 6);
-    g.lineTo(x + px * 6, y + py * 6);
+    g.moveTo(p.x - px * 6, p.y - py * 6);
+    g.lineTo(p.x + px * 6, p.y + py * 6);
     g.stroke();
   }
-  const rx = hx + ux * len * 0.28, ry = hy + uy * len * 0.28;
+  const seat = at(0.26);
   g.fillStyle = '#14110f';
-  g.beginPath(); g.ellipse(rx + px * 7, ry + py * 7, 8, 5.5, Math.atan2(uy, ux), 0, TAU); g.fill();
+  g.beginPath(); g.ellipse(seat.x + px * 8, seat.y + py * 8, 8, 5.5, Math.atan2(uy, ux), 0, TAU); g.fill();
   g.strokeStyle = '#8d98a6';
   g.lineWidth = 1.5;
-  g.beginPath(); g.ellipse(rx + px * 7, ry + py * 7, 8, 5.5, Math.atan2(uy, ux), 0, TAU); g.stroke();
+  g.stroke();
   g.strokeStyle = '#e7eef6';
   for (let i = 0; i < 4; i++) {
-    const t = 0.34 + i * 0.15;
-    const x = hx + ux * len * t, y = hy + uy * len * t;
-    g.lineWidth = 1.5;
+    const p = at(0.38 + i * 0.14);
+    g.lineWidth = 1.6;
     g.beginPath();
-    g.ellipse(x, y, 6.2 - i * 0.7, 3.4, Math.atan2(uy, ux) + Math.PI / 2, 0, TAU);
+    g.ellipse(p.x, p.y, 6.4 - i * 0.7, 3.2, Math.atan2(uy, ux) + Math.PI / 2, 0, TAU);
     g.stroke();
   }
-  drawRodHands(g, hx, hy, ux, uy, px, py);
+  const hand = at(0.08);
+  drawRodHands(g, hand.x, hand.y, ux, uy, px, py);
+  const vibe = poleVibe();
   const pulse = 0.62 + 0.38 * (0.5 + 0.5 * Math.sin(T * 5.2));
-  g.shadowColor = '#ffe7a2';
+  const tip = at(1);
+  g.shadowColor = vibe.tip;
   g.shadowBlur = 22 * pulse;
-  g.fillStyle = `rgba(255,228,120,${0.55 + pulse * 0.4})`;
-  g.beginPath(); g.arc(tipx, tipy, 7 + pulse * 3, 0, TAU); g.fill();
+  g.fillStyle = vibe.tip;
+  g.globalAlpha = 0.55 + pulse * 0.4;
+  g.beginPath(); g.arc(tip.x, tip.y, 7 + pulse * 3, 0, TAU); g.fill();
+  g.globalAlpha = 1;
   g.shadowBlur = 8;
   g.fillStyle = '#fffdf2';
-  g.beginPath(); g.arc(tipx, tipy, 2.2, 0, TAU); g.fill();
+  g.beginPath(); g.arc(tip.x, tip.y, 2.2, 0, TAU); g.fill();
   g.restore();
   let tx = rip.x, ty = rip.y;
   if (FI.phase === 'reel' && FI.trail) {
     const pts = trailScreen();
-    if (pts.length) { const at = pts[Math.min(FI.traceI, pts.length - 1)]; tx = at.x; ty = at.y; }
+    if (pts.length) { const hit = pts[Math.min(FI.traceI, pts.length - 1)]; tx = hit.x; ty = hit.y; }
   }
-  drawEnergyLine(g, tipx, tipy, tx, ty, T, FI.phase === 'nibble' || FI.phase === 'reel');
+  drawEnergyLine(g, tip.x, tip.y, tx, ty, T, fight.hot, fight.sag);
 }
 function drawFishPondBackdrop() {
   const rip = rippleScreen() || { x: W * 0.58, y: H * 0.46 };
@@ -6113,7 +6189,7 @@ void main() {
   float sx = (p.x - uCenter.x) / max(uCss.x * 0.22, 40.0);
   float shadow = exp(-sy * sy) * exp(-sx * sx);
   if (sdB > 0.0) over(col, a, vec3(0.0, 0.0, 0.01), shadow * quiet * 0.5);
-  over(col, a, vec3(0.012, 0.006, 0.028), quiet * (sdB < 0.0 ? 0.9 : 0.82));
+  over(col, a, vec3(0.11, 0.03, 0.08), quiet * (sdB < 0.0 ? 0.42 : 0.28));
   float floorVis = quiet * (sdF < 0.0 ? mix(1.0, 0.62, clamp(-sdF / 120.0, 0.0, 1.0)) : (sdF < 8.0 ? 0.35 : 1.0));
   over(col, a, fl.rgb, fl.a * floorVis);
   bool wall = sdB <= 0.0 && sdF >= 0.0;
@@ -6206,10 +6282,10 @@ function paintMenuGlass() {
   const floor = menuEnsureGrid(cv, '_floor', bw, bh);
   const fine = menuEnsureGrid(cv, '_fine', bw, bh);
   menuDrawHexes(floor, dpr, MENU_GLASS.floorR, origin, (ctx, strokeAll) => {
-    ctx.strokeStyle = 'rgba(255, 80, 160, 0.38)';
-    ctx.lineWidth = 5.2;
-    ctx.shadowColor = 'rgba(255, 60, 140, 0.75)';
-    ctx.shadowBlur = 6;
+    ctx.strokeStyle = 'rgba(255, 140, 186, 0.2)';
+    ctx.lineWidth = 3.2;
+    ctx.shadowColor = 'rgba(255, 90, 150, 0.22)';
+    ctx.shadowBlur = 3;
     strokeAll();
     ctx.shadowBlur = 0;
     ctx.strokeStyle = 'rgba(255, 206, 228, 0.96)';
@@ -6281,14 +6357,14 @@ function layoutMenu() {
   const back = $('#ringBack');
   const fit = land && !drawer;
   ring.classList.toggle('drawer', drawer);
-  ring.classList.toggle('head-stack', drawer && !land);
+  ring.classList.toggle('head-stack', drawer);
   ring.classList.toggle('tight', !land && !drawer);
   ring.classList.toggle('land-fit', fit);
   let left, top, width, height;
   let backLeft, backTop, backW, backH;
   if (fit) {
     backH = Math.max(300, availH - 8);
-    backW = Math.min(availW - 36, Math.round(backH * 1.36));
+    backW = Math.min(availW - 16, Math.round(backH * 1.62));
     backLeft = Math.max(8, (availW - backW) / 2);
     backTop = Math.max(4, (availH - backH) / 2);
     const insetX = 22, insetTop = Math.round(backH * .1), insetBot = 22;
@@ -6446,6 +6522,8 @@ function buildRing() {
   $('#sectionsBtn').onclick = () => { $('#ring').classList.add('rail-open'); const s = $('#sectionsClose'); if (s) s.focus(); };
   $('#sectionsClose').onclick = () => { $('#ring').classList.remove('rail-open'); $('#sectionsBtn').focus(); };
   $('#ringX').onclick = () => { closeRing(); $('#menuBtn').focus(); };
+  const look = $('#ringLook');
+  if (look) look.onclick = () => { closeRing(); if (window.__look && window.__look.open) window.__look.open(); };
 }
 function chooseSection(t) {
   const cur = document.querySelector('#ring .hx.sel');
@@ -6501,6 +6579,8 @@ function openRing() {
   });
   const ring = $('#ring');
   ring.classList.add('on'); ring.setAttribute('aria-hidden', 'false'); document.body.classList.add('menu-open');
+  const title = $('#title');
+  if (title && !title.classList.contains('hide')) { title.dataset.menuHold = '1'; title.classList.add('out', 'hide'); }
   $$('#ring .hx').forEach(b => { b.tabIndex = 0; });
   showMenuRoot();
   layoutMenu();
@@ -6512,6 +6592,8 @@ function closeRing() {
   const r = $('#ring'); if (!r) return;
   showMenuRoot(true);
   r.classList.remove('on'); r.setAttribute('aria-hidden', 'true'); document.body.classList.remove('menu-open');
+  const held = $('#title');
+  if (held && held.dataset.menuHold) { held.classList.remove('out', 'hide'); delete held.dataset.menuHold; }
   $$('#ring .hx').forEach(b => { b.tabIndex = -1; });
   const lab = $('#menuBtn b'); if (lab) lab.textContent = 'Menu';
   const act = $('#act'); if (act) { act.disabled = false; act.removeAttribute('aria-disabled'); }
@@ -6868,6 +6950,12 @@ function endDay() {
 }
 $('#again').onclick = () => location.reload();
 $('#fishBtn').onclick = () => { if ((FI.phase === 'catch' || FI.phase === 'slip') && (FI.used || 0) < fishCastMax()) { nextCast(); return; } afterFish(); };
+$('#fishPole').onclick = () => {
+  const next = poleVibe().id === 'glass' ? 'reed' : 'glass';
+  FI.pole = window.__profile && window.__profile.setPole ? window.__profile.setPole(next) : next;
+  $('#fishPole').textContent = 'Pole · ' + poleVibe().name;
+  fishMsg(next === 'glass' ? 'Night glass is a tip color. The pole log is not in this build.' : 'Reed tip. The pole log is not in this build.');
+};
 $('#fishAssist').onclick = () => fishAssist();
 $('#act').addEventListener('click', () => { closeRing(); audioInit(); SFX.tap(); const f = actFn; f && f(); });
 $('#menuBtn').addEventListener('click', openRing);

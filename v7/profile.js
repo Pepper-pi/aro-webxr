@@ -677,6 +677,8 @@ function mount() {
       return state.look;
     },
     look: () => { load(); return state.look || null; },
+    setPole: (id) => { load(); state.pole = id === 'glass' ? 'glass' : 'reed'; save(); return state.pole; },
+    pole: () => { load(); return state.pole === 'glass' ? 'glass' : 'reed'; },
     guide: () => { load(); return state.guide || 'done'; },
     setGuide: (step) => {
       load();
