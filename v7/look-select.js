@@ -16,7 +16,7 @@
     pinup: 'looks/cap-princess.jpg',
   };
   const RACES = [
-    { id: 'human', label: 'Human', note: 'Coats and twin-tails from the human lineup. The black swordsman on that sheet is not a look.' },
+    { id: 'human', label: 'Human', note: '' },
     { id: 'elf', label: 'Elf', note: 'Elves v2. The female is still a little close to another story’s elf. Locked close enough for this hang.' },
     { id: 'slime', label: 'Slime', note: 'Simple slime face: no human nose, a forehead gem, a tiny smile, glossy skin. Gold hair colors are extra flavors, not stand-ins for Honey, Boba, Citrine, or Lime.' },
     { id: 'mink', label: 'Mink', note: 'First neon-district pair. Furred. A smoother-skin version can come later. It does not replace these.' },
@@ -91,7 +91,9 @@
     if (!root) return;
     root.querySelectorAll('[data-race]').forEach(b => b.classList.toggle('on', b.dataset.race === race));
     const raceMeta = RACES.filter(r => r.id === race)[0];
-    root.querySelector('#lookNote').textContent = raceMeta ? raceMeta.note : '';
+    const note = root.querySelector('#lookNote');
+    note.textContent = raceMeta && raceMeta.note ? raceMeta.note : '';
+    note.hidden = !note.textContent;
     const stage = root.querySelector('#lookStage');
     const cur = selected();
     if (cur.race !== race) {
@@ -187,7 +189,6 @@
       '.look-flavor b{font-size:11px;font-weight:800;max-width:84px;text-align:center}',
       '#lookName{width:100%;margin:8px 0;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,214,140,.7);background:#120810;color:#fff6ea;font:700 16px ui-rounded,system-ui}',
       '#lookCls{display:flex;gap:8px;flex-wrap:wrap}',
-      '#lookPet{font-size:12px;color:#d7c4ff;margin:6px 0 10px}',
       '#lookActions{display:flex;gap:8px;flex-wrap:wrap}',
       '@media (max-width:560px){#lookBody{flex-direction:column;align-items:center}#lookSide{width:100%}}',
     ].join('');
@@ -195,7 +196,7 @@
     const root = document.createElement('div');
     root.id = 'lookPick';
     root.setAttribute('aria-hidden', 'true');
-    root.innerHTML = '<div id="lookCard"><h2>Your look</h2><div id="lookRaces"></div><div id="lookBody"><div id="lookStage"></div><div id="lookSide"><p id="lookNamePlate"></p><p id="lookNote"></p><p id="lookConcept">Concept plate only. This pinup still needs a cleaner cel pass. It is not the final princess art. The cap stays on.</p><div id="lookFlavors"></div><input id="lookName" maxlength="18" placeholder="Name" autocomplete="nickname"><div id="lookCls"><button type="button" data-cls="mage">Mage</button><button type="button" data-cls="gunner">Gunner</button><button type="button" data-cls="swords">Swords</button></div><p id="lookPet">Mage, Gunner, and Swords are the starting classes. Mage and Gunner keep the kits this build already runs. Swords is the class slot only. There is no sword kit in this hang.</p><div id="lookActions"><button type="button" class="big gold" id="lookWear">Wear this look</button><button type="button" class="big" id="lookClose">Back</button></div></div></div></div>';
+    root.innerHTML = '<div id="lookCard"><h2>Your look</h2><div id="lookRaces"></div><div id="lookBody"><div id="lookStage"></div><div id="lookSide"><p id="lookNamePlate"></p><p id="lookNote"></p><p id="lookConcept">Concept plate only. This pinup still needs a cleaner cel pass. It is not the final princess art. The cap stays on.</p><div id="lookFlavors"></div><input id="lookName" maxlength="18" placeholder="Name" autocomplete="nickname"><div id="lookCls"><button type="button" data-cls="mage">Mage</button><button type="button" data-cls="gunner">Gunner</button><button type="button" data-cls="swords">Swords</button></div><div id="lookActions"><button type="button" class="big gold" id="lookWear">Wear this look</button><button type="button" class="big" id="lookClose">Back</button></div></div></div></div>';
     document.body.appendChild(root);
     const races = root.querySelector('#lookRaces');
     RACES.forEach(r => {
