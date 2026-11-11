@@ -1771,8 +1771,6 @@ function boot() {
     state: () => ({ on: HOME.on, phase: HOME.phase, door: HOME.door, bounce: HOME.bounce, sound: HOME.sound, slot: HOME.slot, yaw: HOME.yaw, dressed: !!HOME.dressed, ar: Object.assign({}, HOME.ar), cheeb: cheebSprite ? { x: cheebSprite.position.x, z: cheebSprite.position.z, view: CHEEB.view, on: cheebSprite.visible, tap: CHEEB.tap, rock: cheebSprite.material.rotation } : null }),
   };
   window.__homeCovers = () => window.__home.covers();
-  const guideStep = window.__profile && window.__profile.guide && window.__profile.guide();
-  if (guideStep && guideStep !== 'done' && !(window.__train && window.__train.TRAIN && window.__train.TRAIN.on)) enter();
   window.__homeCommandExtra = list => {
     const sheet = list && list.closest ? list.closest('.sheet') : null;
     if (!sheet) return;
