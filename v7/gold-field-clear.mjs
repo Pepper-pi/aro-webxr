@@ -44,11 +44,11 @@ check('Walk as Original Gold selects the field picture', baked.ok && baked.manif
 const fieldNow = await page.evaluate(() => G.fieldAvatar);
 check('the bake sets fieldAvatar to gold', fieldNow === 'gold', fieldNow);
 
-const boba = await page.evaluate(() => {
-  window.__gold.useBoba();
-  return { field: G.fieldAvatar, race: G.race, form: G.form, sel: document.querySelector('.race.sel').dataset.r, btn: document.getElementById('goldBtn').textContent };
-});
-check('Walk as Boba clears the field picture', boba.field === '' && boba.race === 'slime' && boba.form === 'boba' && boba.sel === 'slime' && boba.btn === 'Original Gold', JSON.stringify(boba));
+const boba = await page.evaluate(() => ({
+  gone: !document.getElementById('goldAsBoba'),
+  field: G.fieldAvatar,
+}));
+check('Walk as Boba is not on the Original Gold dialog', boba.gone && boba.field === 'gold', JSON.stringify(boba));
 
 const humanCard = await page.evaluate(async () => {
   await window.__gold.bake();
