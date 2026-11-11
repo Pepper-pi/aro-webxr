@@ -129,6 +129,7 @@
     const name = (document.getElementById('lookName').value || '').trim().slice(0, 18);
     if (window.__profile && window.__profile.setLook) window.__profile.setLook({ name: name, race: look.race, flavor: look.id, cls: cls });
     if (window.__cast && window.__cast.setBody) window.__cast.setBody(look.race === 'slime' ? 'slime' : 'human', look.id === 'slime-citrine' ? 'citrine' : 'boba');
+    if (window.__cast && window.__cast.setPlate) window.__cast.setPlate(look.id);
     document.querySelectorAll('.race').forEach(b => {
       const slime = look.race === 'slime';
       b.classList.toggle('sel', (slime && b.dataset.r === 'slime') || (!slime && b.dataset.r === 'human'));
@@ -234,5 +235,10 @@
     setName: (n) => { const el = document.getElementById('lookName'); if (el) el.value = String(n || '').slice(0, 18); return el ? el.value : ''; },
     state: () => ({ race: race, flavor: flavor, cls: cls, name: (document.getElementById('lookName') || {}).value || '', open: !!(document.getElementById('lookPick') && document.getElementById('lookPick').classList.contains('on')) }),
     wear: applyLook,
+    plate: (id) => {
+      const l = LOOKS.filter(x => x.id === id)[0];
+      if (!l) return null;
+      return { id: l.id, race: l.race, name: l.name, sheet: l.sheet, x: l.x, y: l.y, w: l.w, h: l.h };
+    },
   };
 })();

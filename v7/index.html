@@ -670,7 +670,7 @@ body.fishing #fishM .focus-nav button{min-height:36px;padding:6px 8px}
 
 
 <div id="charM" aria-hidden="true">
-  <div class="ch-h"><div><small id="chWho">Wayfarer · Human</small>Character</div><button class="x" id="chClose" aria-label="Close">×</button></div>
+  <div class="ch-h"><div><small id="chWho">Brown coat · Human</small>Character</div><button class="x" id="chClose" aria-label="Close">×</button></div>
   <div class="ch-tabs" role="tablist"><button data-t="gear" class="on">Gear</button><button data-t="skills">Skills</button><button data-t="bonds">Bonds</button></div>
   <div id="chStage"><canvas id="chCv"></canvas><div id="chSlotsL" class="gcol"></div><div id="chSlotsR" class="gcol r"></div><div id="chPose"><b>Front</b> · drag to turn</div></div>
   <div id="chPanel">
@@ -684,8 +684,8 @@ body.fishing #fishM .focus-nav button{min-height:36px;padding:6px 8px}
   <div class="logo">AETHER REALMS<br>ONLINE</div>
   <div class="sub">demo v7 · one day</div>
   <div class="races">
-    <button class="race sel" data-r="human"><canvas id="pvH"></canvas><b>Wayfarer</b><small>Human</small></button>
-    <button class="race" data-r="slime"><canvas id="pvS"></canvas><b>Boba</b><small>Milk-tea slime</small></button>
+    <button class="race sel" data-r="human" data-look="human-brown"><canvas id="pvH"></canvas><b>Brown coat</b><small>Human</small></button>
+    <button class="race" data-r="slime" data-look="gold-classic"><canvas id="pvS"></canvas><b>Classic Gold</b><small>Gold</small></button>
   </div>
   <button class="big" id="titleLook" type="button">Your look</button>
   <button class="big gold" id="titleGo">Begin the day</button>
@@ -948,7 +948,7 @@ const recipeFor = (a, b) => RECIPES[[a, b].sort().join('+')] || 'mush';
 
 /* ---------- game state ---------- */
 const G = {
-  scene: 'title', step: 0, race: 'human', form: 'boba', fieldAvatar: '', formFx: null, aether: 12, caps: 0, bag: { pollen: 1, orange: 1 },
+  scene: 'title', step: 0, race: 'human', form: 'boba', plateLook: 'human-brown', fieldAvatar: '', formFx: null, aether: 12, caps: 0, bag: { pollen: 1, orange: 1 },
   hearts: 5, maxHearts: 5, hp: 100, maxHp: 100, t: 0, timeOfDay: 0, hackFill: 0, fishBait: null,
   day: { hops: 0, rolls: 0, lineDodges: 0, zoneTime: 0, tiles: [], mobs: 0, dodges: 0, hits: 0, rewinds: 0, crafted: null, fish: null, hack: false, aStart: 12, casts: 0, focused: 0, charged: 0 },
   flags: {},
@@ -1180,8 +1180,36 @@ function drawGestureMitts(g, x, y, s, o) {
   }
   g.restore();
 }
+const TITLE_PLATES = {
+  'human-brown': { id: 'human-brown', race: 'human', name: 'Brown coat', sheet: 'looks/humans.jpg', x: 18, y: 70, w: 140, h: 620 },
+  'gold-classic': { id: 'gold-classic', race: 'slime', name: 'Classic Gold', sheet: 'looks/gold-hair.jpg', x: 24, y: 110, w: 180, h: 520 },
+};
+const plateImg = {};
+function rosterPlate(id) {
+  if (TITLE_PLATES[id]) return TITLE_PLATES[id];
+  if (window.__look && window.__look.plate) return window.__look.plate(id);
+  return null;
+}
+function drawRosterPlate(g, x, y, s, o, id) {
+  const spec = rosterPlate(id);
+  const race = o.race || G.race;
+  if (!spec || (spec.race === 'slime' ? race !== 'slime' : race === 'slime')) return false;
+  let img = plateImg[spec.sheet];
+  if (!img) { img = new Image(); img.src = spec.sheet; plateImg[spec.sheet] = img; }
+  if (!img.complete || !img.naturalWidth) return false;
+  const hk = o.hk || 1.4, Hh = s * hk, hop = o.hop || 0, Ww = Hh * (spec.w / spec.h);
+  shadow(g, x, y, Ww * .46, Hh * .045, .6);
+  g.save();
+  g.translate(x, y - hop);
+  if (o.flip) g.scale(-1, 1);
+  if (o.hurt > 0) g.globalAlpha = .55 + .45 * Math.abs(Math.sin((o.t || 0) * 30));
+  g.drawImage(img, spec.x, spec.y, spec.w, spec.h, -Ww / 2, -Hh, Ww, Hh);
+  g.restore();
+  return true;
+}
 function drawAvatar(g, x, y, s, o) {
   const race = o.race || G.race, view = o.view === 'back' ? 'back' : o.view === 'q' ? 'q' : 'front';
+  if (G.plateLook && !o.hands && !(G.formFx && G.formFx.form === 'citrine') && drawRosterPlate(g, x, y, s, o, G.plateLook)) return;
   if (!o.noGold && G.fieldAvatar === 'gold' && typeof goldFieldSprite === 'function') {
     const sheet = goldFieldSprite(view);
     if (sheet) { drawGoldField(g, x, y, s, o, sheet); if (o.hands) drawGestureMitts(g, x, y, s, o); return; }
@@ -1265,7 +1293,7 @@ function fogCanvas() {
 function heavyGrade(T, scene) {
   const g = ctx, raid = scene === 'arena';
   // crush toward deep plum/black (multiply keeps neon hue, kills the pastel daylight)
-  g.globalCompositeOperation = 'multiply'; g.fillStyle = raid ? '#9a8aa8' : '#66507c'; g.fillRect(0, 0, W, H);
+  g.globalCompositeOperation = 'multiply'; g.fillStyle = raid ? '#9a8aa8' : (scene === 'map' ? '#cbb8dc' : '#66507c'); g.fillRect(0, 0, W, H);
   // drifting low fog (two parallax layers, bottom-weighted)
   g.globalCompositeOperation = 'screen'; const f = fogCanvas(), sz = Math.max(W, H) * .9;
   for (const [sp, a, oy] of [[12, .55, .35], [-7, .4, .55]]) { g.globalAlpha = raid ? a * .6 : a; const ox = ((T * sp) % sz + sz) % sz; for (let k = -1; k <= 1; k++) g.drawImage(f, ox + k * sz - sz * .1, H * oy, sz, sz * .6); }
@@ -1276,7 +1304,7 @@ function heavyGrade(T, scene) {
   gr = g.createLinearGradient(0, H * .75, 0, H); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(40,120,200,.10)'); g.fillStyle = gr; g.fillRect(0, H * .75, W, H * .25);
   g.globalCompositeOperation = 'source-over';
   // letterbox-ish top/bottom fade
-  gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(4,0,8,.55)'); gr.addColorStop(.14, 'rgba(4,0,8,0)'); gr.addColorStop(.86, 'rgba(4,0,8,0)'); gr.addColorStop(1, 'rgba(4,0,8,.6)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, scene === 'map' ? 'rgba(4,0,8,.28)' : 'rgba(4,0,8,.55)'); gr.addColorStop(.14, 'rgba(4,0,8,0)'); gr.addColorStop(.86, 'rgba(4,0,8,0)'); gr.addColorStop(1, scene === 'map' ? 'rgba(4,0,8,.32)' : 'rgba(4,0,8,.6)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
   if (raid && typeof drawLugeGlow === 'function') drawLugeGlow(AR.cam, T); // ice luge: local additive cyan after the grade so it reads truly cyan
 }
 /* raid backdrop: a wall of big neon hexes behind the arena (north-star raid shot). Drawn into the cached floor. */
@@ -1886,9 +1914,9 @@ function renderGround(c) {
     if (!pat) { pat = pats[pk] = g.createPattern(paintTex(pk, col), 'repeat'); pat.setTransform(M); }
     g.fillStyle = pat; g.fill();
     g.fillStyle = `rgba(${t.n > .5 ? '255,248,220' : '40,30,50'},${Math.abs(t.n - .5) * .12 + far * .5 * (t.n > .5 ? 0 : 1)})`; g.fill();
-    if (far > 0) { g.fillStyle = `rgba(26,8,32,${far * .55})`; g.fill(); }
+    if (far > 0) { g.fillStyle = `rgba(26,8,32,${far * .22})`; g.fill(); }
     // v7 heavy: dusk crush on the painted ground + neon seam (cached with the ground, so free per frame)
-    g.fillStyle = 'rgba(14,3,20,.5)'; g.fill();
+    g.fillStyle = 'rgba(36,16,48,.18)'; g.fill();
     g.strokeStyle = 'rgba(255,79,180,.14)'; g.lineWidth = 5; g.stroke(); g.strokeStyle = 'rgba(255,90,190,.55)'; g.lineWidth = 1.2; g.stroke();
     if (t.ter === 'home' || t.ter === 'yard' || (t.ter === 'poi' && G.hackFill > .3)) { g.strokeStyle = 'rgba(255,201,77,.55)'; g.lineWidth = 1.4; g.stroke(); }
   }
@@ -4951,6 +4979,7 @@ window.__cast = {
     if (G.race === 'slime') G.form = form === 'citrine' ? 'citrine' : 'boba';
     G.fieldAvatar = '';
   },
+  setPlate: (id) => { G.plateLook = id || 'human-brown'; return G.plateLook; },
 };
 /* ---------- drawing ---------- */
 function drawGunField(c, T) { // telegraphs on the floor (under sprites)
@@ -7024,7 +7053,7 @@ document.addEventListener('keydown', e => {
     tiles[(e.shiftKey ? (i <= 0 ? tiles.length - 1 : i - 1) : (i < 0 || i === tiles.length - 1 ? 0 : i + 1))].focus();
   }
 });
-$$('.race').forEach(b => b.onclick = () => { G.race = b.dataset.r; G.fieldAvatar = ''; if (G.race === 'slime') G.form = 'boba'; $$('.race').forEach(x => x.classList.toggle('sel', x === b)); if (typeof goldFieldTag === 'function') goldFieldTag(); SFX.tap(); });
+$$('.race').forEach(b => b.onclick = () => { G.race = b.dataset.r; G.plateLook = b.dataset.look || (G.race === 'slime' ? 'gold-classic' : 'human-brown'); G.fieldAvatar = ''; if (G.race === 'slime') G.form = 'boba'; $$('.race').forEach(x => x.classList.toggle('sel', x === b)); if (typeof goldFieldTag === 'function') goldFieldTag(); SFX.tap(); });
 $('#titleGo').onclick = () => startDay();
 $$('.sp').forEach(b => b.addEventListener('click', () => {
   dropCanvasPress();
@@ -7090,7 +7119,7 @@ function weatherWash() {
     return;
   }
   if (kind === 'night') {
-    ctx.fillStyle = 'rgba(6,8,28,.42)';
+    ctx.fillStyle = 'rgba(6,8,28,.18)';
     ctx.fillRect(0, 0, W, H);
     return;
   }
@@ -7115,7 +7144,14 @@ function dayTint() {
   if (!c) return; ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${Math.min(.42, c[3])})`; ctx.fillRect(0, 0, W, H);
   if (t >= .88) { ctx.globalCompositeOperation = 'lighter'; const [X, Y] = proj(MAP.cam, MAP.house.x, MAP.house.y); const gr = ctx.createRadialGradient(X, Y - 30, 0, X, Y - 30, 120); gr.addColorStop(0, 'rgba(255,200,100,.28)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = gr; ctx.fillRect(X - 120, Y - 150, 240, 240); ctx.globalCompositeOperation = 'source-over'; }
 }
-function vignette() { const gr = ctx.createRadialGradient(W / 2, H * .5, Math.min(W, H) * .35, W / 2, H * .5, Math.max(W, H) * .75); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(.6, 'rgba(6,1,10,.35)'); gr.addColorStop(1, 'rgba(4,0,8,.85)'); ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H); }
+function vignette() {
+  const map = G.scene === 'map';
+  const gr = ctx.createRadialGradient(W / 2, H * .5, Math.min(W, H) * .35, W / 2, H * .5, Math.max(W, H) * .75);
+  gr.addColorStop(0, 'rgba(0,0,0,0)');
+  gr.addColorStop(.6, map ? 'rgba(6,1,10,.12)' : 'rgba(6,1,10,.35)');
+  gr.addColorStop(1, map ? 'rgba(4,0,8,.4)' : 'rgba(4,0,8,.85)');
+  ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+}
 const perf = { frames: 0, ms: 0, worst: 0, fps: 0, _t: 0, _n: 0 };
 let last = performance.now(), T = 0;
 function enterHome() {
@@ -7150,18 +7186,19 @@ function frame(now) {
   perf._n++; if (now - perf._t > 1000) { perf.fps = perf._n * 1000 / (now - perf._t); perf._t = now; perf._n = 0; if (QS.has('debug')) $('#dbg').textContent = `${perf.fps.toFixed(0)} fps · ${(perf.ms / perf.frames).toFixed(2)} ms/frame`; }
 }
 function drawPreviews(T) {
-  for (const [id, race] of [['#pvH', 'human'], ['#pvS', 'slime']]) {
-    const c = $(id), w = c.clientWidth, h = c.clientHeight; if (!w) continue; const dpr = Math.min(2, window.devicePixelRatio || 1);
+  for (const b of document.querySelectorAll('#title .race')) {
+    const spec = TITLE_PLATES[b.dataset.look];
+    const c = b.querySelector('canvas');
+    if (!spec || !c) continue;
+    const w = c.clientWidth, h = c.clientHeight; if (!w) continue;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
     if (c.width !== (w * dpr | 0)) { c.width = w * dpr | 0; c.height = h * dpr | 0; }
     const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
-    const gr = g.createRadialGradient(w / 2, h * .62, 4, w / 2, h * .62, w * .55); gr.addColorStop(0, race === 'slime' ? 'rgba(255,200,80,.32)' : 'rgba(165,150,255,.28)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
-    // play-size (~map walker 58px @ hz≈42), not oversized showcase
-    const play = h * .82 / 1.4, by = h * .93; // v7 heavy: full adult figure fills the card
-    g.strokeStyle = 'rgba(255,79,180,.3)'; g.lineWidth = 1; g.beginPath(); g.ellipse(w / 2, by, w * .3, 6, 0, 0, TAU); g.stroke();
-    const save = G.race, saveF = G.form; G.race = race; if (race === 'slime') G.form = 'boba';
-    drawAvatar(g, w / 2, by, play, { t: T + (race === 'slime' ? 1 : 0), view: 'front', race, noGold: true, form: race === 'slime' ? 'boba' : undefined });
-    G.race = save; G.form = saveF;
-    drawChibiBuddy(g, w * .2, by + 2, 22, T + (race === 'slime' ? .5 : 0), race === 'slime' ? 'honey' : 'orange');
+    const gr = g.createRadialGradient(w / 2, h * .62, 4, w / 2, h * .62, w * .55);
+    gr.addColorStop(0, spec.race === 'slime' ? 'rgba(255,200,80,.32)' : 'rgba(165,150,255,.28)');
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    drawRosterPlate(g, w / 2, h * .93, h * .82 / 1.4, { t: T, hk: 1.4, race: spec.race }, spec.id);
   }
 }
 
@@ -7310,7 +7347,8 @@ const BONDS = [ // sec: 'friends' = NPC humanoid characters only; 'pets' = Pip +
 function chOpen() {
   if (G.scene !== 'map' || anyModal()) return; audioInit(); SFX.tap(); buzz(8); closeRing();
   CH.on = true; $('#charM').classList.add('on'); $('#charM').setAttribute('aria-hidden', 'false');
-  $('#chWho').textContent = G.fieldAvatar === 'gold' ? 'Original Gold · static field picture' : (G.race === 'slime' ? (G.form === 'citrine' || (G.formFx && G.formFx.form === 'citrine') ? 'Boba · Citrine slime' : 'Boba · Milk-tea slime') : 'Wayfarer · Human');
+  const plate = rosterPlate(G.plateLook);
+  $('#chWho').textContent = G.fieldAvatar === 'gold' ? 'Original Gold · static field picture' : (plate ? plate.name : (G.race === 'slime' ? 'Slime' : 'Human'));
   chTab(CH.tab);
 }
 function chClose() { CH.on = false; CH.sk.hold = null; $('#charM').classList.remove('on'); $('#charM').setAttribute('aria-hidden', 'true'); }
