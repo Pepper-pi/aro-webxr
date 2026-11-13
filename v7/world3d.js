@@ -35315,15 +35315,43 @@ function setFpBody(on) {
   const hand = vrm.humanoid.getNormalizedBoneNode("rightHand");
   if (hand && !hand.getObjectByName("fpPalm")) {
     const palm = new Mesh(
-      new SphereGeometry(0.018, 8, 6),
-      new MeshBasicMaterial({ color: 16765802, transparent: true, opacity: 0 })
+      new SphereGeometry(0.016, 10, 8),
+      new MeshBasicMaterial({
+        color: 16770984,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        depthTest: false,
+        blending: AdditiveBlending
+      })
     );
     palm.name = "fpPalm";
-    palm.position.set(0.01, 0.02, 0.045);
-    palm.layers.enable(1);
+    palm.position.set(0, 0.07, 0.02);
+    palm.renderOrder = 3;
     hand.add(palm);
   }
   return true;
+}
+function setAvatarLayer(layer) {
+  if (!avatar) return;
+  avatar.traverse((o) => {
+    if (o.layers) o.layers.set(layer);
+  });
+}
+var vmCam = null;
+var fpFill = null;
+function ensureVmCam() {
+  if (!vmCam) {
+    vmCam = new PerspectiveCamera(46, 1, 0.2, 40);
+    vmCam.layers.set(2);
+  }
+  if (!fpFill) {
+    fpFill = new DirectionalLight(16774372, 1.6);
+    fpFill.layers.set(2);
+    fpFill.target = new Object3D();
+    scene.add(fpFill, fpFill.target);
+  }
+  return vmCam;
 }
 function setFp(on, kind) {
   const fish = kind === "fish" || on && playMode === "fish" && kind !== "fight";
@@ -35369,7 +35397,10 @@ function setFp(on, kind) {
       scene.fog.far = 110;
     }
     fp.body = setFpBody(true);
-    if (fp.body) fp.pitch = 0.32;
+    if (fp.body) {
+      fp.pitch = 0.08;
+      setAvatarLayer(2);
+    }
     if (fp.body && vrm.userData.matz) {
       vrm.userData.matz.t = 1;
       vrm.userData.matz.uFill.value = 99;
@@ -35377,6 +35408,7 @@ function setFp(on, kind) {
   } else {
     fp.placed = false;
     setFpBody(false);
+    setAvatarLayer(1);
     fp.body = false;
     if (fightBeast) fightBeast.visible = false;
     if (fightDress) fightDress.visible = false;
@@ -35461,16 +35493,33 @@ function frameFp() {
   const gy = groundY(px2, pz2);
   const ahead = new Vector3(Math.sin(fp.yaw), 0, Math.cos(fp.yaw));
   const pitch = fp.pitch || 0;
-  camera.near = fp.body ? 0.08 : 0.06;
-  camera.fov = 74;
+  camera.near = 0.08;
+  camera.fov = fp.body ? 56 : 64;
   camera.updateProjectionMatrix();
-  camera.position.set(px2, gy + (fp.body ? 1.28 : 1.58), pz2).addScaledVector(ahead, fp.body ? 0.16 : 0.18);
+  camera.position.set(px2, gy + 1.55, pz2).addScaledVector(ahead, 0.1);
   camera.up.set(0, 1, 0);
   const lookDist = 8;
   const lx = px2 + ahead.x * lookDist;
   const lz = pz2 + ahead.z * lookDist;
-  const ly = gy + 1.35 - Math.sin(pitch) * 5.5;
+  const ly = gy + 1.5 - Math.sin(pitch) * 4.2;
   camera.lookAt(lx, ly, lz);
+  if (fp.body) {
+    const vm = ensureVmCam();
+    vm.aspect = camera.aspect;
+    vm.fov = 46;
+    vm.near = 0.38;
+    vm.far = 6;
+    vm.position.copy(camera.position);
+    vm.up.set(0, 1, 0);
+    const aim = new Vector3(px2 + ahead.x * 0.62, gy + 0.86, pz2 + ahead.z * 0.62);
+    vm.lookAt(aim);
+    vm.updateProjectionMatrix();
+    if (fpFill) {
+      fpFill.position.copy(vm.position).add(new Vector3(-ahead.z * 0.25, 0.35, ahead.x * 0.25));
+      fpFill.target.position.copy(aim);
+      fpFill.target.updateMatrixWorld();
+    }
+  }
   facing = fp.yaw;
   if (fpArms) {
     fpArms.visible = !!fp.on && !fp.body;
@@ -35484,10 +35533,12 @@ function frameFp() {
     const glow = palm && (palm.getObjectByName("fpPalm") || palm.getObjectByName("palm"));
     if (glow && glow.material) {
       const hot = fp.cast > 0;
-      glow.material.color.setHex(fp.kind === "fire" ? 16738858 : 16765802);
-      glow.material.opacity = hot ? 0.85 : 0.12;
+      glow.material.color.setHex(fp.kind === "fire" ? 16742970 : 16770984);
+      glow.material.opacity = hot ? 0.8 : 0;
       glow.material.transparent = true;
-      const s = hot ? 1.4 + Math.sin(worldT * 18) * 0.15 : 0.7;
+      glow.material.depthWrite = false;
+      glow.material.depthTest = false;
+      const s = hot ? 1 : 0.4;
       glow.scale.setScalar(s);
       glow.visible = true;
     }
@@ -35505,21 +35556,26 @@ function poseFpBody() {
   setBone("hips", 0, 0, 0);
   setBone("spine", 0.08, 0, 0);
   setBone("chest", 0.04, 0, 0);
-  setBone("leftUpperArm", 0.05, 1.35, 0.12);
-  setBone("leftLowerArm", 0.15, 0.55, 0.05);
-  setBone("leftHand", -0.35, 0.1, 0.2);
-  setBone("rightUpperArm", 0.05 + punch * 0.08, -1.25, -0.1);
-  setBone("rightLowerArm", 0.1, -0.4, -0.05);
-  setBone("rightHand", -0.45, -0.15, -0.25);
-  const spread = 0.22 + (fp.cast > 0 ? 0.18 : 0);
+  setBone("leftUpperArm", 0.12, 1.42, 0.28);
+  setBone("leftLowerArm", 0.22, 0.18, 0.04);
+  const hand = [0.2, -1.1, 0.6];
+  setBone("leftHand", -hand[0], -hand[1], -hand[2]);
+  setBone("rightUpperArm", 0.18 + punch * 0.1, -1.28, -0.22);
+  setBone("rightLowerArm", 0.16 - punch * 0.05, -0.12, -0.02);
+  setBone("rightHand", hand[0], hand[1], hand[2]);
+  const spread = 0.38 + (fp.cast > 0 ? 0.12 : 0);
+  const curl = fp.cast > 0 ? 0.05 : 0.12;
   ["Index", "Middle", "Ring", "Little"].forEach((finger, i) => {
     const splay = (i - 1.5) * spread;
-    setBone("right" + finger + "Proximal", -0.15, splay, 0);
-    setBone("right" + finger + "Intermediate", 0.05, 0, 0);
-    setBone("right" + finger + "Distal", 0.04, 0, 0);
+    setBone("right" + finger + "Proximal", curl, splay, 0);
+    setBone("right" + finger + "Intermediate", curl * 0.65, 0, 0);
+    setBone("right" + finger + "Distal", curl * 0.4, 0, 0);
+    setBone("left" + finger + "Proximal", 0.28, splay * 0.45, 0);
+    setBone("left" + finger + "Intermediate", 0.16, 0, 0);
   });
-  setBone("rightThumbProximal", -0.4, 0.35, 0.4);
-  setBone("rightThumbIntermediate", -0.15, 0, 0);
+  setBone("rightThumbProximal", -0.55, 0.45, 0.55);
+  setBone("rightThumbIntermediate", -0.2, 0, 0);
+  setBone("leftThumbProximal", -0.4, -0.3, -0.35);
   const head = vrm.humanoid.getNormalizedBoneNode("head");
   if (head) head.scale.setScalar(1e-3);
   vrm.humanoid.update();
@@ -35965,8 +36021,8 @@ function bindMaterialize(mat, state) {
     const snip = `
       {
         float above = vMatzY - uFill;
-        float band = smoothstep(0.028, 0.0, abs(above));
-        if (uFill < 40.0 && above > 0.018) {
+        float band = smoothstep(0.008, 0.0, abs(above));
+        if (uFill < 40.0 && above > 0.012) {
           float gx = abs(fract(vMatzP.x * 18.0) - 0.5);
           float gy = abs(fract(vMatzP.y * 18.0) - 0.5);
           float gz = abs(fract(vMatzP.z * 18.0) - 0.5);
@@ -35976,7 +36032,7 @@ function bindMaterialize(mat, state) {
           col = vec3(0.45, 0.92, 1.0);
           diffuseColor.a = 0.45 * wire;
         }
-        col += vec3(0.85, 1.0, 1.0) * band * step(uFill, 40.0);
+        col += vec3(0.9, 0.96, 1.0) * band * 0.22 * step(uFill, 40.0);
       }
       gl_FragColor = vec4( col, diffuseColor.a );`;
     shader.fragmentShader = shader.fragmentShader.slice(0, at) + snip + shader.fragmentShader.slice(at + token.length);
@@ -36001,7 +36057,7 @@ function stepMaterialize(model, root, dt) {
     s.uFill.value = 99;
     return;
   }
-  s.t = Math.min(1, s.t + dt / 1.2);
+  s.t = Math.min(1, s.t + dt / 0.72);
   const e = s.t * s.t * (3 - 2 * s.t);
   s.uFill.value = root.position.y - 0.04 + e * 1.9;
 }
@@ -36464,6 +36520,12 @@ function renderCharacter(w, h) {
   renderer.clear(true, true, true);
   camera.layers.set(1);
   renderer.render(scene, camera);
+  if (fp.on && fp.body && vmCam) {
+    renderer.autoClear = false;
+    renderer.clearDepth();
+    vmCam.layers.set(2);
+    renderer.render(scene, vmCam);
+  }
   let src = charRT.texture;
   if ((charRT.samples | 0) > 0) {
     if (resolveCharacter(w, h)) src = charFlat.texture;
@@ -36471,6 +36533,11 @@ function renderCharacter(w, h) {
       renderer.setRenderTarget(charFlat);
       renderer.clear(true, true, true);
       renderer.render(scene, camera);
+      if (fp.on && fp.body && vmCam) {
+        renderer.autoClear = false;
+        renderer.clearDepth();
+        renderer.render(scene, vmCam);
+      }
       src = charFlat.texture;
     }
   }
