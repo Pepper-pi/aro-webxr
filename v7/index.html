@@ -486,7 +486,7 @@ body.fishing #fishM .sh-h,body.fishing #fishMsg,body.fishing #fishBtn,body.fishi
 body.fishing #fishMsg{color:#f4fbff;text-shadow:0 1px 2px #000}
 body.fishing #fishM .focus-nav{margin-top:4px}
 body.fishing #fishM .focus-nav button{min-height:36px;padding:6px 8px}
-#dbg{position:fixed;right:6px;bottom:calc(6px + var(--sab));font:10px ui-monospace,monospace;color:rgba(255,255,255,.45);z-index:50;pointer-events:none}
+#fpsRead{position:fixed;right:6px;bottom:calc(6px + var(--sab));font:10px ui-monospace,monospace;color:rgba(255,255,255,.45);z-index:50;pointer-events:none}
 /* ---------- v7 character menu (Gear · Skills · Bonds), phone portrait ---------- */
 #charBtn{position:fixed;right:12px;top:calc(96px + var(--sat));z-index:6;font-weight:800;font-size:12px;line-height:1;color:#ffe9b8;background:rgba(26,8,32,.82);border:1.5px solid var(--gold);border-radius:12px;padding:7px 10px;display:flex;gap:6px;align-items:center;box-shadow:0 0 10px rgba(255,201,77,.3)}
 #roomLow{position:fixed;right:12px;top:calc(96px + var(--sat));z-index:12;padding:7px 10px;border-radius:12px;background:rgba(12,8,20,.88);border:1px solid rgba(140,200,230,.4);color:#d7f4ff;font-weight:900;font-size:12px}
@@ -798,7 +798,7 @@ body.fishing #fishM .focus-nav button{min-height:36px;padding:6px 8px}
     <button type="button" class="big" id="goldClose">Back to choices</button>
   </div>
 </div>
-<div id="dbg"></div>
+<div id="fpsRead"></div>
 <script type="application/json" id="look-catalog">
 {
   "schema": "aro.look-catalog.v1",
@@ -7532,7 +7532,7 @@ function frame(now) {
   if (craftOpen) drawBall(T, dt);
   if (G.scene === 'title') drawPreviews(T);
   const el = performance.now() - t0; perf.frames++; perf.ms += el; perf.worst = Math.max(perf.worst, el);
-  perf._n++; if (now - perf._t > 1000) { perf.fps = perf._n * 1000 / (now - perf._t); perf._t = now; perf._n = 0; if (QS.has('debug')) $('#dbg').textContent = `${perf.fps.toFixed(0)} fps · ${(perf.ms / perf.frames).toFixed(2)} ms/frame`; }
+  perf._n++; if (now - perf._t > 1000) { perf.fps = perf._n * 1000 / (now - perf._t); perf._t = now; perf._n = 0; if (QS.has('debug')) $('#fpsRead').textContent = `${perf.fps.toFixed(0)} fps · ${(perf.ms / perf.frames).toFixed(2)} ms/frame`; }
 }
 function drawPreviews(T) {
   for (const b of document.querySelectorAll('#title .race')) {
