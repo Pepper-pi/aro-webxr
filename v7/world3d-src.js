@@ -237,14 +237,36 @@ function dressGround(mesh) {
       uPebble: { value: loadGroundTex('assets/ground/pebbles.jpg', true) },
       uLake: { value: new THREE.Vector2() },
       uLakeR: { value: new THREE.Vector2(36, 24) },
+      uHome: { value: new THREE.Vector2(1e5, 1e5) },
+      uAether: { value: [new THREE.Vector2(1e5, 1e5), new THREE.Vector2(1e5, 1e5), new THREE.Vector2(1e5, 1e5)] },
     },
     vertexShader: `
       attribute vec3 color;
       varying vec3 vWorld;
       varying vec3 vColor;
+      float vHash(vec2 p){
+        vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+        p3 += dot(p3, p3.yzx + 33.33);
+        return fract((p3.x + p3.y) * p3.z);
+      }
+      vec2 vHexId(vec2 p){
+        vec2 uv = p / 3.6;
+        vec2 r = vec2(1.0, 1.7320508);
+        vec2 h = r * 0.5;
+        vec2 a = mod(uv, r) - h;
+        vec2 b = mod(uv - h, r) - h;
+        vec2 gv = dot(a, a) < dot(b, b) ? a : b;
+        return uv - gv;
+      }
       void main(){
         vColor = color;
         vec4 w = modelMatrix * vec4(position, 1.0);
+        vec2 id = vHexId(w.xz);
+        vec2 coarse = floor(id / 2.2);
+        float cluster = step(0.9, vHash(coarse + 9.0));
+        float member = step(vHash(id), 0.18 + vHash(coarse) * 0.4);
+        float sunk = cluster * member * step(0.62, vHash(id + 5.0));
+        w.y -= sunk * (0.02 + 0.03 * vHash(id + 1.7));
         vWorld = w.xyz;
         gl_Position = projectionMatrix * viewMatrix * w;
       }`,
@@ -262,13 +284,12 @@ function dressGround(mesh) {
       uniform sampler2D uPebble;
       uniform vec2 uLake;
       uniform vec2 uLakeR;
+      uniform vec2 uHome;
+      uniform vec2 uAether[3];
       ${HEX_GLSL}
       vec3 lift(vec3 c){ return pow(max(c, vec3(0.001)), vec3(0.5)); }
       vec3 grade(vec3 c, vec3 tint){
-        c = mix(c, tint, 0.12);
-        float l = dot(c, vec3(0.25, 0.6, 0.15));
-        c = mix(c, vec3(l * 0.7, l, l * 0.45), 0.12);
-        return c;
+        return mix(c, c * 0.65 + tint, 0.08);
       }
       void main(){
         float lakeD = length((vWorld.xz - uLake) / max(uLakeR, vec2(1.0)));
@@ -277,73 +298,90 @@ function dressGround(mesh) {
           return;
         }
         vec3 V = normalize(cameraPosition - vWorld);
-        vec2 viewXZ = clamp(V.xz / max(V.y, 0.2), vec2(-0.45), vec2(0.45));
-        vec2 uv = vWorld.xz * 0.16;
-        vec2 uvOff = uv;
-        float hit = 0.0;
-        for (int i = 0; i < 6; i++) {
-          float layer = float(i) / 6.0;
-          vec2 uvi = uv + viewXZ * 0.045 * layer;
-          float hh = texture2D(uHeight, uvi).r;
-          if (hh >= 1.0 - layer) { uvOff = uvi; hit = hh; }
-        }
+        float ny = clamp(V.y, 0.0, 1.0);
+        vec2 uv = vWorld.xz * 0.2;
+        vec2 uvOff = uv + V.xz * (0.028 * ny);
+        float hit = texture2D(uHeight, uvOff).r;
         vec3 soil = lift(texture2D(uSoil, uvOff).rgb);
-        vec3 moss = lift(texture2D(uMoss, uvOff * 0.73 + 3.0).rgb);
-        vec3 peb = lift(texture2D(uPebble, uvOff * 1.35).rgb);
-        float mossMix = smoothstep(0.45, 0.82, hit) * smoothstep(0.25, 0.7, vColor.g);
-        float pebMix = smoothstep(0.62, 0.9, texture2D(uHeight, uvOff * 1.7 + 8.0).r) * 0.55;
+        vec3 moss = lift(texture2D(uMoss, uv * 0.73 + 3.0).rgb);
+        vec3 peb = lift(texture2D(uPebble, uv * 1.35).rgb);
+        float mossMix = smoothstep(0.55, 0.9, hit) * 0.45;
+        float pebMix = smoothstep(0.72, 0.95, texture2D(uHeight, uv * 1.7 + 8.0).r) * 0.4;
         vec3 under = mix(soil, moss, mossMix);
         under = mix(under, peb, pebMix);
-        under *= 0.72 + hit * 0.4;
+        under *= 0.86 + hit * 0.22;
         float n1 = holoHash(floor(vWorld.xz * 0.17));
         float n2 = holoHash(vWorld.xz * 0.11 + 4.2);
-        float vein = 1.0 - smoothstep(0.0, 0.045, abs(n1 - 0.5));
+        float vein = 1.0 - smoothstep(0.0, 0.04, abs(n1 - 0.5));
         vein *= step(0.62, n2);
         float pulse = 0.55 + 0.45 * sin(uTime * 0.55 + n2 * 8.0);
-        under += vec3(1.0, 0.74, 0.22) * vein * pulse * 0.95;
-        under = grade(under, vColor * 0.85 + 0.15);
-        vec3 hcell = holoHex(vWorld.xz, 1.35);
+        under += vec3(1.0, 0.74, 0.22) * vein * pulse * 0.55;
+        under = grade(under, vColor);
+        vec3 hcell = holoHex(vWorld.xz, 3.6);
         vec2 hid = hcell.xy;
         float hedge = hcell.z;
-        float seam = 1.0 - smoothstep(0.01, 0.045, hedge);
-        float bevel = smoothstep(0.02, 0.08, hedge) * (1.0 - smoothstep(0.08, 0.2, hedge));
-        float fres = pow(1.0 - clamp(V.y, 0.0, 1.0), 2.0);
-        float grassW = clamp(smoothstep(0.9, 1.35, under.g / max(under.r, 0.04)) + smoothstep(0.03, 0.16, vColor.g - vColor.r), 0.0, 1.0);
-        float dirtW = clamp(smoothstep(0.02, 0.14, vColor.r - vColor.g) + smoothstep(1.05, 1.45, under.r / max(under.b, 0.04)) * (1.0 - grassW), 0.0, 1.0);
-        float stoneW = clamp(pebMix * 1.2 + (1.0 - clamp(abs(under.r - under.g) * 3.0, 0.0, 1.0)) * 0.35, 0.0, 1.0);
+        float aa = max(fwidth(hedge), 0.0035);
+        float seam = 1.0 - smoothstep(aa * 0.35, aa * 2.4, hedge);
+        float bevel = smoothstep(aa, aa * 5.0, hedge) * (1.0 - smoothstep(aa * 5.0, 0.18, hedge));
+        float fres = pow(1.0 - ny, 1.45);
+        float grassW = clamp(smoothstep(0.04, 0.16, vColor.g - vColor.r), 0.0, 1.0);
+        float dirtW = clamp(smoothstep(0.02, 0.12, vColor.r - vColor.g), 0.0, 1.0);
+        float stoneW = clamp(pebMix, 0.0, 1.0);
         float waterW = smoothstep(1.22, 0.98, lakeD) * smoothstep(0.78, 0.98, lakeD);
         vec3 bias = vec3(1.0);
-        bias = mix(bias, vec3(0.78, 1.12, 0.7), grassW * 0.85);
-        bias = mix(bias, vec3(1.18, 0.86, 0.58), dirtW * 0.9);
-        bias = mix(bias, vec3(0.74, 0.84, 1.12), stoneW * 0.8);
-        bias = mix(bias, vec3(0.5, 0.98, 1.12), waterW);
-        vec3 glass = vec3(0.8, 0.88, 0.86) * bias;
-        vec3 col = mix(under, glass, 0.1 + fres * 0.26);
-        col *= mix(vec3(1.0), bias, 0.72);
-        col += glass * bevel * (0.12 + fres * 0.16);
+        bias = mix(bias, vec3(0.86, 1.06, 0.8), grassW * 0.45);
+        bias = mix(bias, vec3(1.1, 0.9, 0.7), dirtW * 0.55);
+        bias = mix(bias, vec3(0.82, 0.9, 1.06), stoneW * 0.5);
+        bias = mix(bias, vec3(0.62, 0.98, 1.08), waterW * 0.7);
+        under *= bias;
+        vec2 coarse = floor(hid / 2.2);
+        float cluster = step(0.9, holoHash(coarse + 9.0));
+        float member = step(holoHash(hid), 0.18 + holoHash(coarse) * 0.4);
+        float failing = cluster * member;
+        float sunk = failing * step(0.62, holoHash(hid + 5.0));
+        float phase = fract(uTime * 0.16 + holoHash(hid) * 3.0);
+        float dropout = failing * step(0.45, holoHash(hid + 2.0)) * smoothstep(0.0, 0.04, phase) * (1.0 - smoothstep(0.1, 0.18, phase));
+        under *= mix(1.0, 0.58, failing * 0.85);
+        under *= mix(1.0, 0.72, sunk);
+        float drift = sin(vWorld.x * 0.016 + uTime * 0.02) * sin(vWorld.z * 0.013 - uTime * 0.015);
+        float cloud = smoothstep(0.2, 0.8, drift * 0.5 + 0.5);
+        under *= mix(1.0, 0.8, cloud * 0.5);
+        vec3 col = under + vec3(0.85, 0.93, 0.9) * fres * bevel * 0.18;
+        col = mix(col, vec3(0.02, 0.03, 0.04), dropout * 0.75);
         vec3 seamCol = mix(vec3(0.45, 0.95, 1.0), vec3(1.0, 0.8, 0.38), 0.45);
-        float seamAmp = 0.55;
+        float seamAmp = 0.7 + fres * 1.15;
         if (uSeam > 0.5 && uSeam < 1.5) {
-          float crack = step(0.42, fract(sin(dot(hid, vec2(19.1, 73.4)) + uTime * 6.0) * 43758.5));
-          seamCol = vec3(1.0, 0.25, 0.62);
-          seamAmp = 0.35 + crack * 0.9;
+          float crack = fract(sin(dot(hid + floor(vec2(uTime * 9.0, uTime * 6.0)), vec2(19.1, 73.4))) * 43758.5);
+          float spark = step(0.78, fract(sin(dot(vWorld.xz * 2.0, vec2(12.9, 78.2)) + uTime * 16.0) * 43758.5));
+          seamCol = vec3(1.0, 0.18, 0.58);
+          seamAmp = 1.7 + smoothstep(0.2, 0.9, crack) * 1.5 + spark;
+          col += vec3(1.0, 0.45, 0.75) * spark * seam * 0.65;
         } else if (uSeam > 1.5 && uSeam < 2.5) {
-          float rip = 0.5 + 0.5 * sin(length(vWorld.xz - uOrigin) * 1.6 - uTime * 3.2);
-          seamCol = vec3(0.35, 0.7, 1.0);
-          seamAmp = 0.25 + rip * 0.7;
-          col += vec3(0.45, 0.7, 1.0) * rip * seam * 0.15;
+          float rip = 0.5 + 0.5 * sin(length(vWorld.xz - uOrigin) * 2.4 - uTime * 6.0);
+          seamCol = vec3(0.25, 0.72, 1.0);
+          seamAmp = 1.15 + rip * 1.35;
+          col += seamCol * rip * seam * 0.35;
         } else if (uSeam > 2.5 && uSeam < 3.5) {
-          float flick = 0.6 + 0.4 * sin(uTime * 9.0 + hid.x);
-          seamCol = vec3(1.0, 0.42, 0.12);
-          seamAmp = 0.45 * flick;
-          col += vec3(1.0, 0.35, 0.08) * seam * 0.2;
+          float flick = 0.45 + 0.55 * sin(uTime * 16.0 + hid.x * 4.0);
+          float ember = step(0.7, fract(sin(dot(vWorld.xz, vec2(4.2, 9.1)) + uTime * 11.0) * 43758.5));
+          seamCol = vec3(1.0, 0.38, 0.08);
+          seamAmp = 1.35 + flick + ember;
         } else if (uSeam > 3.5) {
-          seamCol = vec3(0.45, 1.0, 0.55);
-          seamAmp = 0.7;
+          seamCol = vec3(0.4, 1.0, 0.5);
+          seamAmp = 1.5 + fres * 0.6;
         }
-        float hdist = length(vWorld.xz - uOrigin);
-        float farOnly = smoothstep(28.0, 70.0, hdist);
-        col += seamCol * seam * (0.32 + seamAmp * 0.35) * mix(1.0, 0.5, farOnly);
+        float seamBreak = smoothstep(0.2, 0.8, holoHash(floor(vWorld.xz * 0.03)));
+        float nearHome = 1.0 - smoothstep(7.0, 20.0, length(vWorld.xz - uHome));
+        float nearAether = nearHome;
+        nearAether = max(nearAether, 1.0 - smoothstep(5.0, 14.0, length(vWorld.xz - uAether[0])));
+        nearAether = max(nearAether, 1.0 - smoothstep(5.0, 14.0, length(vWorld.xz - uAether[1])));
+        nearAether = max(nearAether, 1.0 - smoothstep(5.0, 14.0, length(vWorld.xz - uAether[2])));
+        float keep = mix(seamBreak, 1.0, clamp(dirtW * 0.9 + nearAether, 0.0, 1.0));
+        if (uSeam > 0.5) keep = 1.0;
+        seam *= mix(0.04, 1.0, keep);
+        col += vec3(0.0, 0.0, 0.0) * sunk * seam * 0.35;
+        col *= mix(1.0, 0.45, sunk * seam);
+        col += seamCol * seam * seamAmp * (1.0 - dropout);
         gl_FragColor = vec4(col, 1.0);
       }`,
   });
@@ -1494,10 +1532,10 @@ function applyPose(model, time, dt, speed, state) {
   }
   if (fp.on && model === vrm) {
     const punch = fp.cast > 0 ? Math.sin((1 - fp.cast / 0.35) * Math.PI) : 0;
-    setBone('leftUpperArm', -1.2, -0.25, 0.55);
-    setBone('leftLowerArm', -0.75, 0.1, -0.15);
-    setBone('rightUpperArm', -1.4 - punch * 0.35, 0.2, -0.4);
-    setBone('rightLowerArm', -0.85, -0.05, 0.1);
+    setBone('leftUpperArm', 0.35, 0.15, 1.25);
+    setBone('leftLowerArm', -0.9, 0.2, 0.15);
+    setBone('rightUpperArm', 0.55 + punch * 0.35, -0.2, -1.15);
+    setBone('rightLowerArm', -1.05, -0.1, -0.2);
   }
 }
 
@@ -1649,28 +1687,37 @@ function frameRoom() {
 function mountFpHud() {
   if (document.getElementById('fpHud')) return;
   const s = document.createElement('style');
-  s.textContent = '#fpHud{position:fixed;inset:0;z-index:16;display:none;pointer-events:none;perspective:900px}#fpHud.on{display:block}#fpHud .band{position:absolute;left:6%;right:6%;bottom:16px;transform:rotateX(16deg);display:flex;justify-content:space-between;gap:8px;padding:8px 12px;border-radius:16px;border:1px solid rgba(127,240,255,.5);background:linear-gradient(180deg,rgba(8,20,32,.2),rgba(8,18,28,.72));color:#e7fbff;font:800 13px ui-rounded,system-ui}#fpHud button{pointer-events:auto;min-height:36px;padding:6px 10px;border-radius:10px;border:1px solid rgba(127,240,255,.55);background:rgba(8,24,36,.8);color:#e7fbff;font:800 13px ui-rounded,system-ui}#fpHud .reticle{position:absolute;left:50%;top:44%;width:26px;height:26px;margin:-13px 0 0 -13px;border:2px solid rgba(190,255,255,.85);border-radius:50%;box-shadow:0 0 10px rgba(120,220,255,.45)}#fpHud.pulse .band{box-shadow:0 0 22px rgba(255,90,70,.85)}';
+  s.textContent = '#fpHud{position:fixed;inset:0;z-index:30;display:none;pointer-events:none}#fpHud.on{display:block}body.fp-on #hud,body.fp-on #worldSpells,body.fp-on #menuBtn,body.fp-on #aroBack,body.fp-on #charBtn{display:none!important}#fpHud .band{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);display:flex;gap:14px;align-items:center;padding:8px 16px;border-radius:999px;border:1px solid rgba(127,240,255,.45);background:rgba(6,16,28,.72);color:#e7fbff;font:800 13px ui-rounded,system-ui}#fpHud button{pointer-events:auto;min-height:32px;padding:4px 10px;border-radius:999px;border:1px solid rgba(127,240,255,.4);background:transparent;color:#e7fbff;font:800 12px ui-rounded,system-ui}#fpHud .reticle{position:absolute;left:50%;top:46%;width:22px;height:22px;margin:-11px 0 0 -11px;border:1.5px solid rgba(190,255,255,.8);border-radius:50%}#fpHud.pulse .reticle{box-shadow:0 0 16px rgba(255,120,80,.9)}';
   document.head.appendChild(s);
   const hud = document.createElement('div');
   hud.id = 'fpHud';
-  hud.innerHTML = '<div class="reticle"></div><div class="band"><b data-v="aether">Aether 3</b><span>Lock</span><b data-v="fire">Fire 3</b><button type="button" data-act="aether">Aether</button><button type="button" data-act="fire">Fire</button><button type="button" data-act="xr">Glasses</button><button type="button" data-act="off">Exit</button></div>';
+  hud.innerHTML = '<div class="reticle"></div><div class="band"><b data-v="aether">Aether 3</b><b data-v="fire">Fire 3</b><button type="button" data-act="xr">Glasses</button><button type="button" data-act="off">Exit</button></div>';
   document.body.appendChild(hud);
-  hud.querySelector('[data-act="aether"]').onclick = () => fpShoot('aether');
-  hud.querySelector('[data-act="fire"]').onclick = () => fpShoot('fire');
   hud.querySelector('[data-act="xr"]').onclick = () => startFpXR();
   hud.querySelector('[data-act="off"]').onclick = () => setFp(false);
 }
 function setFp(on) {
   const allow = playMode === 'arena' || playMode === 'raid';
   fp.on = !!on && allow;
-  if (fp.on) { fp.yaw = facing; fp.pitch = 0.52; }
+  if (fp.on) { fp.yaw = facing; fp.pitch = 0.22; attachGloves(); }
   document.body.classList.toggle('fp-on', fp.on);
   mountFpHud();
   const el = document.getElementById('fpHud');
   if (el) el.classList.toggle('on', fp.on);
-  if (avatar) avatar.visible = !fp.on;
-  if (fpArms) fpArms.visible = fp.on;
-  if (!fp.on && camera) { camera.fov = 42; camera.updateProjectionMatrix(); }
+  if (avatar) avatar.visible = true;
+  if (vrm && vrm.humanoid) {
+    const head = vrm.humanoid.getNormalizedBoneNode('head');
+    if (head) head.scale.setScalar(fp.on ? 0.001 : 1);
+  }
+  if (vrm && vrm.scene) {
+    vrm.scene.traverse((o) => {
+      if (!o.isMesh) return;
+      const n = ((o.name || '') + ((o.material && o.material.name) || '')).toLowerCase();
+      if (/head|face|hair|eye|brow|mouth|teeth|lash/.test(n)) o.visible = !fp.on;
+    });
+  }
+  if (fpArms) fpArms.visible = false;
+  if (!fp.on && camera) { camera.near = 0.1; camera.fov = 42; camera.updateProjectionMatrix(); }
 }
 async function startFpXR() {
   fp.xr = 'requesting';
@@ -1718,30 +1765,47 @@ function ensureFpArms() {
   scene.add(fpArms);
 }
 let fpArms = null;
+function attachGloves() {
+  if (!vrm || !vrm.humanoid) return;
+  ['left', 'right'].forEach((side) => {
+    const bone = vrm.humanoid.getNormalizedBoneNode(side + 'Hand');
+    if (!bone || bone.getObjectByName('glove')) return;
+    const g = new THREE.Group();
+    g.name = 'glove';
+    const cuff = new THREE.Mesh(new THREE.CapsuleGeometry(0.034, 0.14, 6, 12), toonMat('#241c18'));
+    cuff.position.y = -0.02;
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.042, 14, 12), toonMat('#f0c4a4'));
+    hand.scale.set(1.05, 0.72, 1.25);
+    hand.position.y = 0.05;
+    const palm = new THREE.Mesh(new THREE.SphereGeometry(0.028, 10, 8), new THREE.MeshBasicMaterial({ color: side === 'right' ? 0xffd36a : 0xfff1c4 }));
+    palm.name = 'palm';
+    palm.position.set(0, 0.045, 0.03);
+    g.add(cuff, hand, palm);
+    g.traverse((o) => { o.frustumCulled = false; if (o.layers) { o.layers.enable(0); o.layers.enable(1); } });
+    bone.add(g);
+  });
+}
 function frameFp() {
-  const y = standY(px, pz) + 1.45;
-  camera.fov = 62;
+  const y = standY(px, pz) + 1.42;
+  camera.near = 0.45;
+  camera.fov = 58;
   camera.updateProjectionMatrix();
   const ahead = new THREE.Vector3(Math.sin(fp.yaw), 0, Math.cos(fp.yaw));
-  camera.position.set(px, y, pz).addScaledVector(ahead, 0.32);
+  camera.position.set(px, y, pz).addScaledVector(ahead, 0.12);
   camera.rotation.order = 'YXZ';
   camera.rotation.y = fp.yaw;
-  camera.rotation.x = fp.pitch;
-  ensureFpArms();
-  fpArms.visible = true;
-  const punch = fp.cast > 0 ? Math.sin((1 - Math.min(1, fp.cast / 0.35)) * Math.PI) : 0;
-  fpArms.position.copy(camera.position);
-  fpArms.quaternion.copy(camera.quaternion);
-  const right = fpArms.children[1];
-  if (right) {
-    right.position.z = -punch * 0.16;
-    const palm = right.getObjectByName('palm');
-    if (palm) {
-      const hot = fp.kind === 'fire' ? 0xff6a2a : 0xffd36a;
-      palm.material.color.setHex(hot);
-      palm.scale.setScalar(1.1 + punch * 1.6);
+  camera.rotation.x = -0.32;
+  if (vrm && vrm.humanoid) {
+    const palm = vrm.humanoid.getNormalizedBoneNode('rightHand');
+    const glow = palm && palm.getObjectByName('palm');
+    if (glow && glow.material) {
+      const hot = fp.cast > 0 && fp.kind === 'fire';
+      glow.material.color.setHex(hot ? 0xff6a2a : 0xffd36a);
+      const s = 1 + (fp.cast > 0 ? Math.sin((1 - fp.cast / 0.35) * Math.PI) * 0.8 : 0.15);
+      glow.scale.setScalar(s);
     }
   }
+  if (fpArms) fpArms.visible = false;
   if (skyMat) skyMat.uniforms.uCam.value.copy(camera.position);
 }
 function fpShoot(kind) {
@@ -1757,10 +1821,8 @@ function stepFp(dt) {
   if (fp.pulse > 0) fp.pulse = Math.max(0, fp.pulse - dt);
   const hud = document.getElementById('fpHud');
   if (hud) hud.classList.toggle('pulse', fp.pulse > 0);
-  if (!fp.on) {
-    if (palmOrb) palmOrb.visible = false;
-    return;
-  }
+  if (palmOrb) palmOrb.visible = false;
+  if (!fp.on) return;
   if (hud) {
     const a = hud.querySelector('[data-v="aether"]');
     const f = hud.querySelector('[data-v="fire"]');
@@ -1829,10 +1891,16 @@ function frameCamera() {
     camYaw = facing;
   }
   else if (shot === 'glass' || shot === 'glasswide' || shot === 'glassbody') {
-    if (shot === 'glass') { camDist = 6.5; camPitch = 0.42; }
-    else if (shot === 'glasswide') { camDist = 16; camPitch = 0.48; }
-    else { camDist = 6.2; camPitch = 0.32; }
-    camYaw = facing + 0.4;
+    if (field) {
+      const lake = field.anchors.lake;
+      const spot = nearestWalkable(lake[0] - 36, lake[1] + 18);
+      px = spot[0]; pz = spot[1];
+      facing = Math.atan2(lake[0] - px, lake[1] - pz);
+    }
+    if (shot === 'glass') { camDist = 8; camPitch = 0.34; }
+    else if (shot === 'glasswide') { camDist = 18; camPitch = 0.3; }
+    else { camDist = 7.5; camPitch = 0.32; }
+    camYaw = facing + 0.15;
   }
   else if (shot === 'grass' || shot === 'grasswide' || shot === 'ground' || shot === 'groundwide') {
     const spot = nearestDetail(shot.indexOf('ground') === 0);
@@ -2699,6 +2767,12 @@ function syncHolo() {
     if (groundHolo.uniforms.uSeam) groundHolo.uniforms.uSeam.value = seamValue();
     if (field && groundHolo.uniforms.uLake) {
       groundHolo.uniforms.uLake.value.set(field.anchors.lake[0], field.anchors.lake[1]);
+      groundHolo.uniforms.uHome.value.set(field.anchors.home[0], field.anchors.home[1]);
+      const spots = groundHolo.uniforms.uAether.value;
+      for (let i = 0; i < 3; i++) {
+        const g = superHexes[i];
+        if (g) spots[i].set(g.position.x, g.position.z);
+      }
     }
   }
 }
@@ -3126,11 +3200,11 @@ function buildSites() {
       precision mediump float; varying vec3 vP;
       void main(){
         vec3 d = normalize(vP);
-        vec3 bot = vec3(0.55, 0.36, 0.28);
-        vec3 top = vec3(0.95, 0.62, 0.42);
-        vec3 c = mix(bot, top, smoothstep(-0.2, 0.7, d.y));
-        float hex = abs(fract(atan(d.x, d.z) * 1.6) - 0.5);
-        c += vec3(0.6, 0.9, 1.0) * (1.0 - smoothstep(0.02, 0.08, hex)) * 0.08 * smoothstep(0.0, 0.4, d.y);
+        vec3 groundC = vec3(0.34, 0.46, 0.36);
+        vec3 hor = vec3(0.96, 0.82, 0.66);
+        vec3 sky = vec3(0.45, 0.68, 0.9);
+        vec3 c = mix(groundC, hor, smoothstep(-0.35, 0.02, d.y));
+        c = mix(c, sky, smoothstep(0.0, 0.42, d.y));
         gl_FragColor = vec4(c, 1.0);
       }`,
   }));
