@@ -25,6 +25,9 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;touch-
 #hearts i.off{background:rgba(255,255,255,.14);filter:none}
 #obj{position:fixed;left:50%;transform:translateX(-50%);top:calc(50px + var(--sat));z-index:5;pointer-events:none;
 background:rgba(26,15,31,.78);border:1px solid rgba(255,201,77,.45);border-radius:14px;padding:6px 12px;font-size:13px;font-weight:800;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;transition:opacity .4s}
+@media (max-width:520px){
+  body.out-combat #obj{top:calc(78px + var(--sat));left:8px;right:8px;transform:none;width:auto;max-width:none;text-align:center;font-size:12px;padding:5px 8px}
+}
 #obj b{color:var(--gold)}
 /* ---------- coach bubble: one gentle prompt at a time ---------- */
 #coach{position:fixed;left:50%;bottom:calc(178px + var(--sab));transform:translateX(-50%) translateY(8px);width:min(88vw,380px);z-index:7;
@@ -38,6 +41,9 @@ font-size:14.5px;line-height:1.35;box-shadow:0 8px 30px rgba(0,0,0,.45),0 0 18px
 }
 #coach .who{font-size:11px;letter-spacing:.12em;color:var(--pink);font-weight:900;text-transform:uppercase;margin-bottom:3px}
 #coach b{color:var(--gold)}
+#mapHint{position:fixed;left:12px;bottom:calc(108px + var(--sab));z-index:8;display:none;max-width:min(68vw,220px);padding:6px 10px;border-radius:999px;border:1px solid rgba(255,214,140,.75);background:rgba(12,6,18,.9);color:#f4fbff;font:800 12px/1.2 ui-rounded,system-ui;pointer-events:auto}
+#mapHint.on{display:block}
+#mapHint b{color:var(--gold);margin-left:6px}
 /* ---------- one contextual action + one glowing hex menu button ---------- */
 #act{position:fixed;left:50%;bottom:calc(104px + var(--sab));transform:translateX(-50%);z-index:24;min-width:210px;padding:14px 22px;border-radius:18px;
 background:linear-gradient(180deg,#ff6fc4,#d93d98);color:#fff;font-weight:900;font-size:17px;letter-spacing:.01em;box-shadow:0 6px 0 #8f1f62,0 10px 26px rgba(255,79,180,.45);transition:transform .08s}
@@ -506,6 +512,7 @@ body.fishing #fishM .focus-nav button{min-height:36px;padding:6px 8px}
 <div id="toasts"></div>
 <div id="banner"></div>
 <div id="coach"><div class="who">Shaula</div><div id="coachT"></div></div>
+<button type="button" id="mapHint">Tap a hex to walk <b>×</b></button>
 <button id="act" class="hide"></button>
 <button id="menuBtn" class="hide" aria-label="Menu"><span></span><b>Menu</b></button>
 <div id="wirePanel" class="hide"><button id="wireBtn" aria-pressed="false"><i></i>Wire View</button>
@@ -973,6 +980,22 @@ function toast(txt, icon) {
   $('#toasts').appendChild(d); setTimeout(() => d.remove(), 2700);
 }
 let coachTimer = 0;
+const MAP_HINT_KEY = 'aro.map.hint.dismissed';
+function mapHintDismissed() { try { return localStorage.getItem(MAP_HINT_KEY) === '1'; } catch (e) { return false; } }
+function dismissMapHint() {
+  try { localStorage.setItem(MAP_HINT_KEY, '1'); } catch (e) { /* private mode */ }
+  clearTimeout(showMapHint.t);
+  const el = document.getElementById('mapHint');
+  if (el) el.classList.remove('on');
+}
+function showMapHint() {
+  if (mapHintDismissed()) return;
+  const el = document.getElementById('mapHint');
+  if (!el) return;
+  el.classList.add('on');
+  clearTimeout(showMapHint.t);
+  showMapHint.t = setTimeout(dismissMapHint, 4200);
+}
 function coach(html, ms) {
   clearTimeout(coachTimer);
   if (!html) { $('#coach').classList.remove('on'); return; }
@@ -2540,7 +2563,7 @@ function drawSlam(c) {
 }
 function mountPortal() {
   const style = document.createElement('style');
-  style.textContent = '#portalBtn{position:fixed;left:12px;top:calc(148px + env(safe-area-inset-top,0px));z-index:17;min-height:44px;padding:8px 12px;border-radius:12px;border:1px solid rgba(160,230,200,.8);background:rgba(16,36,32,.92);color:#e7fff4;font:800 13px sans-serif}#portalBtn.hide{display:none}#doorClear{position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;background:#f6f1e8;color:#3a2414;font:800 28px sans-serif}#doorClear.on{display:flex}body.home-in #portalBtn{display:none!important}';
+  style.textContent = '#portalBtn{position:fixed;left:12px;top:calc(148px + env(safe-area-inset-top,0px));z-index:17;min-height:44px;padding:8px 12px;border-radius:12px;border:1px solid rgba(160,230,200,.8);background:rgba(16,36,32,.92);color:#e7fff4;font:800 13px sans-serif}#portalBtn.hide{display:none}@media (max-width:520px){#portalBtn{top:calc(152px + env(safe-area-inset-top,0px));min-height:34px;padding:4px 8px;font-size:12px}}#doorClear{position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;background:#f6f1e8;color:#3a2414;font:800 28px sans-serif}#doorClear.on{display:flex}body.home-in #portalBtn{display:none!important}';
   document.head.appendChild(style);
   const b = document.createElement('button');
   b.id = 'portalBtn';
@@ -9575,6 +9598,7 @@ cv.addEventListener('wheel', e => {
 document.getElementById('titleTrain').addEventListener('click', () => { SFX.tap(); startTrain(); });
 document.getElementById('titleKing').addEventListener('click', () => { SFX.tap(); startKing(); });
 document.getElementById('titleMap').addEventListener('click', () => { SFX.tap(); openMapNav(); });
+document.getElementById('mapHint').addEventListener('click', () => { SFX.tap(); dismissMapHint(); });
 document.getElementById('navHome').addEventListener('click', () => enterHome());
 document.getElementById('navDome').addEventListener('click', () => goPlace(DOME.q, DOME.r));
 document.getElementById('navPond').addEventListener('click', () => goPlace(POI.q, POI.r));
@@ -9764,7 +9788,7 @@ function openMapNav() {
   if (MAP.house.mode === 'walk' || MAP.house.mode === 'fly') { /* keep moving */ }
   else MAP.house.mode = 'park';
   setObj('<b>Map</b> · tap a hex, or Home / Dome / Pond');
-  coach('Tap the ground to walk. <b>Command</b> only stages people on this device. It does not send them out.', 8000);
+  showMapHint();
   syncMapNav();
   groundDirty = true;
 }
