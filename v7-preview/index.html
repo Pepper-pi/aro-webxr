@@ -34,6 +34,7 @@ background:rgba(26,15,31,.78);border:1px solid rgba(255,201,77,.45);border-radiu
   body.out-combat #obj{top:calc(88px + var(--sat));left:8px;right:8px;transform:none;width:auto;max-width:none;text-align:center;font-size:12px;padding:5px 8px}
 }
 #obj b{color:var(--gold)}
+body.world-on #obj{left:auto;right:10px;top:calc(8px + var(--sat));transform:none;font-size:10px;font-weight:700;padding:2px 8px;opacity:.55;border-radius:999px;background:rgba(8,18,28,.4);border-color:rgba(127,240,255,.22);max-width:64px}
 /* ---------- coach bubble: one gentle prompt at a time ---------- */
 #coach{position:fixed;left:50%;bottom:calc(178px + var(--sab));transform:translateX(-50%) translateY(8px);width:min(88vw,380px);z-index:7;
 background:linear-gradient(180deg,rgba(52,22,58,.95),rgba(30,14,36,.95));border:1px solid rgba(255,79,180,.55);border-radius:18px;padding:11px 14px 11px 14px;
@@ -10132,7 +10133,7 @@ function openMapNav() {
   MAP.avOut = true; MAP.avT = 1;
   if (MAP.house.mode === 'walk' || MAP.house.mode === 'fly') { /* keep moving */ }
   else MAP.house.mode = 'park';
-  setObj('<b>Map</b> · walk with her');
+  setObj('<b>Walk</b>');
   showMapHint();
   syncMapNav();
   groundDirty = true;
