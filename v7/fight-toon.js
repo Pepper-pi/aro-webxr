@@ -1581,6 +1581,12 @@ function placeCamera(g) {
     camera.lookAt(0, 0, -3);
     hands.visible = false;
   }
+  const calm = g.SET && g.SET.cozy;
+  const sh = !calm && g.AR && g.AR.shake > 0.18 ? g.AR.shake : 0;
+  if (sh) {
+    camera.position.x += Math.sin(performance.now() * 0.04) * sh * 0.12;
+    camera.position.y += Math.cos(performance.now() * 0.05) * sh * 0.05;
+  }
 }
 
 function nearBoss(x, z) {
