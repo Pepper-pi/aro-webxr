@@ -464,8 +464,9 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
 #fishMsg{text-align:center;font-weight:900;font-size:15px;min-height:22px;margin-top:8px}
 #fishMsg img{width:28px;height:28px;image-rendering:pixelated;vertical-align:middle;margin-right:6px}
 body.fishing #title,body.gather-view #title,body.menu-open #title{display:none!important}
-body.fishing #fishM.on{background:transparent;align-items:flex-end;justify-content:center;pointer-events:none}
-body.fishing #fishM .sheet{pointer-events:none;width:min(520px,calc(100% - 12px));margin:0 0 6px;max-height:132px;padding:4px 10px 6px;background:linear-gradient(180deg,rgba(8,4,14,0),rgba(8,4,14,.9) 42%);border-color:transparent;box-shadow:none}
+body.fishing #fishM.on{background:transparent;align-items:flex-start;justify-content:flex-end;pointer-events:none}
+body.fishing #fishM .sheet{pointer-events:none;width:min(200px,44vw);margin:8px 8px 0 0;max-height:78px;padding:2px 8px 4px;background:linear-gradient(180deg,rgba(8,4,14,.2),rgba(8,4,14,.82));border-color:transparent;box-shadow:none;overflow:hidden}
+body.fishing #gardenHud,body.fishing #worldSpells{display:none!important}
 body.fishing #fishC{display:none}
 body.fishing #fishM .sh-h,body.fishing #fishMsg,body.fishing #fishBtn,body.fishing #fishAssist,body.fishing #fishPole,body.fishing #fishM .focus-nav{pointer-events:auto}
 #fishPole{margin-top:6px;padding:8px 12px;border-radius:12px;font-weight:800;background:rgba(16,10,24,.55);color:#fff6d4;border:1px solid rgba(255,214,140,.5)}
@@ -3274,9 +3275,7 @@ function mountGarden() {
     '#gardenPlots p{margin:0}',
     '#gardenNote:empty{display:none}',
     'body.garden-room #portalBtn{display:none!important}',
-    'body.fishing #gardenHud{left:8px;right:8px;bottom:136px;max-height:112px;overflow:hidden;padding:6px 8px}',
-    'body.fishing #gardenTitle,body.fishing #gardenPlots,body.fishing #gardenNote{display:none}',
-    'body.fishing #gardenHud button{min-height:36px;margin-top:2px}',
+    'body.fishing #gardenHud{display:none!important}',
     '@media(max-width:560px){body.garden-room #gardenHud{max-height:148px}body.garden-room #gardenPlots{display:none}}',
     '#gardenHud.on{display:block}',
     '#gardenHud p{margin:2px 0}',
@@ -7507,7 +7506,7 @@ function frame(now) {
   if (window.__world3d) window.__world3d.tick(dt, worldWanted());
   const worldOn = document.body.classList.contains('world-on');
   const spellBar = document.getElementById('worldSpells');
-  if (spellBar) spellBar.classList.toggle('hide', !worldOn);
+  if (spellBar) spellBar.classList.toggle('hide', !worldOn || fishOpen);
   if (marketPlateOn()) drawMarketPlate(T); else if (G.scene === 'arena') drawArena(T); else if (GARDEN_ROOM.on) drawGardenRoom(T); else if (GATHER.on) drawGatherPlate(T); else if (!worldOn) { drawMap(T); drawFX(); dayTint(); weatherWash(); }
   if (typeof syncPortalBtn === 'function') syncPortalBtn();
   if (typeof syncGardenHud === 'function') syncGardenHud();
