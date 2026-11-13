@@ -44,7 +44,7 @@ background:linear-gradient(180deg,#ff6fc4,#d93d98);color:#fff;font-weight:900;fo
 #act:active{transform:translateX(-50%) translateY(3px);box-shadow:0 3px 0 #8f1f62,0 6px 18px rgba(255,79,180,.45)}
 #act.gold{background:linear-gradient(180deg,#ffd978,#f0a92e);color:#3a1d05;box-shadow:0 6px 0 #9a5f12,0 10px 26px rgba(255,201,77,.45)}
 #menuBtn{position:fixed;left:50%;bottom:calc(22px + var(--sab));transform:translateX(-50%);width:66px;height:72px;z-index:24;display:grid;place-items:center;color:#fff6d8;font-weight:900}
-#menuBtn b{position:relative;z-index:2;font-size:11px;letter-spacing:.02em;text-shadow:0 1px 0 #000}
+#menuBtn b{position:relative;z-index:2;font-size:11px;letter-spacing:.02em;color:#fff6d8;background:rgba(10,6,16,.9);border:1px solid rgba(255,214,140,.85);border-radius:8px;padding:1px 6px;text-shadow:0 1px 0 #000,0 0 2px #000}
 clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radial-gradient(circle at 50% 40%,#ff9ad6,#ff4fb4 55%,#a01c6c);display:grid;place-items:center;animation:hexpulse 2.6s ease-in-out infinite}
 #menuBtn::after{content:"";position:absolute;inset:5px;clip-path:inherit;background:radial-gradient(circle at 50% 35%,#3a1640,#1d0b22)}
 #menuBtn span{position:relative;z-index:1;width:26px;height:26px;background:var(--gold);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);box-shadow:0 0 12px var(--gold)}
@@ -1456,11 +1456,11 @@ function buildSprites() {
   });
 }
 const DECO_BY = {
-  grass: [['tuft', .5], ['lpTree', .22], ['lpRock', .12], ['round', .25], ['flowers', .2], ['rock', .12]],
-  forest: [['lpTree', .9], ['lpTreeC', .6], ['pine', .5], ['round', .5], ['shroom', .35]],
-  meadow: [['flowers', .9], ['flowers', .6], ['bloom', .3], ['tuft', .4]],
-  stone: [['lpRock', .9], ['rock', .5], ['rock', .5], ['crystal', .45]],
-  yard: [['crop', 1], ['flowers', .5]],
+  grass: [['lpTree', .28]],
+  forest: [['lpTree', .9], ['lpTreeC', .65], ['pine', .4]],
+  meadow: [['lpTree', .12]],
+  stone: [['lpRock', .55]],
+  yard: [],
   water: [['lily', .45]],
   poi: [['lily', .4]], dome: [], home: [],
 };
@@ -1902,15 +1902,15 @@ function genMap() {
       }
       if (ter === 'forest' && d >= 5 && t.deco.length === 0) t.deco.push({ spr: 'lpTreeC', ox: 0, oy: 0, sc: .9 });
       if (ter === 'home') t.deco = [];
-      if (q === -1 && r === 0) t.deco = [{ spr: 'hive', ox: 0, oy: 0, sc: 1.1 }, { spr: 'flowers', ox: .3, oy: .3, sc: 1 }];
-      if (q === 0 && r === 1) t.deco = [{ spr: 'crop', ox: -.2, oy: 0, sc: 1 }, { spr: 'crop', ox: .25, oy: .2, sc: 1 }];
+      if (q === -1 && r === 0) t.deco = t.deco.filter(d => d.spr === 'lpTree' || d.spr === 'lpTreeC' || d.spr === 'pine');
+      if (q === 0 && r === 1) t.deco = t.deco.filter(d => d.spr === 'lpTree' || d.spr === 'lpTreeC' || d.spr === 'pine');
     }
     MAP.tiles.set(k, t); MAP.list.push(t);
   }
   MAP.list.sort((a, b) => a.y - b.y);
   MAP.house.x = 0; MAP.house.y = 0;
   // passive walk-by slimes far out (wireframe until you're near)
-  [[3.5, 2.2], [-4.4, -1.6], [-1.5, 4.6], [6.2, 0.5]].forEach(([x, y], i) => MAP.mobs.push({ x, y, hx: x, hy: y, ph: i * 1.7, skin: 0 }));
+  // Decorative walk-by gels used to litter the field. Roaming mobs are placed on purpose.
 }
 const tileAt = (q, r) => MAP.tiles.get(tkey(q, r));
 const walk = t => t && !t.edge && t.ter !== 'water';
@@ -2106,10 +2106,16 @@ function drawEncounterMarkers(c) {
     ctx.arc(X, Y, r, 0, TAU);
     ctx.fill();
     ctx.stroke();
-    ctx.font = '800 11px ui-rounded,system-ui';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#1a1020';
-    ctx.fillText(m.name, X, Y - r - 4);
+    const nearYou = you && Math.hypot(m.x - you.x, m.y - you.y) < 0.7;
+    if (nearYou) {
+      ctx.font = '800 11px ui-rounded,system-ui';
+      ctx.textAlign = 'center';
+      const nw = ctx.measureText(m.name).width;
+      ctx.fillStyle = 'rgba(12,6,18,.88)';
+      ctx.beginPath(); ctx.roundRect(X - nw / 2 - 6, Y - r - 18, nw + 12, 16, 6); ctx.fill();
+      ctx.fillStyle = '#f4fbff';
+      ctx.fillText(m.name, X, Y - r - 6);
+    }
     ctx.restore();
   }
 }
@@ -2161,10 +2167,6 @@ function drawActivePetMap(c, you) {
   ctx.arc(X, Y, Math.max(6, 7 * f), 0, TAU);
   ctx.fill();
   ctx.stroke();
-  ctx.font = '800 11px ui-rounded,system-ui';
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#fff6d4';
-  ctx.fillText(pet.name, X, Y - 12);
   ctx.restore();
 }
 function drawMapPetSticker() {
@@ -2606,7 +2608,7 @@ function drawSuperHexes(c, h) {
     const near = Math.hypot(t.x - h.x, t.y - h.y);
     const a = near < 2.2 ? 0.28 : 0.9;
     hexPath(c, t.x, t.y, s.rad);
-    ctx.globalAlpha = a * 0.34; ctx.fillStyle = `rgba(${s.col},1)`; ctx.fill();
+    ctx.globalAlpha = a * 0.08; ctx.fillStyle = `rgba(${s.col},1)`; ctx.fill();
     ctx.globalAlpha = a; ctx.strokeStyle = `rgba(${s.col},1)`; ctx.lineWidth = 3; ctx.stroke();
   }
   ctx.restore();
@@ -9216,6 +9218,12 @@ function drawDockHud() {
       if (spot) { x = spot[0]; y = spot[1]; }
     }
   }
+  const plateW = Math.max(tw, ctx.measureText('home mooring').width) + 22;
+  ctx.fillStyle = 'rgba(10,6,16,.9)';
+  ctx.strokeStyle = 'rgba(255,214,140,.92)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(x - plateW / 2, y - 18, plateW, 42, 10); ctx.fill(); ctx.stroke();
+  ctx.lineWidth = 4;
   ctx.strokeStyle = '#140810';
   ctx.strokeText('THE DOCK', x, y);
   ctx.fillStyle = '#ffe7a2';
