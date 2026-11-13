@@ -1526,27 +1526,37 @@ function drawLakeLife(c, T) {
     ctx.strokeStyle = 'rgba(255,255,255,.82)';
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(sx, Y - 3 * f); ctx.lineTo(sx + 14 * f, Y - 7 * f); ctx.stroke();
-    if (!calm && pads === 2 && (T % 5.2) < 0.75) {
-      const k = (T % 5.2) / 0.75;
-      const hop = Math.sin(k * Math.PI) * 22 * f;
-      ctx.save();
-      ctx.translate(X + 8 * f, Y - hop);
-      ctx.rotate(-0.5 + k);
-      ctx.fillStyle = '#f0b429';
-      ctx.beginPath(); ctx.ellipse(0, 0, 8 * f, 3.2 * f, 0, 0, TAU); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(-7 * f, 0); ctx.lineTo(-12 * f, -3.5 * f); ctx.lineTo(-12 * f, 3.5 * f); ctx.fill();
-      ctx.restore();
-      if (k > 0.62) {
-        const s = (k - 0.62) / 0.38;
-        ctx.strokeStyle = `rgba(255,255,255,${0.75 * (1 - s)})`;
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.ellipse(X + 8 * f, Y + 2 * f, (6 + s * 16) * f, (3 + s * 6) * f, 0, 0, TAU); ctx.stroke();
-      }
-    }
   }
   const pond = tileAt(5, -4);
   if (pond) {
-    const [PX, PY, pf] = proj(c, pond.x, pond.y);
+    const [PX, PY, pf] = proj(c, pond.x + 0.85, pond.y + 0.45);
+    const school = 3;
+    let jumper = null;
+    for (let i = 0; i < school; i++) {
+      const ang = (calm ? i : T * 0.22) + i * 2.15;
+      const sx = PX + Math.cos(ang) * (16 + i * 10) * pf;
+      const sy = PY + Math.sin(ang * 0.85) * (7 + i * 4) * pf;
+      ctx.fillStyle = 'rgba(10,36,58,.55)';
+      ctx.beginPath(); ctx.ellipse(sx, sy + 2 * pf, (9 + i * 2) * pf, 3.2 * pf, ang * 0.15, 0, TAU); ctx.fill();
+      if (i === 0) jumper = { sx, sy };
+    }
+    if (!calm && jumper && (T % 6.5) < 0.7) {
+      const k = (T % 6.5) / 0.7;
+      const hop = Math.sin(k * Math.PI) * 20 * pf;
+      ctx.save();
+      ctx.translate(jumper.sx, jumper.sy - hop);
+      ctx.rotate(-0.4 + k * 0.9);
+      ctx.fillStyle = '#f0b429';
+      ctx.beginPath(); ctx.ellipse(0, 0, 7 * pf, 2.8 * pf, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-6 * pf, 0); ctx.lineTo(-11 * pf, -3 * pf); ctx.lineTo(-11 * pf, 3 * pf); ctx.fill();
+      ctx.restore();
+      if (k > 0.64) {
+        const s = (k - 0.64) / 0.36;
+        ctx.strokeStyle = `rgba(255,255,255,${0.7 * (1 - s)})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.ellipse(jumper.sx, jumper.sy + 2 * pf, (5 + s * 14) * pf, (2.4 + s * 5) * pf, 0, 0, TAU); ctx.stroke();
+      }
+    }
     const fly = calm ? 0 : T * 0.8;
     const fx = PX + Math.cos(fly) * 28 * pf;
     const fy = PY + Math.sin(fly * 0.7) * 12 * pf - 16 * pf;
