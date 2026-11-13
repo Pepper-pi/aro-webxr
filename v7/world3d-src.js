@@ -58,7 +58,7 @@ const shellU = {
 const grassRegrow = new Map();
 let grassRegrowAt = 8;
 let playMode = 'world';
-const fp = { on: false, yaw: 0, pitch: 0.02, charge: 0, cast: 0, pulse: 0, vials: { aether: 3, fire: 3 }, xr: 'unchecked', hp: 100, clock: 0, placed: false };
+const fp = { on: false, yaw: 0, pitch: 0.02, charge: 0, cast: 0, pulse: 0, vials: { aether: 3, fire: 3 }, xr: 'unchecked', hp: 100, clock: 0, placed: false, booted: false, track: { state: 'off', charge: 0, x: 0.62, y: 0.7, hold: false, ready: false, lastZ: null, lastX: null, lastY: null, lastT: 0, cool: 0, firedUntil: 0 } };
 let palmOrb = null;
 let playSaved = null;
 let lastDt = 0.016;
@@ -94,6 +94,7 @@ let npcSpots = [];
 let dest = null;
 let gpsTarget = null;
 let gpsRef = null;
+let tapGpsBlock = 0;
 let tapUntil = 0;
 let lastAnchor = '';
 let shot = '';
@@ -1708,79 +1709,56 @@ function stepLife(dt, speed) {
     if (mat.userData.shader) mat.userData.shader.uniforms.uTime.value = worldT;
   }
 }
+function placeDiorama(x, z, kind) {
+  const g = new THREE.Group();
+  const y = groundY(x, z);
+  g.position.set(x, y, z);
+  const hex = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.22, 0.1, 6), toonMat('#e4efd2'));
+  hex.position.y = 0.06;
+  g.add(hex);
+  if (kind === 'dock') {
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.08, 0.42), toonMat('#a56b3c'));
+    deck.position.set(0.2, 0.18, 0);
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.62, 5), toonMat('#5c4030'));
+    post.position.set(0.55, 0.42, 0.14);
+    g.add(deck, post);
+  } else {
+    const wall = kind === 'market' ? '#f4e4c8' : kind === 'home' ? '#f7f3ea' : '#f3ecdf';
+    const roofC = kind === 'market' ? '#c4554a' : kind === 'home' ? '#e7b15a' : '#d06a45';
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.48, 0.58), toonMat(wall));
+    body.position.y = 0.36;
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(0.58, 0.34, 4), toonMat(roofC));
+    roof.position.y = 0.74;
+    roof.rotation.y = Math.PI / 4;
+    const door = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.26, 0.05), toonMat('#6b3a28'));
+    door.position.set(0, 0.24, 0.3);
+    g.add(body, roof, door);
+  }
+  const label = kind === 'market' ? 'Market' : kind === 'dock' ? 'Dock' : kind === 'home' ? 'Home' : '';
+  if (label) {
+    const lab = labelSprite(label, '#ffd978', [1.25, 0.32]);
+    lab.position.y = 1.2;
+    g.add(lab);
+  }
+  g.scale.setScalar(1.85);
+  scene.add(g);
+  return g;
+}
 function buildBuildings() {
   const list = field.buildings || [];
-  if (!list.length) return;
-  const pos = [], col = [], anch = [], idx = [];
-  const push = (x, y, z, r, g, b, ax, az) => { pos.push(x, y, z); col.push(r, g, b); anch.push(ax, az); };
-  const tri = (a, b, c) => idx.push(a, b, c);
-  const quad = (a, b, c, d) => { tri(a, b, c); tri(a, c, d); };
-  for (const b of list) {
+  const home = field.anchors.home;
+  list.forEach((b) => {
     const pts = b.p;
-    if (!pts || pts.length < 3) continue;
-    let len = 0, ux = 1, uz = 0;
-    for (let i = 0; i < pts.length; i++) {
-      const a = pts[i], d = pts[(i + 1) % pts.length];
-      const dx = d[0] - a[0], dz = d[1] - a[1], L = Math.hypot(dx, dz);
-      if (L > len) { len = L; ux = dx / (L || 1); uz = dz / (L || 1); }
-    }
-    const vx = -uz, vz = ux;
-    let minU = 1e9, maxU = -1e9, minV = 1e9, maxV = -1e9;
-    for (const p of pts) {
-      const u = p[0] * ux + p[1] * uz, v = p[0] * vx + p[1] * vz;
-      if (u < minU) minU = u; if (u > maxU) maxU = u;
-      if (v < minV) minV = v; if (v > maxV) maxV = v;
-    }
-    const cu = (minU + maxU) / 2, cv = (minV + maxV) / 2;
-    const cx = cu * ux + cv * vx, cz = cu * uz + cv * vz;
-    if (kindAt(cx, cz) === 3) continue;
-    if (Math.hypot(cx - field.anchors.home[0], cz - field.anchors.home[1]) < 16) continue;
-    const hw = Math.min(8, Math.max(1.6, (maxU - minU) / 2));
-    const hd = Math.min(6.5, Math.max(1.4, (maxV - minV) / 2));
-    const gy = groundY(cx, cz);
-    const h = Math.min(7.5, Math.max(3.2, (b.h || 5) * 0.72));
-    const c = b.c || [0.9, 0.84, 0.74];
-    const wall = [c[0] * 0.92, c[1] * 0.88, c[2] * 0.84];
-    const roofC = [Math.min(1, c[0] * 0.72), Math.min(1, c[1] * 0.42), Math.min(1, c[2] * 0.38)];
-    const trim = [Math.min(1, c[0] * 1.08), Math.min(1, c[1] * 1.02), Math.min(1, c[2] * 0.9)];
-    const win = [0.22, 0.28, 0.34];
-    const door = [0.28, 0.16, 0.12];
-    const P = (u, v, y) => [cx + ux * u + vx * v, y, cz + uz * u + vz * v];
-    const addQuad = (A, B, C, D, rgb) => {
-      const i0 = pos.length / 3;
-      [A, B, C, D].forEach((p) => push(p[0], p[1], p[2], rgb[0], rgb[1], rgb[2], cx, cz));
-      quad(i0, i0 + 1, i0 + 2, i0 + 3);
-    };
-    const y0 = gy, y1 = gy + h;
-    addQuad(P(-hw, -hd, y0), P(hw, -hd, y0), P(hw, -hd, y1), P(-hw, -hd, y1), wall);
-    addQuad(P(hw, hd, y0), P(-hw, hd, y0), P(-hw, hd, y1), P(hw, hd, y1), wall);
-    addQuad(P(-hw, hd, y0), P(-hw, -hd, y0), P(-hw, -hd, y1), P(-hw, hd, y1), wall);
-    addQuad(P(hw, -hd, y0), P(hw, hd, y0), P(hw, hd, y1), P(hw, -hd, y1), wall);
-    const ridge = y1 + Math.min(2.4, hw * 0.55);
-    const iR0 = pos.length / 3;
-    [P(-hw, 0, ridge), P(hw, 0, ridge), P(hw, -hd, y1), P(-hw, -hd, y1)].forEach((p) => push(p[0], p[1], p[2], roofC[0], roofC[1], roofC[2], cx, cz));
-    quad(iR0, iR0 + 1, iR0 + 2, iR0 + 3);
-    const iR1 = pos.length / 3;
-    [P(hw, 0, ridge), P(-hw, 0, ridge), P(-hw, hd, y1), P(hw, hd, y1)].forEach((p) => push(p[0], p[1], p[2], roofC[0], roofC[1], roofC[2], cx, cz));
-    quad(iR1, iR1 + 1, iR1 + 2, iR1 + 3);
-    addQuad(P(-hw, -0.02, y1 - 0.18), P(hw, -0.02, y1 - 0.18), P(hw, -0.02, y1), P(-hw, -0.02, y1), trim);
-    for (let k = -1; k <= 1; k++) {
-      const u = k * hw * 0.42;
-      addQuad(P(u - 0.28, -hd - 0.04, y0 + h * 0.42), P(u + 0.28, -hd - 0.04, y0 + h * 0.42), P(u + 0.28, -hd - 0.04, y0 + h * 0.72), P(u - 0.28, -hd - 0.04, y0 + h * 0.72), win);
-    }
-    addQuad(P(-0.32, -hd - 0.05, y0), P(0.32, -hd - 0.05, y0), P(0.32, -hd - 0.05, y0 + h * 0.38), P(-0.32, -hd - 0.05, y0 + h * 0.38), door);
-  }
-  if (!pos.length) return;
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-  geo.setAttribute('aAnchor', new THREE.Float32BufferAttribute(anch, 2));
-  geo.setIndex(idx);
-  geo.computeVertexNormals();
-  const bmat = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: ramp });
-  bindShell(bmat, false);
-  scene.add(new THREE.Mesh(geo, bmat));
-  scene.add(new THREE.Mesh(geo, wireMat(false)));
+    if (!pts || pts.length < 3) return;
+    let cx = 0, cz = 0;
+    pts.forEach((p) => { cx += p[0]; cz += p[1]; });
+    cx /= pts.length;
+    cz /= pts.length;
+    if (kindAt(cx, cz) === 3) return;
+    if (Math.hypot(cx - home[0], cz - home[1]) < 14) return;
+    if (Math.hypot(cx - home[0], cz - home[1]) > 160) return;
+    placeDiorama(cx, cz, 'house');
+  });
 }
 
 function labelSprite(text, color, scale) {
@@ -2070,13 +2048,26 @@ function frameRoom() {
 function mountFpHud() {
   if (document.getElementById('fpHud')) return;
   const s = document.createElement('style');
-  s.textContent = '#fpHud{position:fixed;inset:0;z-index:30;display:none;pointer-events:none}#fpHud.on{display:block}body.fp-on #hud,body.fp-on #worldSpells,body.fp-on #menuBtn,body.fp-on #aroBack,body.fp-on #charBtn,body.fp-on #obj,body.fp-on #banner,body.fp-on #cv{display:none!important}#fpHud .top{position:absolute;left:16px;right:16px;top:14px;display:flex;align-items:center;gap:12px;pointer-events:none}#fpHud .hp{flex:1;height:10px;border-radius:999px;background:rgba(8,18,16,.45);border:1px solid rgba(255,236,180,.55);overflow:hidden}#fpHud .hp i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#e7c56a,#8fd06a)}#fpHud .time{min-width:64px;text-align:center;color:#fff6df;font:800 16px ui-rounded,system-ui;text-shadow:0 1px 2px rgba(0,0,0,.45)}#fpHud button{pointer-events:auto;min-height:32px;padding:4px 12px;border-radius:999px;border:1px solid rgba(255,236,180,.55);background:rgba(8,18,16,.4);color:#fff6df;font:800 13px ui-rounded,system-ui}';
+  s.textContent = '#fpHud{position:fixed;inset:0;z-index:30;display:none;pointer-events:none}#fpHud.on{display:block}body.fp-on #hud,body.fp-on #worldSpells,body.fp-on #menuBtn,body.fp-on #aroBack,body.fp-on #charBtn,body.fp-on #obj,body.fp-on #banner,body.fp-on #cv,body.fp-on #mapHint{display:none!important}#fpHud .top{position:absolute;left:16px;right:16px;top:14px;display:flex;align-items:center;gap:12px;pointer-events:none}#fpHud .hp{flex:1;height:10px;border-radius:999px;background:rgba(8,18,16,.45);border:1px solid rgba(255,236,180,.55);overflow:hidden}#fpHud .hp i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#e7c56a,#8fd06a)}#fpHud .time{min-width:64px;text-align:center;color:#fff6df;font:800 16px ui-rounded,system-ui;text-shadow:0 1px 2px rgba(0,0,0,.45)}#fpHud button{pointer-events:auto;min-height:32px;padding:4px 12px;border-radius:999px;border:1px solid rgba(255,236,180,.55);background:rgba(8,18,16,.4);color:#fff6df;font:800 13px ui-rounded,system-ui}#fpTrack{position:absolute;left:16px;bottom:22px;padding:6px 10px;border-radius:999px;background:rgba(8,18,16,.72);color:#fff6df;font:800 13px ui-rounded,system-ui;border:1px solid rgba(255,236,180,.45)}#fpTrack.hot{border-color:#9fe6e0;color:#e7fffb}#fpRing{position:fixed;width:92px;height:92px;margin:-46px 0 0 -46px;border-radius:50%;border:3px solid rgba(255,220,140,.2);display:none;pointer-events:none;z-index:31}#fpRing.on{display:block}#fpRing i{position:absolute;inset:8px;border-radius:50%;border:3px solid #ffe7a8;transform:scale(var(--p,.15));box-shadow:0 0 10px rgba(255,210,120,.35)}#fpCam{position:absolute;right:16px;bottom:22px}#gelFight{position:fixed;left:50%;bottom:calc(78px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:28;min-height:48px;padding:10px 18px;border-radius:999px;border:2px solid #9fe6e0;background:rgba(12,40,38,.9);color:#e9fffb;font:800 16px ui-rounded,system-ui}body.fp-on #gelFight,body:not(.world-on) #gelFight{display:none}';
   document.head.appendChild(s);
   const hud = document.createElement('div');
   hud.id = 'fpHud';
-  hud.innerHTML = '<div class="top"><div class="hp"><i data-hp></i></div><b class="time" data-time>00:00</b><button type="button" data-act="off">Back</button></div>';
+  hud.innerHTML = '<div class="top"><div class="hp"><i data-hp></i></div><b class="time" data-time>00:00</b><button type="button" data-act="off">Back</button></div><div id="fpTrack">Tap to cast</div><button type="button" id="fpCam">Camera hands</button>';
   document.body.appendChild(hud);
+  const ring = document.createElement('div');
+  ring.id = 'fpRing';
+  ring.innerHTML = '<i></i>';
+  document.body.appendChild(ring);
   hud.querySelector('[data-act="off"]').onclick = () => setFp(false);
+  hud.querySelector('#fpCam').onclick = () => startHandCam();
+  if (!document.getElementById('gelFight')) {
+    const fight = document.createElement('button');
+    fight.id = 'gelFight';
+    fight.type = 'button';
+    fight.textContent = 'Gel King fight';
+    fight.onclick = () => setFp(true, 'fight');
+    document.body.appendChild(fight);
+  }
 }
 function setFpBody(on) {
   if (!vrm || !vrm.scene || !vrm.humanoid) return false;
@@ -2093,12 +2084,16 @@ function setFpBody(on) {
       o.userData.fpVis = null;
     }
   });
-  const head = vrm.humanoid.getNormalizedBoneNode('head');
-  if (head) head.scale.setScalar(on ? 0.001 : 1);
-  ['leftUpperLeg', 'rightUpperLeg', 'leftLowerLeg', 'rightLowerLeg', 'leftFoot', 'rightFoot'].forEach((name) => {
-    const b = vrm.humanoid.getNormalizedBoneNode(name);
-    if (b) b.scale.setScalar(on ? 0.001 : 1);
-  });
+    const head = vrm.humanoid.getNormalizedBoneNode('head');
+    if (head) head.scale.setScalar(on ? 0.001 : 1);
+    ['leftUpperLeg', 'rightUpperLeg', 'leftLowerLeg', 'rightLowerLeg', 'leftFoot', 'rightFoot'].forEach((name) => {
+      const b = vrm.humanoid.getNormalizedBoneNode(name);
+      if (b) b.scale.setScalar(on ? 0.001 : 1);
+    });
+    ['leftLowerArm', 'rightLowerArm', 'leftHand', 'rightHand'].forEach((name) => {
+      const b = vrm.humanoid.getNormalizedBoneNode(name);
+      if (b) b.scale.set(1, 1, 1);
+    });
   const hand = vrm.humanoid.getNormalizedBoneNode('rightHand');
   if (hand && !hand.getObjectByName('fpPalm')) {
     const palm = new THREE.Mesh(
@@ -2313,12 +2308,13 @@ function frameFp() {
   if (fp.body) {
     const vm = ensureVmCam();
     vm.aspect = camera.aspect;
-    vm.fov = 46;
-    vm.near = 0.38;
+    const narrow = camera.aspect < 0.9;
+    vm.fov = narrow ? 70 : 46;
+    vm.near = 0.28;
     vm.far = 6;
     vm.position.copy(camera.position);
     vm.up.set(0, 1, 0);
-    const aim = new THREE.Vector3(px + ahead.x * 0.62, gy + 0.86, pz + ahead.z * 0.62);
+    const aim = new THREE.Vector3(px + ahead.x * (narrow ? 0.7 : 0.62), gy + (narrow ? 1.0 : 0.9), pz + ahead.z * (narrow ? 0.7 : 0.62));
     vm.lookAt(aim);
     vm.updateProjectionMatrix();
     if (fpFill) {
@@ -2360,25 +2356,26 @@ function poseFpBody() {
     if (b) b.rotation.set(x, y, z);
   };
   const punch = fp.cast > 0 ? Math.sin((1 - Math.min(fp.cast, 0.35) / 0.35) * Math.PI) : 0;
+  const sway = Math.sin(worldT * 1.25) * 0.06;
   setBone('hips', 0, 0, 0);
   setBone('spine', 0.08, 0, 0);
   setBone('chest', 0.04, 0, 0);
-  setBone('leftUpperArm', 0.12, 1.42, 0.28);
-  setBone('leftLowerArm', 0.22, 0.18, 0.04);
-  const hand = [0.2, -1.1, 0.6];
+  setBone('leftUpperArm', 0.16 + sway, 1.12, 0.48);
+  setBone('leftLowerArm', 0.28, 0.1, 0.04);
+  const hand = [0.15, -0.95, 0.48];
   setBone('leftHand', -hand[0], -hand[1], -hand[2]);
-  setBone('rightUpperArm', 0.18 + punch * 0.1, -1.28, -0.22);
-  setBone('rightLowerArm', 0.16 - punch * 0.05, -0.12, -0.02);
+  setBone('rightUpperArm', 0.2 + punch * 0.08 - sway, -1.02, -0.4);
+  setBone('rightLowerArm', 0.22 - punch * 0.04, -0.08, -0.02);
   setBone('rightHand', hand[0], hand[1], hand[2]);
-  const spread = 0.38 + (fp.cast > 0 ? 0.12 : 0);
-  const curl = fp.cast > 0 ? 0.05 : 0.12;
+  const spread = 0.32 + (fp.cast > 0 ? 0.1 : 0);
   ['Index', 'Middle', 'Ring', 'Little'].forEach((finger, i) => {
     const splay = (i - 1.5) * spread;
+    const curl = (fp.cast > 0 ? 0.04 : 0.14) + Math.abs(i - 1.5) * 0.03;
     setBone('right' + finger + 'Proximal', curl, splay, 0);
-    setBone('right' + finger + 'Intermediate', curl * 0.65, 0, 0);
-    setBone('right' + finger + 'Distal', curl * 0.4, 0, 0);
-    setBone('left' + finger + 'Proximal', 0.28, splay * 0.45, 0);
-    setBone('left' + finger + 'Intermediate', 0.16, 0, 0);
+    setBone('right' + finger + 'Intermediate', curl * 0.7, 0, 0);
+    setBone('right' + finger + 'Distal', curl * 0.45, 0, 0);
+    setBone('left' + finger + 'Proximal', curl, splay * 0.7, 0);
+    setBone('left' + finger + 'Intermediate', curl * 0.55, 0, 0);
   });
   setBone('rightThumbProximal', -0.55, 0.45, 0.55);
   setBone('rightThumbIntermediate', -0.2, 0, 0);
@@ -2386,15 +2383,139 @@ function poseFpBody() {
   const head = vrm.humanoid.getNormalizedBoneNode('head');
   if (head) head.scale.setScalar(0.001);
   vrm.humanoid.update();
+  ['leftLowerArm', 'rightLowerArm'].forEach((name) => {
+    const b = vrm.humanoid.getNormalizedBoneNode(name);
+    if (b) b.scale.set(0.58, 1, 0.58);
+  });
+  ['leftHand', 'rightHand'].forEach((name) => {
+    const b = vrm.humanoid.getNormalizedBoneNode(name);
+    if (b) b.scale.set(1.62, 1, 1.62);
+  });
   if (vrm.scene) vrm.scene.updateMatrixWorld(true);
 }
 function fpShoot(kind) {
-  if (!fp.on || (fp.vials[kind] | 0) <= 0) return;
+  if (!fp.on) return;
+  if ((fp.vials[kind] | 0) <= 0) fp.vials[kind] = 3;
   fp.vials[kind] -= 1;
   fp.cast = 0.35;
   facing = fp.yaw;
   castSpell(kind);
   fp.pulse = 0.28;
+  fp.track.state = 'fired';
+  fp.track.firedUntil = performance.now() + 700;
+  fp.track.charge = 0;
+}
+function paintTrack() {
+  const el = document.getElementById('fpTrack');
+  const ring = document.getElementById('fpRing');
+  if (el) {
+    const words = { off: 'Tap to cast', blocked: 'Camera blocked · tap to cast', looking: 'Show an open palm', seen: 'Hand seen', charging: 'Charging', fired: 'Fired' };
+    el.textContent = words[fp.track.state] || words.off;
+    el.classList.toggle('hot', fp.track.state === 'charging' || fp.track.state === 'fired' || fp.track.state === 'seen');
+  }
+  if (ring) {
+    const show = fp.on && (fp.track.state === 'seen' || fp.track.state === 'charging' || fp.track.state === 'fired');
+    ring.classList.toggle('on', show);
+    ring.style.left = (fp.track.x * window.innerWidth) + 'px';
+    ring.style.top = (fp.track.y * window.innerHeight) + 'px';
+    const mark = ring.querySelector('i');
+    if (mark) mark.style.transform = 'scale(' + (0.2 + fp.track.charge * 0.8) + ')';
+  }
+}
+let handLandmarker = null;
+let handVideo = null;
+let handBusy = false;
+async function startHandCam() {
+  if (handBusy || handLandmarker) return;
+  handBusy = true;
+  fp.track.hold = false;
+  fp.track.state = 'looking';
+  paintTrack();
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 640 }, height: { ideal: 480 } },
+    });
+    handVideo = document.createElement('video');
+    handVideo.setAttribute('playsinline', '');
+    handVideo.muted = true;
+    handVideo.srcObject = stream;
+    await handVideo.play();
+    const vision = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/vision_bundle.mjs');
+    const files = await vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm');
+    const model = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+    const opts = (delegate) => ({
+      baseOptions: { modelAssetPath: model, delegate },
+      runningMode: 'VIDEO',
+      numHands: 1,
+    });
+    try { handLandmarker = await vision.HandLandmarker.createFromOptions(files, opts('GPU')); }
+    catch (e) { handLandmarker = await vision.HandLandmarker.createFromOptions(files, opts('CPU')); }
+    fp.track.ready = true;
+    fp.track.state = 'looking';
+  } catch (e) {
+    fp.track.ready = false;
+    fp.track.state = 'blocked';
+  }
+  handBusy = false;
+  paintTrack();
+}
+function stepHands() {
+  if (!fp.on) return;
+  if (fp.track.hold) { paintTrack(); return; }
+  if (fp.track.firedUntil && performance.now() < fp.track.firedUntil) {
+    fp.track.state = 'fired';
+    paintTrack();
+    return;
+  }
+  if (!handLandmarker || !handVideo || handVideo.readyState < 2) {
+    if (fp.track.state !== 'blocked' && fp.track.state !== 'looking') fp.track.state = fp.track.ready ? 'looking' : 'off';
+    paintTrack();
+    return;
+  }
+  let res = null;
+  try { res = handLandmarker.detectForVideo(handVideo, performance.now()); }
+  catch (e) { fp.track.state = 'blocked'; paintTrack(); return; }
+  const lm = res && res.landmarks && res.landmarks[0];
+  if (!lm) {
+    fp.track.charge = Math.max(0, fp.track.charge - 0.05);
+    fp.track.state = 'looking';
+    paintTrack();
+    return;
+  }
+  const wrist = lm[0];
+  const openN = [8, 12, 16, 20].filter((tip, i) => {
+    const pip = [6, 10, 14, 18][i];
+    const dw = Math.hypot(lm[tip].x - wrist.x, lm[tip].y - wrist.y);
+    const dp = Math.hypot(lm[pip].x - wrist.x, lm[pip].y - wrist.y);
+    return dw > dp * 1.08;
+  }).length;
+  const palm = lm[9] || wrist;
+  fp.track.x = palm.x;
+  fp.track.y = palm.y;
+  const now = performance.now();
+  const dt = Math.max(0.016, (now - (fp.track.lastT || now)) / 1000);
+  const dx = palm.x - (fp.track.lastX == null ? palm.x : fp.track.lastX);
+  const dy = palm.y - (fp.track.lastY == null ? palm.y : fp.track.lastY);
+  const flick = Math.hypot(dx, dy) / dt;
+  const push = fp.track.lastZ != null && (fp.track.lastZ - wrist.z) > 0.05;
+  fp.track.lastX = palm.x;
+  fp.track.lastY = palm.y;
+  fp.track.lastZ = wrist.z;
+  fp.track.lastT = now;
+  if (openN >= 3) {
+    fp.track.charge = Math.min(1, fp.track.charge + dt * 0.75);
+    fp.track.state = fp.track.charge > 0.22 ? 'charging' : 'seen';
+  } else {
+    fp.track.charge = Math.max(0, fp.track.charge - dt * 0.45);
+    fp.track.state = 'seen';
+  }
+  if (fp.track.charge > 0.45 && now > (fp.track.cool || 0) && (push || flick > 1.5)) {
+    fp.track.cool = now + 700;
+    fp.track.charge = 0;
+    fpShoot('aether');
+  }
+  paintTrack();
 }
 function stepFp(dt) {
   if (fp.cast > 0) fp.cast = Math.max(0, fp.cast - dt);
@@ -2403,6 +2524,7 @@ function stepFp(dt) {
   if (hud) hud.classList.toggle('pulse', fp.pulse > 0);
   if (palmOrb) palmOrb.visible = false;
   if (!fp.on) return;
+  stepHands();
   if (shot === 'fpcast') fp.cast = 0.22;
   fp.clock += dt;
   if (fightBeast) {
@@ -2620,6 +2742,7 @@ function useSpecial(pick) {
     enterPlay(pick.id);
     return;
   }
+  if (pick.kind === 'fight') { setFp(true, 'fight'); return; }
   if (pick.kind === 'npc') {
     if (Math.hypot(px - pick.x, pz - pick.z) < 3.6) {
       if (window.__aroSpar) window.__aroSpar(pick.id);
@@ -2692,6 +2815,8 @@ function bindInput(canvas) {
     if (now - (endPtr.last || 0) < 320) runUntil = now + 1700;
     endPtr.last = now;
     dest = { x: hit.x, z: hit.z };
+    gpsTarget = null;
+    tapGpsBlock = now + 12000;
     tapUntil = now + 2200;
     shot = '';
   }
@@ -2711,23 +2836,20 @@ function bindInput(canvas) {
 function startGPS() {
   if (!navigator.geolocation || !field) return;
   navigator.geolocation.watchPosition((pos) => {
-    if (performance.now() < tapUntil) return;
     const lat = pos.coords.latitude, lon = pos.coords.longitude;
-    const here = projectLatLon(lat, lon);
-    if (!blocked(here.x, here.z)) {
-      gpsTarget = here;
-      gpsRef = null;
-      return;
-    }
     if (!gpsRef) {
       gpsRef = { lat, lon, x: px, z: pz };
       return;
     }
     const dx = (lon - gpsRef.lon) * field.metersPerDegLon;
     const dz = -(lat - gpsRef.lat) * field.metersPerDegLat;
+    const moved = Math.hypot(dx, dz);
+    if (moved < 12) return;
     const tx = gpsRef.x + dx, tz = gpsRef.z + dz;
+    gpsRef = { lat, lon, x: px, z: pz };
+    if (dest || performance.now() < tapGpsBlock) return;
     if (!blocked(tx, tz)) gpsTarget = { x: tx, z: tz };
-  }, () => {}, { enableHighAccuracy: true, maximumAge: 1500, timeout: 8000 });
+  }, () => {}, { enableHighAccuracy: true, maximumAge: 2000, timeout: 8000 });
 }
 
 function tuneMaps(mat) {
@@ -3300,6 +3422,11 @@ function tick(dt, show) {
   active = !!show && !!renderer;
   document.body.classList.toggle('world-on', active);
   if (!active || !field) return;
+  if (!document.getElementById('gelFight')) mountFpHud();
+  if (avatarReady && !fp.booted && !shot && playMode === 'world' && !/[?&]stay=1(?:&|$)/.test(location.search)) {
+    fp.booted = true;
+    setFp(true, 'fight');
+  }
   const step = Math.min(dt, 0.05);
   lastDt = step;
   worldT += step;
@@ -3840,11 +3967,16 @@ function buildSites() {
   const marketAt = nearestWalkable(homeA[0] - 18, homeA[1] + 22);
   addGate(houseAt[0], houseAt[1], 'house', 'House');
   addGate(marketAt[0], marketAt[1], 'market', 'Market');
+  placeDiorama(homeA[0] + 5, homeA[1] - 4, 'home');
+  placeDiorama(marketAt[0] + 2.4, marketAt[1] + 1.2, 'market');
   const raidAt = nearestWalkable(homeA[0] + 12, homeA[1] - 18);
   addGate(raidAt[0], raidAt[1], 'raid', 'Gel King');
   buildSuperHexes();
   buildRaidPit();
   dressLake();
+  const shore = shoreSpot();
+  placeDiorama(shore[0] - 2.2, shore[1] + 1.4, 'dock');
+  placeFightMark();
   rod = new THREE.Group();
   const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.03, 0.28, 8), toonMat('#6a3a22'));
   grip.position.y = 0.12;
@@ -4108,6 +4240,26 @@ function buildRaidPit() {
   g.add(sky, lab);
   scene.add(g);
 }
+function placeFightMark() {
+  const home = field.anchors.home;
+  const spot = nearestWalkable(home[0] + 6, home[1] + 4);
+  const g = new THREE.Group();
+  const y = groundY(spot[0], spot[1]);
+  g.position.set(spot[0], y, spot[1]);
+  const hex = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.02, 0.08, 6), toonMat('#e7c56a'));
+  hex.position.y = 0.05;
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 10), toonMat('#2f9e96'));
+  body.position.y = 0.55;
+  const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: 0xf7fbff }));
+  eye.position.set(-0.1, 0.66, 0.32);
+  const eyeR = eye.clone();
+  eyeR.position.x = 0.1;
+  const lab = labelSprite('Gel King', '#9fe6e0', [1.45, 0.34]);
+  lab.position.y = 1.25;
+  g.add(hex, body, eye, eyeR, lab);
+  g.userData.pick = { kind: 'fight', id: 'fp', x: spot[0], z: spot[1] };
+  scene.add(g);
+}
 function dressLake() {
   const spot = shoreSpot();
   const lake = field.anchors.lake;
@@ -4179,7 +4331,17 @@ const api = {
     if (!next) camInit = false;
   },
   posePhase(p) { playerPose.phase = p; playerPose.amp = 1; if (!shot) shot = 'side'; },
-  fp(on) { setFp(on); return { on: fp.on, xr: fp.xr, vials: fp.vials }; },
+  fp(on) { setFp(on); return { on: fp.on, xr: fp.xr, vials: fp.vials, track: fp.track.state }; },
+  handDemo(mode) {
+    if (!fp.on) setFp(true, 'fight');
+    fp.track.hold = mode !== 'live';
+    if (mode === 'tap' || mode === 'blocked') { fp.track.state = 'blocked'; fp.track.charge = 0; }
+    else if (mode === 'seen') { fp.track.state = 'seen'; fp.track.charge = 0.2; fp.track.x = 0.58; fp.track.y = 0.72; }
+    else if (mode === 'charge') { fp.track.state = 'charging'; fp.track.charge = 0.72; fp.track.x = 0.56; fp.track.y = 0.66; }
+    else if (mode === 'fired') { fp.track.state = 'fired'; fp.track.charge = 1; fp.track.x = 0.6; fp.track.y = 0.62; fp.cast = 0.28; }
+    else { fp.track.hold = false; fp.track.state = 'off'; }
+    paintTrack();
+  },
   seam(name) { return setSeam(name == null ? 'auto' : name); },
   where() { return { x: px, z: pz, facing, avatarReady, active, mode: playMode }; },
   enter: enterPlay,
