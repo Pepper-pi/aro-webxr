@@ -853,6 +853,12 @@ const hsh = (a, b = 0) => { let h = Math.imul(a | 0, 374761393) ^ Math.imul(b | 
 const SET = Object.assign({ sound: true, cozy: false, haptics: true, tilt: 1, hand: 'right', neon: .3, tapMove: true }, (() => { try { return JSON.parse(localStorage.getItem('aro7set') || '{}'); } catch (e) { return {}; } })());
 window.__aroTapMove = () => SET.tapMove !== false;
 window.__aroSun = () => (typeof G !== 'undefined' && G.timeOfDay != null ? G.timeOfDay : 0.2);
+window.__aroGrass = () => {
+  const low = SET.cozy || (typeof raidViewLow === 'function' && raidViewLow()) || innerWidth < 700;
+  if (low) return 900;
+  if (typeof TRAIN !== 'undefined' && TRAIN.on && TRAIN.view === 'tactical') return 1600;
+  return 2600;
+};
 function saveSet() { try { localStorage.setItem('aro7set', JSON.stringify(SET)); } catch (e) { } }
 const canVibrate = typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
 function buzz(p) { if (SET.haptics && canVibrate) { try { navigator.vibrate(p); } catch (e) { } } }
