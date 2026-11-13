@@ -3636,6 +3636,7 @@ function rewind() {
 }
 function damage(m, dmg, sp, focus) {
   m.hp -= dmg; m.fl = 1; if (sp && sp.slow) m.slow = sp.slow; if (!m.aggro) { m.aggro = true; m.atkT = 1.1 * PACE(); }
+  if (dmg >= 16 && !(typeof reducedMotion === 'function' && reducedMotion())) AR.shake = Math.max(AR.shake, 0.46);
   const [X, Y, f] = proj(AR.cam, m.x, m.y); popText(X + (Math.random() - .5) * 20, Y - 60 * f, (focus ? '✦' : '') + dmg, sp ? sp.col : '#fff', focus ? 20 : 17); SFX.hit(); burst(X, Y - 30 * f, sp ? sp.col : '#fff', 6, 120, 3);
   if (AR.phase === 'nodes') { AR.share = clamp(AR.share + dmg / HACK_NODES.reduce((a, s) => a + MOBDEF[s.k].hp, 0), 0, 1); AR.floorDirty = true; }
   wirePulse(m.x, m.y, .6, 'arena');
@@ -8117,6 +8118,34 @@ function fieldAimContext() {
   }
   return g;
 }
+function drawFightJuice() {
+  if (G.scene !== 'arena' || !document.body.classList.contains('field-on')) return;
+  const g = fieldAimContext();
+  for (const m of AR.mobs) {
+    if (!m || !(m.fl > 0)) continue;
+    const [X, Y, f] = proj(AR.cam, m.x, m.y);
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = Math.min(0.7, m.fl);
+    g.fillStyle = '#fff';
+    g.beginPath(); g.arc(X, Y - 22 * Math.min(f, 1.4), Math.min(28, 12 * f + 8), 0, TAU); g.fill();
+    g.restore();
+  }
+  for (const p of FX) {
+    if (p.kind !== 'text') continue;
+    const k = 1 - p.t / p.life;
+    g.save();
+    g.globalAlpha = Math.min(1, k * 2);
+    g.font = '900 ' + (p.size || 18) + 'px ui-rounded,system-ui';
+    g.textAlign = 'center';
+    g.lineWidth = 4;
+    g.strokeStyle = '#140810';
+    g.strokeText(String(p.txt), p.x, p.y);
+    g.fillStyle = p.col || '#fff';
+    g.fillText(String(p.txt), p.x, p.y);
+    g.restore();
+  }
+}
 function drawFieldToken() {
   if (!document.body.classList.contains('field-on') || (TRAIN.on && TRAIN.view === 'fp')) return;
   const g = fieldAimContext();
@@ -9607,7 +9636,7 @@ function drawFpFrame() {
   ctx.stroke();
   ctx.restore();
 }
-{ const _vignette = vignette; vignette = function () { const garden = typeof GARDEN_ROOM !== 'undefined' && GARDEN_ROOM.on; const fishing = typeof FI !== 'undefined' && FI.open; const market = typeof marketPlateOn === 'function' && marketPlateOn(); const gather = typeof GATHER !== 'undefined' && GATHER.on; if (!garden && !fishing && !market && !gather) _vignette(); fieldAimContext.cleared = false; if (G.scene === 'arena' && !market) { drawFpFrame(); drawAimLayer(); drawDisc(); drawForearm(); drawHoldDemo(); drawFieldToken(); if (typeof drawCellRig === 'function') drawCellRig(); if (typeof drawCellAim === 'function') drawCellAim(); if (typeof drawFollowerSticker === 'function') drawFollowerSticker(); } else { const aim = document.getElementById('aimCv'); if (aim && aim.width) { const g = aim.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, aim.width, aim.height); } } if (G.scene === 'map' && !garden && !fishing && !gather) { drawMarkChevrons(); drawDockHud(); if (typeof drawMapPetSticker === 'function') drawMapPetSticker(); } }; }
+{ const _vignette = vignette; vignette = function () { const garden = typeof GARDEN_ROOM !== 'undefined' && GARDEN_ROOM.on; const fishing = typeof FI !== 'undefined' && FI.open; const market = typeof marketPlateOn === 'function' && marketPlateOn(); const gather = typeof GATHER !== 'undefined' && GATHER.on; if (!garden && !fishing && !market && !gather) _vignette(); fieldAimContext.cleared = false; if (G.scene === 'arena' && !market) { drawFpFrame(); drawAimLayer(); drawDisc(); drawForearm(); drawHoldDemo(); drawFieldToken(); drawFightJuice(); if (typeof drawCellRig === 'function') drawCellRig(); if (typeof drawCellAim === 'function') drawCellAim(); if (typeof drawFollowerSticker === 'function') drawFollowerSticker(); } else { const aim = document.getElementById('aimCv'); if (aim && aim.width) { const g = aim.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, aim.width, aim.height); } } if (G.scene === 'map' && !garden && !fishing && !gather) { drawMarkChevrons(); drawDockHud(); if (typeof drawMapPetSticker === 'function') drawMapPetSticker(); } }; }
 { const _obj = arenaObjective; arenaObjective = function () { if (!TRAIN.on) return _obj(); const t = TRAIN.king ? kingLine() : drillLine(); if (t !== AR.objT) { AR.objT = t; setObj(t); } }; }
 { const _setClass = setClass; setClass = function (c) { if (TRAIN.on && c !== GUN.cls) interruptCharge('Charge cancelled'); const r = _setClass(c); syncClassBtn(); const help = document.getElementById('trainHelp'); if (help && TRAIN.on) help.textContent = trainHelpText(); return r; }; }
 { const _manaUI = manaUI; manaUI = function () {
