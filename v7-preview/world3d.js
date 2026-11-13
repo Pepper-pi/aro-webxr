@@ -34752,9 +34752,6 @@ function ensureFightCut() {
   fightCut.visible = false;
   scene.add(fightCut);
 }
-function fightAhead(dist) {
-  return [px2 + Math.sin(fp.yaw) * dist, pz2 + Math.cos(fp.yaw) * dist];
-}
 function stepAggro(dt) {
   if (!fp.on || fp.fish) {
     if (fightCut) fightCut.visible = false;
@@ -34769,9 +34766,14 @@ function stepAggro(dt) {
   const t = fp.aggro;
   const solid2 = t < 1.15 ? 0 : Math.min(1, (t - 1.15) / 0.95);
   const surge = t > 1.15 && t < 2.45 ? Math.sin((t - 1.15) / 1.3 * Math.PI) : 0;
+  if (!fp.kingLock) {
+    fp.kingLock = { ox: px2, oz: pz2, fx: Math.sin(fp.yaw), fz: Math.cos(fp.yaw) };
+  }
   const dist = 16 - solid2 * 4.5;
   const plate = 1 - solid2 * 0.34;
-  const [cx, cz] = fightAhead(dist);
+  const anchor = fp.kingLock;
+  const cx = anchor.ox + anchor.fx * dist;
+  const cz = anchor.oz + anchor.fz * dist;
   fightCut.position.set(cx, groundY(cx, cz) + 1.35 + plate * 0.85, cz);
   fightCut.scale.setScalar(plate);
   if (camera) fightCut.lookAt(camera.position);
@@ -34794,7 +34796,7 @@ function stepAggro(dt) {
 }
 function setCameraScene(hideWorld) {
   if (!scene) return;
-  const keep = /* @__PURE__ */ new Set([fightBeast, fightCut, camPlate, fpDummy]);
+  const keep = /* @__PURE__ */ new Set([fightBeast, fightCut, camPlate, fpDummy, rod]);
   scene.children.forEach((o) => {
     if (o.isLight || keep.has(o)) return;
     if (hideWorld) {
@@ -34863,10 +34865,22 @@ function setFightView(mode) {
   if (fp.view === "camera") {
     setCameraScene(true);
     if (avatar) avatar.visible = false;
+    if (fp.fish && rod) {
+      scene.add(rod);
+      rod.visible = true;
+    }
     startHandCam();
   } else {
     setCameraScene(false);
     if (camPlate) camPlate.visible = false;
+    if (fp.fish && rod && avatar) {
+      avatar.add(rod);
+      rod.traverse((o) => {
+        if (o.layers) o.layers.set(2);
+      });
+      rod.scale.setScalar(1);
+      rod.rotation.set(0.85, 0, 0.15);
+    }
     if (avatar) avatar.visible = !!fp.body;
   }
   if (handVideo) handVideo.classList.toggle("ar", fp.view === "camera");
@@ -35467,6 +35481,17 @@ function mountFpHud() {
     dbg.id = "handDebug";
     document.body.appendChild(dbg);
   }
+  const extra = document.createElement("style");
+  extra.textContent = "#longLake{position:fixed;left:12px;bottom:calc(172px + env(safe-area-inset-bottom));z-index:28;min-height:44px;padding:8px 14px;border-radius:999px;border:2px solid #9ad8ff;background:rgba(10,28,48,.92);color:#e7f6ff;font:800 15px ui-rounded,system-ui}body.fp-on #longLake,body.garden-room #longLake,body:not(.world-on) #longLake{display:none}#handGuide{position:fixed;left:12px;bottom:calc(118px + env(safe-area-inset-bottom));width:96px;height:128px;z-index:33;border-radius:14px;overflow:hidden;border:1px solid rgba(255,236,180,.8);box-shadow:0 8px 18px rgba(0,0,0,.4);opacity:0;pointer-events:none}body.fp-cam #handGuide{opacity:1}#handGuide #handCam,#handGuide #handCam.ar{position:absolute;inset:0;width:100%;height:100%;opacity:1;border:0;border-radius:0;right:auto;bottom:auto;object-fit:cover}#handGuide i{position:absolute;left:18%;right:18%;top:40%;height:38%;border:3px solid #fff6df;border-radius:12px;box-shadow:0 0 0 2px rgba(0,0,0,.72),0 0 10px rgba(255,210,120,.85)}";
+  document.head.appendChild(extra);
+  if (!document.getElementById("longLake")) {
+    const lake = document.createElement("button");
+    lake.id = "longLake";
+    lake.type = "button";
+    lake.textContent = "Long Lake";
+    lake.onclick = () => setFp(true, "fish");
+    document.body.appendChild(lake);
+  }
   if (!document.getElementById("gelFight")) {
     const fight = document.createElement("button");
     fight.id = "gelFight";
@@ -35566,6 +35591,7 @@ function setFp(on, kind) {
       fp.fish = true;
       fp.saved.mode = "fish";
       const lake = field.anchors.lake;
+      fp.view = "virtual";
       fp.yaw = Math.atan2(lake[0] - px2, lake[1] - pz2);
       facing = fp.yaw;
       if (fightBeast) fightBeast.visible = false;
@@ -35581,6 +35607,7 @@ function setFp(on, kind) {
       fp.view = "virtual";
       fp.aggro = 0;
       fp.aggroHold = "";
+      fp.kingLock = null;
       placeFightBeast();
       placeFightDress();
     }
@@ -35604,6 +35631,7 @@ function setFp(on, kind) {
     fp.body = false;
     if (fightBeast) fightBeast.visible = false;
     if (fightDress) fightDress.visible = false;
+    clearBolts();
     if (fpDummy) fpDummy.visible = false;
     if (fightCut) fightCut.visible = false;
     setCameraScene(false);
@@ -35631,6 +35659,8 @@ function setFp(on, kind) {
   if (fp.on && !fp.fish) {
     setFightView(fp.view || "virtual");
     stepAggro(0);
+  } else if (fp.on && fp.fish) {
+    setFightView(fp.view || "virtual");
   }
   if (!fp.on && camera) {
     camera.near = 0.1;
@@ -35748,6 +35778,7 @@ function frameFp() {
   }
   poseFpBody();
   placeCamPlate();
+  parkFishRod();
   if (skyMat) skyMat.uniforms.uCam.value.copy(camera.position);
 }
 function poseFpBody() {
@@ -35795,17 +35826,62 @@ function poseFpBody() {
   });
   if (vrm.scene) vrm.scene.updateMatrixWorld(true);
 }
-function fpShoot(kind) {
+function paintChargeArm() {
+  if (!vrm || !vrm.humanoid) return;
+  const arm = vrm.humanoid.getNormalizedBoneNode("rightLowerArm");
+  if (!arm) return;
+  let fill = arm.getObjectByName("chargeFill");
+  if (!fill) {
+    fill = new Mesh(
+      new CapsuleGeometry(0.038, 0.24, 4, 8),
+      new MeshBasicMaterial({ color: 16765802, transparent: true, opacity: 0.92, depthTest: false })
+    );
+    fill.name = "chargeFill";
+    fill.layers.set(2);
+    arm.add(fill);
+  }
+  const show = fp.on && fp.view !== "camera" && !fp.fish && fp.track.charge > 0.05;
+  fill.visible = show;
+  fill.scale.set(1, Math.max(0.12, fp.track.charge), 1);
+  fill.position.set(0, -0.18 + fp.track.charge * 0.16, 0.03);
+}
+function fpShoot(kind, power) {
   if (!fp.on) return;
+  const p = power == null ? 1 : Math.max(0.18, Math.min(1, power));
   if ((fp.vials[kind] | 0) <= 0) fp.vials[kind] = 3;
   fp.vials[kind] -= 1;
-  fp.cast = 0.35;
+  fp.cast = 0.22 + p * 0.2;
   facing = fp.yaw;
-  castSpell(kind);
+  castSpell(kind, p);
   fp.pulse = 0.28;
   fp.track.state = "fired";
   fp.track.firedUntil = performance.now() + 700;
   fp.track.charge = 0;
+}
+function parkFishRod() {
+  if (!rod || !fp.on || !fp.fish || !camera) return;
+  if (fp.view !== "camera") return;
+  if (rod.parent !== scene) scene.add(rod);
+  rod.traverse((o) => {
+    if (o.layers) o.layers.set(0);
+  });
+  rod.visible = true;
+  rod.frustumCulled = false;
+  rod.renderOrder = 6;
+  rod.scale.setScalar(1.35);
+  const fwd = new Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+  const right = new Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+  const up = new Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+  rod.position.copy(camera.position).addScaledVector(fwd, 0.85).addScaledVector(right, -0.02).addScaledVector(up, -0.34);
+  rod.quaternion.copy(camera.quaternion);
+  rod.rotateX(0.65);
+  rod.rotateZ(-0.4);
+  const reel = typeof window.__aroReel === "function" ? window.__aroReel() : "";
+  const out = reel === "fly" || reel === "wait" || reel === "nibble" || reel === "reel";
+  if (rodLine) {
+    rodLine.visible = true;
+    rodLine.scale.y = out ? reel === "fly" ? 1.35 : 1 : 0.28;
+  }
 }
 function paintTrack() {
   const el = document.getElementById("fpTrack");
@@ -35824,17 +35900,13 @@ function paintTrack() {
     el.classList.toggle("hot", fp.track.state === "charging" || fp.track.state === "fired" || fp.track.state === "seen");
   }
   if (ring) {
-    const show = fp.on && (fp.track.state === "seen" || fp.track.state === "charging" || fp.track.state === "fired");
+    const show = fp.on && (fp.track.state === "seen" || fp.track.state === "charging" || fp.track.state === "fired" || fp.holding);
     ring.classList.toggle("on", show);
-    ring.style.left = fp.track.x * window.innerWidth + "px";
-    ring.style.top = fp.track.y * window.innerHeight + "px";
+    const ax = fp.holding && !fp.track.ready ? fp.track.x : fp.aimX || 0.5;
+    const ay = fp.holding && !fp.track.ready ? fp.track.y : fp.aimY || 0.44;
+    ring.style.left = ax * window.innerWidth + "px";
+    ring.style.top = ay * window.innerHeight + "px";
     const mark = ring.querySelector("i");
-    if (fp.view === "camera" && !(fp.track.ready && fp.track.hands > 0)) {
-      fp.track.x = 0.5;
-      fp.track.y = 0.78;
-      ring.style.left = fp.track.x * window.innerWidth + "px";
-      ring.style.top = fp.track.y * window.innerHeight + "px";
-    }
     if (mark) mark.style.transform = "scale(" + (0.2 + fp.track.charge * 0.8) + ")";
   }
   paintHandDebug();
@@ -35941,7 +36013,15 @@ async function startHandCam() {
     handVideo.setAttribute("playsinline", "true");
     handVideo.setAttribute("webkit-playsinline", "true");
     handVideo.srcObject = stream;
-    if (!handVideo.parentNode) document.body.appendChild(handVideo);
+    let guide = document.getElementById("handGuide");
+    if (!guide) {
+      guide = document.createElement("div");
+      guide.id = "handGuide";
+      const spot = document.createElement("i");
+      guide.appendChild(spot);
+      document.body.appendChild(guide);
+    }
+    if (handVideo.parentNode !== guide) guide.insertBefore(handVideo, guide.firstChild);
     await handVideo.play();
     if (!handVideo.videoWidth) {
       await new Promise((resolve) => {
@@ -36016,8 +36096,8 @@ function stepHands() {
   if (!fp.on) return;
   const now2 = performance.now();
   if (fp.track.dbgT) {
-    const span = now2 - fp.track.dbgT;
-    if (span > 0) fp.track.fps = Math.round(1e3 / span);
+    const span2 = now2 - fp.track.dbgT;
+    if (span2 > 0) fp.track.fps = Math.round(1e3 / span2);
   }
   fp.track.dbgT = now2;
   if (handVideo && handVideo.videoWidth) fp.track.video = handVideo.videoWidth + "x" + handVideo.videoHeight + " ready " + handVideo.readyState;
@@ -36030,12 +36110,16 @@ function stepHands() {
     paintTrack();
     return;
   }
-  if (fp.holding && !fp.look) {
-    fp.track.charge = Math.min(1, fp.track.charge + 0.045);
+  if (fp.holding && !fp.look && !fp.track.ready) {
+    fp.track.charge = Math.min(1, fp.track.charge + 0.04);
     fp.track.state = "charging";
-    if (fp.view === "camera") {
-      fp.track.x = 0.5;
-      fp.track.y = 0.78;
+    fp.aimX = fp.track.x;
+    fp.aimY = fp.track.y;
+    if (fp.track.charge >= 1) {
+      fp.holding = false;
+      if (fp.fish && window.__aroFishTap) window.__aroFishTap();
+      else fpShoot("aether", 1);
+      return;
     }
     paintTrack();
     return;
@@ -36093,32 +36177,51 @@ function stepHands() {
   fp.track.sz = fp.track.sz == null ? wrist.z : fp.track.sz + (wrist.z - fp.track.sz) * blend;
   fp.track.x = fp.track.sx;
   fp.track.y = fp.track.sy;
+  const span = Math.hypot((lm[12] || palm).x - wrist.x, (lm[12] || palm).y - wrist.y);
+  const grew = fp.track.span != null && span > fp.track.span + 35e-4;
+  const shrank = fp.track.span != null && span < fp.track.span - 35e-4;
+  const zCloser = fp.track.lastZ != null && fp.track.sz < fp.track.lastZ - 6e-3;
+  const zFarther = fp.track.lastZ != null && fp.track.sz > fp.track.lastZ + 6e-3;
+  fp.track.span = span;
   const dt = Math.max(0.016, (now2 - (fp.track.lastT || now2)) / 1e3);
   const dx = fp.track.sx - (fp.track.lastX == null ? fp.track.sx : fp.track.lastX);
   const dy = fp.track.sy - (fp.track.lastY == null ? fp.track.sy : fp.track.lastY);
   const flick = Math.hypot(dx, dy) / dt;
-  const pushDelta = fp.track.lastZ == null ? 0 : fp.track.lastZ - fp.track.sz;
-  const push = fp.track.pushing ? pushDelta > 0.02 : pushDelta > 0.055;
-  fp.track.pushing = push;
   fp.track.lastX = fp.track.sx;
   fp.track.lastY = fp.track.sy;
   fp.track.lastZ = fp.track.sz;
   fp.track.lastT = now2;
-  if (fp.track.palmOpen) {
-    fp.track.charge = Math.min(1, fp.track.charge + dt * 0.85);
-    fp.track.state = fp.track.charge > (fp.track.state === "charging" ? 0.1 : 0.24) ? "charging" : "seen";
-  } else {
-    fp.track.charge = Math.max(0, fp.track.charge - dt * 0.22);
-    fp.track.state = "seen";
+  const aimX = 0.5;
+  const aimY = fp.fish ? 0.62 : 0.44;
+  fp.aimX = aimX;
+  fp.aimY = aimY;
+  const rx = 54 / Math.max(1, window.innerWidth);
+  const ry = 54 / Math.max(1, window.innerHeight);
+  const inside = Math.hypot((fp.track.sx - aimX) / rx, (fp.track.sy - aimY) / ry) < (fp.track.inside ? 1.35 : 1);
+  fp.track.inside = inside;
+  const pushing = grew || zCloser;
+  const pulling = shrank || zFarther;
+  if (fp.fish) {
+    fp.track.state = inside ? "seen" : "looking";
+    if (pushing || flick > 1.2) {
+      const strength = Math.max(0.25, Math.min(1, flick * 0.35 + (grew ? 0.45 : 0.2)));
+      if (window.__aroHandCast) window.__aroHandCast(strength);
+    } else if (pulling && window.__aroHandReel) window.__aroHandReel();
+    paintTrack();
+    return;
   }
-  const flickOn = fp.track.flicked ? flick > 0.7 : flick > 1.15;
-  fp.track.flicked = flickOn;
-  if (fp.track.charge > 0.42 && now2 > (fp.track.cool || 0) && (push || flickOn)) {
-    fp.track.cool = now2 + 700;
-    fp.track.charge = 0;
-    fp.track.pushing = false;
-    fp.track.flicked = false;
-    fpShoot("aether");
+  if (inside && pushing) {
+    fp.track.charge = Math.min(1, fp.track.charge + dt * 0.9);
+    fp.track.state = "charging";
+    if (fp.track.charge >= 1 && now2 > (fp.track.cool || 0)) {
+      fp.track.cool = now2 + 700;
+      fpShoot("aether", 1);
+    }
+  } else if (fp.track.charge > 0.12 && (!inside || pulling)) {
+    fp.track.cool = now2 + 500;
+    fpShoot("aether", fp.track.charge);
+  } else {
+    fp.track.state = inside ? "seen" : "looking";
   }
   paintTrack();
 }
@@ -36131,6 +36234,7 @@ function stepFp(dt) {
   if (!fp.on) return;
   stepAggro(dt);
   stepHands();
+  paintChargeArm();
   if (shot === "fpcast") fp.cast = 0.22;
   fp.clock += dt;
   if (fightBeast) {
@@ -36427,6 +36531,7 @@ function bindInput(canvas) {
         fp.track.state = "charging";
         paintTrack();
       }
+      if (fp.fish && window.__aroFishCharge) window.__aroFishCharge();
       canvas.setPointerCapture(e.pointerId);
       ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, ox: e.clientX, oy: e.clientY, moved: false, fp: true });
       return;
@@ -36466,8 +36571,10 @@ function bindInput(canvas) {
     for (const q of ptrs.values()) q.pinch = 0;
     if (p && p.fp && fp.on) {
       fp.holding = false;
-      if (!p.moved && fp.track.charge > 0.05) fpShoot("aether");
-      else if (!fp.track.ready) {
+      if (!p.moved && fp.track.charge > 0.08) {
+        if (fp.fish && window.__aroFishTap) window.__aroFishTap();
+        else fpShoot("aether", fp.track.charge);
+      } else if (!fp.track.ready) {
         fp.track.charge = 0;
         fp.track.state = fp.track.model === "failed" ? "model" : "off";
         paintTrack();
@@ -37324,30 +37431,59 @@ function handWorld(which) {
   if (bone) bone.getWorldPosition(v);
   return v;
 }
-function castSpell(kind) {
-  let origin = handWorld(kind === "fire" ? "r" : "l");
+function clearBolts() {
+  for (let i = bolts.length - 1; i >= 0; i--) {
+    const b = bolts[i];
+    scene.remove(b.mesh);
+    b.mesh.geometry.dispose();
+    b.mesh.material.dispose();
+    b.embers.forEach((e) => {
+      scene.remove(e);
+      e.geometry.dispose();
+      e.material.dispose();
+    });
+  }
+  bolts.length = 0;
+}
+function castSpell(kind, power) {
+  const scale = 0.45 + (power == null ? 1 : power) * 0.7;
+  let origin = handWorld("r").clone();
   let dir = new Vector3(Math.sin(facing), 0.06, Math.cos(facing)).normalize();
   if (fp.on && camera) {
-    origin = camera.position.clone().add(new Vector3(0.2, -0.5, -0.85).applyQuaternion(camera.quaternion));
-    dir = new Vector3(0, -0.04, -1).applyQuaternion(camera.quaternion).normalize();
+    origin = camera.position.clone().add(new Vector3(0.12, -0.28, -0.9).applyQuaternion(camera.quaternion));
+    dir = new Vector3(0, -0.02, -1).applyQuaternion(camera.quaternion).normalize();
     fp.kind = kind;
   }
   const mesh = new Mesh(
-    new SphereGeometry(kind === "fire" ? 0.28 : 0.2, 8, 6),
+    new SphereGeometry(kind === "fire" ? 0.22 : 0.16, 8, 6),
     new MeshBasicMaterial({ color: kind === "fire" ? 16738858 : 16765802 })
   );
+  mesh.scale.setScalar(scale);
   mesh.position.copy(origin);
+  mesh.layers.set(0);
   scene.add(mesh);
   const embers = [];
   if (kind === "fire") {
-    for (let i = 0; i < 4; i++) {
-      const e = new Mesh(new SphereGeometry(0.05, 4, 3), new MeshBasicMaterial({ color: 16769162 }));
+    for (let i = 0; i < 3; i++) {
+      const e = new Mesh(new SphereGeometry(0.04, 4, 3), new MeshBasicMaterial({ color: 16769162 }));
       e.position.copy(origin);
+      e.layers.set(0);
       scene.add(e);
       embers.push(e);
     }
   }
-  bolts.push({ kind, p: origin.clone(), v: dir.multiplyScalar(kind === "fire" ? 6.5 : 8), life: 1.3, mesh, embers });
+  const speed = (kind === "fire" ? 7 : 9) * (0.5 + scale * 0.4);
+  bolts.push({
+    kind,
+    p: origin.clone(),
+    origin: origin.clone(),
+    forward: dir.clone(),
+    v: dir.clone().multiplyScalar(speed),
+    life: 1.15,
+    mesh,
+    embers,
+    born: performance.now()
+  });
 }
 function hurtNpc(p) {
   if (playMode !== "arena" && playMode !== "raid") return;
@@ -37364,8 +37500,15 @@ function hurtNpc(p) {
 function stepProps(dt) {
   for (let i = bolts.length - 1; i >= 0; i--) {
     const b = bolts[i];
+    if (b.mesh.parent !== scene) scene.attach(b.mesh);
+    b.embers.forEach((e) => {
+      if (e.parent !== scene) scene.attach(e);
+    });
     b.life -= dt;
     b.p.addScaledVector(b.v, dt);
+    if (b.origin && performance.now() - b.born > 160 && b.p.distanceTo(b.origin) < 0.2) {
+      b.v.copy(b.forward).multiplyScalar(8);
+    }
     b.mesh.position.copy(b.p);
     b.embers.forEach((e, k) => {
       e.position.set(b.p.x + Math.sin(worldT * 18 + k) * 0.12, b.p.y + (k - 1.5) * 0.06, b.p.z);
@@ -37391,7 +37534,7 @@ function stepProps(dt) {
   if (rod) {
     rod.visible = playMode === "fish";
     if (rodLine) rodLine.visible = rod.visible;
-    if (rod.visible && avatar && vrm && vrm.humanoid) {
+    if (rod.visible && rod.parent === avatar && avatar && vrm && vrm.humanoid) {
       const hand = vrm.humanoid.getNormalizedBoneNode("rightHand");
       if (hand) {
         const w = hand.getWorldPosition(new Vector3());
@@ -38077,6 +38220,11 @@ var api = {
       fp.track.state = "looking";
       fp.track.charge = 0;
       fp.track.hands = 0;
+    } else if (mode === "full") {
+      fp.track.state = "charging";
+      fp.track.charge = 1;
+      fp.aimX = 0.5;
+      fp.aimY = 0.44;
     } else {
       fp.track.hold = false;
       fp.track.state = "off";
