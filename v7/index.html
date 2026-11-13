@@ -4,16 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Aether">
+<link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#1a0f1f">
 <title>Aether Realms Online · demo v7 · One Day</title>
 <style>
 :root{--plum:#1a0f1f;--plum2:#2a1530;--pink:#ff4fb4;--gold:#ffc94d;--cyan:#7ff0ff;--ink:#140a17;--txt:#fbeef6;--dim:#c9a9c4;--sg-edge:#bff6ff;--sg-violet:#c9b6ff;--sg-glow:rgba(120,236,255,.72);--sg-glass:rgba(8,16,36,.32);
 --g0:#5fe08a;--g1:#5fb8ff;--g2:#b98aff;--g3:#ffa53b;--sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;height:100%;background:var(--plum);color:var(--txt);overflow:hidden;overscroll-behavior:none;
+html,body{margin:0;height:100%;height:100svh;min-height:100svh;max-height:100svh;background:var(--plum);color:var(--txt);overflow:hidden;overscroll-behavior:none;
 font-family:ui-rounded,"SF Pro Rounded","Nunito","Segoe UI",system-ui,-apple-system,sans-serif;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
-#cv{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
-#worldCv{position:fixed;inset:0;width:100%;height:100%;z-index:1;display:none;touch-action:none}
+#cv{position:fixed;inset:0;width:100%;height:100%;height:100svh;display:block;touch-action:none}
+#worldCv{position:fixed;inset:0;width:100%;height:100%;height:100svh;z-index:1;display:none;touch-action:none}
+body.garden-room #cv{visibility:visible!important;z-index:2}
+body.world-on.garden-room #worldCv{visibility:hidden}
 body.world-on #worldCv{display:block}
 body.world-on #cv{visibility:hidden}
 #osmNote{position:fixed;left:8px;bottom:calc(8px + var(--sab));z-index:6;display:none;pointer-events:none;font:700 10px/1.2 ui-rounded,system-ui;color:rgba(255,248,230,.78);text-shadow:0 1px 2px rgba(0,0,0,.65)}
@@ -47,15 +53,15 @@ font-size:14.5px;line-height:1.35;box-shadow:0 8px 30px rgba(0,0,0,.45),0 0 18px
 }
 #coach .who{font-size:11px;letter-spacing:.12em;color:var(--pink);font-weight:900;text-transform:uppercase;margin-bottom:3px}
 #coach b{color:var(--gold)}
-#mapHint{position:fixed;left:12px;bottom:calc(108px + var(--sab));z-index:8;display:none;max-width:min(68vw,220px);padding:6px 10px;border-radius:999px;border:1px solid rgba(255,214,140,.75);background:rgba(12,6,18,.9);color:#f4fbff;font:800 12px/1.2 ui-rounded,system-ui;pointer-events:auto}
+#mapHint{position:fixed;left:12px;bottom:calc(240px + var(--sab));z-index:8;display:none;max-width:min(46vw,200px);padding:6px 10px;border-radius:999px;border:1px solid rgba(255,214,140,.75);background:rgba(12,6,18,.9);color:#f4fbff;font:800 12px/1.2 ui-rounded,system-ui;pointer-events:auto}
 #mapHint.on{display:block}
 #mapHint b{color:var(--gold);margin-left:6px}
 /* ---------- one contextual action + one glowing hex menu button ---------- */
-#act{position:fixed;left:50%;bottom:calc(104px + var(--sab));transform:translateX(-50%);z-index:24;min-width:210px;padding:14px 22px;border-radius:18px;
+#act{position:fixed;left:50%;bottom:calc(128px + var(--sab));transform:translateX(-50%);z-index:24;min-width:210px;padding:14px 22px;border-radius:18px;
 background:linear-gradient(180deg,#ff6fc4,#d93d98);color:#fff;font-weight:900;font-size:17px;letter-spacing:.01em;box-shadow:0 6px 0 #8f1f62,0 10px 26px rgba(255,79,180,.45);transition:transform .08s}
 #act:active{transform:translateX(-50%) translateY(3px);box-shadow:0 3px 0 #8f1f62,0 6px 18px rgba(255,79,180,.45)}
 #act.gold{background:linear-gradient(180deg,#ffd978,#f0a92e);color:#3a1d05;box-shadow:0 6px 0 #9a5f12,0 10px 26px rgba(255,201,77,.45)}
-#menuBtn{position:fixed;left:50%;bottom:calc(22px + var(--sab));transform:translateX(-50%);width:66px;height:72px;z-index:24;display:grid;place-items:center;color:#fff6d8;font-weight:900}
+#menuBtn{position:fixed;left:50%;bottom:calc(28px + var(--sab));transform:translateX(-50%);width:66px;height:72px;z-index:24;display:grid;place-items:center;color:#fff6d8;font-weight:900}
 #menuBtn b{position:relative;z-index:2;font-size:11px;letter-spacing:.02em;color:#fff6d8;background:rgba(10,6,16,.9);border:1px solid rgba(255,214,140,.85);border-radius:8px;padding:1px 6px;text-shadow:0 1px 0 #000,0 0 2px #000}
 clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radial-gradient(circle at 50% 40%,#ff9ad6,#ff4fb4 55%,#a01c6c);display:grid;place-items:center;animation:hexpulse 2.6s ease-in-out infinite}
 #menuBtn::after{content:"";position:absolute;inset:5px;clip-path:inherit;background:radial-gradient(circle at 50% 35%,#3a1640,#1d0b22)}
@@ -67,6 +73,12 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 #worldSpells button.fire{border-color:rgba(255,170,70,.75);color:#ffe1b0;box-shadow:0 0 14px rgba(255,160,60,.2)}
 body.world-on #hud .chip{background:rgba(8,22,36,.5);border-color:rgba(127,240,255,.45);color:#e7fbff;box-shadow:0 0 10px rgba(90,220,255,.18)}
 body.world-on #menuBtn{filter:drop-shadow(0 0 6px rgba(127,240,255,.45))}
+body.world-on #act:not(.hide){bottom:calc(176px + var(--sab));z-index:27}
+body.garden-room #spineLevel{left:132px;top:calc(16px + var(--sat))}
+body.garden-room #menuBtn{bottom:calc(196px + var(--sab))}
+@media (max-width:520px){
+  body.world-on #worldSpells{bottom:calc(248px + var(--sab))}
+}
 body.world-on #setM .sheet,
 body.world-on #logM .sheet,
 body.world-on #bagM .sheet,
@@ -2430,7 +2442,7 @@ function doorClear(label, then) {
   setTimeout(() => {
     el.classList.remove('on');
     if (then) then();
-  }, 420);
+  }, 160);
 }
 function dismissHome() {
   if (window.__home && window.__home.leave) window.__home.leave();
@@ -2681,7 +2693,7 @@ function drawSlam(c) {
 }
 function mountPortal() {
   const style = document.createElement('style');
-  style.textContent = '#portalBtn{position:fixed;left:12px;top:calc(148px + env(safe-area-inset-top,0px));z-index:17;min-height:44px;padding:8px 12px;border-radius:12px;border:1px solid rgba(160,230,200,.8);background:rgba(16,36,32,.92);color:#e7fff4;font:800 13px sans-serif}#portalBtn.hide{display:none}@media (max-width:520px){#portalBtn{top:calc(164px + env(safe-area-inset-top,0px));min-height:34px;padding:4px 8px;font-size:12px}}#doorClear{position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;background:#f6f1e8;color:#3a2414;font:800 28px sans-serif}#doorClear.on{display:flex}body.home-in #portalBtn{display:none!important}';
+  style.textContent = '#portalBtn{position:fixed;left:12px;top:calc(148px + env(safe-area-inset-top,0px));z-index:17;min-height:44px;padding:8px 12px;border-radius:12px;border:1px solid rgba(160,230,200,.8);background:rgba(16,36,32,.92);color:#e7fff4;font:800 13px sans-serif}#portalBtn.hide{display:none}@media (max-width:520px){#portalBtn{top:calc(164px + env(safe-area-inset-top,0px));min-height:34px;padding:4px 8px;font-size:12px}}#doorClear{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;background:#24160f;color:#f6e2c4;font:800 22px sans-serif;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .16s linear}#doorClear.on{opacity:1;visibility:visible}body.home-in #portalBtn{display:none!important}';
   document.head.appendChild(style);
   const b = document.createElement('button');
   b.id = 'portalBtn';
@@ -7234,6 +7246,7 @@ function gardenYardAt(t) {
   return !!(t && GARDEN_STEP.some(s => s[0] === t.q && s[1] === t.r));
 }
 function openGardenRoom() {
+  if (window.__world3d && window.__world3d.pose) window.__world3d.pose('');
   GARDEN_ROOM.on = true;
   document.body.classList.add('garden-room');
   const nav = document.getElementById('mapNav');
