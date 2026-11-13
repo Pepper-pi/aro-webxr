@@ -13,6 +13,11 @@
 html,body{margin:0;height:100%;background:var(--plum);color:var(--txt);overflow:hidden;overscroll-behavior:none;
 font-family:ui-rounded,"SF Pro Rounded","Nunito","Segoe UI",system-ui,-apple-system,sans-serif;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 #cv{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#worldCv{position:fixed;inset:0;width:100%;height:100%;z-index:1;display:none;touch-action:none}
+body.world-on #worldCv{display:block}
+body.world-on #cv{visibility:hidden}
+#osmNote{position:fixed;left:8px;bottom:calc(8px + var(--sab));z-index:6;display:none;pointer-events:none;font:700 10px/1.2 ui-rounded,system-ui;color:rgba(255,248,230,.78);text-shadow:0 1px 2px rgba(0,0,0,.65)}
+body.world-on #osmNote{display:block}
 button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;touch-action:manipulation}
 .hide{display:none!important}
 /* ---------- resting HUD: tiny coin counter, clock chip, one objective line ---------- */
@@ -509,6 +514,8 @@ body.fishing #fishM .focus-nav button{min-height:36px;padding:6px 8px}
 </head>
 <body>
 <canvas id="cv"></canvas>
+<canvas id="worldCv"></canvas>
+<div id="osmNote">Map data © OpenStreetMap</div>
 <div id="hud" class="hide">
   <div class="chip" id="coin"><img id="coinI" alt=""><span id="coinN">0</span></div>
   <div class="chip" id="clockc">Dawn · Day 1</div>
@@ -518,7 +525,7 @@ body.fishing #fishM .focus-nav button{min-height:36px;padding:6px 8px}
 <div id="toasts"></div>
 <div id="banner"></div>
 <div id="coach"><div class="who">Shaula</div><div id="coachT"></div></div>
-<button type="button" id="mapHint">Tap a hex to walk <b>×</b></button>
+<button type="button" id="mapHint">Tap the ground to walk <b>×</b></button>
 <button id="act" class="hide"></button>
 <button id="menuBtn" class="hide" aria-label="Menu"><span></span><b>Menu</b></button>
 <button type="button" id="aroBack" class="hide">Back</button>
@@ -647,6 +654,7 @@ body.fishing #fishM .focus-nav button{min-height:36px;padding:6px 8px}
   <div class="row"><div>Sound<small>Soft synth chimes, no downloads</small></div><button class="tg" id="tSound"></button></div>
   <div class="row"><div>Cozy mode<small>Gentler pace, no shake, hides contested crackle</small></div><button class="tg" id="tCozy"></button></div>
   <div class="row"><div>Haptics<small id="hapNote">Tiny buzz on hits and bites</small></div><button class="tg" id="tHap"></button></div>
+  <div class="row"><div>Tap to move<small>Temporary. Tap the ground and she walks there. GPS still tracks when the browser shares a place. WASD and arrows work on a keyboard.</small></div><button class="tg" id="tTap"></button></div>
   <div class="row"><div>Floor look<small>Painterly ground ↔ neon wire underworld</small></div><input type="range" id="tNeon" min="0" max="1" step="0.05"></div>
   <div class="row"><div>Map tilt<small>How much the map leans back</small></div><input type="range" id="tTilt" min="0" max="1.4" step="0.05"></div>
   <div class="row" id="setHandRow"><div>Spell hand<small>Which side the fight wheel favours</small></div><div class="seg" id="tHand"><button data-v="left">Left</button><button data-v="right">Right</button></div></div>
@@ -842,7 +850,9 @@ const R = (a, b) => a + rng() * (b - a);
 const hsh = (a, b = 0) => { let h = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 
 /* ---------- settings (persisted) ---------- */
-const SET = Object.assign({ sound: true, cozy: false, haptics: true, tilt: 1, hand: 'right', neon: .3 }, (() => { try { return JSON.parse(localStorage.getItem('aro7set') || '{}'); } catch (e) { return {}; } })());
+const SET = Object.assign({ sound: true, cozy: false, haptics: true, tilt: 1, hand: 'right', neon: .3, tapMove: true }, (() => { try { return JSON.parse(localStorage.getItem('aro7set') || '{}'); } catch (e) { return {}; } })());
+window.__aroTapMove = () => SET.tapMove !== false;
+window.__aroSun = () => (typeof G !== 'undefined' && G.timeOfDay != null ? G.timeOfDay : 0.2);
 function saveSet() { try { localStorage.setItem('aro7set', JSON.stringify(SET)); } catch (e) { } }
 const canVibrate = typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
 function buzz(p) { if (SET.haptics && canVibrate) { try { navigator.vibrate(p); } catch (e) { } } }
@@ -6922,10 +6932,13 @@ function renderSettings() {
   $('#hapNote').textContent = canVibrate ? 'Tiny buzz on hits, bites and dodges' : 'Not available in this browser (iPhone Safari has no vibration API)';
   paintRange($('#tTilt'), SET.tilt); paintRange($('#tNeon'), SET.neon); paintRange($('#neonS'), SET.neon);
   $$('#tHand button').forEach(b => { const on = b.dataset.v === SET.hand; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+  const tap = $('#tTap');
+  if (tap) { tap.classList.toggle('on', SET.tapMove !== false); tap.setAttribute('aria-pressed', SET.tapMove !== false ? 'true' : 'false'); }
 }
 $('#tSound').onclick = () => { SET.sound = !SET.sound; saveSet(); renderSettings(); audioInit(); SFX.tap(); };
 $('#tCozy').onclick = () => { SET.cozy = !SET.cozy; saveSet(); renderSettings(); toast(SET.cozy ? 'Cozy mode on: gentler pace' : 'Cozy mode off'); };
 $('#tHap').onclick = () => { if (!canVibrate) { toast('Haptics not available here'); return; } SET.haptics = !SET.haptics; saveSet(); renderSettings(); buzz(20); };
+$('#tTap').onclick = () => { SET.tapMove = SET.tapMove === false; saveSet(); renderSettings(); toast(SET.tapMove === false ? 'Tap to move off' : 'Tap to move on'); };
 $('#tTilt').oninput = e => { SET.tilt = +e.target.value; saveSet(); renderSettings(); layoutMapCam(); layoutArenaCam(); groundDirty = true; };
 $$('#tHand button').forEach(b => b.onclick = () => { SET.hand = b.dataset.v; saveSet(); renderSettings(); applyHand(); });
 $('#wireBtn').addEventListener('click', e => { e.stopPropagation(); audioInit(); setWireView(!WIRE.view); });
@@ -6947,7 +6960,7 @@ function wakeUp() {
   G.day.woke = true;
   MAP.avOut = true; MAP.avT = 0; SFX.hop(); ripple(tileAt(0, 0)); wirePulse(0, 0, 1.2, 'map'); toast('+1 Pollen from the hive', 'pollen'); MAP.trail.add(tkey(0, 0));
   G.step = 2; setTime(.15); setObj('<b>Walk</b> · to the Raid Dome');
-  coach('<b>Tap a tile</b> to walk there, <b>drag</b> from yourself to step one hex, or use the <b>arrow keys</b>. Follow the gold dots to the dome. The wire grid underfoot pulses as you go.', 7000);
+  coach('<b>Tap the ground</b> to walk there, or use <b>WASD</b>. Drag to turn the camera. Pinch or the wheel zooms.', 7000);
   setAct(null);
 }
 /* ---------- v7 walking (dice removed) ---------- */
@@ -7342,6 +7355,7 @@ const brew = $('#brew');
 brew.addEventListener('pointerdown', e => { e.preventDefault(); if (brew.disabled) return; CR.brewing = true; CR.k = 0; SFX.brew(); });
 ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => brew.addEventListener(ev, () => { if (CR.brewing && CR.k < 1) { CR.brewing = false; CR.k = 0; brew.querySelector('i').style.width = '0'; } }));
 addEventListener('keydown', e => {
+  if (document.body.classList.contains('world-on')) return;
   if (G.scene === 'map' && e.key.startsWith('Arrow')) {
     e.preventDefault();
     if (window.__world && window.__world.dev && window.__world.dev()) {
@@ -7428,13 +7442,15 @@ function frame(now) {
   if (G.day.hack && G.hackFill < 1) G.hackFill = Math.min(1, G.hackFill + dt * .006);
   const fishOpen = $('#fishM').classList.contains('on'), craftOpen = $('#craftM').classList.contains('on');
   if (fishOpen) fishUpdate(dt);
-  if (marketPlateOn()) drawMarketPlate(T); else if (G.scene === 'arena') drawArena(T); else if (GARDEN_ROOM.on) drawGardenRoom(T); else if (GATHER.on) drawGatherPlate(T); else { drawMap(T); drawFX(); dayTint(); weatherWash(); }
+  if (window.__world3d) window.__world3d.tick(dt, worldWanted());
+  const worldOn = document.body.classList.contains('world-on');
+  if (marketPlateOn()) drawMarketPlate(T); else if (G.scene === 'arena') drawArena(T); else if (GARDEN_ROOM.on) drawGardenRoom(T); else if (GATHER.on) drawGatherPlate(T); else if (!worldOn) { drawMap(T); drawFX(); dayTint(); weatherWash(); }
   if (typeof syncPortalBtn === 'function') syncPortalBtn();
   if (typeof syncGardenHud === 'function') syncGardenHud();
   if (typeof paintGuide === 'function') paintGuide();
   if (typeof syncSimpleChrome === 'function') syncSimpleChrome();
-  if (!(GARDEN_ROOM.on || fishOpen || marketPlateOn() || GATHER.on)) heavyGrade(T, G.scene);
-  vignette();
+  if (!(GARDEN_ROOM.on || fishOpen || marketPlateOn() || GATHER.on || worldOn)) heavyGrade(T, G.scene);
+  if (!worldOn) vignette();
   if (fishOpen) drawFishWorld(T);
   if (craftOpen) drawBall(T, dt);
   if (G.scene === 'title') drawPreviews(T);
@@ -9991,6 +10007,32 @@ function syncMapNav() {
   const el = document.getElementById('mapNav');
   if (el) el.classList.toggle('hide', G.scene !== 'map');
 }
+function worldWanted() {
+  if (!window.__world3d || !window.__world3d.ready) return false;
+  if (G.scene !== 'map') return false;
+  if (typeof GARDEN_ROOM !== 'undefined' && GARDEN_ROOM.on) return false;
+  if (document.body.classList.contains('home-in')) return false;
+  if ($('#fishM').classList.contains('on')) return false;
+  if (typeof GATHER !== 'undefined' && GATHER.on) return false;
+  if (typeof marketPlateOn === 'function' && marketPlateOn()) return false;
+  return true;
+}
+window.__aroPlace = function (kind) {
+  let q = 0, r = 0;
+  if (kind === 'garden') { q = -1; r = 0; }
+  else if (kind === 'lake') { q = -5; r = 4; }
+  const t = tileAt(q, r);
+  if (!t) return;
+  MAP.house.q = t.q; MAP.house.r = t.r; MAP.house.x = t.x; MAP.house.y = t.y; MAP.house.mode = 'park';
+};
+window.__aroBoard = function () {
+  if (typeof showCast === 'function') showCast('Aboard · the home ship');
+  enterHome();
+};
+window.__aroSpar = function (name) {
+  if (typeof showCast === 'function') showCast('Test NPC · ' + name + ' · sparring');
+  startTrain();
+};
 function openMapNav() {
   dismissHome();
   audioInit();
@@ -10005,7 +10047,7 @@ function openMapNav() {
   MAP.avOut = true; MAP.avT = 1;
   if (MAP.house.mode === 'walk' || MAP.house.mode === 'fly') { /* keep moving */ }
   else MAP.house.mode = 'park';
-  setObj('<b>Map</b> · tap a hex, or Home / Dome / Pond');
+  setObj('<b>Map</b> · walk with her');
   showMapHint();
   syncMapNav();
   groundDirty = true;
@@ -10764,4 +10806,5 @@ window.__disc3d = {
 <script type="module" src="home-cabin.js"></script>
 <script type="module" src="world-field.js"></script>
 <script type="module" src="fight-toon.js"></script>
+<script type="module" src="world3d.js"></script>
 </body></html>
