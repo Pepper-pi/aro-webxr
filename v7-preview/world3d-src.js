@@ -1659,21 +1659,12 @@ function setCameraScene(hideWorld) {
 }
 function ensureCamPlate() {
   if (!handVideo) return;
-  if (!camCanvas) camCanvas = document.createElement('canvas');
-  const vw = handVideo.videoWidth || 0;
-  const vh = handVideo.videoHeight || 0;
-  if (!vw) return;
-  if (camCanvas.width !== vw || camCanvas.height !== vh) {
-    camCanvas.width = vw;
-    camCanvas.height = vh;
-  }
-  const ctx = camCanvas.getContext('2d');
-  ctx.drawImage(handVideo, 0, 0, camCanvas.width, camCanvas.height);
   if (!camTex) {
-    camTex = new THREE.CanvasTexture(camCanvas);
+    camTex = new THREE.VideoTexture(handVideo);
     camTex.colorSpace = THREE.SRGBColorSpace;
     camTex.minFilter = THREE.LinearFilter;
     camTex.magFilter = THREE.LinearFilter;
+    camTex.generateMipmaps = false;
   }
   camTex.needsUpdate = true;
   if (!camPlate) {
@@ -1716,6 +1707,7 @@ function setFightView(mode) {
     if (avatar) avatar.visible = false;
     if (fp.fish && rod) { scene.add(rod); rod.visible = true; }
     startHandCam();
+    if (handVideo && handVideo.srcObject) handVideo.play().catch(() => {});
   } else {
     setCameraScene(false);
     if (camPlate) camPlate.visible = false;
@@ -2289,6 +2281,9 @@ function mountFpHud() {
   const extra = document.createElement('style');
   extra.textContent = '#longLake{position:fixed;left:12px;bottom:calc(172px + env(safe-area-inset-bottom));z-index:28;min-height:44px;padding:8px 14px;border-radius:999px;border:2px solid #9ad8ff;background:rgba(10,28,48,.92);color:#e7f6ff;font:800 15px ui-rounded,system-ui}body.fp-on #longLake,body.garden-room #longLake,body:not(.world-on) #longLake{display:none}#handGuide{position:fixed;left:12px;bottom:calc(118px + env(safe-area-inset-bottom));width:96px;height:128px;z-index:33;border-radius:14px;overflow:hidden;border:1px solid rgba(255,236,180,.8);box-shadow:0 8px 18px rgba(0,0,0,.4);opacity:0;pointer-events:none}body.fp-cam #handGuide{opacity:1}#handGuide #handCam,#handGuide #handCam.ar{position:absolute;inset:0;width:100%;height:100%;opacity:1;border:0;border-radius:0;right:auto;bottom:auto;object-fit:cover}#handGuide i{position:absolute;left:18%;right:18%;top:40%;height:38%;border:3px solid #fff6df;border-radius:12px;box-shadow:0 0 0 2px rgba(0,0,0,.72),0 0 10px rgba(255,210,120,.85)}';
   document.head.appendChild(extra);
+  const heat = document.createElement('style');
+  heat.textContent = 'body.fp-on:not(.fishing) #handGuide{opacity:1;width:104px;height:140px;background:#041018;border-color:rgba(80,255,230,.55)}#handGuide.locked{box-shadow:0 0 0 2px #7dffb0,0 0 16px rgba(80,255,180,.7)}#handGuide.hot{box-shadow:0 0 0 2px #ffe08a,0 0 18px rgba(255,200,80,.85)}#handGuide #handCam{filter:grayscale(1) sepia(.75) hue-rotate(150deg) contrast(1.8) brightness(.4) saturate(2.4)}#handGuide canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}#handGuide i{display:none}';
+  document.head.appendChild(heat);
   if (!document.getElementById('longLake')) {
     const lake = document.createElement('button');
     lake.id = 'longLake';
@@ -2460,6 +2455,7 @@ function setFp(on, kind) {
   if (fpArms) fpArms.visible = !!fp.on && !fp.body && fp.view !== 'camera';
   if (fp.on && !fp.fish) {
     setFightView(fp.view || 'virtual');
+    startHandCam();
     stepAggro(0);
   } else if (fp.on && fp.fish) {
     setFightView(fp.view || 'virtual');
@@ -2796,6 +2792,9 @@ function handHull(pts) {
   return lower.concat(upper);
 }
 function paintHandOcc() {
+  const parked = document.getElementById('handOcc');
+  if (parked) parked.style.display = 'none';
+  return;
   let cv = document.getElementById('handOcc');
   if (!cv) {
     cv = document.createElement('canvas');
@@ -2884,6 +2883,71 @@ function paintTrack() {
     if (mark) mark.style.transform = 'scale(' + (0.2 + fp.track.charge * 0.8) + ')';
   }
   paintHandDebug();
+  paintHandGuide();
+}
+function neonHand(cx, cy) {
+  const pts = [];
+  for (let i = 0; i < 21; i++) pts.push({ x: cx, y: cy + 0.06 });
+  const mark = { 0: [0, 0.08], 5: [-0.07, 0.02], 8: [-0.09, -0.08], 9: [-0.02, 0.01], 12: [0, -0.1], 13: [0.04, 0.02], 16: [0.07, -0.07], 17: [0.08, 0.04], 20: [0.11, -0.01] };
+  Object.keys(mark).forEach((k) => { pts[k] = { x: cx + mark[k][0], y: cy + mark[k][1] }; });
+  return pts;
+}
+function paintHandGuide() {
+  const guide = document.getElementById('handGuide');
+  if (!guide) return;
+  const fight = fp.on && !fp.fish;
+  guide.classList.toggle('locked', fight && (fp.track.hands | 0) > 0);
+  guide.classList.toggle('hot', fight && fp.track.state === 'charging');
+  let glow = guide.querySelector('canvas');
+  if (!glow) {
+    glow = document.createElement('canvas');
+    guide.appendChild(glow);
+  }
+  const w = 104;
+  const h = 140;
+  if (glow.width !== w) { glow.width = w; glow.height = h; }
+  const ctx = glow.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+  const ax = (fp.aimX || 0.5) * w;
+  const ay = (fp.aimY || 0.44) * h;
+  const locked = (fp.track.hands | 0) > 0;
+  const hot = fp.track.state === 'charging';
+  ctx.strokeStyle = hot ? '#ffe08a' : (locked ? '#7dffb0' : '#39f6ff');
+  ctx.lineWidth = locked ? 3 : 1.5;
+  ctx.shadowColor = ctx.strokeStyle;
+  ctx.shadowBlur = locked ? 12 : 4;
+  ctx.beginPath();
+  ctx.arc(ax, ay, 14 + (fp.track.charge || 0) * 12, 0, Math.PI * 2);
+  ctx.stroke();
+  if (hot) {
+    ctx.fillStyle = 'rgba(255,224,138,' + (0.15 + fp.track.charge * 0.45) + ')';
+    ctx.beginPath();
+    ctx.arc(ax, ay, 14 + fp.track.charge * 12, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const lm = fp.track.lm;
+  if (!lm || !lm.length) return;
+  const links = [[0, 5], [5, 8], [0, 9], [9, 12], [0, 13], [13, 16], [0, 17], [17, 20], [5, 9], [9, 13], [13, 17]];
+  ctx.strokeStyle = '#5ef6ff';
+  ctx.lineWidth = 2;
+  ctx.shadowColor = '#5ef6ff';
+  ctx.shadowBlur = 10;
+  ctx.beginPath();
+  for (const pair of links) {
+    const a = lm[pair[0]];
+    const b = lm[pair[1]];
+    if (!a || !b) continue;
+    ctx.moveTo(a.x * w, a.y * h);
+    ctx.lineTo(b.x * w, b.y * h);
+  }
+  ctx.stroke();
+  ctx.fillStyle = '#d8fff6';
+  for (const p of lm) {
+    if (!p) continue;
+    ctx.beginPath();
+    ctx.arc(p.x * w, p.y * h, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 function handDebugOn() {
   return fp.track.forceDebug || /(?:\?|&)handdebug=1(?:&|$)/.test(location.search);
@@ -5075,8 +5139,8 @@ const api = {
     fp.track.hands = 0;
     fp.track.err = '';
     if (mode === 'tap' || mode === 'blocked') { fp.track.state = 'blocked'; fp.track.charge = 0; fp.track.model = 'denied'; }
-    else if (mode === 'seen') { fp.track.state = 'seen'; fp.track.charge = 0.2; fp.track.x = 0.58; fp.track.y = 0.72; fp.track.hands = 1; }
-    else if (mode === 'charge') { fp.track.state = 'charging'; fp.track.charge = 0.72; fp.track.x = 0.56; fp.track.y = 0.66; fp.track.hands = 1; }
+    else if (mode === 'seen') { fp.track.state = 'seen'; fp.track.charge = 0.2; fp.track.hands = 1; fp.aimX = 0.5; fp.aimY = 0.44; fp.track.lm = neonHand(0.5, 0.44); }
+    else if (mode === 'charge') { fp.track.state = 'charging'; fp.track.charge = 0.72; fp.track.hands = 1; fp.aimX = 0.5; fp.aimY = 0.44; fp.track.lm = neonHand(0.5, 0.44); }
     else if (mode === 'fired') { fp.track.state = 'fired'; fp.track.charge = 1; fp.track.x = 0.6; fp.track.y = 0.62; fp.cast = 0.28; fp.track.hands = 1; }
     else if (mode === 'looking') { fp.track.state = 'looking'; fp.track.charge = 0; fp.track.hands = 0; }
     else if (mode === 'full') { fp.track.state = 'charging'; fp.track.charge = 1; fp.aimX = 0.5; fp.aimY = 0.44; }
