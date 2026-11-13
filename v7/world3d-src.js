@@ -1551,7 +1551,7 @@ function placeFightBeast() {
   const z = pz + Math.cos(fp.yaw) * 8.2;
   fightBeast.position.set(x, groundY(x, z), z);
   fightBeast.rotation.y = fp.yaw + Math.PI;
-  fightBeast.visible = !fp.dummy && fp.aggro > 1.15;
+  fightBeast.visible = false;
 }
 function ensureFightCut() {
   if (fightCut) return;
@@ -1579,32 +1579,30 @@ function stepAggro(dt) {
   else if (fp.aggroHold === 'surge') fp.aggro = 1.6;
   else if (fp.aggroHold === 'live') fp.aggro = 4;
   const t = fp.aggro;
-  const cut = t < 1.2 ? 1 : t < 2.05 ? 1 - (t - 1.2) / 0.85 : 0;
-  const [cx, cz] = fightAhead(14);
-  fightCut.position.set(cx, groundY(cx, cz) + 2.1, cz);
+  const solid = t < 1.15 ? 0 : Math.min(1, (t - 1.15) / 0.95);
+  const surge = t > 1.15 && t < 2.45 ? Math.sin(((t - 1.15) / 1.3) * Math.PI) : 0;
+  const dist = 16 - solid * 4.5;
+  const plate = 1 - solid * 0.34;
+  const [cx, cz] = fightAhead(dist);
+  fightCut.position.set(cx, groundY(cx, cz) + 1.35 + plate * 0.85, cz);
+  fightCut.scale.setScalar(plate);
   if (camera) fightCut.lookAt(camera.position);
-  fightCut.visible = cut > 0.04 && !fp.dummy;
-  if (fightCut.material) fightCut.material.opacity = 0.28 + cut * 0.22;
-  const grow = t < 1.15 ? 0 : Math.min(1, (t - 1.15) / 0.9);
-  const surge = t > 1.15 && t < 2.4 ? Math.sin(((t - 1.15) / 1.25) * Math.PI) : 0;
-  const [bx, bz] = fightAhead(11.5 - grow * 3.3);
-  fightBeast.position.set(bx, groundY(bx, bz), bz);
-  fightBeast.rotation.y = fp.yaw + Math.PI;
-  fightBeast.visible = grow > 0.04 && !fp.dummy;
-  fightBeast.scale.setScalar(1.85 * (0.18 + grow * 0.82));
-  const ring = fightBeast.userData.ring;
-  const pink = fightBeast.userData.pink;
-  if (ring) {
-    const pulse = 1 + surge * 1.8;
-    ring.scale.setScalar(pulse);
-    ring.material.opacity = 0.28 + surge * 0.65;
-    ring.material.color.setHex(surge > 0.2 ? 0xff7ac4 : 0xe8c877);
+  fightCut.visible = !fp.dummy;
+  if (fightCut.material) fightCut.material.opacity = 0.34 + solid * 0.66;
+  if (fightBeast) fightBeast.visible = false;
+  let pink = fightCut.getObjectByName('surge');
+  if (!pink) {
+    pink = new THREE.Mesh(
+      new THREE.RingGeometry(1.7, 1.92, 6),
+      new THREE.MeshBasicMaterial({ color: 0xff4fb4, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })
+    );
+    pink.name = 'surge';
+    pink.position.z = 0.04;
+    fightCut.add(pink);
   }
-  if (pink) {
-    pink.material.opacity = surge * 0.9;
-    pink.scale.setScalar(1 + surge * 2.4);
-    pink.visible = surge > 0.05;
-  }
+  pink.material.opacity = surge * 0.92;
+  pink.scale.setScalar(1 + surge * 0.85);
+  pink.visible = surge > 0.04;
 }
 function setCameraScene(hideWorld) {
   if (!scene) return;
@@ -2223,7 +2221,7 @@ function frameRoom() {
 function mountFpHud() {
   if (document.getElementById('fpHud')) return;
   const s = document.createElement('style');
-  s.textContent = '#fpHud{position:fixed;inset:0;z-index:30;display:none;pointer-events:none}#fpHud.on{display:block}body.fp-on #hud,body.fp-on #worldSpells,body.fp-on #menuBtn,body.fp-on #aroBack,body.fp-on #charBtn,body.fp-on #obj,body.fp-on #banner,body.fp-on #cv,body.fp-on #mapHint,body.fp-on #act,body.fp-on #coach,body.fp-on #spineLevel,body.fp-on #spinePurse,body.fp-on #spineBookBtn{display:none!important}#fpHud .top{position:absolute;left:16px;right:16px;top:calc(14px + env(safe-area-inset-top));display:flex;align-items:center;gap:12px;pointer-events:none}#fpHud .hp{flex:1;height:10px;border-radius:999px;background:rgba(8,18,16,.45);border:1px solid rgba(255,236,180,.55);overflow:hidden}#fpHud .hp i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#e7c56a,#8fd06a)}#fpHud .time{min-width:64px;text-align:center;color:#fff6df;font:800 16px ui-rounded,system-ui;text-shadow:0 1px 2px rgba(0,0,0,.45)}#fpHud button{pointer-events:auto;min-height:32px;padding:4px 12px;border-radius:999px;border:1px solid rgba(255,236,180,.55);background:rgba(8,18,16,.4);color:#fff6df;font:800 13px ui-rounded,system-ui}#fpTrack{position:absolute;left:16px;bottom:calc(18px + env(safe-area-inset-bottom));padding:6px 10px;border-radius:999px;background:rgba(8,18,16,.72);color:#fff6df;font:800 13px ui-rounded,system-ui;border:1px solid rgba(255,236,180,.45)}#fpTrack.hot{border-color:#9fe6e0;color:#e7fffb}#fpRing{position:fixed;width:92px;height:92px;margin:-46px 0 0 -46px;border-radius:50%;border:3px solid rgba(255,220,140,.2);display:none;pointer-events:none;z-index:31}#fpRing.on{display:block}#fpRing i{position:absolute;inset:8px;border-radius:50%;border:3px solid #ffe7a8;transform:scale(.2);box-shadow:0 0 10px rgba(255,210,120,.35)}#fpCam{position:absolute;right:16px;bottom:calc(18px + env(safe-area-inset-bottom))}#fpDummy{position:absolute;right:16px;bottom:calc(62px + env(safe-area-inset-bottom))}#fpView{position:absolute;left:16px;bottom:calc(64px + env(safe-area-inset-bottom))}#handCam{position:fixed;right:12px;bottom:calc(112px + env(safe-area-inset-bottom));width:96px;height:72px;object-fit:cover;border-radius:10px;border:1px solid rgba(255,236,180,.65);z-index:32;background:#000}#handCam.ar{opacity:0;width:8px;height:8px;right:0;bottom:0;border:0}#handDebug{position:fixed;left:8px;top:calc(58px + env(safe-area-inset-top));z-index:40;display:none;max-width:min(78vw,280px);padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.78);color:#d8ffe8;font:700 11px/1.35 ui-monospace,ui-monospace,monospace;white-space:pre-wrap}#handDebug.on{display:block}#gelFight{position:fixed;left:50%;bottom:calc(112px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:28;min-height:48px;padding:10px 18px;border-radius:999px;border:2px solid #9fe6e0;background:rgba(12,40,38,.9);color:#e9fffb;font:800 16px ui-rounded,system-ui}body.fp-on #gelFight,body.garden-room #gelFight,body:not(.world-on) #gelFight{display:none}';
+  s.textContent = '#fpHud{position:fixed;inset:0;z-index:30;display:none;pointer-events:none}#fpHud.on{display:block}body.fp-on #hud,body.fp-on #worldSpells,body.fp-on #menuBtn,body.fp-on #aroBack,body.fp-on #charBtn,body.fp-on #obj,body.fp-on #banner,body.fp-on #cv,body.fp-on #mapHint,body.fp-on #act,body.fp-on #coach,body.fp-on #spineLevel,body.fp-on #spinePurse,body.fp-on #spineBookBtn{display:none!important}#fpHud .top{position:absolute;left:16px;right:16px;top:calc(14px + env(safe-area-inset-top));display:flex;align-items:center;gap:12px;pointer-events:none}#fpHud .hp{flex:1;height:10px;border-radius:999px;background:rgba(8,18,16,.45);border:1px solid rgba(255,236,180,.55);overflow:hidden}#fpHud .hp i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#e7c56a,#8fd06a)}#fpHud .time{min-width:64px;text-align:center;color:#fff6df;font:800 16px ui-rounded,system-ui;text-shadow:0 1px 2px rgba(0,0,0,.45)}#fpHud button{pointer-events:auto;min-height:32px;padding:4px 12px;border-radius:999px;border:1px solid rgba(255,236,180,.55);background:rgba(8,18,16,.4);color:#fff6df;font:800 13px ui-rounded,system-ui}#fpTrack{position:absolute;left:16px;bottom:calc(18px + env(safe-area-inset-bottom));padding:6px 10px;border-radius:999px;background:rgba(8,18,16,.72);color:#fff6df;font:800 13px ui-rounded,system-ui;border:1px solid rgba(255,236,180,.45)}#fpTrack.hot{border-color:#9fe6e0;color:#e7fffb}#fpRing{position:fixed;width:92px;height:92px;margin:-46px 0 0 -46px;border-radius:50%;border:3px solid rgba(255,220,140,.2);display:none;pointer-events:none;z-index:31}#fpRing.on{display:block}#fpRing i{position:absolute;inset:8px;border-radius:50%;border:3px solid #ffe7a8;transform:scale(.2);box-shadow:0 0 10px rgba(255,210,120,.35)}#fpRing b{position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:#fff6df;box-shadow:0 0 0 2px rgba(20,12,8,.45),0 0 8px #ffe7a8;pointer-events:none}#fpCam{position:absolute;right:16px;bottom:calc(18px + env(safe-area-inset-bottom))}#fpDummy{position:absolute;right:16px;bottom:calc(62px + env(safe-area-inset-bottom))}#fpView{position:absolute;left:16px;bottom:calc(64px + env(safe-area-inset-bottom))}#handCam{position:fixed;right:12px;bottom:calc(112px + env(safe-area-inset-bottom));width:96px;height:72px;object-fit:cover;border-radius:10px;border:1px solid rgba(255,236,180,.65);z-index:32;background:#000}#handCam.ar{opacity:0;width:8px;height:8px;right:0;bottom:0;border:0}#handDebug{position:fixed;left:8px;top:calc(58px + env(safe-area-inset-top));z-index:40;display:none;max-width:min(78vw,280px);padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.78);color:#d8ffe8;font:700 11px/1.35 ui-monospace,ui-monospace,monospace;white-space:pre-wrap}#handDebug.on{display:block}#gelFight{position:fixed;left:50%;bottom:calc(112px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:28;min-height:48px;padding:10px 18px;border-radius:999px;border:2px solid #9fe6e0;background:rgba(12,40,38,.9);color:#e9fffb;font:800 16px ui-rounded,system-ui}body.fp-on #gelFight,body.garden-room #gelFight,body:not(.world-on) #gelFight{display:none}';
   document.head.appendChild(s);
   const hud = document.createElement('div');
   hud.id = 'fpHud';
@@ -2231,7 +2229,7 @@ function mountFpHud() {
   document.body.appendChild(hud);
   const ring = document.createElement('div');
   ring.id = 'fpRing';
-  ring.innerHTML = '<i></i>';
+  ring.innerHTML = '<i></i><b></b>';
   document.body.appendChild(ring);
   hud.querySelector('[data-act="off"]').onclick = () => setFp(false);
   hud.querySelector('#fpCam').onclick = () => startHandCam();
@@ -2846,46 +2844,67 @@ function stepHands() {
   fp.track.err = '';
   fp.track.errWhere = '';
   const hands = res && res.landmarks ? res.landmarks.length : 0;
-  fp.track.hands = hands;
   const lm = hands ? res.landmarks[0] : null;
   if (!lm) {
     handEmpty += 1;
     if (handEmpty === 90 && fp.track.delegate !== 'CPU') fallbackHandCpu();
+    if (fp.track.seenAt && now - fp.track.seenAt < 420) {
+      fp.track.hands = 1;
+      fp.track.state = fp.track.palmOpen && fp.track.charge > 0.12 ? 'charging' : 'seen';
+      paintTrack();
+      return;
+    }
+    fp.track.hands = 0;
+    fp.track.palmOpen = false;
     fp.track.charge = Math.max(0, fp.track.charge - 0.04);
     fp.track.state = 'looking';
     paintTrack();
     return;
   }
   handEmpty = 0;
+  fp.track.seenAt = now;
+  fp.track.hands = 1;
   const wrist = lm[0];
   const openN = [8, 12, 16, 20].filter((tip, i) => {
     const pip = [6, 10, 14, 18][i];
     const dw = Math.hypot(lm[tip].x - wrist.x, lm[tip].y - wrist.y);
     const dp = Math.hypot(lm[pip].x - wrist.x, lm[pip].y - wrist.y) || 0.001;
-    return dw > dp * 1.02;
+    return dw > dp * (fp.track.palmOpen ? 0.98 : 1.08);
   }).length;
+  if (fp.track.palmOpen) fp.track.palmOpen = openN >= 2;
+  else fp.track.palmOpen = openN >= 3;
   const palm = lm[9] || wrist;
-  fp.track.x = palm.x;
-  fp.track.y = palm.y;
+  const blend = 0.42;
+  fp.track.sx = fp.track.sx == null ? palm.x : fp.track.sx + (palm.x - fp.track.sx) * blend;
+  fp.track.sy = fp.track.sy == null ? palm.y : fp.track.sy + (palm.y - fp.track.sy) * blend;
+  fp.track.sz = fp.track.sz == null ? wrist.z : fp.track.sz + (wrist.z - fp.track.sz) * blend;
+  fp.track.x = fp.track.sx;
+  fp.track.y = fp.track.sy;
   const dt = Math.max(0.016, (now - (fp.track.lastT || now)) / 1000);
-  const dx = palm.x - (fp.track.lastX == null ? palm.x : fp.track.lastX);
-  const dy = palm.y - (fp.track.lastY == null ? palm.y : fp.track.lastY);
+  const dx = fp.track.sx - (fp.track.lastX == null ? fp.track.sx : fp.track.lastX);
+  const dy = fp.track.sy - (fp.track.lastY == null ? fp.track.sy : fp.track.lastY);
   const flick = Math.hypot(dx, dy) / dt;
-  const push = fp.track.lastZ != null && (fp.track.lastZ - wrist.z) > 0.03;
-  fp.track.lastX = palm.x;
-  fp.track.lastY = palm.y;
-  fp.track.lastZ = wrist.z;
+  const pushDelta = fp.track.lastZ == null ? 0 : fp.track.lastZ - fp.track.sz;
+  const push = fp.track.pushing ? pushDelta > 0.02 : pushDelta > 0.055;
+  fp.track.pushing = push;
+  fp.track.lastX = fp.track.sx;
+  fp.track.lastY = fp.track.sy;
+  fp.track.lastZ = fp.track.sz;
   fp.track.lastT = now;
-  if (openN >= 2) {
-    fp.track.charge = Math.min(1, fp.track.charge + dt * 0.95);
-    fp.track.state = fp.track.charge > 0.18 ? 'charging' : 'seen';
+  if (fp.track.palmOpen) {
+    fp.track.charge = Math.min(1, fp.track.charge + dt * 0.85);
+    fp.track.state = fp.track.charge > (fp.track.state === 'charging' ? 0.1 : 0.24) ? 'charging' : 'seen';
   } else {
-    fp.track.charge = Math.max(0, fp.track.charge - dt * 0.35);
+    fp.track.charge = Math.max(0, fp.track.charge - dt * 0.22);
     fp.track.state = 'seen';
   }
-  if (fp.track.charge > 0.32 && now > (fp.track.cool || 0) && (push || flick > 0.85)) {
+  const flickOn = fp.track.flicked ? flick > 0.7 : flick > 1.15;
+  fp.track.flicked = flickOn;
+  if (fp.track.charge > 0.42 && now > (fp.track.cool || 0) && (push || flickOn)) {
     fp.track.cool = now + 700;
     fp.track.charge = 0;
+    fp.track.pushing = false;
+    fp.track.flicked = false;
     fpShoot('aether');
   }
   paintTrack();
