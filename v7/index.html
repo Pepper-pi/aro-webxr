@@ -477,8 +477,16 @@ background:radial-gradient(ellipse at 50% 30%,rgba(255,79,180,.22),rgba(26,15,31
 #fishMsg{text-align:center;font-weight:900;font-size:15px;min-height:22px;margin-top:8px}
 #fishMsg img{width:28px;height:28px;image-rendering:pixelated;vertical-align:middle;margin-right:6px}
 body.fishing #title,body.gather-view #title,body.menu-open #title{display:none!important}
-body.fishing #fishM.on{background:transparent;align-items:flex-start;justify-content:flex-end;pointer-events:none}
-body.fishing #fishM .sheet{pointer-events:none;width:min(200px,44vw);margin:8px 8px 0 0;max-height:78px;padding:2px 8px 4px;background:linear-gradient(180deg,rgba(8,4,14,.2),rgba(8,4,14,.82));border-color:transparent;box-shadow:none;overflow:hidden}
+body.fishing #fishM.on{background:transparent;align-items:flex-start;justify-content:flex-start;pointer-events:none}
+body.fishing #fishM .sheet{pointer-events:none;width:min(168px,46vw);margin:calc(58px + var(--sat)) 8px 0 auto;max-height:72px;padding:2px 8px 4px;background:linear-gradient(180deg,rgba(8,4,14,.2),rgba(8,4,14,.82));border-color:transparent;box-shadow:none;overflow:hidden}
+#fishFight{position:fixed;left:12px;right:12px;top:calc(148px + var(--sat));z-index:34;display:none;pointer-events:none;color:#f4fbff;font:800 14px ui-rounded,system-ui}
+#fishFight.on{display:block}
+#fishFight .row{display:flex;align-items:center;gap:8px;margin-top:6px}
+#fishArrow{min-width:72px;text-align:center;padding:6px 8px;border-radius:999px;background:rgba(8,18,28,.72);border:1px solid rgba(255,220,140,.7)}
+#fishZone{flex:1;height:18px;border-radius:999px;background:rgba(8,18,28,.55);position:relative;overflow:hidden}
+#fishZone i{position:absolute;top:0;bottom:0;width:28%;background:rgba(120,230,160,.85);border-radius:999px}
+#fishTension{height:10px;border-radius:999px;background:rgba(8,18,28,.55);overflow:hidden;border:1px solid rgba(255,180,120,.6)}
+#fishTension b{display:block;height:100%;width:0;background:linear-gradient(90deg,#ffe08a,#ff5a3a)}
 body.fishing #gardenHud,body.fishing #worldSpells{display:none!important}
 body.fishing #fishC{display:none}
 body.fishing #fishM .sh-h,body.fishing #fishMsg,body.fishing #fishBtn,body.fishing #fishAssist,body.fishing #fishPole,body.fishing #fishM .focus-nav{pointer-events:auto}
@@ -969,6 +977,7 @@ const SFX = {
   win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .2, 'triangle', .22, 0, i * .1)),
   splash: () => noise(.35, .25, 700),
   bite: () => { tone(1000, .07, 'square', .2); tone(1300, .07, 'square', .2, 0, .09); },
+  ping: () => { tone(1480, .09, 'sine', .2); tone(1960, .12, 'sine', .12, 0, .06); },
   brew: () => tone(330, .9, 'sine', .2, 330),
   punch: () => { noise(.25, .35, 260); tone(110, .3, 'square', .22, -50); },
   coin: () => { tone(1200, .06, 'square', .08); tone(1600, .08, 'square', .07, 0, .05); },
@@ -5778,16 +5787,19 @@ function noteCast() {
   if (FI.castCounted) return;
   FI.castCounted = true;
   FI.used = (FI.used || 0) + 1;
+  if (!FI.demoKind) FI.kind = (FI.grade === 'Perfect' || FI.grade === 'Great') && Math.random() < 0.55 ? 'heavy' : 'light';
   if (!FI.baitSpent && G.fishBait === 'bait' && (G.bag.bait || 0) > 0) { G.bag.bait--; FI.baitSpent = true; }
   $('#fishTitle').textContent = fishTitle();
 }
 function beginNibble() {
   FI.phase = 'nibble'; FI.t = 0; FI.pinched = false;
-  const hard = (FI.nibbles || 0) >= 2 || FI.grade === 'Perfect' ? 3 : FI.grade === 'Great' ? 2 : (FI.nibbles || 0) ? 1 : 0;
+  const heavy = fishKind() === 'heavy';
+  const hard = heavy ? 3 : ((FI.nibbles || 0) ? 1 : 0);
   FI.pull = hard;
   setGesture('tug', { lead: 'offhand', pinch: 0 });
-  SFX.bite(); buzz(16);
-  fishMsg(hard >= 2 ? 'A hard pull. Pinch and tug toward yourself.' : 'Pinch and tug toward yourself.');
+  if (heavy) { SFX.bite(); SFX.rumble(); fishMsg('Hard dunk. Pull back to set the hook.'); }
+  else { SFX.ping(); fishMsg('A tick on the bobber.'); }
+  syncFishFight();
 }
 function anotherNibble() {
   FI.nibbles = (FI.nibbles || 0) + 1;
@@ -5858,7 +5870,74 @@ function tryTug(p, x, y) {
   const dot = len > 0 ? (dx * tx + dy * ty) / (len * tlen) : 0;
   const ok = (FI.pinched && len > 12 && dot > .15) || (len > 26 && dot > .4);
   if (!ok) { fishMsg('Toward yourself. The line holds.'); return false; }
-  FI.pinched = false; beginReel(); return true;
+  FI.pinched = false;
+  if (fishKind() === 'heavy') beginFishFight();
+  else beginReel();
+  return true;
+}
+function castLine(strength) {
+  if (!FI.open || FI.phase !== 'aim') return false;
+  if ((FI.used || 0) >= fishCastMax()) { beginSpent(); return false; }
+  const s = Math.max(0, Math.min(1, strength == null ? 0.7 : strength));
+  FI.grade = s > 0.82 ? 'Perfect' : s > 0.55 ? 'Great' : 'Good';
+  FI.castPower = s;
+  if (!FI.demoKind) FI.kind = s > 0.72 ? 'heavy' : 'light';
+  FI.castCounted = false;
+  FI.phase = 'fly';
+  FI.t = 0;
+  FI.nibbles = 0;
+  setGesture('release', { lead: 'offhand', pinch: 0 });
+  SFX.cast();
+  fishMsg(FI.grade + ' · ' + fishKind() + '.');
+  $('#fishTitle').textContent = fishTitle();
+  return true;
+}
+function beginFishFight() {
+  FI.phase = 'fight';
+  FI.t = 0;
+  FI.tire = 1;
+  FI.tension = 0.18;
+  FI.slack = 0;
+  FI.run = Math.random() < 0.5 ? 'left' : 'right';
+  FI.lifting = false;
+  fishMsg('It runs. Tip the rod the other way.');
+  syncFishFight();
+}
+function syncFishFight() {
+  let el = document.getElementById('fishFight');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'fishFight';
+    el.innerHTML = '<div class="row"><b id="fishArrow"></b><div id="fishZone"><i></i></div></div><div class="row"><div id="fishTension"><b></b></div><button type="button" id="fishReel">Reel</button></div>';
+    document.body.appendChild(el);
+    el.querySelector('#fishReel').onclick = () => { FI.reeling = true; setTimeout(() => { FI.reeling = false; }, 280); };
+  }
+  const on = FI.open && (FI.phase === 'nibble' || FI.phase === 'fight');
+  el.classList.toggle('on', on);
+  if (!on) return;
+  const heavy = fishKind() === 'heavy';
+  const arrow = document.getElementById('fishArrow');
+  const zone = document.querySelector('#fishZone i');
+  const bar = document.querySelector('#fishTension b');
+  if (FI.phase === 'nibble') {
+    if (arrow) arrow.textContent = heavy ? 'Hard dunk' : 'Tick';
+    if (zone) zone.style.left = '36%';
+  } else if (arrow) arrow.textContent = FI.run === 'left' ? '← runs' : 'runs →';
+  if (zone && FI.phase === 'fight') zone.style.left = FI.run === 'left' ? '62%' : '8%';
+  if (bar) bar.style.width = Math.round((FI.tension || 0) * 100) + '%';
+}
+function stepFishFight(dt) {
+  if (FI.phase !== 'fight') return;
+  const tilt = FI.tilt || 0;
+  const want = FI.run === 'left' ? 0.45 : -0.45;
+  const inZone = Math.abs(tilt - want) < 0.55 && ((want > 0 && tilt > 0.15) || (want < 0 && tilt < -0.15) || Math.abs(tilt) > 0.35);
+  if (inZone) FI.tire = Math.max(0, FI.tire - dt * 0.42);
+  if (FI.reeling && !inZone) FI.tension = Math.min(1, FI.tension + dt * 0.55);
+  else if (FI.reeling && FI.slack > 0) { FI.slack = Math.max(0, FI.slack - dt); FI.tire = Math.max(0, FI.tire - dt * 0.2); FI.tension = Math.max(0, FI.tension - dt * 0.15); }
+  if (FI.lifting) FI.slack = Math.min(1, FI.slack + dt * 0.8);
+  if (FI.tension >= 1) { fishSlip(); fishMsg('The line snaps.'); syncFishFight(); return; }
+  if (FI.tire <= 0) { landFish(); }
+  syncFishFight();
 }
 function gradeAndCast(x0, y0, x1, y1) {
   if (FI.phase !== 'aim') return { grade: '', whiff: true };
@@ -5891,9 +5970,14 @@ function fishKey() {
   } else if (FI.phase === 'nibble') tryTug({ x0: rip.x, y0: rip.y }, me.x, me.y);
 }
 function fishTap() {
-  if (FI.charging && FI.phase === 'aim') { FI.charging = false; fishKey(); return; }
-  if (FI.phase === 'nibble') fishKey();
-  else if (FI.phase === 'slip') nextCast();
+  if (FI.phase === 'aim') { FI.charging = false; castLine(FI.castPower || 0.7); return; }
+  if (FI.phase === 'nibble') {
+    if (fishKind() === 'heavy') beginFishFight();
+    else beginReel();
+    return;
+  }
+  if (FI.phase === 'fight') { FI.lifting = false; FI.reeling = true; setTimeout(() => { FI.reeling = false; }, 240); return; }
+  if (FI.phase === 'slip') nextCast();
 }
 function fishPointerDown(e) {
   const x = e.clientX, y = e.clientY;
@@ -5956,7 +6040,11 @@ function landFish() {
   syncFishAssist();
 }
 function biteDelay() { return (.9 + rng() * .45) * waterPace() * (G.fishBait === 'bait' || FI.baitSpent ? .62 : 1) * (SET.cozy ? 1.15 : 1); }
-function nibbleWindow() { return Math.max(1.15, (1.9 + (G.fishBait === 'hook' ? .3 : 0) + (SET.cozy ? .35 : 0)) * waterPace()); }
+function fishKind() { return FI.kind === 'heavy' ? 'heavy' : 'light'; }
+function nibbleWindow() {
+  const base = Math.max(1.15, (1.9 + (G.fishBait === 'hook' ? .3 : 0) + (SET.cozy ? .35 : 0)) * waterPace());
+  return fishKind() === 'heavy' ? Math.min(1.05, base) : base * 1.1;
+}
 function fishUpdate(dt) {
   gestureUpdate(dt);
   if (fishRestock()) { fishMsg('A ripple returns.'); $('#fishTitle').textContent = fishTitle(); return; }
@@ -5966,6 +6054,8 @@ function fishUpdate(dt) {
     if (Math.abs(MAP.cam.hz - want) > 1) { MAP.cam.hz = want; groundDirty = true; MAP.lastCam = ''; }
   }
   cozyReel(dt);
+  stepFishFight(dt);
+  syncFishFight();
   if (FI.phase === 'fly' && FI.t >= (reducedMotion() ? .26 : .46)) {
     FI.phase = 'wait'; FI.t = 0; FI.biteAt = biteDelay(); FI.nibbles = 0;
     noteCast();
@@ -10123,15 +10213,41 @@ window.__aroBoard = function () {
 window.__aroOpenFish = function () { if (typeof FI !== 'undefined' && !FI.open) openFish({ nook: true }); };
 window.__aroFishClose = function () { const m = document.getElementById('fishM'); if (m && m.classList.contains('on')) closeModal('fishM'); };
 window.__aroReel = function () { return (typeof FI !== 'undefined' && FI.open) ? FI.phase : ''; };
+window.__aroPhoneRod = function () { FI.phoneRod = true; };
 window.__aroFishTap = function () { if (typeof fishTap === 'function') fishTap(); };
-window.__aroFishCharge = function () { if (typeof fishCharge === 'function') fishCharge(); };
-window.__aroHandCast = function (strength) {
-  if (typeof FI === 'undefined' || !FI.open || FI.phase !== 'aim') return;
-  const rip = rippleScreen(), me = playerScreen();
-  if (!rip || !me) return;
-  const reach = 0.3 + Math.max(0, Math.min(1, strength)) * 0.65;
-  gradeAndCast(me.x, me.y, me.x + (rip.x - me.x) * reach, me.y + (rip.y - me.y) * reach);
+window.__aroFishCharge = function () { if (typeof fishCharge === 'function') fishCharge(); if (typeof FI !== 'undefined') FI.castPower = 1; };
+window.__aroHandCast = function (strength) { return castLine(strength); };
+window.__aroFishPose = function () {
+  return { phase: FI.phase, kind: fishKind(), t: FI.t, pull: FI.pull || 0, tension: FI.tension || 0, run: FI.run || '', open: FI.open };
 };
+window.__fishShow = function (mode) {
+  if (!FI.open) openFish({ nook: true });
+  FI.demoKind = mode && mode.indexOf('heavy') >= 0 ? 'heavy' : 'light';
+  FI.kind = FI.demoKind;
+  if (mode === 'nibble' || mode === 'nibble-light') beginNibble();
+  else if (mode === 'bite' || mode === 'bite-heavy') { FI.kind = 'heavy'; FI.demoKind = 'heavy'; beginNibble(); }
+  else if (mode === 'fight') { FI.kind = 'heavy'; FI.demoKind = 'heavy'; beginFishFight(); }
+  else castLine(0.8);
+  syncFishFight();
+  return window.__aroFishPose();
+};
+window.addEventListener('devicemotion', (e) => {
+  if (typeof FI === 'undefined' || !FI.open || !FI.phoneRod) return;
+  const acc = e.accelerationIncludingGravity || e.acceleration;
+  const z = acc && acc.z != null ? acc.z : 0;
+  const prev = FI.lastAcc == null ? z : FI.lastAcc;
+  FI.lastAcc = z;
+  const kick = z - prev;
+  if (FI.phase === 'aim' && kick > 7) castLine(Math.max(0.3, Math.min(1, kick / 16)));
+  else if (kick < -7 && (FI.phase === 'nibble' || FI.phase === 'fight' || FI.phase === 'wait')) {
+    if (FI.phase === 'nibble') { if (fishKind() === 'heavy') beginFishFight(); else beginReel(); }
+    else FI.lifting = true;
+  }
+});
+window.addEventListener('deviceorientation', (e) => {
+  if (typeof FI === 'undefined' || !FI.open) return;
+  FI.tilt = Math.max(-1, Math.min(1, (e.gamma || 0) / 32));
+});
 window.__aroHandReel = function () {
   if (typeof FI === 'undefined' || !FI.open) return;
   if (FI.phase !== 'nibble' && FI.phase !== 'wait') return;

@@ -31,7 +31,7 @@ const ptrs = new Map();
 let field = null;
 let grid = null;
 let renderer, scene, camera, clock;
-let ground, water, avatar, vrm, blob, homeRoot, fightBeast, fightDress, fightCut, camPlate, camTex;
+let ground, water, avatar, vrm, blob, homeRoot, fightBeast, fightDress, fightCut, camPlate, camTex, camCanvas, kingShadow, bobber, fishLine;
 const npcs = [];
 const playerPose = { amp: 0, phase: 0 };
 let worldT = 0;
@@ -544,6 +544,7 @@ function buildGround() {
       uTime: { value: 0 },
       uLake: { value: new THREE.Vector2(12, -1.6) },
       uRad: { value: 34 },
+      uCam: { value: new THREE.Vector3() },
       uCurveK: curveU.k,
       uCurveCam: curveU.cam,
     },
@@ -551,10 +552,13 @@ function buildGround() {
       attribute float aShore;
       varying vec3 vW;
       varying float vShore;
+      uniform float uTime;
       uniform float uCurveK;
       uniform vec3 uCurveCam;
       void main(){
         vec4 w = modelMatrix * vec4(position, 1.0);
+        float wave = sin(w.x * 0.42 + uTime * 1.3) * sin(w.z * 0.36 - uTime * 1.05);
+        w.y += wave * 0.16 * (1.0 - aShore);
         w.y -= uCurveK * dot(w.xz - uCurveCam.xz, w.xz - uCurveCam.xz);
         vW = w.xyz;
         vShore = aShore;
@@ -567,25 +571,25 @@ function buildGround() {
       uniform float uTime;
       uniform vec2 uLake;
       uniform float uRad;
+      uniform vec3 uCam;
       void main(){
         float rip = sin(vW.x * 0.55 + uTime * 1.35) * sin(vW.z * 0.48 - uTime * 0.95);
-        float rip2 = sin(vW.x * 1.35 - vW.z * 1.05 + uTime * 1.8);
-        vec3 deep = vec3(0.03, 0.16, 0.38);
-        vec3 mid = vec3(0.10, 0.48, 0.74);
-        vec3 shallow = vec3(0.34, 0.78, 0.82);
+        vec3 deep = vec3(0.10, 0.48, 0.78);
+        vec3 mid = vec3(0.20, 0.66, 0.86);
+        vec3 shallow = vec3(0.55, 0.88, 0.82);
         float dist = length(vW.xz - uLake);
-        float depth = 1.0 - smoothstep(1.5, uRad, dist);
-        vec3 c = mix(shallow, mid, smoothstep(0.0, 0.45, depth));
-        c = mix(c, deep, smoothstep(0.4, 1.0, depth));
-        c = mix(c, vec3(0.55, 0.88, 0.92), smoothstep(-0.2, 0.85, rip) * 0.28);
-        float spark = pow(max(sin(vW.x * 0.85 + uTime * 0.8) * sin(vW.z * 0.7 - uTime * 0.55), 0.0), 4.0);
-        vec3 sky = vec3(1.0, 0.82, 0.58);
-        c = mix(c, sky, spark * depth * 0.55);
-        c += vec3(0.95, 0.98, 1.0) * spark * depth * 0.9;
+        float depth = 1.0 - smoothstep(2.0, uRad, dist);
+        vec3 c = mix(shallow, mid, smoothstep(0.0, 0.4, depth));
+        c = mix(c, deep, smoothstep(0.35, 1.0, depth));
+        vec3 view = normalize(uCam - vW);
+        float fres = pow(1.0 - clamp(abs(view.y), 0.0, 1.0), 1.6);
+        c = mix(c, vec3(0.97, 0.86, 0.68), fres * 0.42 + rip * 0.08);
+        float spark = pow(max(sin(vW.x * 0.85 + uTime * 0.8) * sin(vW.z * 0.7 - uTime * 0.55), 0.0), 3.0);
+        c += vec3(1.0, 0.96, 0.88) * spark * 0.55;
         float foam = smoothstep(0.25, 0.95, vShore);
         foam *= 0.55 + 0.45 * sin(vW.x * 1.6 + vW.z * 1.2 + uTime * 2.2);
-        c = mix(c, vec3(0.93, 0.98, 1.0), clamp(foam, 0.0, 1.0) * (1.0 - depth * 0.85));
-        gl_FragColor = vec4(c, 0.94);
+        c = mix(c, vec3(0.93, 0.98, 1.0), clamp(foam, 0.0, 1.0) * 0.65);
+        gl_FragColor = vec4(c, 0.96);
       }`,
   });
   water = new THREE.Mesh(wgeo, waterMat);
@@ -1589,8 +1593,25 @@ function stepAggro(dt) {
   const anchor = fp.kingLock;
   const cx = anchor.ox + anchor.fx * dist;
   const cz = anchor.oz + anchor.fz * dist;
-  fightCut.position.set(cx, groundY(cx, cz) + 1.35 + plate * 0.85, cz);
+  const half = (4.1 * plate) * 0.5;
+  const eyeY = camera ? camera.position.y : groundY(cx, cz) + 1.55;
+  const pitch = fp.pitch || 0;
+  const floorY = fp.view === 'camera'
+    ? eyeY - 1.4 * Math.max(0.55, Math.cos(pitch))
+    : groundY(cx, cz);
+  fightCut.position.set(cx, floorY + half, cz);
   fightCut.scale.setScalar(plate);
+  if (!kingShadow) {
+    kingShadow = new THREE.Mesh(
+      new THREE.CircleGeometry(0.85, 18),
+      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.38, depthWrite: false })
+    );
+    kingShadow.rotation.x = -Math.PI / 2;
+    scene.add(kingShadow);
+  }
+  kingShadow.visible = !fp.dummy && fp.view === 'camera';
+  kingShadow.position.set(cx, floorY + 0.03, cz);
+  kingShadow.scale.setScalar(1.15 * plate);
   if (camera) fightCut.lookAt(camera.position);
   fightCut.visible = !fp.dummy;
   if (fightCut.material) fightCut.material.opacity = 0.34 + solid * 0.66;
@@ -1611,7 +1632,7 @@ function stepAggro(dt) {
 }
 function setCameraScene(hideWorld) {
   if (!scene) return;
-  const keep = new Set([fightBeast, fightCut, camPlate, fpDummy, rod]);
+  const keep = new Set([fightBeast, fightCut, camPlate, fpDummy, rod, kingShadow, bobber, fishLine]);
   scene.children.forEach((o) => {
     if (o.isLight || keep.has(o)) return;
     if (hideWorld) {
@@ -1638,10 +1659,23 @@ function setCameraScene(hideWorld) {
 }
 function ensureCamPlate() {
   if (!handVideo) return;
-  if (!camTex) {
-    camTex = new THREE.VideoTexture(handVideo);
-    camTex.colorSpace = THREE.SRGBColorSpace;
+  if (!camCanvas) camCanvas = document.createElement('canvas');
+  const vw = handVideo.videoWidth || 0;
+  const vh = handVideo.videoHeight || 0;
+  if (!vw) return;
+  if (camCanvas.width !== vw || camCanvas.height !== vh) {
+    camCanvas.width = vw;
+    camCanvas.height = vh;
   }
+  const ctx = camCanvas.getContext('2d');
+  ctx.drawImage(handVideo, 0, 0, camCanvas.width, camCanvas.height);
+  if (!camTex) {
+    camTex = new THREE.CanvasTexture(camCanvas);
+    camTex.colorSpace = THREE.SRGBColorSpace;
+    camTex.minFilter = THREE.LinearFilter;
+    camTex.magFilter = THREE.LinearFilter;
+  }
+  camTex.needsUpdate = true;
   if (!camPlate) {
     camPlate = new THREE.Mesh(
       new THREE.PlaneGeometry(1, 1),
@@ -2260,7 +2294,12 @@ function mountFpHud() {
     lake.id = 'longLake';
     lake.type = 'button';
     lake.textContent = 'Long Lake';
-    lake.onclick = () => setFp(true, 'fish');
+    lake.onclick = () => {
+      const ask = window.DeviceOrientationEvent && DeviceOrientationEvent.requestPermission;
+      const go = () => { if (window.__aroPhoneRod) window.__aroPhoneRod(); setFp(true, 'fish'); };
+      if (typeof ask === 'function') ask().then(go).catch(go);
+      else go();
+    };
     document.body.appendChild(lake);
   }
   if (!document.getElementById('gelFight')) {
@@ -2578,6 +2617,29 @@ function poseFpBody() {
     const b = vrm.humanoid.getNormalizedBoneNode(name);
     if (b) b.rotation.set(x, y, z);
   };
+  if (fp.fish) {
+    const bend = (window.__aroFishPose && window.__aroFishPose().kind === 'heavy' && (window.__aroFishPose().phase === 'nibble' || window.__aroFishPose().phase === 'fight')) ? 0.28 : 0;
+    const narrow = vmCam && vmCam.aspect < 0.9;
+    setBone('hips', 0, 0, 0);
+    setBone('spine', 0.1, 0, 0);
+    setBone('chest', 0.05, 0, 0);
+    setBone('leftUpperArm', 0.15, narrow ? 1.2 : 0.95, 0.35);
+    setBone('leftLowerArm', 0.55, 0.05, 0.05);
+    setBone('leftHand', -0.2, -0.4, 0.2);
+    setBone('rightUpperArm', 0.2 + bend, narrow ? -1.15 : -0.9, -0.32);
+    setBone('rightLowerArm', 0.7 + bend, -0.08, -0.05);
+    setBone('rightHand', 0.15, 0.55, 0.35);
+    ['Index', 'Middle', 'Ring', 'Little'].forEach((finger) => {
+      setBone('right' + finger + 'Proximal', 0.9, 0, 0);
+      setBone('right' + finger + 'Intermediate', 0.7, 0, 0);
+      setBone('left' + finger + 'Proximal', 0.55, 0, 0);
+    });
+    setBone('rightThumbProximal', -0.4, 0.5, 0.3);
+    const head = vrm.humanoid.getNormalizedBoneNode('head');
+    if (head) head.scale.setScalar(0.001);
+    vrm.humanoid.update();
+    return;
+  }
   const punch = fp.cast > 0 ? Math.sin((1 - Math.min(fp.cast, 0.35) / 0.35) * Math.PI) : 0;
   const sway = Math.sin(worldT * 1.25) * 0.06;
   setBone('hips', 0, 0, 0);
@@ -2624,17 +2686,33 @@ function paintChargeArm() {
   let fill = arm.getObjectByName('chargeFill');
   if (!fill) {
     fill = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.038, 0.24, 4, 8),
-      new THREE.MeshBasicMaterial({ color: 0xffd36a, transparent: true, opacity: 0.92, depthTest: false })
+      new THREE.BoxGeometry(0.09, 0.42, 0.09),
+      new THREE.MeshBasicMaterial({ color: 0xffd36a, transparent: true, opacity: 0.95, depthTest: false })
     );
     fill.name = 'chargeFill';
     fill.layers.set(2);
+    fill.renderOrder = 8;
     arm.add(fill);
   }
-  const show = fp.on && fp.view !== 'camera' && !fp.fish && fp.track.charge > 0.05;
+  const charge = Math.max(0, Math.min(1, fp.track.charge || 0));
+  const show = fp.on && fp.view !== 'camera' && !fp.fish && charge > 0.04;
   fill.visible = show;
-  fill.scale.set(1, Math.max(0.12, fp.track.charge), 1);
-  fill.position.set(0, -0.18 + fp.track.charge * 0.16, 0.03);
+  const len = 0.08 + charge * 0.55;
+  const armPos = new THREE.Vector3();
+  const handPos = new THREE.Vector3();
+  arm.getWorldPosition(armPos);
+  const handBone = vrm.humanoid.getNormalizedBoneNode('rightHand');
+  if (handBone) handBone.getWorldPosition(handPos); else handPos.copy(armPos);
+  const along = armPos.clone().lerp(handPos, 0.25 + charge * 0.6);
+  if (fill.parent !== scene) scene.add(fill);
+  fill.layers.set(2);
+  fill.position.copy(along);
+  const eye = (vmCam || camera).position;
+  fill.position.add(eye.clone().sub(along).normalize().multiplyScalar(0.12));
+  fill.scale.set(1.4, len / 0.42, 1.4);
+  fill.lookAt(handPos);
+  fill.rotateX(Math.PI / 2);
+  fill.renderOrder = 999;
 }
 function fpShoot(kind, power) {
   if (!fp.on) return;
@@ -2648,6 +2726,113 @@ function fpShoot(kind, power) {
   fp.track.state = 'fired';
   fp.track.firedUntil = performance.now() + 700;
   fp.track.charge = 0;
+}
+function stepBobber() {
+  const fishing = fp.on && fp.fish && field;
+  if (!fishing) {
+    if (bobber) bobber.visible = false;
+    if (fishLine) fishLine.visible = false;
+    return;
+  }
+  if (!bobber) {
+    bobber = new THREE.Group();
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 10), new THREE.MeshBasicMaterial({ color: 0xe23a32 }));
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 10), new THREE.MeshBasicMaterial({ color: 0xf7fbff }));
+    cap.scale.y = 0.42;
+    cap.position.y = 0.05;
+    bobber.add(ball, cap);
+    scene.add(bobber);
+  }
+  if (!fishLine) {
+    fishLine = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.006, 0.006, 1, 4),
+      new THREE.MeshBasicMaterial({ color: 0xe9fbff })
+    );
+    fishLine.frustumCulled = false;
+    scene.add(fishLine);
+  }
+  const pose = window.__aroFishPose ? window.__aroFishPose() : { phase: 'aim', kind: 'light', t: 0 };
+  const ahead = new THREE.Vector3(Math.sin(fp.yaw), 0, Math.cos(fp.yaw));
+  const reach = pose.phase === 'aim' ? 3.2 : 6.5;
+  const x = px + ahead.x * reach;
+  const z = pz + ahead.z * reach;
+  let dip = Math.sin(worldT * 2.2) * 0.03;
+  if (pose.phase === 'nibble') dip = pose.kind === 'heavy' ? -0.22 : -0.08 * Math.abs(Math.sin(worldT * 10));
+  if (pose.phase === 'fight') dip = -0.12 + Math.sin(worldT * 6) * 0.05;
+  const y = groundY(x, z) + 0.12 + dip;
+  bobber.visible = true;
+  bobber.position.set(x, y, z);
+  let tip = new THREE.Vector3(px, groundY(px, pz) + 1.2, pz);
+  if (rod) {
+    tip.set(0, 1.45, 0);
+    rod.localToWorld(tip);
+  }
+  const mid = tip.clone().lerp(bobber.position, 0.5);
+  const len = Math.max(0.2, tip.distanceTo(bobber.position));
+  fishLine.visible = pose.phase !== 'aim';
+  fishLine.position.copy(mid);
+  fishLine.scale.set(1, len, 1);
+  fishLine.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tip.clone().sub(bobber.position).normalize());
+  if (rod && fp.view === 'camera' && pose.kind === 'heavy' && (pose.phase === 'nibble' || pose.phase === 'fight')) {
+    rod.rotateX(0.35);
+  }
+}
+function handHull(pts) {
+  const p = pts.slice().sort((a, b) => a.x - b.x || a.y - b.y);
+  const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+  const lower = [];
+  for (const pt of p) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], pt) <= 0) lower.pop();
+    lower.push(pt);
+  }
+  const upper = [];
+  for (let i = p.length - 1; i >= 0; i--) {
+    const pt = p[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], pt) <= 0) upper.pop();
+    upper.push(pt);
+  }
+  lower.pop();
+  upper.pop();
+  return lower.concat(upper);
+}
+function paintHandOcc() {
+  let cv = document.getElementById('handOcc');
+  if (!cv) {
+    cv = document.createElement('canvas');
+    cv.id = 'handOcc';
+    cv.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:4;pointer-events:none;display:none';
+    document.body.appendChild(cv);
+  }
+  const lm = fp.track.lm;
+  const show = fp.on && fp.view === 'camera' && !fp.fish && lm && lm.length > 4 && handVideo && handVideo.videoWidth;
+  cv.style.display = show ? 'block' : 'none';
+  if (!show) return;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+  const pts = [];
+  for (let i = 0; i < lm.length; i++) pts.push({ x: lm[i].x * w, y: lm[i].y * h });
+  const hull = handHull(pts);
+  if (hull.length < 3) return;
+  let cx = 0, cy = 0;
+  hull.forEach((p) => { cx += p.x; cy += p.y; });
+  cx /= hull.length; cy /= hull.length;
+  ctx.save();
+  ctx.drawImage(handVideo, 0, 0, w, h);
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.filter = 'blur(10px)';
+  ctx.beginPath();
+  hull.forEach((p, i) => {
+    const x = cx + (p.x - cx) * 1.22;
+    const y = cy + (p.y - cy) * 1.22;
+    if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+  });
+  ctx.closePath();
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+  ctx.restore();
 }
 function parkFishRod() {
   if (!rod || !fp.on || !fp.fish || !camera) return;
@@ -2934,8 +3119,10 @@ function stepHands() {
       paintTrack();
       return;
     }
+    if (fp.track.maskHold) { paintTrack(); return; }
     fp.track.hands = 0;
     fp.track.palmOpen = false;
+    fp.track.lm = null;
     fp.track.charge = Math.max(0, fp.track.charge - 0.04);
     fp.track.state = 'looking';
     paintTrack();
@@ -2944,6 +3131,7 @@ function stepHands() {
   handEmpty = 0;
   fp.track.seenAt = now;
   fp.track.hands = 1;
+  fp.track.lm = lm;
   const wrist = lm[0];
   const openN = [8, 12, 16, 20].filter((tip, i) => {
     const pip = [6, 10, 14, 18][i];
@@ -3301,9 +3489,13 @@ function bindInput(canvas) {
     for (const q of ptrs.values()) q.pinch = 0;
     if (p && p.fp && fp.on) {
       fp.holding = false;
+      if (fp.fish) {
+        if (!p.moved && window.__aroFishTap) window.__aroFishTap();
+        paintTrack();
+        return;
+      }
       if (!p.moved && fp.track.charge > 0.08) {
-        if (fp.fish && window.__aroFishTap) window.__aroFishTap();
-        else fpShoot('aether', fp.track.charge);
+        fpShoot('aether', fp.track.charge);
       }
       else if (!fp.track.ready) {
         fp.track.charge = 0;
@@ -4005,7 +4197,12 @@ function tick(dt, show) {
   syncShells();
   stepSuperHexes();
   syncAnchor();
-  if (waterMat) waterMat.uniforms.uTime.value = worldT;
+  if (waterMat) {
+    waterMat.uniforms.uTime.value = worldT;
+    if (camera && waterMat.uniforms.uCam) waterMat.uniforms.uCam.value.copy(camera.position);
+  }
+  stepBobber();
+  paintHandOcc();
   applySky();
   syncHolo();
   stepFp(step);
@@ -4909,6 +5106,17 @@ const api = {
     if (!fp.on) setFp(true, 'fight');
     setFightView(mode === 'camera' ? 'camera' : 'virtual');
     return fp.view;
+  },
+  maskDemo() {
+    if (!fp.on) setFp(true, 'fight');
+    setFightView('camera');
+    fp.track.maskHold = true;
+    fp.track.lm = [
+      { x: 0.42, y: 0.62 }, { x: 0.58, y: 0.6 }, { x: 0.62, y: 0.72 },
+      { x: 0.5, y: 0.78 }, { x: 0.38, y: 0.74 }, { x: 0.36, y: 0.66 },
+    ];
+    fp.track.hands = 1;
+    paintHandOcc();
   },
   enter: enterPlay,
   exit: exitPlay,
