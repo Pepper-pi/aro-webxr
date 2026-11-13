@@ -7820,16 +7820,28 @@ function discRot() {
   return aimAngle() - mid;
 }
 function discRadius() {
-  if (W < 520) return 54;
-  if (H >= 520) return 64;
+  if (H >= 520) return 74;
   const pocket = W * 0.46 - 24;
-  return clamp(Math.min(56, (H - 176) / 2, pocket / 2), 44, 56);
+  return clamp(Math.min(62, (H - 176) / 2, pocket / 2), 48, 64);
 }
 function discAnchor() {
   const R = discRadius();
-  const x = SET.hand === 'left' ? R + 18 : W - R - 18;
-  const y = H - R - (H < 520 ? 78 : 108);
-  return [clamp(x, R + 8, Math.max(R + 8, W - R - 8)), clamp(y, R + 8, Math.max(R + 8, H - R - 8))];
+  if (H < 520) {
+    const x = W - R - 16;
+    const y = clamp(H * 0.42, R + 12, Math.max(R + 12, H - 158 - R));
+    return [clamp(x, R + 8, Math.max(R + 8, W - R - 8)), y];
+  }
+  if (TRAIN.view === 'fp') return [W * 0.5, Math.max(H * 0.72, H - 210)];
+  const [px, py] = pPos();
+  const P = proj(AR.cam, px, py);
+  let x = SET.hand === 'left' ? 108 : W - 108, y = H - 210;
+  if (TRAIN.aim) {
+    const A = proj(AR.cam, TRAIN.aim.x, TRAIN.aim.y);
+    const dx = A[0] - P[0], dy = A[1] - P[1], L = Math.hypot(dx, dy) || 1;
+    x = P[0] + dx / L * Math.min(78, L * 0.28);
+    y = (H - 200) + dy / L * 28;
+  }
+  return [clamp(x, R + 10, Math.max(R + 10, W - R - 10)), clamp(y, H * 0.58, Math.max(H * 0.58, H - 168))];
 }
 function applyFpCam() {
   const c = AR.cam;
@@ -8111,9 +8123,10 @@ function trainUpdate(dt) {
   if (typeof cellUpdate === 'function') cellUpdate(dt);
   if (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') applyFpCam();
   if (G.scene === 'arena') {
-    const a = discAnchor();
+    const a = TRAIN.drag ? [TRAIN.drag.x, TRAIN.drag.y] : discAnchor();
     if (!TRAIN.disc) TRAIN.disc = { x: a[0], y: a[1] };
-    const k = Math.min(1, dt * 9); TRAIN.disc.x += (a[0] - TRAIN.disc.x) * k; TRAIN.disc.y += (a[1] - TRAIN.disc.y) * k;
+    if (TRAIN.drag) { TRAIN.disc.x = a[0]; TRAIN.disc.y = a[1]; }
+    else { const k = Math.min(1, dt * 9); TRAIN.disc.x += (a[0] - TRAIN.disc.x) * k; TRAIN.disc.y += (a[1] - TRAIN.disc.y) * k; }
   }
 }
 function fieldAimContext() {
