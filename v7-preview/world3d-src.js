@@ -111,10 +111,10 @@ function tapOn() {
 }
 function toonRamp() {
   const data = new Uint8Array([
-    58, 42, 32, 255,
-    112, 86, 64, 255,
-    176, 154, 126, 255,
-    246, 232, 206, 255,
+    46, 32, 48, 255,
+    102, 74, 62, 255,
+    176, 138, 104, 255,
+    255, 244, 220, 255,
   ]);
   const tex = new THREE.DataTexture(data, 4, 1);
   tex.magFilter = THREE.NearestFilter;
@@ -132,6 +132,16 @@ function bendMat(mat) {
     if (prev) prev(shader);
     shader.uniforms.uCurveK = curveU.k;
     shader.uniforms.uCurveCam = curveU.cam;
+    if (mat.isMeshToonMaterial && !shader.fragmentShader.includes('aroRim')) {
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <output_fragment>',
+        `float aroRim = pow(1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0), 2.2);
+         outgoingLight += vec3(1.0, 0.84, 0.62) * aroRim * 0.28;
+         float aroInk = smoothstep(0.4, 0.16, dot(normalize(normal), normalize(vViewPosition)));
+         outgoingLight = mix(outgoingLight, outgoingLight * vec3(0.2, 0.13, 0.11), aroInk);
+         #include <output_fragment>`
+      );
+    }
     if (shader.vertexShader.includes('aroWp')) return;
     shader.vertexShader = 'uniform float uCurveK;\nuniform vec3 uCurveCam;\n' + shader.vertexShader.replace(
       '#include <project_vertex>',
@@ -146,7 +156,7 @@ function bendMat(mat) {
     );
   };
   const prevKey = mat.customProgramCacheKey && mat.customProgramCacheKey.bind(mat);
-  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + '|curve';
+  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + (mat.isMeshToonMaterial ? '|cel' : '|curve');
   return mat;
 }
 function toonMat(color) {
@@ -586,6 +596,11 @@ function buildGround() {
         c = mix(c, vec3(0.97, 0.86, 0.68), fres * 0.42 + rip * 0.08);
         float spark = pow(max(sin(vW.x * 0.85 + uTime * 0.8) * sin(vW.z * 0.7 - uTime * 0.55), 0.0), 3.0);
         c += vec3(1.0, 0.96, 0.88) * spark * 0.55;
+        float cau = sin(vW.x * 0.32 + uTime * 0.55) * sin(vW.z * 0.27 - uTime * 0.4);
+        cau += sin((vW.x + vW.z) * 0.48 - uTime * 0.65);
+        float caust = smoothstep(0.25, 0.8, cau * 0.5 + 0.5);
+        c += vec3(0.9, 1.0, 0.86) * caust * 0.7;
+        c = mix(c, floor(c * 5.0) / 5.0, 0.45);
         float foam = smoothstep(0.25, 0.95, vShore);
         foam *= 0.55 + 0.45 * sin(vW.x * 1.6 + vW.z * 1.2 + uTime * 2.2);
         c = mix(c, vec3(0.93, 0.98, 1.0), clamp(foam, 0.0, 1.0) * 0.65);
@@ -960,9 +975,9 @@ function buildTileGrass(trees) {
         vEdge = abs(uv.x - 0.5) * 2.0;
         vHue = aSeed; vFade = aFade;
         vec3 p = position;
-        float sway = sin(uTime * 1.15 + aSeed * 6.2) * 0.008 * vH;
+        float sway = sin(uTime * 1.15 + aSeed * 6.2) * 0.045 * vH;
         p.x += sway;
-        p.z += cos(uTime * 0.85 + aSeed * 4.0) * 0.005 * vH;
+        p.z += cos(uTime * 0.85 + aSeed * 4.0) * 0.022 * vH;
         vec4 w = instanceMatrix * vec4(p, 1.0);
         w.y -= uCurveK * dot(w.xz - uCurveCam.xz, w.xz - uCurveCam.xz);
         gl_Position = projectionMatrix * viewMatrix * w;
@@ -2005,7 +2020,7 @@ function addMarker(x, z, text, color) {
 function hourLook() {
   const t = window.__aroSun ? window.__aroSun() : 0.2;
   if (t < 0.15) return { sky: '#ffb07a', horizon: '#ffe3c4', ground: '#9dcc72', sun: '#ffe0b0', up: 0.42, hemi: 1.05, dir: 1.45 };
-  if (t < 0.6) return { sky: '#79c8f4', horizon: '#e7f7ff', ground: '#b7dc86', sun: '#fff6d8', up: 0.92, hemi: 1.05, dir: 1.55 };
+  if (t < 0.6) return { sky: '#8ec6ee', horizon: '#f6d7b0', ground: '#c6d98a', sun: '#fff1c8', up: 0.92, hemi: 1.05, dir: 1.55 };
   if (t < 0.88) return { sky: '#f08a5a', horizon: '#ffc9a4', ground: '#d4926a', sun: '#ffb07a', up: 0.32, hemi: 0.8, dir: 1.15 };
   return { sky: '#243864', horizon: '#4d6294', ground: '#2a3a52', sun: '#b7c8ef', up: 0.28, hemi: 0.7, dir: 0.85 };
 }
@@ -5340,6 +5355,136 @@ function planNpcSpots() {
     npcSpots.push(picked || nearestWalkable(x, z));
   }
 }
+function celOf(src, sway) {
+  const mat = new THREE.MeshToonMaterial({
+    color: src && src.color ? src.color.clone() : new THREE.Color('#ffffff'),
+    map: src && src.map ? src.map : null,
+    gradientMap: ramp,
+  });
+  if (mat.map) mat.map.colorSpace = THREE.SRGBColorSpace;
+  bendMat(mat);
+  if (!sway) return mat;
+  const prev = mat.onBeforeCompile;
+  const prevKey = mat.customProgramCacheKey && mat.customProgramCacheKey.bind(mat);
+  mat.onBeforeCompile = (shader) => {
+    prev(shader);
+    if (shader.vertexShader.includes('aroSway')) return;
+    shader.uniforms.uTime = shellU.uTime;
+    if (!shader.vertexShader.includes('uniform float uTime')) shader.vertexShader = 'uniform float uTime;\n' + shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      '#include <begin_vertex>\ntransformed.xz += sin(uTime * 1.3 + position.y) * position.y * 0.12 * vec2(1.0, 0.55); // aroSway'
+    );
+  };
+  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + '|sway';
+  return mat;
+}
+function propSpots(n, minR, maxR, origin, salt) {
+  const out = [];
+  for (let i = 0, guard = 0; out.length < n && guard < 90; guard++, i++) {
+    const a = salt + i * 2.399;
+    const r = minR + ((Math.sin(salt * 3.0 + i) * 0.5 + 0.5) * (maxR - minR));
+    const x = origin[0] + Math.cos(a) * r;
+    const z = origin[1] + Math.sin(a) * r;
+    const k = kindAt(x, z);
+    if (k == null || k === 3 || k === 4) continue;
+    out.push([x, z]);
+  }
+  return out;
+}
+function placeProp(root, spots, scale) {
+  if (!spots.length) return;
+  root.updateMatrixWorld(true);
+  const parts = [];
+  root.traverse((o) => { if (o.isMesh) parts.push(o); });
+  parts.forEach((o) => {
+    const geo = o.geometry.clone();
+    geo.applyMatrix4(o.matrixWorld);
+    const sway = o.material && o.material.userData && o.material.userData.sway;
+    const mat = celOf(o.material, sway);
+    const mesh = new THREE.InstancedMesh(geo, mat, spots.length);
+    mesh.frustumCulled = false;
+    const dummy = new THREE.Object3D();
+    spots.forEach((p, i) => {
+      dummy.position.set(p[0], groundY(p[0], p[1]), p[1]);
+      dummy.rotation.y = (saltOf(p[0], p[1]) * 6.2) % (Math.PI * 2);
+      const s = scale * (0.88 + (i % 5) * 0.05);
+      dummy.scale.setScalar(s);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    });
+    scene.add(mesh);
+  });
+}
+function saltOf(x, z) {
+  const s = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453;
+  return s - Math.floor(s);
+}
+function loadFreeProps() {
+  if (!field || !field.anchors) return;
+  const loader = new GLTFLoader();
+  const lake = field.anchors.lake;
+  const home = field.anchors.home;
+  const jobs = [
+    ['kenney-oak.glb', propSpots(4, 30, 48, lake, 0.4), 3.3, false],
+    ['kenney-pine.glb', propSpots(3, 34, 52, lake, 1.1), 2.7, false],
+    ['kenney-bush.glb', propSpots(5, 26, 42, lake, 2.2), 3.1, false],
+    ['kenney-rock.glb', propSpots(4, 24, 40, lake, 0.8), 2.4, false],
+    ['kenney-flower.glb', propSpots(6, 22, 38, lake, 1.7), 2.6, false],
+    ['kenney-grass.glb', propSpots(8, 22, 40, lake, 2.8), 2.1, true],
+    ['quaternius-palm.glb', propSpots(2, 32, 50, lake, 0.2), 0.014, false],
+    ['quaternius-pine.glb', propSpots(2, 36, 54, lake, 1.5), 0.015, false],
+    ['quaternius-bush.glb', propSpots(3, 26, 40, lake, 2.6), 0.012, false],
+    ['quaternius-rock.glb', propSpots(3, 24, 38, lake, 0.6), 0.012, false],
+    ['quaternius-flower.glb', propSpots(4, 22, 36, lake, 1.9), 0.04, false],
+    ['quaternius-grass.glb', propSpots(5, 22, 38, lake, 3.1), 0.03, true],
+    ['kaykit/tree_single_A.gltf', propSpots(3, 28, 46, lake, 0.9), 1.8, false],
+    ['kaykit/rock_single_A.gltf', propSpots(3, 24, 36, lake, 1.4), 1.5, false],
+    ['kaykit/waterplant_A.gltf', propSpots(4, 20, 34, lake, 2.4), 1.4, true],
+    ['kenney-cart.glb', propSpots(1, 10, 16, home, 0.3), 0.04, false],
+    ['kenney-fountain.glb', propSpots(1, 12, 18, home, 1.2), 0.06, false],
+    ['kaykit/barrel.gltf', propSpots(2, 8, 14, home, 2.1), 1.2, false],
+    ['kaykit/crate_A_small.gltf', propSpots(2, 9, 15, home, 0.7), 1.2, false],
+    ['kaykit/chest.glb', propSpots(1, 11, 16, home, 1.8), 1.05, false],
+    ['kaykit/coin.glb', propSpots(2, 8, 13, home, 2.5), 0.85, false],
+  ];
+  const shore = shoreSpot();
+  const toLakeX = lake[0] - shore[0];
+  const toLakeZ = lake[1] - shore[1];
+  const toLen = Math.hypot(toLakeX, toLakeZ) || 1;
+  const ux = toLakeX / toLen;
+  const uz = toLakeZ / toLen;
+  const rx = -uz;
+  const rz = ux;
+  const beside = (along, side) => {
+    const x = shore[0] + ux * along + rx * side;
+    const z = shore[1] + uz * along + rz * side;
+    const k = kindAt(x, z);
+    if (k == null) return null;
+    return [x, z];
+  };
+  const bank = [
+    ['kenney-oak.glb', beside(11, 2.2), 4.4],
+    ['kenney-pine.glb', beside(16, -2.2), 3.6],
+    ['kenney-bush.glb', beside(8, -1.5), 4.2],
+    ['kenney-rock.glb', beside(7, 1.2), 3.2],
+    ['quaternius-palm.glb', beside(20, 1.6), 0.016],
+    ['kaykit/tree_single_A.gltf', beside(13, -1.2), 2.8],
+    ['kaykit/waterplant_A.gltf', beside(9, 0.4), 2.8],
+    ['kaykit/rock_single_A.gltf', beside(6, -0.8), 2.2],
+  ];
+  bank.forEach((row) => { if (row[1]) jobs.push([row[0], [row[1]], row[2], row[0].indexOf('grass') >= 0 || row[0].indexOf('waterplant') >= 0]); });
+  jobs.forEach((job) => {
+    const spots = job[1];
+    if (!spots.length) return;
+    loader.load('assets/props/' + job[0], (gltf) => {
+      gltf.scene.traverse((o) => {
+        if (o.isMesh && o.material) o.material.userData.sway = job[3];
+      });
+      placeProp(gltf.scene, spots, job[2]);
+    }, undefined, () => {});
+  });
+}
 function bootField(data) {
   field = data;
   const raw = atob(data.grid);
@@ -5366,6 +5511,7 @@ function bootField(data) {
   startGPS();
   loadAvatar();
   loadNpcs();
+  loadFreeProps();
 }
 
 function boot() {
@@ -5377,7 +5523,7 @@ function boot() {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.setClearColor(0x8ec8ee, 1);
   scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0xffe3c4, 55, 340);
+  scene.fog = new THREE.Fog(0xf6d7b0, 50, 300);
   camera = new THREE.PerspectiveCamera(42, 1, 0.1, 2200);
   clock = new THREE.Clock();
   hemi = new THREE.HemisphereLight(0xcfeaff, 0x6a8a48, 0.85);
@@ -5400,9 +5546,9 @@ function boot() {
     side: THREE.BackSide,
     depthWrite: false,
     uniforms: {
-      uTop: { value: new THREE.Color('#7ec8f0') },
-      uHor: { value: new THREE.Color('#d7f3ff') },
-      uBot: { value: new THREE.Color('#b7d48a') },
+      uTop: { value: new THREE.Color('#8ec6ee') },
+      uHor: { value: new THREE.Color('#f7d2a4') },
+      uBot: { value: new THREE.Color('#c9d98a') },
       uCam: { value: new THREE.Vector3() },
       uTime: { value: 0 },
       uHolo: { value: 1 },
