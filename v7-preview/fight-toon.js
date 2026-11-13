@@ -1804,9 +1804,13 @@ function frame(now) {
   requestAnimationFrame(frame);
   const on = live();
   if (on !== state.on) show(on);
-  if (!on) return;
+  if (!on) { document.body.classList.remove('king-fight'); return; }
   if (!ensure()) return;
   const g = game();
+  const king = !!(g && g.TRAIN && g.TRAIN.king);
+  document.body.classList.toggle('king-fight', king);
+  const fit = document.getElementById('fightCv');
+  if (fit && state.fitH !== fit.clientHeight) { state.fitH = fit.clientHeight; resize(); }
   const dt = Math.min(0.05, (now - (frame.then || now)) / 1000 || 0.016);
   frame.then = now;
   state.t += dt;
@@ -1852,6 +1856,9 @@ function mount() {
   style.textContent = [
     '#fightCv{position:fixed;left:0;right:0;top:0;height:100%;z-index:2;display:none;pointer-events:none;width:100%}',
     '#fightCv.on{display:block}',
+    'body.king-fight #fightCv{height:calc(100% - 250px)}',
+    '@media (max-height:520px){body.king-fight #fightCv{height:100%;clip-path:inset(0 168px 0 0)}}',
+    'body.king-fight #aimCv{display:none !important}',
     '#aimCv{position:fixed;inset:0;width:100%;height:100%;z-index:4;display:none;pointer-events:none}',
     'body.field-on #aimCv{display:block}',
     'body.field-on #trainHud{left:8px;right:auto;width:max-content;max-width:calc(100% - 16px)}',
