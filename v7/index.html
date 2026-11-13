@@ -5726,7 +5726,7 @@ function openFish(opts) {
   if (!mid) {
     FI.phase = 'aim'; FI.t = 0; FI.grade = ''; FI.paid = false; FI.nibbles = 0; FI.traceI = 0; FI.castCounted = false;
     setGesture('idle', { lead: 'offhand', pinch: 0 });
-    fishMsg('Flick toward the ripple.');
+    fishMsg(FI.phoneRod ? 'Hold, then let go to cast.' : 'Flick toward the ripple.');
   }
   FI.pole = window.__profile && window.__profile.pole ? window.__profile.pole() : (FI.pole || 'reed');
   const poleBtn = $('#fishPole');
@@ -5886,6 +5886,8 @@ function castLine(strength) {
   FI.phase = 'fly';
   FI.t = 0;
   FI.nibbles = 0;
+  const meter = document.getElementById('fishMeter');
+  if (meter) meter.classList.remove('show');
   setGesture('release', { lead: 'offhand', pinch: 0 });
   SFX.cast();
   fishMsg(FI.grade + ' · ' + fishKind() + '.');
@@ -5958,7 +5960,7 @@ function nextCast() {
   const b = $('#fishBtn'); if (b) b.classList.add('hide');
   setGesture('idle', { lead: 'offhand', pinch: 0 });
   $('#fishTitle').textContent = fishTitle();
-  fishMsg('Flick toward the ripple.');
+  fishMsg(FI.phoneRod ? 'Hold, then let go to cast.' : 'Flick toward the ripple.');
   syncFishAssist();
 }
 function fishCharge() { if (FI.phase === 'aim') { setGesture('wind', { lead: 'offhand' }); FI.charging = true; } }
@@ -10215,7 +10217,23 @@ window.__aroFishClose = function () { const m = document.getElementById('fishM')
 window.__aroReel = function () { return (typeof FI !== 'undefined' && FI.open) ? FI.phase : ''; };
 window.__aroPhoneRod = function () { FI.phoneRod = true; };
 window.__aroFishTap = function () { if (typeof fishTap === 'function') fishTap(); };
-window.__aroFishCharge = function () { if (typeof fishCharge === 'function') fishCharge(); if (typeof FI !== 'undefined') FI.castPower = 1; };
+window.__aroFishCharge = function () {
+  if (typeof fishCharge === 'function') fishCharge();
+  if (typeof FI !== 'undefined' && FI.phase === 'aim') FI.castPower = Math.max(0.04, FI.castPower || 0);
+};
+window.__aroFishPower = function (p) {
+  if (typeof FI === 'undefined') return;
+  const v = Math.max(0, Math.min(1, p || 0));
+  FI.castPower = v;
+  FI.charging = FI.phase === 'aim' && v > 0.02;
+  const meter = document.getElementById('fishMeter');
+  if (!meter) return;
+  const bar = meter.querySelector('b');
+  const label = meter.querySelector('span');
+  if (bar) bar.style.height = Math.round(v * 100) + '%';
+  if (label) label.textContent = v > 0.82 ? 'Full' : 'Power';
+  meter.classList.toggle('show', FI.phase === 'aim' && v > 0.02);
+};
 window.__aroHandCast = function (strength) { return castLine(strength); };
 window.__aroFishPose = function () {
   return { phase: FI.phase, kind: fishKind(), t: FI.t, pull: FI.pull || 0, tension: FI.tension || 0, run: FI.run || '', open: FI.open };
@@ -10238,8 +10256,7 @@ window.addEventListener('devicemotion', (e) => {
   const prev = FI.lastAcc == null ? z : FI.lastAcc;
   FI.lastAcc = z;
   const kick = z - prev;
-  if (FI.phase === 'aim' && kick > 7) castLine(Math.max(0.3, Math.min(1, kick / 16)));
-  else if (kick < -7 && (FI.phase === 'nibble' || FI.phase === 'fight' || FI.phase === 'wait')) {
+  if (kick < -7 && (FI.phase === 'nibble' || FI.phase === 'fight' || FI.phase === 'wait')) {
     if (FI.phase === 'nibble') { if (fishKind() === 'heavy') beginFishFight(); else beginReel(); }
     else FI.lifting = true;
   }
