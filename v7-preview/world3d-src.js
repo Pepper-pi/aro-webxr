@@ -35,7 +35,7 @@ let sun, hemi, skyMat, waterMat;
 let camYaw = Math.PI;
 let camDist = 10.4;
 let camPitch = 0.34;
-let rt, composeScene, composeCam, quadMat;
+let rt, bloomA, bloomB, composeScene, composeCam, quad, brightMat, blurMat, quadMat;
 let grassMesh, propSpins = [];
 let px = 0, pz = 0, facing = 0;
 let dest = null;
@@ -730,7 +730,7 @@ function frameCamera() {
   if (shot === 'close') { camDist = 4.2; camPitch = 0.32; }
   else if (shot === 'face') { camDist = 2.35; camPitch = 0.12; }
   else if (shot === 'walk') { camDist = 6.2; camPitch = 0.36; }
-  else if (shot === 'wide') { camDist = 26; camPitch = 0.42; }
+  else if (shot === 'wide') { camDist = 22; camPitch = 0.22; }
   else if (shot === 'home' && field) {
     const h = field.anchors.home;
     const gy = groundY(h[0], h[1]);
@@ -1080,43 +1080,95 @@ function renderWorld() {
     rt = new THREE.WebGLRenderTarget(w, h, { samples });
     rt.texture.colorSpace = THREE.LinearSRGBColorSpace;
     if (!composeScene) {
+      const vert = 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }';
+      brightMat = new THREE.ShaderMaterial({
+        depthTest: false, depthWrite: false,
+        uniforms: { tDiffuse: { value: null } },
+        vertexShader: vert,
+        fragmentShader: `
+          precision mediump float; uniform sampler2D tDiffuse; varying vec2 vUv;
+          void main(){
+            vec3 c = texture2D(tDiffuse, vUv).rgb;
+            float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+            gl_FragColor = vec4(c * smoothstep(0.62, 0.95, l), 1.0);
+          }`,
+      });
+      blurMat = new THREE.ShaderMaterial({
+        depthTest: false, depthWrite: false,
+        uniforms: { tDiffuse: { value: null }, uDir: { value: new THREE.Vector2() } },
+        vertexShader: vert,
+        fragmentShader: `
+          precision mediump float; uniform sampler2D tDiffuse; uniform vec2 uDir; varying vec2 vUv;
+          void main(){
+            vec3 s = vec3(0.0); float wsum = 0.0;
+            for (int i = -5; i <= 5; i++) {
+              float w = 1.0 - abs(float(i)) / 6.0;
+              s += texture2D(tDiffuse, vUv + uDir * float(i)).rgb * w;
+              wsum += w;
+            }
+            gl_FragColor = vec4(s / wsum, 1.0);
+          }`,
+      });
       quadMat = new THREE.ShaderMaterial({
-        depthTest: false,
-        depthWrite: false,
-        uniforms: { tDiffuse: { value: null }, uTexel: { value: new THREE.Vector2() } },
-        vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }',
+        depthTest: false, depthWrite: false,
+        uniforms: {
+          tDiffuse: { value: null },
+          tBloom: { value: null },
+          uTexel: { value: new THREE.Vector2() },
+        },
+        vertexShader: vert,
         fragmentShader: `
           precision mediump float;
-          uniform sampler2D tDiffuse;
+          uniform sampler2D tDiffuse, tBloom;
           uniform vec2 uTexel;
           varying vec2 vUv;
           void main(){
             vec3 c = texture2D(tDiffuse, vUv).rgb;
-            vec3 l = texture2D(tDiffuse, vUv + vec2(-uTexel.x, 0.0)).rgb;
-            vec3 r = texture2D(tDiffuse, vUv + vec2(uTexel.x, 0.0)).rgb;
-            vec3 u = texture2D(tDiffuse, vUv + vec2(0.0, uTexel.y)).rgb;
-            vec3 d = texture2D(tDiffuse, vUv + vec2(0.0, -uTexel.y)).rgb;
-            float e = length(c - l) + length(c - r) + length(c - u) + length(c - d);
-            c = mix(c, vec3(0.09, 0.06, 0.07), smoothstep(0.42, 0.9, e) * 0.45);
-            vec3 blur = (l + r + u + d) * 0.25;
-            c += max(blur - 0.58, 0.0) * 0.45;
+            float l = length(c - texture2D(tDiffuse, vUv + vec2(-uTexel.x, 0.0)).rgb);
+            float r = length(c - texture2D(tDiffuse, vUv + vec2(uTexel.x, 0.0)).rgb);
+            float u = length(c - texture2D(tDiffuse, vUv + vec2(0.0, uTexel.y)).rgb);
+            float d = length(c - texture2D(tDiffuse, vUv + vec2(0.0, -uTexel.y)).rgb);
+            float e = l + r + u + d;
+            c = mix(c, vec3(0.08, 0.05, 0.06), smoothstep(0.28, 0.7, e) * 0.72);
+            c += texture2D(tBloom, vUv).rgb * 0.85;
             gl_FragColor = vec4(c, 1.0);
           }`,
       });
-      const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), quadMat);
+      quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), quadMat);
       composeScene = new THREE.Scene();
       composeScene.add(quad);
       composeCam = new THREE.Camera();
     }
   }
-  quadMat.uniforms.tDiffuse.value = rt.texture;
-  quadMat.uniforms.uTexel.value.set(1.15 / w, 1.15 / h);
+  const hw = Math.max(2, w >> 1), hh = Math.max(2, h >> 1);
+  if (!bloomA || bloomA.width !== hw || bloomA.height !== hh) {
+    if (bloomA) bloomA.dispose();
+    if (bloomB) bloomB.dispose();
+    bloomA = new THREE.WebGLRenderTarget(hw, hh);
+    bloomB = new THREE.WebGLRenderTarget(hw, hh);
+  }
+  const draw = (mat, target) => {
+    quad.material = mat;
+    renderer.setRenderTarget(target);
+    renderer.render(composeScene, composeCam);
+  };
   camera.layers.set(0);
   renderer.autoClear = true;
   renderer.setRenderTarget(rt);
   renderer.render(scene, camera);
+  brightMat.uniforms.tDiffuse.value = rt.texture;
+  draw(brightMat, bloomA);
+  blurMat.uniforms.tDiffuse.value = bloomA.texture;
+  blurMat.uniforms.uDir.value.set(1.6 / hw, 0);
+  draw(blurMat, bloomB);
+  blurMat.uniforms.tDiffuse.value = bloomB.texture;
+  blurMat.uniforms.uDir.value.set(0, 1.6 / hh);
+  draw(blurMat, bloomA);
+  quadMat.uniforms.tDiffuse.value = rt.texture;
+  quadMat.uniforms.tBloom.value = bloomA.texture;
+  quadMat.uniforms.uTexel.value.set(1.2 / w, 1.2 / h);
   renderer.setRenderTarget(null);
-  renderer.render(composeScene, composeCam);
+  draw(quadMat, null);
   const gl = renderer.getContext();
   const src = renderer.properties.get(rt).__webglFramebuffer;
   if (gl.blitFramebuffer && src) {
@@ -1224,7 +1276,7 @@ function boot() {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.setClearColor(0x8ec8ee, 1);
   scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0xffe3c4, 36, 240);
+  scene.fog = new THREE.Fog(0xffe3c4, 55, 340);
   camera = new THREE.PerspectiveCamera(42, 1, 0.1, 2200);
   clock = new THREE.Clock();
   hemi = new THREE.HemisphereLight(0xcfeaff, 0x6a8a48, 0.85);
@@ -1261,14 +1313,17 @@ function boot() {
       uniform float uTime;
       void main(){
         vec3 dir = normalize(vW - uCam);
-        float h = dir.y;
-        vec3 c = mix(uBot, uHor, smoothstep(-0.2, 0.15, h));
-        c = mix(c, uTop, smoothstep(0.05, 0.7, h));
-        vec2 cloudUv = dir.xz / max(0.15, dir.y + 0.35) * 1.6 + vec2(uTime * 0.015, 0.0);
-        float n = sin(cloudUv.x * 6.0) * sin(cloudUv.y * 5.0);
-        n += sin(cloudUv.x * 13.0 + 2.0) * sin(cloudUv.y * 11.0) * 0.5;
-        float cloud = smoothstep(0.35, 0.85, n * 0.5 + 0.5) * smoothstep(0.05, 0.45, h);
-        c = mix(c, vec3(1.0, 0.97, 0.93), cloud * 0.72);
+        float hgt = dir.y;
+        vec3 c = mix(uBot, uHor, smoothstep(-0.15, 0.22, hgt));
+        c = mix(c, uTop, smoothstep(0.08, 0.72, hgt));
+        vec2 cuv = dir.xz / max(0.2, hgt + 0.45);
+        float n = sin(cuv.x * 3.2 + uTime * 0.05) * sin(cuv.y * 2.6 + uTime * 0.03);
+        n += sin(cuv.x * 7.5 + 1.7 + uTime * 0.08) * sin(cuv.y * 6.4) * 0.55;
+        n += sin((cuv.x + cuv.y) * 13.0 + uTime * 0.12) * 0.25;
+        float cloud = smoothstep(0.15, 0.75, n * 0.5 + 0.5);
+        cloud *= smoothstep(0.02, 0.35, hgt);
+        vec3 puff = mix(uHor, vec3(1.0, 0.98, 0.96), 0.75);
+        c = mix(c, puff, cloud * 0.8);
         gl_FragColor = vec4(c, 1.0);
       }`,
   });
