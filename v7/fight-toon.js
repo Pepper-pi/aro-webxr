@@ -992,6 +992,7 @@ function buildBoss() {
   boss.scale.setScalar(1.55);
   buildKingPlate();
   buildBoarPlate();
+  buildRoamPlate();
   boltSky = new THREE.Mesh(new THREE.PlaneGeometry(9, 2.4), new THREE.MeshBasicMaterial({ color: 0xe7f3ff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
   boltSky.position.set(0.4, 4.4, -2.2);
   streak = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 3.2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
@@ -1086,6 +1087,69 @@ function buildBoarPlate() {
   boarShadow.visible = false;
   scene.add(boarShadow);
   buildParkBackdrop();
+}
+let roamPlate, roamMat, roamShadow, encounterSky;
+const roamTex = {};
+function roamTexture(kind) {
+  const key = kind === 'goblin' ? 'goblin' : 'slime';
+  if (roamTex[key]) return roamTex[key];
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 320;
+  const g = c.getContext('2d');
+  if (typeof drawMobShape === 'function') drawMobShape(g, key, 128, 286, 92, 'skin', '', 0, 0);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  roamTex[key] = tex;
+  return tex;
+}
+function buildRoamPlate() {
+  roamMat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+  roamPlate = new THREE.Mesh(new THREE.PlaneGeometry(1.85, 2.35), roamMat);
+  roamPlate.visible = false;
+  roamPlate.renderOrder = 4;
+  scene.add(roamPlate);
+  roamShadow = new THREE.Mesh(
+    new THREE.CircleGeometry(0.62, 18),
+    new THREE.MeshBasicMaterial({ color: 0x102018, transparent: true, opacity: 0.38, depthWrite: false })
+  );
+  roamShadow.rotation.x = -Math.PI / 2;
+  roamShadow.visible = false;
+  scene.add(roamShadow);
+  encounterSky = buildRaidSky();
+  encounterSky.visible = false;
+  scene.add(encounterSky);
+}
+function syncEncounterStage(g) {
+  const train = g && g.TRAIN;
+  const mob = train && train.encounter
+    ? (g.AR.mobs || []).find(m => m && m.state !== 'gone' && (m.rollId === 'slime' || m.rollId === 'goblin' || m.rollId === 'scout' || m.art === 'slime' || m.art === 'goblin'))
+    : null;
+  if (!roamPlate) return;
+  if (!mob) {
+    roamPlate.visible = false;
+    if (roamShadow) roamShadow.visible = false;
+    if (encounterSky) encounterSky.visible = false;
+    return;
+  }
+  const kind = (mob.rollId === 'goblin' || mob.art === 'goblin') ? 'goblin' : 'slime';
+  if (roamMat.map !== roamTexture(kind)) { roamMat.map = roamTexture(kind); roamMat.needsUpdate = true; }
+  const bob = Math.sin(state.t * 1.7) * 0.05;
+  const x = 0.05, z = -1.05, y = 1.42 + bob;
+  roamPlate.position.set(x, y, z);
+  roamPlate.lookAt(camera.position.x, y, camera.position.z);
+  roamPlate.visible = true;
+  const hit = mob.fl > 0;
+  roamPlate.scale.set(hit ? 1.06 : 1, hit ? 0.9 : 1, 1);
+  if (roamShadow) {
+    roamShadow.visible = true;
+    roamShadow.position.set(x, 0.05, z + 0.15);
+  }
+  weatherBlobs.forEach(o => { o.visible = false; });
+  weatherBeasts.forEach(o => { o.visible = false; });
+  if (encounterSky) encounterSky.visible = true;
+  scene.background = new THREE.Color('#8eb6e6');
+  if (scene.fog) { scene.fog.color.set('#8eb6e6'); scene.fog.near = 16; scene.fog.far = 34; }
 }
 function buildParkBackdrop() {
   const tex = new THREE.TextureLoader().load('park_backdrop.jpg');
@@ -1707,6 +1771,7 @@ function syncActors(g) {
   state.plate = plate;
   syncBoarPlate(g);
   syncRaidFloor(g);
+  syncEncounterStage(g);
 }
 
 function syncGun(g) {
