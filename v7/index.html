@@ -1992,9 +1992,9 @@ function genMap() {
   MAP.house.x = 0; MAP.house.y = 0;
   // passive walk-by slimes far out (wireframe until you're near)
   MAP.roam = [
-    { art: 'slime', hx: 3.2, hy: 1.6, ph: 0.4, rad: 1.45 },
-    { art: 'goblin', hx: -3.4, hy: -0.8, ph: 2.1, rad: 1.3 },
-    { art: 'slime', hx: 0.6, hy: -3.1, ph: 4.0, rad: 1.15 },
+    { id: 'slime', art: 'slime', n: 0, hx: 1.7, hy: 1.15, x: 1.7, y: 1.15, head: 0.4, rad: 0.85, ph: 0 },
+    { id: 'goblin', art: 'goblin', n: 1, hx: -1.65, hy: 0.45, x: -1.65, y: 0.45, head: 2.1, rad: 0.8, ph: 1 },
+    { id: 'slime', art: 'slime', n: 2, hx: 0.35, hy: -1.75, x: 0.35, y: -1.75, head: 4.0, rad: 0.75, ph: 2 },
   ];
 }
 const tileAt = (q, r) => MAP.tiles.get(tkey(q, r));
@@ -2059,7 +2059,11 @@ function mapUpdate(dt) {
   else { MAP.camT.x = h.x; MAP.camT.y = h.y - 1.1; }
   const c = MAP.cam, s = 1 - Math.pow(.02, dt); c.x += (MAP.camT.x - c.x) * s; c.y += (MAP.camT.y - c.y) * s;
   for (const m of MAP.mobs) { m.ph += dt; m.x = m.hx + Math.sin(m.ph * .4) * .5; m.y = m.hy + Math.cos(m.ph * .31) * .3; const near = Math.hypot(m.x - h.x, m.y - h.y) < 3.4; m.skin = clamp(m.skin + (near ? dt : -dt) / .8, 0, 1); }
-  for (const m of (MAP.roam || [])) { m.ph += dt * 0.45; m.x = m.hx + Math.cos(m.ph) * m.rad; m.y = m.hy + Math.sin(m.ph * 0.85) * m.rad * 0.62; }
+  for (const m of (MAP.roam || [])) stepRoam(m, dt);
+  if (G.scene === 'map' && MAP.avOut && !(TRAIN.on)) {
+    const near = (MAP.roam || []).find(m => !m.down && Math.hypot(m.x - h.x, m.y - h.y) < 0.72);
+    if (near) engageRoam(near);
+  }
   for (let i = MAP.ripples.length - 1; i >= 0; i--) { MAP.ripples[i].t += dt; if (MAP.ripples[i].t > 1.3) MAP.ripples.splice(i, 1); }
   if (MAP.avOut) MAP.avT += dt;
   checkMapPortal();
@@ -2144,7 +2148,7 @@ function drawMap(T) {
   { const [X, Y, f] = proj(c, 0, 0); S.push([Y + 1.5, 4, X, Y, f]); }          // the house stays home (fast-travel anchor)
   { const [X, Y, f] = proj(c, h.x, h.y); S.push([Y + 2, 1, X, Y, f]); }
   for (const m of MAP.mobs) { const [X, Y, f] = proj(c, m.x, m.y); if (X > -40 && X < W + 40 && Y > -40 && Y < H + 40) S.push([Y, 2, m, X, Y, f]); }
-  for (const m of (MAP.roam || [])) { const [X, Y, f] = proj(c, m.x, m.y); if (X > -50 && X < W + 50 && Y > -50 && Y < H + 50) S.push([Y, 5, m, X, Y, f]); }
+  for (const m of (MAP.roam || [])) { if (m.down) continue; const [X, Y, f] = proj(c, m.x, m.y); if (X > -50 && X < W + 50 && Y > -50 && Y < H + 50) S.push([Y, 5, m, X, Y, f]); }
   if (!G.day.hack) { const t = tileAt(POI.q, POI.r), [X, Y, f] = proj(c, t.x + .15, t.y - .1); S.push([Y, 3, X, Y - 4 * f, f]); }
   S.sort((a, b) => a[0] - b[0]);
   for (const s of S) {
@@ -6923,6 +6927,8 @@ function mapTap(X, Y) {
         return;
       }
     }
+    const roam = roamUnder(X, Y);
+    if (roam) { engageRoam(roam); return; }
     const area = areaUnder(X, Y);
     if (area) {
       if (!areaNear(area)) { showCast('Step closer · ' + area.name); popText(X, Y - 16, 'step closer', '#ffe7a8', 13); return; }
@@ -8355,6 +8361,47 @@ function rolledMobSpecs() {
     return { k: def.k, at, nudge: lap ? 0.4 : 0, full: 1, rar: 0, rollId: s.id, hp: def.hp, name: def.name };
   });
 }
+function stepRoam(m, dt) {
+  if (m.down) {
+    if (m.backAt && performance.now() >= m.backAt) {
+      m.down = false; m.backAt = 0; m.x = m.hx; m.y = m.hy;
+    }
+    return;
+  }
+  m.ph += dt;
+  m.head += Math.sin(m.ph * 0.7 + m.n) * dt * 0.9;
+  m.x += Math.cos(m.head) * dt * 0.62;
+  m.y += Math.sin(m.head) * dt * 0.62;
+  const dx = m.x - m.hx, dy = m.y - m.hy;
+  if (dx * dx + dy * dy > m.rad * m.rad) {
+    m.x = m.hx + dx * 0.9;
+    m.y = m.hy + dy * 0.9;
+    m.head = Math.atan2(m.hy - m.y, m.hx - m.x);
+  }
+}
+function roamUnder(X, Y) {
+  if (G.scene !== 'map' || !MAP.roam) return null;
+  for (const m of MAP.roam) {
+    if (m.down) continue;
+    const [sx, sy, f] = proj(MAP.cam, m.x, m.y);
+    if (Math.hypot(sx - X, sy - Y) < Math.max(34, 26 * f)) return m;
+  }
+  return null;
+}
+function engageRoam(m) {
+  if (!m || m.down || G.scene === 'arena') return;
+  m.down = true;
+  TRAIN.roamWho = m;
+  TRAIN.roamBeat = false;
+  startEncounter({ id: m.id, key: 'roam:' + m.n });
+}
+function releaseRoam(beat) {
+  const m = TRAIN.roamWho;
+  TRAIN.roamWho = null;
+  if (!m) return;
+  if (beat) { m.down = true; m.backAt = performance.now() + 20000; }
+  else { m.down = false; m.backAt = 0; }
+}
 function startEncounter(marker) {
   startTrain();
   TRAIN.encounter = marker.key;
@@ -9418,6 +9465,8 @@ function drawDockHud() {
       popText(W * 0.5, H * 0.34, 'wave down', '#ffd36a', 18);
       if (TRAIN.encounter) {
         const key = TRAIN.encounter;
+        const beatRoam = !!TRAIN.roamWho;
+        releaseRoam(beatRoam);
         TRAIN.encounter = null;
         if (window.__world && window.__world.clearMarker) window.__world.clearMarker(key);
         if (!rolled.some(m => m.caught)) {
@@ -9610,7 +9659,7 @@ document.getElementById('cellBtn').addEventListener('click', e => { e.stopPropag
 document.getElementById('itemReach').addEventListener('click', e => { e.stopPropagation(); if (itemSend()) { closeModal('cmdM'); showCast('At reach · ' + REACH.kind + ' · not tracked'); } });
 document.getElementById('itemBoard').addEventListener('click', e => { e.stopPropagation(); if (TRAIN.on) openCommand(); });
 document.getElementById('itemBubble').addEventListener('click', e => { e.stopPropagation(); itemPop(); });
-document.getElementById('trainBack').addEventListener('click', e => { e.stopPropagation(); if (TRAIN.encounter) { TRAIN.encounter = null; leaveTrain(); return; } if (TRAIN.king) { TRAIN.king = false; startTrain(); return; } leaveTrain(); });
+document.getElementById('trainBack').addEventListener('click', e => { e.stopPropagation(); if (TRAIN.encounter) { releaseRoam(false); TRAIN.encounter = null; leaveTrain(); return; } if (TRAIN.king) { TRAIN.king = false; startTrain(); return; } leaveTrain(); });
 document.getElementById('trainClass').addEventListener('click', e => { e.stopPropagation(); setClass(GUN.cls === 'gunner' ? 'mage' : 'gunner'); });
 document.getElementById('viewTac').addEventListener('click', e => { e.stopPropagation(); setTrainView('tactical'); });
 document.getElementById('viewLow').addEventListener('click', e => { e.stopPropagation(); setTrainView('low'); });
