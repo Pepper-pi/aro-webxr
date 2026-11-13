@@ -345,34 +345,27 @@ function dressGround(mesh) {
         vec2 uv = vWorld.xz * 0.18;
         vec2 uvOff = uv + V.xz * (0.022 * ny);
         float hit = texture2D(uHeight, uvOff).r;
-        vec3 soil = lift(texture2D(uSoil, uvOff * 0.85).rgb);
-        vec3 grassFine = lift(texture2D(uGrass, uvOff * 0.95).rgb);
-        vec3 grassSoft = lift(texture2D(uGrass, uvOff * 0.24 + 0.37).rgb);
-        vec3 mossFine = lift(texture2D(uMoss, uv * 0.7 + 3.0).rgb);
-        vec3 mossSoft = lift(texture2D(uMoss, uv * 0.2 + 8.4).rgb);
-        vec3 peb = lift(texture2D(uPebble, uv * 1.15).rgb);
-        float gF = dot(grassFine, vec3(0.25, 0.6, 0.15));
-        float gS = dot(grassSoft, vec3(0.25, 0.6, 0.15));
-        float mF = dot(mossFine, vec3(0.25, 0.6, 0.15));
-        float mS = dot(mossSoft, vec3(0.25, 0.6, 0.15));
-        vec3 midG = vec3(0.40, 0.62, 0.20);
-        vec3 sunG = vec3(0.92, 0.86, 0.26);
-        vec3 deepG = vec3(0.12, 0.32, 0.09);
-        float gRel = clamp((gF - gS) * 8.0, -1.0, 1.0);
-        float mRel = clamp((mF - mS) * 8.0, -1.0, 1.0);
-        vec3 grass = mix(midG, sunG, smoothstep(-0.02, 0.32, gRel));
-        grass = mix(grass, deepG, smoothstep(0.02, 0.4, -gRel) * 0.8);
-        vec3 moss = mix(midG, sunG, smoothstep(0.0, 0.38, mRel) * 0.8);
-        moss = mix(moss, deepG, smoothstep(0.04, 0.42, -mRel) * 0.75);
-        float pebMix = smoothstep(0.72, 0.95, texture2D(uHeight, uv * 1.7 + 8.0).r) * 0.28;
-        vec3 under = mix(grass, moss, 0.36);
-        float clump = sin(vWorld.x * 0.085) * cos(vWorld.z * 0.07);
-        clump += sin(vWorld.x * 0.19 + 1.8) * sin(vWorld.z * 0.16 + 0.4) * 0.45;
-        under = mix(under, sunG, smoothstep(-0.15, 0.75, clump) * 0.16);
-        float clumpEdge = 1.0 - smoothstep(0.0, 0.42, abs(clump));
-        float microEdge = smoothstep(0.004, 0.03, length(vec2(dFdx(gF), dFdy(gF))));
-        under = mix(under, deepG, max(clumpEdge, microEdge) * 0.34);
-        under = mix(under, deepG, (1.0 - smoothstep(0.2, 0.65, hit)) * 0.12);
+        vec3 soilRaw = lift(texture2D(uSoil, uvOff * 0.85).rgb);
+        vec3 grassRaw = lift(mix(texture2D(uGrass, uvOff * 0.72).rgb, texture2D(uGrass, uvOff * 0.22 + 0.37).rgb, 0.42));
+        vec3 mossRaw = lift(mix(texture2D(uMoss, uv * 0.55 + 3.0).rgb, texture2D(uMoss, uv * 0.18 + 8.0).rgb, 0.4));
+        vec3 pebRaw = lift(texture2D(uPebble, uv * 1.25).rgb);
+        float gL = dot(grassRaw, vec3(0.25, 0.55, 0.2));
+        float sL = dot(soilRaw, vec3(0.3, 0.5, 0.2));
+        float mL = dot(mossRaw, vec3(0.3, 0.5, 0.2));
+        float pL = dot(pebRaw, vec3(0.33));
+        vec3 grassG = vec3(0.16, 0.38, 0.11) * (0.78 + gL * 0.7);
+        vec3 mossG = vec3(0.14, 0.36, 0.12) * (0.75 + mL * 0.75);
+        vec3 dirtG = vec3(0.32, 0.28, 0.14) * (0.7 + sL * 0.65);
+        vec3 stoneG = vec3(0.42, 0.40, 0.36) * (0.62 + pL * 0.55);
+        float pebMix = smoothstep(0.62, 0.9, texture2D(uHeight, uv * 1.7 + 8.0).r) * 0.55;
+        vec3 under = grassG;
+        under = mix(under, mossG, smoothstep(0.22, 0.58, mL) * 0.48);
+        under = mix(under, dirtG, smoothstep(0.02, 0.22, sL - gL * 0.85) * 0.5);
+        under = mix(under, stoneG, pebMix);
+        float clump = sin(vWorld.x * 0.042) * cos(vWorld.z * 0.036);
+        clump += sin(vWorld.x * 0.09 + 1.3) * sin(vWorld.z * 0.078 + 0.4) * 0.4;
+        under = mix(under, vec3(0.48, 0.62, 0.22), smoothstep(0.08, 0.7, clump) * 0.26);
+        under = mix(under, vec3(0.09, 0.24, 0.08), (1.0 - smoothstep(0.0, 0.55, abs(clump))) * 0.14);
         float n1 = holoHash(floor(vWorld.xz * 0.17));
         float n2 = holoHash(vWorld.xz * 0.11 + 4.2);
         float vein = 1.0 - smoothstep(0.0, 0.04, abs(n1 - 0.5));
@@ -384,7 +377,7 @@ function dressGround(mesh) {
         vec2 hid = hcell.xy;
         float hedge = hcell.z;
         float aa = max(fwidth(hedge), 0.0035);
-        float seam = 1.0 - smoothstep(aa * 0.08, aa * 0.72, hedge);
+        float seam = 1.0 - smoothstep(aa * 0.2, aa * 1.2, hedge);
         float bevel = smoothstep(aa, aa * 5.0, hedge) * (1.0 - smoothstep(aa * 5.0, 0.18, hedge));
         float fres = pow(1.0 - ny, 1.45);
         float grassW = clamp(smoothstep(0.04, 0.16, vColor.g - vColor.r), 0.0, 1.0);
@@ -395,8 +388,8 @@ function dressGround(mesh) {
         float litter = smoothstep(0.25, 0.82, speckle * 0.5 + 0.5) * 0.16;
         float litterAmt = mix(litter, 0.55, dirtW);
         litterAmt *= mix(1.0, 0.28, grassW);
-        under = mix(under, mix(vec3(0.48, 0.34, 0.16), soil, 0.5), litterAmt);
-        under = mix(under, peb, pebMix * mix(0.12, 0.4, stoneW));
+        under = mix(under, mix(vec3(0.36, 0.30, 0.16), dirtG, 0.5), litterAmt);
+        under = mix(under, stoneG, pebMix * 0.35);
         vec3 bias = vec3(1.0);
         bias = mix(bias, vec3(1.05, 1.06, 0.9), grassW * 0.22);
         bias = mix(bias, vec3(1.08, 0.92, 0.72), dirtW * 0.4);
@@ -416,13 +409,13 @@ function dressGround(mesh) {
         float drift = sin(vWorld.x * 0.016 + uTime * 0.02) * sin(vWorld.z * 0.013 - uTime * 0.015);
         float cloud = smoothstep(0.2, 0.8, drift * 0.5 + 0.5);
         under *= mix(1.0, 0.9, cloud * 0.35);
-        vec3 col = under + vec3(0.72, 0.62, 0.38) * fres * bevel * 0.07;
+        vec3 col = under + vec3(0.78, 0.92, 0.88) * fres * bevel * 0.15;
         col = mix(col, vec3(0.02, 0.03, 0.04), dropout * 0.75);
         vec3 seamGold = vec3(0.910, 0.784, 0.467);
         vec3 seamAqua = vec3(0.624, 0.902, 0.878);
-        float seamEdge = smoothstep(aa * 0.05, aa * 0.72, hedge);
+        float seamEdge = smoothstep(aa * 0.16, aa * 1.2, hedge);
         vec3 seamCol = mix(seamGold, seamAqua, seamEdge);
-        float seamAmp = 0.22;
+        float seamAmp = 0.55 + fres * 0.08;
         if (uSeam > 0.5 && uSeam < 1.5) {
           float crack = fract(sin(dot(hid + floor(vec2(uTime * 9.0, uTime * 6.0)), vec2(19.1, 73.4))) * 43758.5);
           float spark = step(0.78, fract(sin(dot(vWorld.xz * 2.0, vec2(12.9, 78.2)) + uTime * 16.0) * 43758.5));
@@ -445,7 +438,7 @@ function dressGround(mesh) {
         }
         float patchN = sin(vWorld.x * 0.0105) * cos(vWorld.z * 0.0085);
         patchN += 0.55 * sin(vWorld.x * 0.022 + 1.4) * sin(vWorld.z * 0.018 + 0.6);
-        float noiseKeep = smoothstep(0.22, 0.95, patchN);
+        float noiseKeep = smoothstep(-0.7, -0.12, patchN);
         float nearHome = 1.0 - smoothstep(6.0, 16.0, length(vWorld.xz - uHome));
         float nearAether = nearHome;
         nearAether = max(nearAether, 1.0 - smoothstep(4.0, 12.0, length(vWorld.xz - uAether[0])));
@@ -456,11 +449,11 @@ function dressGround(mesh) {
         float hot = clamp(max(dirtW, max(nearHome, max(nearAether, nearPlayer * playerPulse))), 0.0, 1.0);
         float keep = mix(noiseKeep, 1.0, hot);
         if (uSeam > 0.5) keep = 1.0;
-        else seamAmp = mix(seamAmp, 0.48, hot);
-        seam *= mix(0.02, 1.0, keep);
+        else seamAmp = mix(seamAmp, 0.74, hot);
+        seam *= mix(0.42, 1.0, keep);
         col += vec3(0.0, 0.0, 0.0) * sunk * seam * 0.35;
         col *= mix(1.0, 0.45, sunk * seam);
-        col = mix(col, seamCol, clamp(seam * seamAmp, 0.0, 0.65) * (1.0 - dropout));
+        col = mix(col, seamCol, clamp(seam * seamAmp, 0.0, 0.7) * (1.0 - dropout));
         gl_FragColor = vec4(col, 1.0);
       }`,
   });
@@ -1903,16 +1896,35 @@ function applyPose(model, time, dt, speed, state) {
     setBone('rightLowerArm', 0.18 + Math.max(0, -swing) * 0.28 * w, -0.08, 0);
   }
   if (fp.on && model === vrm) {
-    const punch = fp.cast > 0 ? Math.sin((1 - fp.cast / 0.35) * Math.PI) : 0;
-    setBone('leftUpperArm', 0.35, 0.15, 1.25);
-    setBone('leftLowerArm', -0.9, 0.2, 0.15);
-    setBone('rightUpperArm', 0.55 + punch * 0.35, -0.2, -1.15);
-    setBone('rightLowerArm', -1.05, -0.1, -0.2);
+    facing = fp.yaw;
+    const punch = fp.cast > 0 ? Math.sin((1 - Math.min(fp.cast, 0.35) / 0.35) * Math.PI) : 0;
+    setBone('hips', 0, 0, 0);
+    setBone('spine', 0.08, 0, 0);
+    setBone('chest', 0.04, 0, 0);
+    setBone('neck', 0.1, 0, 0);
+    setBone('head', 0, 0, 0);
+    setBone('leftUpperArm', 1.45, 0.25, 0.42);
+    setBone('leftLowerArm', 1.15, 0.05, 0.1);
+    setBone('leftHand', -0.4, 0, 0.25);
+    setBone('rightUpperArm', 1.55 + punch * 0.2, -0.1, -0.38);
+    setBone('rightLowerArm', 1.05 - punch * 0.15, -0.05, -0.08);
+    setBone('rightHand', -0.55, 0.15, -0.35);
+    const spread = 0.22 + (fp.cast > 0 ? 0.18 : 0);
+    ['Index', 'Middle', 'Ring', 'Little'].forEach((finger, i) => {
+      const splay = (i - 1.5) * spread;
+      setBone('right' + finger + 'Proximal', -0.15, splay, 0);
+      setBone('right' + finger + 'Intermediate', 0.05, 0, 0);
+      setBone('right' + finger + 'Distal', 0.04, 0, 0);
+      setBone('left' + finger + 'Proximal', -0.2, splay * 0.4, 0);
+    });
+    setBone('rightThumbProximal', -0.4, 0.35, 0.4);
+    setBone('rightThumbIntermediate', -0.15, 0, 0);
+    setBone('leftThumbProximal', -0.3, -0.2, -0.3);
   }
 }
 
 function steer(dt) {
-  if (fp.on || shot === 'fp' || shot === 'rocks' || shot === 'home' || shot === 'npcs' || shot === 'water' || shot === 'close' || shot === 'wide' || shot === 'side' || shot === 'grass' || shot === 'grasswide' || shot === 'ground' || shot === 'groundwide' || shot === 'glass' || shot === 'glasswide' || shot === 'glassbody' || shot === 'tint') return 0;
+  if (fp.on || shot === 'fp' || shot === 'fpcast' || shot === 'fpfish' || shot === 'rocks' || shot === 'home' || shot === 'npcs' || shot === 'water' || shot === 'close' || shot === 'wide' || shot === 'side' || shot === 'grass' || shot === 'grasswide' || shot === 'ground' || shot === 'groundwide' || shot === 'glass' || shot === 'glasswide' || shot === 'glassbody' || shot === 'tint') return 0;
   let x = 0, z = 0, mode = '';
   const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw);
   const rx = -Math.cos(camYaw), rz = Math.sin(camYaw);
@@ -2066,35 +2078,90 @@ function mountFpHud() {
   document.body.appendChild(hud);
   hud.querySelector('[data-act="off"]').onclick = () => setFp(false);
 }
-function setFp(on) {
-  const allow = playMode === 'arena' || playMode === 'raid' || playMode === 'world' || fp.on;
+function setFpBody(on) {
+  if (!vrm || !vrm.scene || !vrm.humanoid) return false;
+  vrm.scene.traverse((o) => {
+    if (!o.isMesh) return;
+    const n = ((o.name || '') + ((o.material && o.material.name) || '')).toLowerCase();
+    const hide = /hair|face|head|eye|brow|mouth|teeth|lash|ear/.test(n);
+    if (!hide) return;
+    if (on) {
+      if (o.userData.fpVis == null) o.userData.fpVis = o.visible;
+      o.visible = false;
+    } else if (o.userData.fpVis != null) {
+      o.visible = o.userData.fpVis;
+      o.userData.fpVis = null;
+    }
+  });
+  const head = vrm.humanoid.getNormalizedBoneNode('head');
+  if (head) head.scale.setScalar(on ? 0.001 : 1);
+  ['leftUpperLeg', 'rightUpperLeg', 'leftLowerLeg', 'rightLowerLeg', 'leftFoot', 'rightFoot'].forEach((name) => {
+    const b = vrm.humanoid.getNormalizedBoneNode(name);
+    if (b) b.scale.setScalar(on ? 0.001 : 1);
+  });
+  const hand = vrm.humanoid.getNormalizedBoneNode('rightHand');
+  if (hand && !hand.getObjectByName('fpPalm')) {
+    const palm = new THREE.Mesh(
+      new THREE.SphereGeometry(0.018, 8, 6),
+      new THREE.MeshBasicMaterial({ color: 0xffd36a, transparent: true, opacity: 0 })
+    );
+    palm.name = 'fpPalm';
+    palm.position.set(0.01, 0.02, 0.045);
+    palm.layers.enable(1);
+    hand.add(palm);
+  }
+  return true;
+}
+function setFp(on, kind) {
+  const fish = kind === 'fish' || (on && playMode === 'fish' && kind !== 'fight');
+  const allow = playMode === 'arena' || playMode === 'raid' || playMode === 'world' || playMode === 'fish' || fp.on || fish;
   const next = !!on && allow;
-  if (next === fp.on) {
+  if (next === fp.on && !!fp.fish === !!fish) {
     document.body.classList.toggle('fp-on', fp.on);
     const el0 = document.getElementById('fpHud');
     if (el0) el0.classList.toggle('on', fp.on);
     return;
   }
   fp.on = next;
+  fp.fish = false;
   if (fp.on) {
     fp.saved = { x: px, z: pz, f: facing, mode: playMode };
-    playMode = 'world';
-    const spot = fightOverlook();
-    px = spot[0];
-    pz = spot[1];
-    const home = field.anchors.home;
-    fp.yaw = Math.atan2(px - home[0], pz - home[1]);
-    facing = fp.yaw;
-    fp.pitch = 0.06;
+    fp.pitch = 0.12;
     fp.clock = 0;
     fp.hp = 100;
     fp.placed = true;
     ensureFpArms();
-    placeFightBeast();
-    placeFightDress();
+    if (fish) {
+      if (playMode !== 'fish') enterPlay('fish');
+      fp.fish = true;
+      fp.saved.mode = 'fish';
+      const lake = field.anchors.lake;
+      fp.yaw = Math.atan2(lake[0] - px, lake[1] - pz);
+      facing = fp.yaw;
+      if (fightBeast) fightBeast.visible = false;
+      if (fightDress) fightDress.visible = false;
+    } else {
+      playMode = 'world';
+      const spot = fightOverlook();
+      px = spot[0];
+      pz = spot[1];
+      const home = field.anchors.home;
+      fp.yaw = Math.atan2(px - home[0], pz - home[1]);
+      facing = fp.yaw;
+      placeFightBeast();
+      placeFightDress();
+    }
     if (scene.fog) { scene.fog.near = 18; scene.fog.far = 110; }
+    fp.body = setFpBody(true);
+    if (fp.body) fp.pitch = 0.32;
+    if (fp.body && vrm.userData.matz) {
+      vrm.userData.matz.t = 1;
+      vrm.userData.matz.uFill.value = 99;
+    }
   } else {
     fp.placed = false;
+    setFpBody(false);
+    fp.body = false;
     if (fightBeast) fightBeast.visible = false;
     if (fightDress) fightDress.visible = false;
     if (fp.saved) {
@@ -2110,8 +2177,8 @@ function setFp(on) {
   mountFpHud();
   const el = document.getElementById('fpHud');
   if (el) el.classList.toggle('on', fp.on);
-  if (avatar) avatar.visible = !fp.on;
-  if (fpArms) fpArms.visible = !!fp.on;
+  if (avatar) avatar.visible = !fp.on || !!fp.body;
+  if (fpArms) fpArms.visible = !!fp.on && !fp.body;
   if (!fp.on && camera) { camera.near = 0.1; camera.fov = 42; camera.updateProjectionMatrix(); }
 }
 async function startFpXR() {
@@ -2202,32 +2269,70 @@ function attachGloves() {
 function frameFp() {
   const gy = groundY(px, pz);
   const ahead = new THREE.Vector3(Math.sin(fp.yaw), 0, Math.cos(fp.yaw));
-  camera.near = 0.06;
-  camera.fov = 64;
+  const pitch = fp.pitch || 0;
+  camera.near = fp.body ? 0.08 : 0.06;
+  camera.fov = 74;
   camera.updateProjectionMatrix();
-  camera.position.set(px, gy + 1.55, pz).addScaledVector(ahead, 0.18);
+  camera.position.set(px, gy + (fp.body ? 1.28 : 1.58), pz).addScaledVector(ahead, fp.body ? 0.16 : 0.18);
   camera.up.set(0, 1, 0);
-  const lookAtBeast = fightBeast && fightBeast.visible;
-  const lx = lookAtBeast ? fightBeast.position.x : px + ahead.x * 8;
-  const lz = lookAtBeast ? fightBeast.position.z : pz + ahead.z * 8;
-  const ly = groundY(lx, lz) + 1.7;
+  const lookDist = 8;
+  const lx = px + ahead.x * lookDist;
+  const lz = pz + ahead.z * lookDist;
+  const ly = gy + 1.35 - Math.sin(pitch) * 5.5;
   camera.lookAt(lx, ly, lz);
+  facing = fp.yaw;
   if (fpArms) {
-    fpArms.visible = true;
-    fpArms.position.copy(camera.position);
-    fpArms.quaternion.copy(camera.quaternion);
+    fpArms.visible = !!fp.on && !fp.body;
+    if (fpArms.visible) {
+      fpArms.position.copy(camera.position);
+      fpArms.quaternion.copy(camera.quaternion);
+    }
   }
   if (vrm && vrm.humanoid) {
     const palm = vrm.humanoid.getNormalizedBoneNode('rightHand');
-    const glow = palm && palm.getObjectByName('palm');
+    const glow = palm && (palm.getObjectByName('fpPalm') || palm.getObjectByName('palm'));
     if (glow && glow.material) {
-      const hot = fp.cast > 0 && fp.kind === 'fire';
-      glow.material.color.setHex(hot ? 0xff6a2a : 0xffd36a);
-      const s = 1 + (fp.cast > 0 ? Math.sin((1 - fp.cast / 0.35) * Math.PI) * 0.8 : 0.15);
+      const hot = fp.cast > 0;
+      glow.material.color.setHex(fp.kind === 'fire' ? 0xff6a2a : 0xffd36a);
+      glow.material.opacity = hot ? 0.85 : 0.12;
+      glow.material.transparent = true;
+      const s = hot ? 1.4 + Math.sin(worldT * 18) * 0.15 : 0.7;
       glow.scale.setScalar(s);
+      glow.visible = true;
     }
   }
+  poseFpBody();
   if (skyMat) skyMat.uniforms.uCam.value.copy(camera.position);
+}
+function poseFpBody() {
+  if (!fp.on || !fp.body || !vrm || !vrm.humanoid) return;
+  const setBone = (name, x, y, z) => {
+    const b = vrm.humanoid.getNormalizedBoneNode(name);
+    if (b) b.rotation.set(x, y, z);
+  };
+  const punch = fp.cast > 0 ? Math.sin((1 - Math.min(fp.cast, 0.35) / 0.35) * Math.PI) : 0;
+  setBone('hips', 0, 0, 0);
+  setBone('spine', 0.08, 0, 0);
+  setBone('chest', 0.04, 0, 0);
+  setBone('leftUpperArm', 0.05, 1.35, 0.12);
+  setBone('leftLowerArm', 0.15, 0.55, 0.05);
+  setBone('leftHand', -0.35, 0.1, 0.2);
+  setBone('rightUpperArm', 0.05 + punch * 0.08, -1.25, -0.1);
+  setBone('rightLowerArm', 0.1, -0.4, -0.05);
+  setBone('rightHand', -0.45, -0.15, -0.25);
+  const spread = 0.22 + (fp.cast > 0 ? 0.18 : 0);
+  ['Index', 'Middle', 'Ring', 'Little'].forEach((finger, i) => {
+    const splay = (i - 1.5) * spread;
+    setBone('right' + finger + 'Proximal', -0.15, splay, 0);
+    setBone('right' + finger + 'Intermediate', 0.05, 0, 0);
+    setBone('right' + finger + 'Distal', 0.04, 0, 0);
+  });
+  setBone('rightThumbProximal', -0.4, 0.35, 0.4);
+  setBone('rightThumbIntermediate', -0.15, 0, 0);
+  const head = vrm.humanoid.getNormalizedBoneNode('head');
+  if (head) head.scale.setScalar(0.001);
+  vrm.humanoid.update();
+  if (vrm.scene) vrm.scene.updateMatrixWorld(true);
 }
 function fpShoot(kind) {
   if (!fp.on || (fp.vials[kind] | 0) <= 0) return;
@@ -2244,6 +2349,7 @@ function stepFp(dt) {
   if (hud) hud.classList.toggle('pulse', fp.pulse > 0);
   if (palmOrb) palmOrb.visible = false;
   if (!fp.on) return;
+  if (shot === 'fpcast') fp.cast = 0.22;
   fp.clock += dt;
   if (fightBeast) {
     const idle = fightBeast.userData.idle;
@@ -4001,7 +4107,8 @@ const api = {
   key: onKey,
   pose(name) {
     const next = name || '';
-    if (next === 'fp') setFp(true);
+    if (next === 'fp' || next === 'fpcast') setFp(true, 'fight');
+    else if (next === 'fpfish') setFp(true, 'fish');
     else if (fp.on) setFp(false);
     shot = next;
     if (!next) camInit = false;
