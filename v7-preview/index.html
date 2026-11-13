@@ -1516,12 +1516,33 @@ function drawLakeLife(c, T) {
     if (X < -40 || X > W + 40 || Y < -40 || Y > H + 40) continue;
     if (pads++ > 18) break;
     const ph = ((calm ? 0.3 : T * 0.55) + t.n * 4) % 1;
-    ctx.strokeStyle = `rgba(255,255,255,${0.28 * (1 - ph)})`;
-    ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.ellipse(X, Y + 4 * f, (10 + ph * 16) * f, (4 + ph * 6) * f, 0, 0, TAU); ctx.stroke();
-    const sx = X - 8 * f + ((calm ? 0.2 : (T * 0.15 + t.n) % 1) * 16 * f);
-    ctx.strokeStyle = 'rgba(255,255,255,.4)';
-    ctx.beginPath(); ctx.moveTo(sx, Y - 2 * f); ctx.lineTo(sx + 10 * f, Y - 5 * f); ctx.stroke();
+    ctx.strokeStyle = `rgba(236,252,255,${0.62 * (1 - ph)})`;
+    ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.ellipse(X, Y + 4 * f, (12 + ph * 18) * f, (5 + ph * 7) * f, 0, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = `rgba(120,210,230,${0.35 * (1 - ph)})`;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.ellipse(X, Y + 4 * f, (6 + ph * 10) * f, (2.5 + ph * 4) * f, 0, 0, TAU); ctx.stroke();
+    const sx = X - 10 * f + ((calm ? 0.2 : (T * 0.22 + t.n) % 1) * 22 * f);
+    ctx.strokeStyle = 'rgba(255,255,255,.82)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(sx, Y - 3 * f); ctx.lineTo(sx + 14 * f, Y - 7 * f); ctx.stroke();
+    if (!calm && pads === 2 && (T % 5.2) < 0.75) {
+      const k = (T % 5.2) / 0.75;
+      const hop = Math.sin(k * Math.PI) * 22 * f;
+      ctx.save();
+      ctx.translate(X + 8 * f, Y - hop);
+      ctx.rotate(-0.5 + k);
+      ctx.fillStyle = '#f0b429';
+      ctx.beginPath(); ctx.ellipse(0, 0, 8 * f, 3.2 * f, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-7 * f, 0); ctx.lineTo(-12 * f, -3.5 * f); ctx.lineTo(-12 * f, 3.5 * f); ctx.fill();
+      ctx.restore();
+      if (k > 0.62) {
+        const s = (k - 0.62) / 0.38;
+        ctx.strokeStyle = `rgba(255,255,255,${0.75 * (1 - s)})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.ellipse(X + 8 * f, Y + 2 * f, (6 + s * 16) * f, (3 + s * 6) * f, 0, 0, TAU); ctx.stroke();
+      }
+    }
   }
   const pond = tileAt(5, -4);
   if (pond) {
