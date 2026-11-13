@@ -7671,28 +7671,16 @@ function discRot() {
   return aimAngle() - mid;
 }
 function discRadius() {
-  if (H >= 520) return 74;
+  if (W < 520) return 54;
+  if (H >= 520) return 64;
   const pocket = W * 0.46 - 24;
-  return clamp(Math.min(62, (H - 176) / 2, pocket / 2), 48, 64);
+  return clamp(Math.min(56, (H - 176) / 2, pocket / 2), 44, 56);
 }
 function discAnchor() {
   const R = discRadius();
-  if (H < 520) {
-    const x = W - R - 16;
-    const y = clamp(H * 0.42, R + 12, Math.max(R + 12, H - 158 - R));
-    return [clamp(x, R + 8, Math.max(R + 8, W - R - 8)), y];
-  }
-  if (TRAIN.view === 'fp') return [W * 0.5, Math.max(H * 0.72, H - 210)];
-  const [px, py] = pPos();
-  const P = proj(AR.cam, px, py);
-  let x = SET.hand === 'left' ? 108 : W - 108, y = H - 210;
-  if (TRAIN.aim) {
-    const A = proj(AR.cam, TRAIN.aim.x, TRAIN.aim.y);
-    const dx = A[0] - P[0], dy = A[1] - P[1], L = Math.hypot(dx, dy) || 1;
-    x = P[0] + dx / L * Math.min(78, L * 0.28);
-    y = (H - 200) + dy / L * 28;
-  }
-  return [clamp(x, R + 10, Math.max(R + 10, W - R - 10)), clamp(y, H * 0.58, Math.max(H * 0.58, H - 168))];
+  const x = SET.hand === 'left' ? R + 18 : W - R - 18;
+  const y = H - R - (H < 520 ? 78 : 108);
+  return [clamp(x, R + 8, Math.max(R + 8, W - R - 8)), clamp(y, R + 8, Math.max(R + 8, H - R - 8))];
 }
 function applyFpCam() {
   const c = AR.cam;
@@ -7974,13 +7962,32 @@ function trainUpdate(dt) {
   if (typeof cellUpdate === 'function') cellUpdate(dt);
   if (TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena') applyFpCam();
   if (G.scene === 'arena') {
-    const a = TRAIN.drag ? [TRAIN.drag.x, TRAIN.drag.y] : discAnchor();
+    const a = discAnchor();
     if (!TRAIN.disc) TRAIN.disc = { x: a[0], y: a[1] };
-    if (TRAIN.drag) { TRAIN.disc.x = a[0]; TRAIN.disc.y = a[1]; }
-    else { const k = Math.min(1, dt * 9); TRAIN.disc.x += (a[0] - TRAIN.disc.x) * k; TRAIN.disc.y += (a[1] - TRAIN.disc.y) * k; }
+    const k = Math.min(1, dt * 9); TRAIN.disc.x += (a[0] - TRAIN.disc.x) * k; TRAIN.disc.y += (a[1] - TRAIN.disc.y) * k;
   }
 }
+function fieldAimContext() {
+  const c = document.getElementById('aimCv');
+  if (!c || !document.body.classList.contains('field-on')) return ctx;
+  if (c.width !== cv.width || c.height !== cv.height) { c.width = cv.width; c.height = cv.height; fieldAimContext.cleared = false; }
+  const g = c.getContext('2d');
+  if (!fieldAimContext.cleared) {
+    g.setTransform(DPR, 0, 0, DPR, 0, 0);
+    g.clearRect(0, 0, W, H);
+    fieldAimContext.cleared = true;
+  }
+  return g;
+}
+function drawFieldToken() {
+  if (!document.body.classList.contains('field-on') || (TRAIN.on && TRAIN.view === 'fp')) return;
+  const g = fieldAimContext();
+  const [px, py] = pPos(), [X, Y, f] = proj(AR.cam, px, py);
+  const ch = AR.ptr && !AR.ptr.swiped && AR.ptr.held > .18 ? clamp((AR.ptr.held - .18) / .8, 0, 1) : 0;
+  drawAvatar(g, X, Y, 1.15 * AR.cam.hz * f, { t: T, view: 'back', cast: AR.castT * 4, charge: ch, col: SPELLS[AR.sel].col, hurt: AR.hurt });
+}
 function drawAimLayer() {
+  const ctx = fieldAimContext();
   if (G.scene !== 'arena' || !TRAIN.aim) return;
   const gun = GUN.cls === 'gunner';
   const [px, py] = pPos();
@@ -8049,6 +8056,7 @@ function drawDiscSprite(img, R) {
   ctx.drawImage(img, -dw / 2, -dh / 2 + R * 0.02, dw, dh);
 }
 function drawDisc() {
+  const ctx = fieldAimContext();
   if (!TRAIN.on || G.scene !== 'arena' || talkSpace()) return;
   const d = discCenter(), rim = currentRim(), key = GUN.cls === 'gunner' ? 'gunner' : 'mage';
   const sel = TRAIN.sel[key] || 0, cur = rim[sel] || rim[0], x = d.x, y = d.y, R = discRadius(), n = rim.length, rot = discRot();
@@ -8124,6 +8132,7 @@ function forearmEnds() {
   return ends;
 }
 function drawForearm() {
+  const ctx = fieldAimContext();
   if (G.scene !== 'arena' || !TRAIN.on || GUN.cls === 'gunner') return;
   const a = TRAIN.guide || 0;
   if (a < 0.05) return;
@@ -8168,6 +8177,7 @@ function drawForearm() {
   ctx.restore();
 }
 function drawHoldDemo() {
+  const ctx = fieldAimContext();
   if (!TRAIN.demo || G.scene !== 'arena' || !TRAIN.on || GUN.cls === 'gunner') return;
   const d = discCenter(), R = discRadius(), calm = reducedMotion();
   const period = 5.4;
@@ -8896,6 +8906,7 @@ function cellAnchor() {
   return { x: px + (tx - px) * along * 0.9 + wobble, y: py + (ty - py) * along * 0.9, tx, ty };
 }
 function drawCellAim() {
+  const ctx = fieldAimContext();
   if (!cellReady() || G.scene !== 'arena') return;
   const [px, py] = pPos();
   const [X, Y] = proj(AR.cam, px, py);
@@ -8968,6 +8979,7 @@ function projUp(c, wx, wy, h) {
   return [W / 2 + u * f, c.cy + v * cA * f - hh * sA * f];
 }
 function drawCellRig() {
+  const ctx = fieldAimContext();
   if (!TRAIN.on || TRAIN.king || G.scene !== 'arena') return;
   if (!CELL.loaded && !CELL.charge && !CELL.puzzle && CELL.phase === 'idle' && !CELL.bolt) return;
   const anchor = cellAnchor();
@@ -9389,6 +9401,7 @@ function drillLine() {
 }
 { const _layoutArenaCam = layoutArenaCam; layoutArenaCam = function () { if (TRAIN.on && TRAIN.view === 'fp') { applyFpCam(); return; } _layoutArenaCam(); AR.cam.x = 0; if (raidViewLow()) { applyLowCam(); return; } if (TRAIN.king) { AR.cam.cy = H * 0.60; AR.cam.y = 0.15; AR.floorDirty = true; } else if (TRAIN.on) { AR.cam.cy = H * 0.58; AR.floorDirty = true; } }; }
 function drawFpFrame() {
+  const ctx = fieldAimContext();
   if (!(TRAIN.on && TRAIN.view === 'fp' && G.scene === 'arena')) return;
   ctx.save();
   const hy = H * 0.38;
@@ -9407,7 +9420,7 @@ function drawFpFrame() {
   ctx.stroke();
   ctx.restore();
 }
-{ const _vignette = vignette; vignette = function () { const garden = typeof GARDEN_ROOM !== 'undefined' && GARDEN_ROOM.on; const fishing = typeof FI !== 'undefined' && FI.open; const market = typeof marketPlateOn === 'function' && marketPlateOn(); const gather = typeof GATHER !== 'undefined' && GATHER.on; if (!garden && !fishing && !market && !gather) _vignette(); if (G.scene === 'arena' && !market) { drawFpFrame(); drawAimLayer(); drawDisc(); drawForearm(); drawHoldDemo(); if (typeof drawCellRig === 'function') drawCellRig(); if (typeof drawCellAim === 'function') drawCellAim(); if (typeof drawFollowerSticker === 'function') drawFollowerSticker(); } if (G.scene === 'map' && !garden && !fishing && !gather) { drawMarkChevrons(); drawDockHud(); if (typeof drawMapPetSticker === 'function') drawMapPetSticker(); } }; }
+{ const _vignette = vignette; vignette = function () { const garden = typeof GARDEN_ROOM !== 'undefined' && GARDEN_ROOM.on; const fishing = typeof FI !== 'undefined' && FI.open; const market = typeof marketPlateOn === 'function' && marketPlateOn(); const gather = typeof GATHER !== 'undefined' && GATHER.on; if (!garden && !fishing && !market && !gather) _vignette(); fieldAimContext.cleared = false; if (G.scene === 'arena' && !market) { drawFpFrame(); drawAimLayer(); drawDisc(); drawForearm(); drawHoldDemo(); drawFieldToken(); if (typeof drawCellRig === 'function') drawCellRig(); if (typeof drawCellAim === 'function') drawCellAim(); if (typeof drawFollowerSticker === 'function') drawFollowerSticker(); } else { const aim = document.getElementById('aimCv'); if (aim && aim.width) { const g = aim.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, aim.width, aim.height); } } if (G.scene === 'map' && !garden && !fishing && !gather) { drawMarkChevrons(); drawDockHud(); if (typeof drawMapPetSticker === 'function') drawMapPetSticker(); } }; }
 { const _obj = arenaObjective; arenaObjective = function () { if (!TRAIN.on) return _obj(); const t = TRAIN.king ? kingLine() : drillLine(); if (t !== AR.objT) { AR.objT = t; setObj(t); } }; }
 { const _setClass = setClass; setClass = function (c) { if (TRAIN.on && c !== GUN.cls) interruptCharge('Charge cancelled'); const r = _setClass(c); syncClassBtn(); const help = document.getElementById('trainHelp'); if (help && TRAIN.on) help.textContent = trainHelpText(); return r; }; }
 { const _manaUI = manaUI; manaUI = function () {
