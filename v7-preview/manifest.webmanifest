@@ -1,0 +1,8 @@
+{
+  "name": "Aether Realms Online",
+  "short_name": "Aether",
+  "display": "standalone",
+  "background_color": "#1a0f1f",
+  "theme_color": "#1a0f1f",
+  "start_url": "./"
+}
