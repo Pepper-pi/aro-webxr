@@ -8,6 +8,8 @@
  * Idle and walk are original clips posed on the VRM humanoid bones (no Mixamo files).
  * Map: OpenStreetMap contributors, ODbL. Seaside, Oregon, the game's fallback place.
  *   Roads, the river, and parks are rasterized from that extract. No paid assets.
+ * Ground photos, CC0, Poly Haven (https://polyhaven.com/license):
+ *   forest_floor, aerial_grass_rock, floor_pebbles_01. Resized and recompressed here.
  */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -214,52 +216,139 @@ vec3 holoHex(vec2 p, float scale){
   return vec3(id, 0.5 - hd);
 }
 `;
+let seamLock = -1;
+function loadGroundTex(url, color) {
+  const tex = new THREE.TextureLoader().load(url);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = color ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
 function dressGround(mesh) {
-  const mat = mesh.material;
-  mat.onBeforeCompile = (shader) => {
-    shader.uniforms.uTime = { value: 0 };
-    shader.uniforms.uHolo = { value: 1 };
-    shader.uniforms.uOrigin = { value: new THREE.Vector2() };
-    mat.userData.shader = shader;
-    groundHolo = shader;
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vHoloW;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvHoloW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-    shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\n' + HEX_GLSL + '\nvarying vec3 vHoloW;\nuniform float uTime;\nuniform float uHolo;\nuniform vec2 uOrigin;')
-      .replace('#include <opaque_fragment>', `
-        vec3 hcell = holoHex(vHoloW.xz, 2.45);
-        vec2 hid = hcell.xy; float hedge = hcell.z;
-        float hline = 1.0 - smoothstep(0.015, 0.06, hedge);
-        float hdist = length(vHoloW.xz - uOrigin);
-        float cycle = fract(uTime * 0.09 + 0.22);
-        float sweep = cycle * 64.0;
-        float ring = exp(-abs(hdist - sweep) * 0.85);
-        float gate = smoothstep(0.02, 0.1, cycle) * (1.0 - smoothstep(0.72, 0.92, cycle));
-        float grit = fract(sin(dot(floor(vHoloW.xz * 5.5), vec2(19.1, 73.4))) * 43758.5);
-        outgoingLight *= 0.9 + grit * 0.16;
-        float fleck = step(0.986, fract(sin(dot(floor(vHoloW.xz * 8.0), vec2(12.9, 78.2))) * 43758.5));
-        outgoingLight = mix(outgoingLight, vec3(0.24, 0.15, 0.08), fleck * 0.45);
-        float breath = 0.65 + 0.35 * (0.5 + 0.5 * sin(uTime * 0.31));
-        float farOnly = smoothstep(22.0, 55.0, hdist);
-        float presence = (0.01 * breath + ring * gate * 0.05) * farOnly * uHolo;
-        if (vHoloW.y < -0.15) presence = 0.0;
-        vec3 hcol = mix(vec3(0.35, 0.95, 1.0), vec3(1.0, 0.78, 0.34), step(0.55, holoHash(hid)));
-        outgoingLight += hcol * hline * presence;
-        float far = smoothstep(14.0, 32.0, hdist);
-        float rare = step(mix(0.993, 0.97, clamp(uHolo, 0.0, 1.0)), holoHash(hid + 4.2));
-        float phase = fract(uTime * 0.11 + holoHash(hid + 1.7) * 6.0);
-        float burst = (1.0 - smoothstep(0.0, 0.22, phase)) * far * rare;
-        float scan = smoothstep(0.42, 0.82, fract(vHoloW.x * 2.6 + uTime * 5.0));
-        float edgeR = holoHex(vHoloW.xz + vec2(0.09, 0.0), 2.45).z;
-        float edgeB = holoHex(vHoloW.xz - vec2(0.09, 0.0), 2.45).z;
-        vec3 glitch = vec3(1.0 - smoothstep(0.01, 0.045, edgeR), scan * 0.5, 1.0 - smoothstep(0.01, 0.045, edgeB));
-        outgoingLight = mix(outgoingLight, glitch, burst * 0.55 * uHolo * step(-0.15, vHoloW.y));
-        #include <opaque_fragment>
-      `);
-  };
-    mat.customProgramCacheKey = () => 'holo-ground-v1';
-  mat.needsUpdate = true;
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uHolo: { value: 1 },
+      uOrigin: { value: new THREE.Vector2() },
+      uSeam: { value: 0 },
+      uSoil: { value: loadGroundTex('assets/ground/forest_floor.jpg', true) },
+      uHeight: { value: loadGroundTex('assets/ground/forest_floor_h.jpg', false) },
+      uMoss: { value: loadGroundTex('assets/ground/moss_rock.jpg', true) },
+      uPebble: { value: loadGroundTex('assets/ground/pebbles.jpg', true) },
+      uLake: { value: new THREE.Vector2() },
+      uLakeR: { value: new THREE.Vector2(36, 24) },
+    },
+    vertexShader: `
+      attribute vec3 color;
+      varying vec3 vWorld;
+      varying vec3 vColor;
+      void main(){
+        vColor = color;
+        vec4 w = modelMatrix * vec4(position, 1.0);
+        vWorld = w.xyz;
+        gl_Position = projectionMatrix * viewMatrix * w;
+      }`,
+    fragmentShader: `
+      precision highp float;
+      varying vec3 vWorld;
+      varying vec3 vColor;
+      uniform float uTime;
+      uniform float uHolo;
+      uniform float uSeam;
+      uniform vec2 uOrigin;
+      uniform sampler2D uSoil;
+      uniform sampler2D uHeight;
+      uniform sampler2D uMoss;
+      uniform sampler2D uPebble;
+      uniform vec2 uLake;
+      uniform vec2 uLakeR;
+      ${HEX_GLSL}
+      vec3 lift(vec3 c){ return pow(max(c, vec3(0.001)), vec3(0.5)); }
+      vec3 grade(vec3 c, vec3 tint){
+        c = mix(c, tint, 0.12);
+        float l = dot(c, vec3(0.25, 0.6, 0.15));
+        c = mix(c, vec3(l * 0.7, l, l * 0.45), 0.12);
+        return c;
+      }
+      void main(){
+        float lakeD = length((vWorld.xz - uLake) / max(uLakeR, vec2(1.0)));
+        if (vWorld.y < -0.18 && lakeD < 0.9) {
+          gl_FragColor = vec4(mix(vec3(0.04, 0.2, 0.32), vColor, 0.35), 1.0);
+          return;
+        }
+        vec3 V = normalize(cameraPosition - vWorld);
+        vec2 viewXZ = clamp(V.xz / max(V.y, 0.2), vec2(-0.45), vec2(0.45));
+        vec2 uv = vWorld.xz * 0.16;
+        vec2 uvOff = uv;
+        float hit = 0.0;
+        for (int i = 0; i < 6; i++) {
+          float layer = float(i) / 6.0;
+          vec2 uvi = uv + viewXZ * 0.045 * layer;
+          float hh = texture2D(uHeight, uvi).r;
+          if (hh >= 1.0 - layer) { uvOff = uvi; hit = hh; }
+        }
+        vec3 soil = lift(texture2D(uSoil, uvOff).rgb);
+        vec3 moss = lift(texture2D(uMoss, uvOff * 0.73 + 3.0).rgb);
+        vec3 peb = lift(texture2D(uPebble, uvOff * 1.35).rgb);
+        float mossMix = smoothstep(0.45, 0.82, hit) * smoothstep(0.25, 0.7, vColor.g);
+        float pebMix = smoothstep(0.62, 0.9, texture2D(uHeight, uvOff * 1.7 + 8.0).r) * 0.55;
+        vec3 under = mix(soil, moss, mossMix);
+        under = mix(under, peb, pebMix);
+        under *= 0.72 + hit * 0.4;
+        float n1 = holoHash(floor(vWorld.xz * 0.17));
+        float n2 = holoHash(vWorld.xz * 0.11 + 4.2);
+        float vein = 1.0 - smoothstep(0.0, 0.045, abs(n1 - 0.5));
+        vein *= step(0.62, n2);
+        float pulse = 0.55 + 0.45 * sin(uTime * 0.55 + n2 * 8.0);
+        under += vec3(1.0, 0.74, 0.22) * vein * pulse * 0.95;
+        under = grade(under, vColor * 0.85 + 0.15);
+        vec3 hcell = holoHex(vWorld.xz, 1.35);
+        vec2 hid = hcell.xy;
+        float hedge = hcell.z;
+        float seam = 1.0 - smoothstep(0.01, 0.045, hedge);
+        float bevel = smoothstep(0.02, 0.08, hedge) * (1.0 - smoothstep(0.08, 0.2, hedge));
+        float fres = pow(1.0 - clamp(V.y, 0.0, 1.0), 2.0);
+        float grassW = clamp(smoothstep(0.9, 1.35, under.g / max(under.r, 0.04)) + smoothstep(0.03, 0.16, vColor.g - vColor.r), 0.0, 1.0);
+        float dirtW = clamp(smoothstep(0.02, 0.14, vColor.r - vColor.g) + smoothstep(1.05, 1.45, under.r / max(under.b, 0.04)) * (1.0 - grassW), 0.0, 1.0);
+        float stoneW = clamp(pebMix * 1.2 + (1.0 - clamp(abs(under.r - under.g) * 3.0, 0.0, 1.0)) * 0.35, 0.0, 1.0);
+        float waterW = smoothstep(1.22, 0.98, lakeD) * smoothstep(0.78, 0.98, lakeD);
+        vec3 bias = vec3(1.0);
+        bias = mix(bias, vec3(0.78, 1.12, 0.7), grassW * 0.85);
+        bias = mix(bias, vec3(1.18, 0.86, 0.58), dirtW * 0.9);
+        bias = mix(bias, vec3(0.74, 0.84, 1.12), stoneW * 0.8);
+        bias = mix(bias, vec3(0.5, 0.98, 1.12), waterW);
+        vec3 glass = vec3(0.8, 0.88, 0.86) * bias;
+        vec3 col = mix(under, glass, 0.1 + fres * 0.26);
+        col *= mix(vec3(1.0), bias, 0.72);
+        col += glass * bevel * (0.12 + fres * 0.16);
+        vec3 seamCol = mix(vec3(0.45, 0.95, 1.0), vec3(1.0, 0.8, 0.38), 0.45);
+        float seamAmp = 0.55;
+        if (uSeam > 0.5 && uSeam < 1.5) {
+          float crack = step(0.42, fract(sin(dot(hid, vec2(19.1, 73.4)) + uTime * 6.0) * 43758.5));
+          seamCol = vec3(1.0, 0.25, 0.62);
+          seamAmp = 0.35 + crack * 0.9;
+        } else if (uSeam > 1.5 && uSeam < 2.5) {
+          float rip = 0.5 + 0.5 * sin(length(vWorld.xz - uOrigin) * 1.6 - uTime * 3.2);
+          seamCol = vec3(0.35, 0.7, 1.0);
+          seamAmp = 0.25 + rip * 0.7;
+          col += vec3(0.45, 0.7, 1.0) * rip * seam * 0.15;
+        } else if (uSeam > 2.5 && uSeam < 3.5) {
+          float flick = 0.6 + 0.4 * sin(uTime * 9.0 + hid.x);
+          seamCol = vec3(1.0, 0.42, 0.12);
+          seamAmp = 0.45 * flick;
+          col += vec3(1.0, 0.35, 0.08) * seam * 0.2;
+        } else if (uSeam > 3.5) {
+          seamCol = vec3(0.45, 1.0, 0.55);
+          seamAmp = 0.7;
+        }
+        float hdist = length(vWorld.xz - uOrigin);
+        float farOnly = smoothstep(28.0, 70.0, hdist);
+        col += seamCol * seam * (0.32 + seamAmp * 0.35) * mix(1.0, 0.5, farOnly);
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+  });
+  mesh.material = mat;
+  groundHolo = mat;
 }
 function holoLevel() {
   try { return window.__aroHolo ? +window.__aroHolo() : 1; }
@@ -765,7 +854,7 @@ function buildTileGrass(trees) {
           ? 'mix(vec3(0.36, 0.24, 0.13), vec3(0.22, 0.14, 0.08), n)'
           : 'mix(vec3(0.06, 0.24, 0.08), vec3(0.16, 0.4, 0.1), n)'};
         c = mix(c, ${kind === 'dirt' ? 'vec3(0.5, 0.4, 0.24)' : 'vec3(0.75, 0.88, 0.32)'}, spec);
-        gl_FragColor = vec4(c, edge * ${kind === 'dirt' ? '0.8' : '0.7'});
+        gl_FragColor = vec4(c, edge * ${kind === 'dirt' ? '0.55' : '0.22'});
       }`,
   });
   const discMat = new THREE.ShaderMaterial({
@@ -984,7 +1073,7 @@ function cullGrass(force) {
     const solid = d < 8 ? 1 : d > 16 ? 0 : (16 - d) / 8;
     const yaw = h * Math.PI * 2;
     if ((g === 1 || g === 2 || g === 3) && d < 24 && n.decals < caps.decals) {
-      placeInst(kit.decals, n.decals, x, y + 0.025, z, yaw, 2.15 + h * 0.4, 1, 2.15 + (1 - h) * 0.35);
+      placeInst(kit.decals, n.decals, x, y + 0.025, z, yaw, 1.35 + h * 0.25, 1, 1.25 + (1 - h) * 0.2);
       seedOf(kit.decals, n.decals, h);
       n.decals++;
     }
@@ -1413,7 +1502,7 @@ function applyPose(model, time, dt, speed, state) {
 }
 
 function steer(dt) {
-  if (shot === 'home' || shot === 'npcs' || shot === 'water' || shot === 'close' || shot === 'wide' || shot === 'side' || shot === 'grass' || shot === 'grasswide' || shot === 'ground' || shot === 'groundwide') return 0;
+  if (shot === 'home' || shot === 'npcs' || shot === 'water' || shot === 'close' || shot === 'wide' || shot === 'side' || shot === 'grass' || shot === 'grasswide' || shot === 'ground' || shot === 'groundwide' || shot === 'glass' || shot === 'glasswide' || shot === 'glassbody' || shot === 'tint') return 0;
   let x = 0, z = 0, mode = '';
   const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw);
   const rx = -Math.cos(camYaw), rz = Math.sin(camYaw);
@@ -1574,18 +1663,12 @@ function mountFpHud() {
 function setFp(on) {
   const allow = playMode === 'arena' || playMode === 'raid';
   fp.on = !!on && allow;
-  if (fp.on) { fp.yaw = facing; fp.pitch = -0.08; }
+  if (fp.on) { fp.yaw = facing; fp.pitch = 0.52; }
   document.body.classList.toggle('fp-on', fp.on);
   mountFpHud();
   const el = document.getElementById('fpHud');
   if (el) el.classList.toggle('on', fp.on);
-  if (vrm && vrm.scene) {
-    vrm.scene.traverse((o) => {
-      if (!o.isMesh) return;
-      const n = (o.name || '') + ((o.material && o.material.name) || '');
-      if (/head|face|hair|eye|brow|mouth|teeth|lash/i.test(n)) o.visible = !fp.on;
-    });
-  }
+  if (avatar) avatar.visible = !fp.on;
   if (fpArms) fpArms.visible = fp.on;
   if (!fp.on && camera) { camera.fov = 42; camera.updateProjectionMatrix(); }
 }
@@ -1607,40 +1690,58 @@ function ensureFpArms() {
   if (fpArms) return;
   fpArms = new THREE.Group();
   const skin = toonMat('#e7b89a');
-  const sleeve = toonMat('#161616');
-  const cuff = toonMat('#f4efe4');
+  const sleeve = toonMat('#1c1c1c');
+  const cuff = toonMat('#f3ecdf');
   const make = (side) => {
     const g = new THREE.Group();
-    g.userData.side = side;
-    const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.32, 4, 8), sleeve);
+    const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.36, 5, 8), sleeve);
+    fore.rotation.x = 1.15;
     fore.rotation.z = side * 0.35;
-    fore.position.set(side * 0.32, -0.38, -0.48);
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.045, 8), cuff);
-    band.rotation.z = side * 0.35;
-    band.position.set(side * 0.24, -0.48, -0.66);
-    const hand = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.05, 0.12), skin);
-    hand.position.set(side * 0.2, -0.52, -0.78);
-    g.add(fore, band, hand);
-    g.traverse((o) => { if (o.layers) o.layers.set(1); });
+    fore.position.set(side * 0.28, -0.48, -0.85);
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.02, 0.22), cuff);
+    stripe.position.set(side * 0.28, -0.42, -0.78);
+    const hand = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.05, 0.13), skin);
+    hand.position.set(side * 0.22, -0.62, -1.12);
+    const palm = new THREE.Mesh(
+      new THREE.SphereGeometry(0.06, 10, 8),
+      new THREE.MeshBasicMaterial({ color: side > 0 ? 0xffd36a : 0xfff1c4 })
+    );
+    palm.position.set(side * 0.22, -0.58, -1.05);
+    palm.name = 'palm';
+    g.add(fore, stripe, hand, palm);
     return g;
   };
   fpArms.add(make(-1), make(1));
   fpArms.visible = false;
-  camera.add(fpArms);
+  fpArms.frustumCulled = false;
+  fpArms.traverse((o) => { o.frustumCulled = false; });
+  scene.add(fpArms);
 }
 let fpArms = null;
 function frameFp() {
-  const y = standY(px, pz) + 1.52;
-  camera.fov = 68;
+  const y = standY(px, pz) + 1.45;
+  camera.fov = 62;
   camera.updateProjectionMatrix();
-  ensureFpArms();
-  fpArms.visible = true;
-  const punch = fp.cast > 0 ? Math.sin((1 - fp.cast / 0.35) * Math.PI) * 0.12 : 0;
-  fpArms.children[1].position.z = -punch;
-  camera.position.set(px, y, pz);
+  const ahead = new THREE.Vector3(Math.sin(fp.yaw), 0, Math.cos(fp.yaw));
+  camera.position.set(px, y, pz).addScaledVector(ahead, 0.32);
   camera.rotation.order = 'YXZ';
   camera.rotation.y = fp.yaw;
-  camera.rotation.x = Math.max(fp.pitch, 0.05);
+  camera.rotation.x = fp.pitch;
+  ensureFpArms();
+  fpArms.visible = true;
+  const punch = fp.cast > 0 ? Math.sin((1 - Math.min(1, fp.cast / 0.35)) * Math.PI) : 0;
+  fpArms.position.copy(camera.position);
+  fpArms.quaternion.copy(camera.quaternion);
+  const right = fpArms.children[1];
+  if (right) {
+    right.position.z = -punch * 0.16;
+    const palm = right.getObjectByName('palm');
+    if (palm) {
+      const hot = fp.kind === 'fire' ? 0xff6a2a : 0xffd36a;
+      palm.material.color.setHex(hot);
+      palm.scale.setScalar(1.1 + punch * 1.6);
+    }
+  }
   if (skyMat) skyMat.uniforms.uCam.value.copy(camera.position);
 }
 function fpShoot(kind) {
@@ -1706,6 +1807,33 @@ function frameCamera() {
     aimCamera(px - 1.2, gy + 1.7, pz + 2.4, px + 6, gy + 28, pz - 10);
     return;
   }
+  else if (shot === 'tint' && field) {
+    const lake = field.anchors.lake;
+    let best = nearestWalkable(lake[0], lake[1] + 50);
+    let bestScore = -1;
+    for (let i = 0; i < 36; i++) {
+      const a = (i / 36) * Math.PI * 2;
+      const spot = nearestWalkable(lake[0] + Math.cos(a) * 52, lake[1] + Math.sin(a) * 40);
+      const k = kindAt(spot[0], spot[1]);
+      if (k == null || k === 3) continue;
+      const d = Math.hypot((spot[0] - lake[0]) / 36, (spot[1] - lake[1]) / 24);
+      if (d < 1.2) continue;
+      const road = nearKind(spot[0], spot[1], 4, 16) ? 3 : 0;
+      const score = road + (d < 1.7 ? 2 : 0) + (k === 0 || k === 1 ? 1 : 0);
+      if (score > bestScore) { bestScore = score; best = spot; }
+    }
+    px = best[0]; pz = best[1];
+    facing = Math.atan2(lake[0] - px, lake[1] - pz);
+    camDist = 12;
+    camPitch = 0.78;
+    camYaw = facing;
+  }
+  else if (shot === 'glass' || shot === 'glasswide' || shot === 'glassbody') {
+    if (shot === 'glass') { camDist = 6.5; camPitch = 0.42; }
+    else if (shot === 'glasswide') { camDist = 16; camPitch = 0.48; }
+    else { camDist = 6.2; camPitch = 0.32; }
+    camYaw = facing + 0.4;
+  }
   else if (shot === 'grass' || shot === 'grasswide' || shot === 'ground' || shot === 'groundwide') {
     const spot = nearestDetail(shot.indexOf('ground') === 0);
     if (spot) { px = spot[0]; pz = spot[1]; facing = 0.6; }
@@ -1750,6 +1878,13 @@ function frameCamera() {
 
 function onKey(e, down) {
   if (!active) return;
+  if (down && e.code === 'KeyG' && !document.querySelector('.modal.on, #simpleMenu.on, #spineBook.on')) {
+    const order = ['auto', 'default', 'surge', 'rain', 'fire', 'hex'];
+    const cur = ['auto', 'default', 'surge', 'rain', 'fire', 'hex'][seamLock + 1] || 'auto';
+    const i = order.indexOf(cur);
+    setSeam(order[(i + 1) % order.length]);
+    return;
+  }
   if (down && (e.code === 'Digit1' || e.code === 'Digit2') && !document.querySelector('#simpleMenu.on, #spineBook.on')) {
     castSpell(e.code === 'Digit2' ? 'fire' : 'aether');
     return;
@@ -2330,6 +2465,10 @@ function renderWorld() {
             c += texture2D(tBloom, vUv).rgb * 0.14;
             float grain = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
             c *= 0.975 + grain * 0.04;
+            vec3 warm = vec3(c.r * 1.05, c.g * 0.99, c.b * 0.9);
+            c = mix(c, warm, 0.16);
+            float luma = dot(c, vec3(0.3, 0.59, 0.11));
+            c = mix(c, vec3(luma) * 0.35 + c * 0.75, 0.08);
             gl_FragColor = vec4(c, 1.0);
           }`,
       });
@@ -2553,11 +2692,30 @@ function tick(dt, show) {
 function syncHolo() {
   const h = holoLevel();
   if (skyMat && skyMat.uniforms.uHolo) skyMat.uniforms.uHolo.value = h;
-  if (groundHolo) {
+  if (groundHolo && groundHolo.uniforms) {
     groundHolo.uniforms.uTime.value = worldT;
-    groundHolo.uniforms.uHolo.value = h;
+    if (groundHolo.uniforms.uHolo) groundHolo.uniforms.uHolo.value = h;
     groundHolo.uniforms.uOrigin.value.set(px, pz);
+    if (groundHolo.uniforms.uSeam) groundHolo.uniforms.uSeam.value = seamValue();
+    if (field && groundHolo.uniforms.uLake) {
+      groundHolo.uniforms.uLake.value.set(field.anchors.lake[0], field.anchors.lake[1]);
+    }
   }
+}
+function seamValue() {
+  if (seamLock >= 0) return seamLock;
+  for (const g of superHexes) {
+    if (Math.hypot(px - g.position.x, pz - g.position.z) < 9) return 4;
+  }
+  for (const b of bolts) {
+    if (b.kind === 'fire' && Math.hypot(b.p.x - px, b.p.z - pz) < 7) return 3;
+  }
+  return 0;
+}
+function setSeam(name) {
+  const map = { auto: -1, default: 0, surge: 1, rain: 2, fire: 3, hex: 4 };
+  seamLock = name in map ? map[name] : -1;
+  return seamLock;
 }
 function shoreSpot() {
   const lake = field.anchors.lake;
@@ -2645,8 +2803,13 @@ function handWorld(which) {
   return v;
 }
 function castSpell(kind) {
-  const origin = handWorld(kind === 'fire' ? 'r' : 'l');
-  const dir = new THREE.Vector3(Math.sin(facing), 0.06, Math.cos(facing)).normalize();
+  let origin = handWorld(kind === 'fire' ? 'r' : 'l');
+  let dir = new THREE.Vector3(Math.sin(facing), 0.06, Math.cos(facing)).normalize();
+  if (fp.on && camera) {
+    origin = camera.position.clone().add(new THREE.Vector3(0.2, -0.5, -0.85).applyQuaternion(camera.quaternion));
+    dir = new THREE.Vector3(0, -0.04, -1).applyQuaternion(camera.quaternion).normalize();
+    fp.kind = kind;
+  }
   const mesh = new THREE.Mesh(
     new THREE.SphereGeometry(kind === 'fire' ? 0.28 : 0.2, 8, 6),
     new THREE.MeshBasicMaterial({ color: kind === 'fire' ? 0xff6a2a : 0xffd36a })
@@ -2939,7 +3102,7 @@ function buildSites() {
   marketLab.position.set(0, 2.6, -6);
   market.add(marketLab);
 
-  const arena = cutaway('arena', 18, 14, 3.4, '#243044', '#1c2433');
+  const arena = cutaway('arena', 18, 14, 3.4, '#5d6e8a', '#3e516c');
   const ring = new THREE.Mesh(new THREE.TorusGeometry(4.6, 0.08, 8, 48), new THREE.MeshBasicMaterial({ color: 0x7ff0ff }));
   ring.rotation.x = Math.PI / 2;
   ring.position.y = 0.08;
@@ -2953,6 +3116,26 @@ function buildSites() {
   const arenaLight = new THREE.PointLight(0x9ee7ff, 1.1, 16);
   arenaLight.position.y = 2.2;
   arena.add(arenaLight);
+  const arenaFill = new THREE.HemisphereLight(0xffe0c0, 0x3a4a62, 0.85);
+  arena.add(arenaFill);
+  const arenaSky = new THREE.Mesh(new THREE.SphereGeometry(12, 20, 12), new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    vertexShader: 'varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+    fragmentShader: `
+      precision mediump float; varying vec3 vP;
+      void main(){
+        vec3 d = normalize(vP);
+        vec3 bot = vec3(0.55, 0.36, 0.28);
+        vec3 top = vec3(0.95, 0.62, 0.42);
+        vec3 c = mix(bot, top, smoothstep(-0.2, 0.7, d.y));
+        float hex = abs(fract(atan(d.x, d.z) * 1.6) - 0.5);
+        c += vec3(0.6, 0.9, 1.0) * (1.0 - smoothstep(0.02, 0.08, hex)) * 0.08 * smoothstep(0.0, 0.4, d.y);
+        gl_FragColor = vec4(c, 1.0);
+      }`,
+  }));
+  arenaSky.position.y = 1.2;
+  arena.add(arenaSky);
   const arenaLab = labelSprite('Sparring', '#9ee7ff', [1.4, 0.3]);
   arenaLab.position.set(0, 2.4, -4);
   arena.add(arenaLab);
@@ -3259,6 +3442,7 @@ const api = {
   pose(name) { shot = name || ''; if (!name) camInit = false; },
   posePhase(p) { playerPose.phase = p; playerPose.amp = 1; if (!shot) shot = 'side'; },
   fp(on) { setFp(on); return { on: fp.on, xr: fp.xr, vials: fp.vials }; },
+  seam(name) { return setSeam(name == null ? 'auto' : name); },
   where() { return { x: px, z: pz, facing, avatarReady, active, mode: playMode }; },
   enter: enterPlay,
   exit: exitPlay,
