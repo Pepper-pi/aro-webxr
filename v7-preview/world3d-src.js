@@ -2263,7 +2263,7 @@ function mountFpHud() {
   document.head.appendChild(s);
   const hud = document.createElement('div');
   hud.id = 'fpHud';
-  hud.innerHTML = '<div class="top"><div class="hp"><i data-hp></i></div><b class="time" data-time>00:00</b><button type="button" data-act="off">Back</button></div><div id="fpTrack">Hold, then release to cast</div><button type="button" id="fpView">Virtual</button><button type="button" id="fpDummy">Dummy</button><button type="button" id="fpCam">Camera hands</button>';
+  hud.innerHTML = '<div class="top"><div class="hp"><i data-hp></i></div><b class="time" data-time>00:00</b><button type="button" data-act="off">Back</button></div><div id="fpTrack">Hold, then release to cast</div><button type="button" id="fpView">Virtual</button><button type="button" id="fpDummy">Dummy</button><button type="button" id="fpCam">Camera hands</button><button type="button" id="fpLock">Lock</button>';
   document.body.appendChild(hud);
   const ring = document.createElement('div');
   ring.id = 'fpRing';
@@ -2273,6 +2273,13 @@ function mountFpHud() {
   hud.querySelector('#fpCam').onclick = () => startHandCam();
   hud.querySelector('#fpDummy').onclick = () => toggleDummy();
   hud.querySelector('#fpView').onclick = () => setFightView(fp.view === 'camera' ? 'virtual' : 'camera');
+  hud.querySelector('#fpLock').onclick = () => toggleFishLock();
+  if (!document.getElementById('fishMeter')) {
+    const meter = document.createElement('div');
+    meter.id = 'fishMeter';
+    meter.innerHTML = '<b></b><span>Power</span>';
+    document.body.appendChild(meter);
+  }
   if (!document.getElementById('handDebug')) {
     const dbg = document.createElement('div');
     dbg.id = 'handDebug';
@@ -2282,7 +2289,7 @@ function mountFpHud() {
   extra.textContent = '#longLake{position:fixed;left:12px;bottom:calc(172px + env(safe-area-inset-bottom));z-index:28;min-height:44px;padding:8px 14px;border-radius:999px;border:2px solid #9ad8ff;background:rgba(10,28,48,.92);color:#e7f6ff;font:800 15px ui-rounded,system-ui}body.fp-on #longLake,body.garden-room #longLake,body:not(.world-on) #longLake{display:none}#handGuide{position:fixed;left:12px;bottom:calc(118px + env(safe-area-inset-bottom));width:96px;height:128px;z-index:33;border-radius:14px;overflow:hidden;border:1px solid rgba(255,236,180,.8);box-shadow:0 8px 18px rgba(0,0,0,.4);opacity:0;pointer-events:none}body.fp-cam #handGuide{opacity:1}#handGuide #handCam,#handGuide #handCam.ar{position:absolute;inset:0;width:100%;height:100%;opacity:1;border:0;border-radius:0;right:auto;bottom:auto;object-fit:cover}#handGuide i{position:absolute;left:18%;right:18%;top:40%;height:38%;border:3px solid #fff6df;border-radius:12px;box-shadow:0 0 0 2px rgba(0,0,0,.72),0 0 10px rgba(255,210,120,.85)}';
   document.head.appendChild(extra);
   const heat = document.createElement('style');
-  heat.textContent = 'body.fp-on:not(.fishing) #handGuide{opacity:1;width:104px;height:140px;background:#041018;border-color:rgba(80,255,230,.55)}#handGuide.locked{box-shadow:0 0 0 2px #7dffb0,0 0 16px rgba(80,255,180,.7)}#handGuide.hot{box-shadow:0 0 0 2px #ffe08a,0 0 18px rgba(255,200,80,.85)}#handGuide #handCam{filter:grayscale(1) sepia(.75) hue-rotate(150deg) contrast(1.8) brightness(.4) saturate(2.4)}#handGuide canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}#handGuide i{display:none}';
+  heat.textContent = 'body.fp-on:not(.fishing) #handGuide{opacity:1;left:auto;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));width:112px;height:150px;background:#041018;border-color:rgba(80,255,230,.55)}body.fishing #handGuide{opacity:0!important;visibility:hidden}body.fp-on:not(.fishing) #fpCam,body.fp-on:not(.fishing) #fpDummy{right:auto;left:16px}body.fp-on:not(.fishing) #fpDummy{bottom:calc(112px + env(safe-area-inset-bottom))}body.fp-on:not(.fishing) #fpCam{bottom:calc(156px + env(safe-area-inset-bottom))}body.fishing #fpDummy,body.fishing #fpCam{display:none}#fpLock{display:none;position:absolute;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));min-height:44px;padding:8px 18px;z-index:34}body.fishing #fpLock{display:block;left:auto;right:16px;transform:none}body.fishing #fpLock.on{background:rgba(12,42,28,.88);border-color:#7dffb0;color:#e9fff4}body.fishing #fpTrack{bottom:calc(64px + env(safe-area-inset-bottom));max-width:52vw}body.fishing #fpView{bottom:calc(16px + env(safe-area-inset-bottom))}#fishMeter{display:none;position:fixed;left:16px;bottom:calc(214px + env(safe-area-inset-bottom));width:22px;height:132px;border-radius:999px;border:2px solid rgba(255,224,138,.9);background:rgba(6,14,18,.62);z-index:35;overflow:visible}body.fishing.fp-on #fishMeter.show{display:block}#fishMeter b{position:absolute;left:0;right:0;bottom:0;height:0;border-radius:999px;background:linear-gradient(0deg,#ff9a3a,#fff3b0);box-shadow:0 0 14px rgba(255,200,80,.8)}#fishMeter span{position:absolute;left:30px;top:50%;transform:translateY(-50%);color:#fff6df;font:800 14px ui-rounded,system-ui;text-shadow:0 1px 2px #000;white-space:nowrap}#handGuide.locked{box-shadow:0 0 0 2px #7dffb0,0 0 16px rgba(80,255,180,.7)}#handGuide.hot{box-shadow:0 0 0 2px #ffe08a,0 0 18px rgba(255,200,80,.85)}#handGuide #handCam{filter:grayscale(1) sepia(.75) hue-rotate(150deg) contrast(1.8) brightness(.4) saturate(2.4)}#handGuide #handCam{z-index:1}#handGuide canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}#handGuide i{display:none}';
   document.head.appendChild(heat);
   if (!document.getElementById('longLake')) {
     const lake = document.createElement('button');
@@ -2390,6 +2397,7 @@ function setFp(on, kind) {
     fp.placed = true;
     ensureFpArms();
     if (fish) {
+      if (window.__aroPhoneRod) window.__aroPhoneRod();
       if (playMode !== 'fish') enterPlay('fish');
       fp.fish = true;
       fp.saved.mode = 'fish';
@@ -2397,6 +2405,9 @@ function setFp(on, kind) {
       fp.view = 'virtual';
       fp.yaw = Math.atan2(lake[0] - px, lake[1] - pz);
       facing = fp.yaw;
+      fp.lookLock = false;
+      fp.fishPower = 0;
+      resetGyro();
       if (fightBeast) fightBeast.visible = false;
       if (fightDress) fightDress.visible = false;
     } else {
@@ -2565,12 +2576,15 @@ function frameFp() {
     const vm = ensureVmCam();
     vm.aspect = camera.aspect;
     const narrow = camera.aspect < 0.9;
-    vm.fov = narrow ? 66 : 46;
-    vm.near = narrow ? 0.4 : 0.28;
+    vm.fov = fp.fish ? (narrow ? 62 : 50) : (narrow ? 66 : 46);
+    vm.near = fp.fish ? 0.05 : (narrow ? 0.4 : 0.28);
     vm.far = 6;
     vm.position.copy(camera.position);
+    if (fp.fish) vm.position.addScaledVector(ahead, 0.22);
     vm.up.set(0, 1, 0);
-    const aim = new THREE.Vector3(px + ahead.x * (narrow ? 0.5 : 0.62), gy + (narrow ? 0.95 : 0.9), pz + ahead.z * (narrow ? 0.5 : 0.62));
+    const aim = fp.fish
+      ? new THREE.Vector3(px + ahead.x * 1.15, gy + 1.22, pz + ahead.z * 1.15)
+      : new THREE.Vector3(px + ahead.x * (narrow ? 0.5 : 0.62), gy + (narrow ? 0.95 : 0.9), pz + ahead.z * (narrow ? 0.5 : 0.62));
     vm.lookAt(aim);
     vm.updateProjectionMatrix();
     if (fpFill) {
@@ -2619,12 +2633,12 @@ function poseFpBody() {
     setBone('hips', 0, 0, 0);
     setBone('spine', 0.1, 0, 0);
     setBone('chest', 0.05, 0, 0);
-    setBone('leftUpperArm', 0.15, narrow ? 1.2 : 0.95, 0.35);
-    setBone('leftLowerArm', 0.55, 0.05, 0.05);
-    setBone('leftHand', -0.2, -0.4, 0.2);
-    setBone('rightUpperArm', 0.2 + bend, narrow ? -1.15 : -0.9, -0.32);
-    setBone('rightLowerArm', 0.7 + bend, -0.08, -0.05);
-    setBone('rightHand', 0.15, 0.55, 0.35);
+    setBone('leftUpperArm', 1.15, 0.72, 0.2);
+    setBone('leftLowerArm', 1.05, 0.12, 0.08);
+    setBone('leftHand', -0.45, -0.25, 0.25);
+    setBone('rightUpperArm', 1.28 + bend, -0.42, -0.18);
+    setBone('rightLowerArm', 0.95 + bend, -0.08, -0.06);
+    setBone('rightHand', -0.3, 0.28, -0.16);
     ['Index', 'Middle', 'Ring', 'Little'].forEach((finger) => {
       setBone('right' + finger + 'Proximal', 0.9, 0, 0);
       setBone('right' + finger + 'Intermediate', 0.7, 0, 0);
@@ -2634,6 +2648,7 @@ function poseFpBody() {
     const head = vrm.humanoid.getNormalizedBoneNode('head');
     if (head) head.scale.setScalar(0.001);
     vrm.humanoid.update();
+    if (vrm.scene) vrm.scene.updateMatrixWorld(true);
     return;
   }
   const punch = fp.cast > 0 ? Math.sin((1 - Math.min(fp.cast, 0.35) / 0.35) * Math.PI) : 0;
@@ -2741,7 +2756,7 @@ function stepBobber() {
   }
   if (!fishLine) {
     fishLine = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.006, 0.006, 1, 4),
+      new THREE.CylinderGeometry(0.012, 0.012, 1, 4),
       new THREE.MeshBasicMaterial({ color: 0xe9fbff })
     );
     fishLine.frustumCulled = false;
@@ -2756,7 +2771,8 @@ function stepBobber() {
   if (pose.phase === 'nibble') dip = pose.kind === 'heavy' ? -0.22 : -0.08 * Math.abs(Math.sin(worldT * 10));
   if (pose.phase === 'fight') dip = -0.12 + Math.sin(worldT * 6) * 0.05;
   const y = groundY(x, z) + 0.12 + dip;
-  bobber.visible = true;
+  const cast = pose.phase && pose.phase !== 'aim';
+  bobber.visible = !!cast;
   bobber.position.set(x, y, z);
   let tip = new THREE.Vector3(px, groundY(px, pz) + 1.2, pz);
   if (rod) {
@@ -2765,7 +2781,7 @@ function stepBobber() {
   }
   const mid = tip.clone().lerp(bobber.position, 0.5);
   const len = Math.max(0.2, tip.distanceTo(bobber.position));
-  fishLine.visible = pose.phase !== 'aim';
+  fishLine.visible = !!cast;
   fishLine.position.copy(mid);
   fishLine.scale.set(1, len, 1);
   fishLine.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tip.clone().sub(bobber.position).normalize());
@@ -2833,33 +2849,62 @@ function paintHandOcc() {
   ctx.fill();
   ctx.restore();
 }
+function fishCastOut() {
+  const phase = typeof window.__aroReel === 'function' ? window.__aroReel() : '';
+  return phase === 'fly' || phase === 'wait' || phase === 'nibble' || phase === 'reel' || phase === 'fight' || phase === 'catch';
+}
+function seatFishRod() {
+  if (!rod || !fp.on || !fp.fish) return;
+  const cam = vmCam || camera;
+  if (!cam) return;
+  if (rod.parent !== scene) scene.add(rod);
+  rod.traverse((o) => { if (o.layers) o.layers.set(2); });
+  rod.visible = true;
+  rod.frustumCulled = false;
+  rod.renderOrder = 8;
+  rod.scale.setScalar(0.62);
+  const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+  const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
+  const up = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
+  rod.position.copy(cam.position).addScaledVector(fwd, 0.48).addScaledVector(right, 0.1).addScaledVector(up, -0.12);
+  rod.quaternion.copy(cam.quaternion);
+  rod.rotateX(-0.75);
+  rod.rotateZ(0.18);
+  if (rodLine) rodLine.visible = fishCastOut();
+}
 function parkFishRod() {
   if (!rod || !fp.on || !fp.fish || !camera) return;
-  if (fp.view !== 'camera') return;
+  if (fp.view !== 'camera') { seatFishRod(); return; }
   if (rod.parent !== scene) scene.add(rod);
   rod.traverse((o) => { if (o.layers) o.layers.set(0); });
   rod.visible = true;
   rod.frustumCulled = false;
   rod.renderOrder = 6;
-  rod.scale.setScalar(1.35);
+  rod.scale.setScalar(0.68);
   const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
   const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
   const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
-  rod.position.copy(camera.position).addScaledVector(fwd, 0.85).addScaledVector(right, -0.02).addScaledVector(up, -0.34);
+  rod.position.copy(camera.position).addScaledVector(fwd, 0.52).addScaledVector(right, 0.04).addScaledVector(up, -0.12);
   rod.quaternion.copy(camera.quaternion);
-  rod.rotateX(0.65);
-  rod.rotateZ(-0.4);
-  const reel = typeof window.__aroReel === 'function' ? window.__aroReel() : '';
-  const out = reel === 'fly' || reel === 'wait' || reel === 'nibble' || reel === 'reel';
-  if (rodLine) {
-    rodLine.visible = true;
-    rodLine.scale.y = out ? (reel === 'fly' ? 1.35 : 1) : 0.28;
-  }
+  rod.rotateX(-0.82);
+  rod.rotateZ(0.08);
+  if (rodLine) rodLine.visible = fishCastOut();
 }
 function paintTrack() {
   const el = document.getElementById('fpTrack');
   const ring = document.getElementById('fpRing');
   if (el) {
+    if (fp.fish) {
+      const phase = window.__aroReel ? window.__aroReel() : '';
+      if (!fp.lookLock) el.textContent = 'Look, then Lock';
+      else if (phase === 'aim' || phase === '') el.textContent = 'Hold to cast';
+      else el.textContent = 'Line is out';
+      el.classList.toggle('hot', !!fp.lookLock);
+      if (ring) ring.classList.remove('on');
+      paintHandDebug();
+      paintHandGuide();
+      return;
+    }
     const words = {
       off: 'Hold, then release to cast',
       blocked: 'Camera blocked · tap to cast',
@@ -2887,66 +2932,109 @@ function paintTrack() {
 }
 function neonHand(cx, cy) {
   const pts = [];
-  for (let i = 0; i < 21; i++) pts.push({ x: cx, y: cy + 0.06 });
-  const mark = { 0: [0, 0.08], 5: [-0.07, 0.02], 8: [-0.09, -0.08], 9: [-0.02, 0.01], 12: [0, -0.1], 13: [0.04, 0.02], 16: [0.07, -0.07], 17: [0.08, 0.04], 20: [0.11, -0.01] };
+  for (let i = 0; i < 21; i++) pts.push({ x: cx, y: cy });
+  const mark = { 0: [0.02, 0.1], 5: [-0.08, 0.02], 8: [-0.1, -0.08], 9: [0, 0], 12: [0.01, -0.11], 13: [0.05, 0.02], 16: [0.08, -0.08], 17: [0.09, 0.04], 20: [0.12, -0.02] };
   Object.keys(mark).forEach((k) => { pts[k] = { x: cx + mark[k][0], y: cy + mark[k][1] }; });
   return pts;
+}
+function guideSpot(nx, ny, w, h) {
+  const vw = (handVideo && handVideo.videoWidth) || 0;
+  const vh = (handVideo && handVideo.videoHeight) || 0;
+  if (vw < 2 || vh < 2) return { x: nx * w, y: ny * h };
+  const scale = Math.max(w / vw, h / vh);
+  const dw = vw * scale;
+  const dh = vh * scale;
+  return { x: (w - dw) / 2 + nx * dw, y: (h - dh) / 2 + ny * dh };
 }
 function paintHandGuide() {
   const guide = document.getElementById('handGuide');
   if (!guide) return;
   const fight = fp.on && !fp.fish;
-  guide.classList.toggle('locked', fight && (fp.track.hands | 0) > 0);
+  const lm = fp.track.lm;
+  const palm = lm && (lm[9] || lm[0]);
+  const aimNx = fp.aimX || 0.5;
+  const aimNy = fp.aimY || 0.44;
+  const onTarget = !!(palm && fp.track.inside) || (fight && (fp.track.hands | 0) > 0 && fp.track.state !== 'looking' && palm && Math.hypot(palm.x - aimNx, palm.y - aimNy) < 0.08);
+  guide.classList.toggle('locked', fight && onTarget);
   guide.classList.toggle('hot', fight && fp.track.state === 'charging');
   let glow = guide.querySelector('canvas');
   if (!glow) {
     glow = document.createElement('canvas');
     guide.appendChild(glow);
   }
-  const w = 104;
-  const h = 140;
-  if (glow.width !== w) { glow.width = w; glow.height = h; }
+  const w = Math.max(96, Math.round(guide.clientWidth || 112));
+  const h = Math.max(128, Math.round(guide.clientHeight || 150));
+  if (glow.width !== w || glow.height !== h) { glow.width = w; glow.height = h; }
   const ctx = glow.getContext('2d');
   ctx.clearRect(0, 0, w, h);
-  const ax = (fp.aimX || 0.5) * w;
-  const ay = (fp.aimY || 0.44) * h;
-  const locked = (fp.track.hands | 0) > 0;
+  if (!fight) return;
+  const aim = guideSpot(aimNx, aimNy, w, h);
   const hot = fp.track.state === 'charging';
-  ctx.strokeStyle = hot ? '#ffe08a' : (locked ? '#7dffb0' : '#39f6ff');
-  ctx.lineWidth = locked ? 3 : 1.5;
+  const r = 22 + (fp.track.charge || 0) * 8;
+  ctx.lineWidth = onTarget ? 3 : 2;
+  ctx.strokeStyle = hot ? '#ffe08a' : (onTarget ? '#7dffb0' : '#39f6ff');
+  ctx.fillStyle = hot ? 'rgba(255,224,138,.45)' : (onTarget ? 'rgba(125,255,176,.42)' : 'rgba(57,246,255,.08)');
   ctx.shadowColor = ctx.strokeStyle;
-  ctx.shadowBlur = locked ? 12 : 4;
+  ctx.shadowBlur = onTarget ? 14 : 6;
   ctx.beginPath();
-  ctx.arc(ax, ay, 14 + (fp.track.charge || 0) * 12, 0, Math.PI * 2);
+  ctx.arc(aim.x, aim.y, r, 0, Math.PI * 2);
+  ctx.fill();
   ctx.stroke();
-  if (hot) {
-    ctx.fillStyle = 'rgba(255,224,138,' + (0.15 + fp.track.charge * 0.45) + ')';
-    ctx.beginPath();
-    ctx.arc(ax, ay, 14 + fp.track.charge * 12, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  const lm = fp.track.lm;
-  if (!lm || !lm.length) return;
-  const links = [[0, 5], [5, 8], [0, 9], [9, 12], [0, 13], [13, 16], [0, 17], [17, 20], [5, 9], [9, 13], [13, 17]];
-  ctx.strokeStyle = '#5ef6ff';
-  ctx.lineWidth = 2;
-  ctx.shadowColor = '#5ef6ff';
-  ctx.shadowBlur = 10;
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = ctx.strokeStyle;
   ctx.beginPath();
-  for (const pair of links) {
-    const a = lm[pair[0]];
-    const b = lm[pair[1]];
-    if (!a || !b) continue;
-    ctx.moveTo(a.x * w, a.y * h);
-    ctx.lineTo(b.x * w, b.y * h);
-  }
-  ctx.stroke();
-  ctx.fillStyle = '#d8fff6';
-  for (const p of lm) {
-    if (!p) continue;
+  ctx.arc(aim.x, aim.y, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  if (palm) {
+    const hp = guideSpot(palm.x, palm.y, w, h);
+    if (!onTarget) {
+      ctx.strokeStyle = '#39f6ff';
+      ctx.fillStyle = '#39f6ff';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = '#39f6ff';
+      ctx.shadowBlur = 8;
+      const dx = aim.x - hp.x;
+      const dy = aim.y - hp.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const tipx = aim.x - (dx / len) * (r + 2);
+      const tipy = aim.y - (dy / len) * (r + 2);
+      ctx.beginPath();
+      ctx.moveTo(hp.x, hp.y);
+      ctx.lineTo(tipx, tipy);
+      ctx.stroke();
+      const ux = dx / len;
+      const uy = dy / len;
+      ctx.beginPath();
+      ctx.moveTo(tipx, tipy);
+      ctx.lineTo(tipx - ux * 9 - uy * 5, tipy - uy * 9 + ux * 5);
+      ctx.lineTo(tipx - ux * 9 + uy * 5, tipy - uy * 9 - ux * 5);
+      ctx.closePath();
+      ctx.fill();
+    }
+    const links = [[0, 5], [5, 8], [0, 9], [9, 12], [0, 13], [13, 16], [0, 17], [17, 20], [5, 9], [9, 13], [13, 17]];
+    ctx.strokeStyle = onTarget ? '#b8ffd8' : '#5ef6ff';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = ctx.strokeStyle;
+    ctx.shadowBlur = 10;
     ctx.beginPath();
-    ctx.arc(p.x * w, p.y * h, 2.4, 0, Math.PI * 2);
-    ctx.fill();
+    for (const pair of links) {
+      const a = lm[pair[0]];
+      const b = lm[pair[1]];
+      if (!a || !b) continue;
+      const pa = guideSpot(a.x, a.y, w, h);
+      const pb = guideSpot(b.x, b.y, w, h);
+      ctx.moveTo(pa.x, pa.y);
+      ctx.lineTo(pb.x, pb.y);
+    }
+    ctx.stroke();
+    ctx.fillStyle = '#eafff8';
+    for (const p of lm) {
+      if (!p) continue;
+      const pp = guideSpot(p.x, p.y, w, h);
+      ctx.beginPath();
+      ctx.arc(pp.x, pp.y, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 }
 function handDebugOn() {
@@ -3143,15 +3231,14 @@ function stepHands() {
     paintTrack();
     return;
   }
-  if (fp.holding && !fp.look && !fp.track.ready) {
+  if (!fp.fish && fp.holding && !fp.look && !fp.track.ready) {
     fp.track.charge = Math.min(1, fp.track.charge + 0.04);
     fp.track.state = 'charging';
     fp.aimX = fp.track.x;
     fp.aimY = fp.track.y;
     if (fp.track.charge >= 1) {
       fp.holding = false;
-      if (fp.fish && window.__aroFishTap) window.__aroFishTap();
-      else fpShoot('aether', 1);
+      fpShoot('aether', 1);
       return;
     }
     paintTrack();
@@ -3238,10 +3325,7 @@ function stepHands() {
   const pulling = shrank || zFarther;
   if (fp.fish) {
     fp.track.state = inside ? 'seen' : 'looking';
-    if (pushing || flick > 1.2) {
-      const strength = Math.max(0.25, Math.min(1, flick * 0.35 + (grew ? 0.45 : 0.2)));
-      if (window.__aroHandCast) window.__aroHandCast(strength);
-    } else if (pulling && window.__aroHandReel) window.__aroHandReel();
+    if (pulling && fp.lookLock && window.__aroHandReel) window.__aroHandReel();
     paintTrack();
     return;
   }
@@ -3263,6 +3347,14 @@ function stepHands() {
 function stepFp(dt) {
   if (fp.cast > 0) fp.cast = Math.max(0, fp.cast - dt);
   if (fp.pulse > 0) fp.pulse = Math.max(0, fp.pulse - dt);
+  smoothGyro(dt);
+  if (fp.on && fp.fish && fp.lookLock && fp.holding) {
+    const phase = window.__aroReel ? window.__aroReel() : '';
+    if (phase === 'aim' || phase === '') {
+      fp.fishPower = Math.min(1, (fp.fishPower || 0) + dt * 0.85);
+      if (window.__aroFishPower) window.__aroFishPower(fp.fishPower);
+    }
+  }
   const hud = document.getElementById('fpHud');
   if (hud) hud.classList.toggle('pulse', fp.pulse > 0);
   if (palmOrb) palmOrb.visible = false;
@@ -3509,12 +3601,17 @@ function bindInput(canvas) {
       fp.holding = true;
       fp.track.x = e.clientX / Math.max(1, window.innerWidth);
       fp.track.y = e.clientY / Math.max(1, window.innerHeight);
-      if (!fp.track.ready) {
+      if (fp.fish) {
+        const phase = window.__aroReel ? window.__aroReel() : '';
+        if (fp.lookLock && (phase === 'aim' || phase === '')) {
+          fp.fishPower = 0.04;
+          if (window.__aroFishPower) window.__aroFishPower(fp.fishPower);
+        }
+      } else if (!fp.track.ready) {
         fp.track.charge = 0.08;
         fp.track.state = 'charging';
         paintTrack();
       }
-      if (fp.fish && window.__aroFishCharge) window.__aroFishCharge();
       canvas.setPointerCapture(e.pointerId);
       ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, ox: e.clientX, oy: e.clientY, moved: false, fp: true });
       return;
@@ -3536,8 +3633,16 @@ function bindInput(canvas) {
       return;
     }
     if (fp.on && p.fp) {
-      fp.yaw -= dx * 0.005;
-      fp.pitch = clamp(fp.pitch - dy * 0.004, -0.7, 0.6);
+      if (!(fp.fish && fp.lookLock)) {
+        fp.yaw -= dx * 0.005;
+        fp.pitch = clamp(fp.pitch - dy * 0.004, -0.7, 0.6);
+        gyro.wantYaw = fp.yaw;
+        gyro.wantPitch = fp.pitch;
+        gyro.baseWant = fp.yaw;
+        gyro.basePitchWant = fp.pitch;
+        gyro.baseRaw = gyro.rawYaw;
+        gyro.basePitch = gyro.rawPitch;
+      }
       if (p.moved) fp.look = true;
       return;
     }
@@ -3554,7 +3659,16 @@ function bindInput(canvas) {
     if (p && p.fp && fp.on) {
       fp.holding = false;
       if (fp.fish) {
-        if (!p.moved && window.__aroFishTap) window.__aroFishTap();
+        const phase = window.__aroReel ? window.__aroReel() : '';
+        if (!fp.lookLock) {
+          if (!p.moved) toggleFishLock();
+        } else if ((phase === 'aim' || phase === '') && (fp.fishPower || 0) > 0.08) {
+          if (window.__aroHandCast) window.__aroHandCast(fp.fishPower);
+          fp.fishPower = 0;
+          if (window.__aroFishPower) window.__aroFishPower(0);
+        } else if (!p.moved && phase !== 'aim' && window.__aroFishTap) {
+          window.__aroFishTap();
+        }
         paintTrack();
         return;
       }
@@ -4481,23 +4595,9 @@ function stepProps(dt) {
     bee.rotation.y = -a;
   }
   if (rod) {
-    rod.visible = playMode === 'fish';
-    if (rodLine) rodLine.visible = rod.visible;
-    if (rod.visible && rod.parent === avatar && avatar && vrm && vrm.humanoid) {
-      const hand = vrm.humanoid.getNormalizedBoneNode('rightHand');
-      if (hand) {
-        const w = hand.getWorldPosition(new THREE.Vector3());
-        avatar.worldToLocal(w);
-        rod.position.copy(w);
-        const reel = typeof window.__aroReel === 'function' ? window.__aroReel() : '';
-        const out = reel === 'fly' || reel === 'wait' || reel === 'nibble' || reel === 'reel';
-        if (rodLine) {
-          rodLine.visible = out;
-          rodLine.scale.set(1, out ? 1 : 0.2, 1);
-          rodLine.position.set(0.1, 0.85, 0.55);
-        }
-      }
-    }
+    const fishing = playMode === 'fish' || (fp.on && fp.fish);
+    if (!(fp.on && fp.fish)) rod.visible = fishing;
+    if (rodLine) rodLine.visible = fishing && fishCastOut();
   }
 }
 function cutaway(id, w, d, h, wall, floor) {
@@ -4774,22 +4874,40 @@ function buildSites() {
   placeDiorama(shore[0] - 2.2, shore[1] + 1.4, 'dock');
   placeFightMark();
   rod = new THREE.Group();
-  const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.03, 0.28, 8), toonMat('#6a3a22'));
-  grip.position.y = 0.12;
-  const blank = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.016, 1.15, 7), toonMat('#c4a07a'));
-  blank.position.y = 0.72;
-  const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.01, 0.32, 6), toonMat('#8d6a45'));
-  tip.position.y = 1.42;
-  const reel = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.04, 10), toonMat('#2a2e33'));
+  const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.045, 0.32, 8), toonMat('#6a3a22'));
+  grip.position.y = 0.14;
+  const blank = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, 1.15, 7), toonMat('#e2c48a'));
+  blank.position.y = 0.78;
+  const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.02, 0.36, 6), toonMat('#f2e2b8'));
+  tip.position.y = 1.48;
+  const reel = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.05, 12), toonMat('#d5dde4'));
   reel.rotation.z = Math.PI / 2;
-  reel.position.set(0.05, 0.22, 0);
+  reel.position.set(0.07, 0.24, 0);
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.07, 10), toonMat('#2a2e33'));
+  hub.rotation.z = Math.PI / 2;
+  hub.position.set(0.07, 0.24, 0);
   for (let i = 0; i < 4; i++) {
     const guide = new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.004, 4, 8), new THREE.MeshBasicMaterial({ color: 0xd7dde2 }));
     guide.position.y = 0.42 + i * 0.28;
     guide.rotation.y = Math.PI / 2;
     rod.add(guide);
   }
-  rod.add(grip, blank, tip, reel);
+  const hands = new THREE.Group();
+  hands.name = 'rodHands';
+  const skin = toonMat('#e8b892');
+  const sleeveMat = toonMat('#f7f1e6');
+  const mitt = (x, z) => {
+    const g = new THREE.Group();
+    const palm = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), skin);
+    palm.scale.set(1.15, 0.72, 0.9);
+    const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.055, 0.18, 8), sleeveMat);
+    sleeve.position.y = -0.12;
+    g.add(palm, sleeve);
+    g.position.set(x, 0.16, z);
+    return g;
+  };
+  hands.add(mitt(0.02, 0.04), mitt(-0.05, -0.02));
+  rod.add(grip, blank, tip, reel, hub, hands);
   rod.rotation.x = 0.85;
   rod.rotation.z = 0.15;
   rodLine = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 2.2, 4), new THREE.MeshBasicMaterial({ color: 0xe9fbff }));
@@ -5139,8 +5257,9 @@ const api = {
     fp.track.hands = 0;
     fp.track.err = '';
     if (mode === 'tap' || mode === 'blocked') { fp.track.state = 'blocked'; fp.track.charge = 0; fp.track.model = 'denied'; }
-    else if (mode === 'seen') { fp.track.state = 'seen'; fp.track.charge = 0.2; fp.track.hands = 1; fp.aimX = 0.5; fp.aimY = 0.44; fp.track.lm = neonHand(0.5, 0.44); }
-    else if (mode === 'charge') { fp.track.state = 'charging'; fp.track.charge = 0.72; fp.track.hands = 1; fp.aimX = 0.5; fp.aimY = 0.44; fp.track.lm = neonHand(0.5, 0.44); }
+    else if (mode === 'seen') { fp.track.state = 'seen'; fp.track.charge = 0.2; fp.track.hands = 1; fp.aimX = 0.5; fp.aimY = 0.44; fp.track.inside = true; fp.track.sx = 0.5; fp.track.sy = 0.44; fp.track.lm = neonHand(0.5, 0.44); }
+    else if (mode === 'drift') { fp.track.state = 'looking'; fp.track.charge = 0; fp.track.hands = 1; fp.aimX = 0.5; fp.aimY = 0.44; fp.track.inside = false; fp.track.sx = 0.3; fp.track.sy = 0.72; fp.track.lm = neonHand(0.3, 0.72); }
+    else if (mode === 'charge') { fp.track.state = 'charging'; fp.track.charge = 0.72; fp.track.hands = 1; fp.aimX = 0.5; fp.aimY = 0.44; fp.track.inside = true; fp.track.sx = 0.5; fp.track.sy = 0.44; fp.track.lm = neonHand(0.5, 0.44); }
     else if (mode === 'fired') { fp.track.state = 'fired'; fp.track.charge = 1; fp.track.x = 0.6; fp.track.y = 0.62; fp.cast = 0.28; fp.track.hands = 1; }
     else if (mode === 'looking') { fp.track.state = 'looking'; fp.track.charge = 0; fp.track.hands = 0; }
     else if (mode === 'full') { fp.track.state = 'charging'; fp.track.charge = 1; fp.aimX = 0.5; fp.aimY = 0.44; }
@@ -5343,14 +5462,97 @@ function boot() {
   bindInput(canvas);
   window.addEventListener('resize', resize);
   window.addEventListener('deviceorientation', (e) => {
-    if (!fp.on || e.alpha == null) return;
-    fp.yaw = THREE.MathUtils.degToRad(e.alpha);
-    fp.pitch = clamp(THREE.MathUtils.degToRad((e.beta || 0) - 75), -0.8, 0.55);
+    if (!fp.on || e.alpha == null || (fp.fish && fp.lookLock)) return;
+    readGyro(e);
   });
   resize();
   mountLoader();
   setLoad(0.04, 'Loading the town…');
   fetch(FIELD_URL).then((r) => r.json()).then((data) => { setLoad(0.1, 'Loading the town…'); bootField(data); }).catch((err) => { console.error(err); });
+}
+
+const gyro = {
+  ready: false,
+  ios: false,
+  rawYaw: 0,
+  rawPitch: 0,
+  baseRaw: 0,
+  basePitch: 0,
+  baseWant: 0,
+  basePitchWant: 0.12,
+  wantYaw: 0,
+  wantPitch: 0.12,
+  q: new THREE.Quaternion(),
+  q1: new THREE.Quaternion(-Math.SQRT1_2, 0, 0, Math.SQRT1_2),
+  q0: new THREE.Quaternion(),
+  euler: new THREE.Euler(),
+  zee: new THREE.Vector3(0, 0, 1),
+  fwd: new THREE.Vector3(),
+};
+function resetGyro() {
+  gyro.ready = false;
+}
+function screenOrientRad() {
+  if (typeof screen !== 'undefined' && screen.orientation && typeof screen.orientation.angle === 'number') {
+    return THREE.MathUtils.degToRad(screen.orientation.angle);
+  }
+  return THREE.MathUtils.degToRad(window.orientation || 0);
+}
+function readGyro(e) {
+  let alpha = THREE.MathUtils.degToRad(e.alpha || 0);
+  const beta = THREE.MathUtils.degToRad(e.beta || 0);
+  const gamma = THREE.MathUtils.degToRad(e.gamma || 0);
+  gyro.ios = typeof e.webkitCompassHeading === 'number' && !Number.isNaN(e.webkitCompassHeading);
+  if (gyro.ios) alpha = THREE.MathUtils.degToRad(e.webkitCompassHeading);
+  gyro.euler.set(beta, alpha, -gamma, 'YXZ');
+  gyro.q.setFromEuler(gyro.euler);
+  gyro.q.multiply(gyro.q1);
+  gyro.q.multiply(gyro.q0.setFromAxisAngle(gyro.zee, -screenOrientRad()));
+  gyro.fwd.set(0, 0, -1).applyQuaternion(gyro.q);
+  const rawYaw = Math.atan2(gyro.fwd.x, gyro.fwd.z);
+  const rawPitch = Math.atan2(gyro.fwd.y, Math.hypot(gyro.fwd.x, gyro.fwd.z) || 0.0001);
+  gyro.rawYaw = rawYaw;
+  gyro.rawPitch = rawPitch;
+  if (!gyro.ready) {
+    gyro.ready = true;
+    gyro.baseRaw = rawYaw;
+    gyro.basePitch = rawPitch;
+    gyro.baseWant = fp.yaw;
+    gyro.basePitchWant = fp.pitch;
+    gyro.wantYaw = fp.yaw;
+    gyro.wantPitch = fp.pitch;
+    return;
+  }
+  const dy = Math.atan2(Math.sin(rawYaw - gyro.baseRaw), Math.cos(rawYaw - gyro.baseRaw));
+  const yawSign = gyro.ios ? 1 : -1;
+  gyro.wantYaw = gyro.baseWant + yawSign * dy;
+  gyro.wantPitch = clamp(gyro.basePitchWant + (rawPitch - gyro.basePitch), -0.75, 0.65);
+}
+function smoothGyro(dt) {
+  if (!fp.on || !gyro.ready || (fp.fish && fp.lookLock)) return;
+  const k = 1 - Math.exp(-Math.max(0.001, dt) * 14);
+  const err = Math.atan2(Math.sin(gyro.wantYaw - fp.yaw), Math.cos(gyro.wantYaw - fp.yaw));
+  fp.yaw += err * k;
+  fp.pitch += (gyro.wantPitch - fp.pitch) * k;
+}
+function toggleFishLock() {
+  if (!fp.on || !fp.fish || !field) return;
+  const btn = document.getElementById('fpLock');
+  if (fp.lookLock) {
+    fp.lookLock = false;
+    resetGyro();
+    if (btn) { btn.textContent = 'Lock'; btn.classList.remove('on'); }
+    paintTrack();
+    return;
+  }
+  const lake = field.anchors.lake;
+  fp.yaw = Math.atan2(lake[0] - px, lake[1] - pz);
+  fp.pitch = 0.22;
+  gyro.wantYaw = fp.yaw;
+  gyro.wantPitch = fp.pitch;
+  fp.lookLock = true;
+  if (btn) { btn.textContent = 'Locked'; btn.classList.add('on'); }
+  paintTrack();
 }
 
 boot();
