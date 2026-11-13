@@ -66,6 +66,39 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 #worldSpells button.fire{border-color:rgba(255,170,70,.75);color:#ffe1b0;box-shadow:0 0 14px rgba(255,160,60,.2)}
 body.world-on #hud .chip{background:rgba(8,22,36,.5);border-color:rgba(127,240,255,.45);color:#e7fbff;box-shadow:0 0 10px rgba(90,220,255,.18)}
 body.world-on #menuBtn{filter:drop-shadow(0 0 6px rgba(127,240,255,.45))}
+body.world-on #setM .sheet,
+body.world-on #logM .sheet,
+body.world-on #bagM .sheet,
+body.world-on #spineBook,
+body.world-on #fishM .sheet{
+  background:
+    linear-gradient(rgba(127,240,255,.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(127,240,255,.08) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(12,32,52,.92), rgba(6,16,32,.94));
+  background-size: 22px 22px, 22px 22px, auto;
+  border: 1px solid rgba(127,240,255,.62);
+  border-radius: 16px;
+  color: #e7fbff;
+  box-shadow: 0 0 0 1px rgba(255,211,106,.28), 0 0 24px rgba(80,210,255,.28);
+  clip-path: none;
+}
+body.world-on #setM .sh-h small,
+body.world-on #logM .sh-h small,
+body.world-on #fishM .sh-h small{color:#9ee7ff}
+body.world-on #setM .sheet button,
+body.world-on #logM .sheet button,
+body.world-on #fishM .sheet button,
+body.world-on #spineBook button{
+  border: 1px solid rgba(127,240,255,.45);
+  background: rgba(8,28,44,.72);
+  color: #e7fbff;
+  border-radius: 10px;
+}
+body.world-on.fishing #fishM .sheet{
+  background: linear-gradient(180deg, rgba(8,22,36,0), rgba(8,24,40,.9) 46%);
+  border-color: rgba(127,240,255,.35);
+  box-shadow: 0 0 16px rgba(80,210,255,.18);
+}
 #simpleMenu{position:fixed;inset:0;z-index:60;background:rgba(8,4,12,.45);display:flex;align-items:flex-end;justify-content:center;padding:12px}
 #simpleMenu.hide{display:none!important}
 #simpleMenu .card{width:min(100%,420px);display:flex;flex-direction:column;gap:8px;background:rgba(22,10,18,.96);border:1px solid rgba(255,214,140,.7);border-radius:18px;padding:14px}
@@ -864,9 +897,9 @@ window.__aroTapMove = () => SET.tapMove !== false;
 window.__aroSun = () => (typeof G !== 'undefined' && G.timeOfDay != null ? G.timeOfDay : 0.2);
 window.__aroGrass = () => {
   const low = SET.cozy || (typeof raidViewLow === 'function' && raidViewLow()) || innerWidth < 700;
-  if (low) return 900;
-  if (typeof TRAIN !== 'undefined' && TRAIN.on && TRAIN.view === 'tactical') return 1600;
-  return 2600;
+  if (low) return 1600;
+  if (typeof TRAIN !== 'undefined' && TRAIN.on && TRAIN.view === 'tactical') return 2400;
+  return 4200;
 };
 window.__aroHolo = () => {
   const low = SET.cozy || (typeof raidViewLow === 'function' && raidViewLow()) || innerWidth < 700;
