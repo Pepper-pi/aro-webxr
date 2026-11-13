@@ -2013,9 +2013,9 @@ function genMap() {
   MAP.house.x = 0; MAP.house.y = 0;
   // passive walk-by slimes far out (wireframe until you're near)
   MAP.roam = [
-    { id: 'slime', art: 'slime', n: 0, hx: 1.7, hy: 1.15, x: 1.7, y: 1.15, head: 0.4, rad: 0.85, ph: 0 },
-    { id: 'goblin', art: 'goblin', n: 1, hx: -1.65, hy: 0.45, x: -1.65, y: 0.45, head: 2.1, rad: 0.8, ph: 1 },
-    { id: 'slime', art: 'slime', n: 2, hx: 0.35, hy: -1.75, x: 0.35, y: -1.75, head: 4.0, rad: 0.75, ph: 2 },
+    { id: 'slime', art: 'slime', n: 0, hx: 3.6, hy: 2.4, x: 3.6, y: 2.4, head: 0.4, rad: 2.5, ph: 0 },
+    { id: 'goblin', art: 'goblin', n: 1, hx: -3.8, hy: 1.6, x: -3.8, y: 1.6, head: 2.1, rad: 2.3, ph: 1 },
+    { id: 'slime', art: 'slime', n: 2, hx: 1.4, hy: -4.0, x: 1.4, y: -4.0, head: 4.0, rad: 2.2, ph: 2 },
   ];
 }
 const tileAt = (q, r) => MAP.tiles.get(tkey(q, r));
