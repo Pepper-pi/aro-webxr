@@ -1470,6 +1470,64 @@ function drawSprite(name, x, y, s, alpha = 1) {
   ctx.drawImage(sp.c, x - sp.w * s / 2, y - sp.h * s, sp.w * s, sp.h * s);
   if (alpha < 1) ctx.globalAlpha = 1;
 }
+function drawLilyPad(x, y, s, alpha) {
+  const calm = typeof reducedMotion === 'function' && reducedMotion();
+  const bob = calm ? 0 : Math.sin(T * 1.15 + x * 0.02) * 2.2;
+  const rot = calm ? 0 : Math.sin(T * 0.7 + y * 0.02) * 0.08;
+  ctx.save();
+  ctx.translate(x, y + bob);
+  ctx.rotate(rot);
+  ctx.fillStyle = 'rgba(18,48,58,.32)';
+  ctx.beginPath(); ctx.ellipse(1, 4, 11 * s, 4.5 * s, 0, 0, TAU); ctx.fill();
+  drawSprite('lily', 0, 0, s, alpha);
+  ctx.restore();
+}
+function drawLakeLife(c, T) {
+  if (G.scene !== 'map') return;
+  const calm = typeof reducedMotion === 'function' && reducedMotion();
+  ctx.save();
+  let pads = 0;
+  for (const t of MAP.list) {
+    if (t.ter !== 'water' && t.ter !== 'poi') continue;
+    const [X, Y, f] = proj(c, t.x, t.y);
+    if (X < -40 || X > W + 40 || Y < -40 || Y > H + 40) continue;
+    if (pads++ > 18) break;
+    const ph = ((calm ? 0.3 : T * 0.55) + t.n * 4) % 1;
+    ctx.strokeStyle = `rgba(255,255,255,${0.28 * (1 - ph)})`;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.ellipse(X, Y + 4 * f, (10 + ph * 16) * f, (4 + ph * 6) * f, 0, 0, TAU); ctx.stroke();
+    const sx = X - 8 * f + ((calm ? 0.2 : (T * 0.15 + t.n) % 1) * 16 * f);
+    ctx.strokeStyle = 'rgba(255,255,255,.4)';
+    ctx.beginPath(); ctx.moveTo(sx, Y - 2 * f); ctx.lineTo(sx + 10 * f, Y - 5 * f); ctx.stroke();
+  }
+  const pond = tileAt(5, -4);
+  if (pond) {
+    const [PX, PY, pf] = proj(c, pond.x, pond.y);
+    const fly = calm ? 0 : T * 0.8;
+    const fx = PX + Math.cos(fly) * 28 * pf;
+    const fy = PY + Math.sin(fly * 0.7) * 12 * pf - 16 * pf;
+    const wing = calm ? 0.4 : Math.abs(Math.sin(T * 18));
+    ctx.strokeStyle = 'rgba(186,236,255,.95)';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.ellipse(fx, fy - 4, 12 * Math.max(wing, 0.35), 3.4, -0.5, 0, TAU); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(fx, fy - 4, 12 * Math.max(wing, 0.35), 3.4, 0.5, 0, TAU); ctx.stroke();
+    ctx.fillStyle = '#163044';
+    ctx.fillRect(fx - 5, fy - 2, 12, 3);
+    if (!calm) {
+      for (let i = 0; i < 3; i++) {
+        const u = (T * 0.12 + i / 3) % 1;
+        const wx = PX - 40 * pf + u * 90 * pf;
+        const wy = PY - 18 * pf + Math.sin(u * 6 + i) * 8 * pf;
+        ctx.strokeStyle = `rgba(230,255,250,${0.35 * (1 - Math.abs(u - 0.5) * 2)})`;
+        ctx.beginPath();
+        ctx.moveTo(wx, wy);
+        ctx.quadraticCurveTo(wx + 12 * pf, wy - 8 * pf, wx + 26 * pf, wy + 2 * pf);
+        ctx.stroke();
+      }
+    }
+  }
+  ctx.restore();
+}
 
 /* ---------- soft-shaded volumetric skins (canvas gradients; play-size chibis) ----------
    Boba = milk-tea slime (cozy sweater, tapioca pearls, drip-bun). Wayfarer = soft female human.
@@ -2068,12 +2126,15 @@ function drawMap(T) {
   S.sort((a, b) => a[0] - b[0]);
   for (const s of S) {
     if (s[1] === 0) {
+      if (s[2] === 'lily') { drawLilyPad(s[3], s[4], s[5], s[6]); }
+      else {
       const sway = (s[2] === 'lpTree' || s[2] === 'lpTreeC' || s[2] === 'pine' || s[2] === 'tuft') && !(typeof reducedMotion === 'function' && reducedMotion());
       if (sway) {
         const amp = s[2] === 'tuft' ? 0.1 : 0.045;
         ctx.save(); ctx.translate(s[3], s[4]); ctx.rotate(Math.sin(T * (s[2] === 'tuft' ? 1.7 : 1.15) + s[3] * 0.03) * amp);
         drawSprite(s[2], 0, 0, s[5], s[6]); ctx.restore();
       } else drawSprite(s[2], s[3], s[4], s[5], s[6]);
+      }
       if (s[2] === 'hive') drawChibiBees(ctx, s[3], s[4], s[5], T);
     }
     else if (s[1] === 1) drawWalker(s[2], s[3], s[4], T);
@@ -2093,6 +2154,7 @@ function drawMap(T) {
     }
     ctx.restore();
   }
+  drawLakeLife(c, T);
   drawSuperHexNames(c, h);
   drawGardenDoor(c);
   drawWorldPins(c);
