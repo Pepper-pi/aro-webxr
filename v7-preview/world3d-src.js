@@ -31,7 +31,7 @@ const ptrs = new Map();
 let field = null;
 let grid = null;
 let renderer, scene, camera, clock;
-let ground, water, avatar, vrm, blob, homeRoot, fightBeast, fightDress;
+let ground, water, avatar, vrm, blob, homeRoot, fightBeast, fightDress, fightCut, camPlate, camTex;
 const npcs = [];
 const playerPose = { amp: 0, phase: 0 };
 let worldT = 0;
@@ -58,7 +58,7 @@ const shellU = {
 const grassRegrow = new Map();
 let grassRegrowAt = 8;
 let playMode = 'world';
-const fp = { on: false, yaw: 0, pitch: 0.02, charge: 0, cast: 0, pulse: 0, vials: { aether: 3, fire: 3 }, xr: 'unchecked', hp: 100, clock: 0, placed: false, booted: false, track: { state: 'off', charge: 0, x: 0.62, y: 0.7, hold: false, ready: false, lastZ: null, lastX: null, lastY: null, lastT: 0, cool: 0, firedUntil: 0 } };
+const fp = { on: false, view: 'virtual', aggro: 0, aggroHold: '', yaw: 0, pitch: 0.02, charge: 0, cast: 0, pulse: 0, vials: { aether: 3, fire: 3 }, xr: 'unchecked', hp: 100, clock: 0, placed: false, booted: false, fogSaved: null, track: { state: 'off', charge: 0, x: 0.5, y: 0.78, hold: false, ready: false, lastZ: null, lastX: null, lastY: null, lastT: 0, cool: 0, firedUntil: 0, err: '', errWhere: '', vision: '' } };
 let palmOrb = null;
 let playSaved = null;
 let lastDt = 0.016;
@@ -1531,8 +1531,15 @@ function ensureFightBeast() {
   );
   ring.rotation.x = -Math.PI / 2;
   ring.position.y = 0.06;
-  g.add(puddle, body, tum, eyeL, eyeR, pL, pR, crown, armL, armR, ring);
+  const pink = new THREE.Mesh(
+    new THREE.RingGeometry(0.7, 0.86, 6),
+    new THREE.MeshBasicMaterial({ color: 0xff4fb4, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })
+  );
+  pink.position.y = 1.15;
+  g.add(puddle, body, tum, eyeL, eyeR, pL, pR, crown, armL, armR, ring, pink);
   g.userData.idle = { body, crown, armL, armR };
+  g.userData.ring = ring;
+  g.userData.pink = pink;
   g.scale.setScalar(1.85);
   g.visible = false;
   scene.add(g);
@@ -1544,7 +1551,139 @@ function placeFightBeast() {
   const z = pz + Math.cos(fp.yaw) * 8.2;
   fightBeast.position.set(x, groundY(x, z), z);
   fightBeast.rotation.y = fp.yaw + Math.PI;
-  fightBeast.visible = !fp.dummy;
+  fightBeast.visible = !fp.dummy && fp.aggro > 1.15;
+}
+function ensureFightCut() {
+  if (fightCut) return;
+  const tex = new THREE.TextureLoader().load('gel_king_cut.png');
+  tex.colorSpace = THREE.SRGBColorSpace;
+  fightCut = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.2, 4.1),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.42, depthWrite: false, side: THREE.DoubleSide })
+  );
+  fightCut.visible = false;
+  scene.add(fightCut);
+}
+function fightAhead(dist) {
+  return [px + Math.sin(fp.yaw) * dist, pz + Math.cos(fp.yaw) * dist];
+}
+function stepAggro(dt) {
+  if (!fp.on || fp.fish) {
+    if (fightCut) fightCut.visible = false;
+    return;
+  }
+  ensureFightBeast();
+  ensureFightCut();
+  if (!fp.aggroHold) fp.aggro += dt;
+  else if (fp.aggroHold === 'cutout') fp.aggro = 0.35;
+  else if (fp.aggroHold === 'surge') fp.aggro = 1.6;
+  else if (fp.aggroHold === 'live') fp.aggro = 4;
+  const t = fp.aggro;
+  const cut = t < 1.2 ? 1 : t < 2.05 ? 1 - (t - 1.2) / 0.85 : 0;
+  const [cx, cz] = fightAhead(14);
+  fightCut.position.set(cx, groundY(cx, cz) + 2.1, cz);
+  if (camera) fightCut.lookAt(camera.position);
+  fightCut.visible = cut > 0.04 && !fp.dummy;
+  if (fightCut.material) fightCut.material.opacity = 0.28 + cut * 0.22;
+  const grow = t < 1.15 ? 0 : Math.min(1, (t - 1.15) / 0.9);
+  const surge = t > 1.15 && t < 2.4 ? Math.sin(((t - 1.15) / 1.25) * Math.PI) : 0;
+  const [bx, bz] = fightAhead(11.5 - grow * 3.3);
+  fightBeast.position.set(bx, groundY(bx, bz), bz);
+  fightBeast.rotation.y = fp.yaw + Math.PI;
+  fightBeast.visible = grow > 0.04 && !fp.dummy;
+  fightBeast.scale.setScalar(1.85 * (0.18 + grow * 0.82));
+  const ring = fightBeast.userData.ring;
+  const pink = fightBeast.userData.pink;
+  if (ring) {
+    const pulse = 1 + surge * 1.8;
+    ring.scale.setScalar(pulse);
+    ring.material.opacity = 0.28 + surge * 0.65;
+    ring.material.color.setHex(surge > 0.2 ? 0xff7ac4 : 0xe8c877);
+  }
+  if (pink) {
+    pink.material.opacity = surge * 0.9;
+    pink.scale.setScalar(1 + surge * 2.4);
+    pink.visible = surge > 0.05;
+  }
+}
+function setCameraScene(hideWorld) {
+  if (!scene) return;
+  const keep = new Set([fightBeast, fightCut, camPlate, fpDummy]);
+  scene.children.forEach((o) => {
+    if (o.isLight || keep.has(o)) return;
+    if (hideWorld) {
+      if (o.userData.preCam == null) {
+        o.userData.preCam = o.visible;
+        o.visible = false;
+      }
+    } else if (o.userData.preCam != null) {
+      o.visible = o.userData.preCam;
+      o.userData.preCam = null;
+    }
+  });
+  if (scene.fog) {
+    if (hideWorld) {
+      if (!fp.fogSaved) fp.fogSaved = { near: scene.fog.near, far: scene.fog.far };
+      scene.fog.near = 90;
+      scene.fog.far = 420;
+    } else if (fp.fogSaved) {
+      scene.fog.near = fp.fogSaved.near;
+      scene.fog.far = fp.fogSaved.far;
+      fp.fogSaved = null;
+    }
+  }
+}
+function ensureCamPlate() {
+  if (!handVideo) return;
+  if (!camTex) {
+    camTex = new THREE.VideoTexture(handVideo);
+    camTex.colorSpace = THREE.SRGBColorSpace;
+  }
+  if (!camPlate) {
+    camPlate = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ map: camTex, depthTest: false, depthWrite: false, side: THREE.DoubleSide })
+    );
+    camPlate.frustumCulled = false;
+    camPlate.renderOrder = -20;
+    camPlate.visible = false;
+    scene.add(camPlate);
+  }
+}
+function placeCamPlate() {
+  if (fp.view !== 'camera' || !camera) {
+    if (camPlate) camPlate.visible = false;
+    return;
+  }
+  ensureCamPlate();
+  if (!camPlate) return;
+  const dist = camera.near + 0.2;
+  const v = camera.fov * Math.PI / 180;
+  const h = 2 * Math.tan(v / 2) * dist;
+  const w = h * Math.max(0.3, camera.aspect);
+  camPlate.scale.set(w, h, 1);
+  camPlate.position.copy(camera.position);
+  camPlate.quaternion.copy(camera.quaternion);
+  camPlate.translateZ(-dist);
+  camPlate.visible = !!(handVideo && handVideo.srcObject);
+  if (camTex) camTex.needsUpdate = true;
+}
+function setFightView(mode) {
+  fp.view = mode === 'camera' ? 'camera' : 'virtual';
+  const b = document.getElementById('fpView');
+  if (b) b.textContent = fp.view === 'camera' ? 'Camera' : 'Virtual';
+  document.body.classList.toggle('fp-cam', !!(fp.on && fp.view === 'camera'));
+  if (!fp.on) return;
+  if (fp.view === 'camera') {
+    setCameraScene(true);
+    if (avatar) avatar.visible = false;
+    startHandCam();
+  } else {
+    setCameraScene(false);
+    if (camPlate) camPlate.visible = false;
+    if (avatar) avatar.visible = !!fp.body;
+  }
+  if (handVideo) handVideo.classList.toggle('ar', fp.view === 'camera');
 }
 let fpDummy = null;
 function ensureDummy() {
@@ -2084,11 +2223,11 @@ function frameRoom() {
 function mountFpHud() {
   if (document.getElementById('fpHud')) return;
   const s = document.createElement('style');
-  s.textContent = '#fpHud{position:fixed;inset:0;z-index:30;display:none;pointer-events:none}#fpHud.on{display:block}body.fp-on #hud,body.fp-on #worldSpells,body.fp-on #menuBtn,body.fp-on #aroBack,body.fp-on #charBtn,body.fp-on #obj,body.fp-on #banner,body.fp-on #cv,body.fp-on #mapHint,body.fp-on #act,body.fp-on #coach,body.fp-on #spineLevel,body.fp-on #spinePurse,body.fp-on #spineBookBtn{display:none!important}#fpHud .top{position:absolute;left:16px;right:16px;top:calc(14px + env(safe-area-inset-top));display:flex;align-items:center;gap:12px;pointer-events:none}#fpHud .hp{flex:1;height:10px;border-radius:999px;background:rgba(8,18,16,.45);border:1px solid rgba(255,236,180,.55);overflow:hidden}#fpHud .hp i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#e7c56a,#8fd06a)}#fpHud .time{min-width:64px;text-align:center;color:#fff6df;font:800 16px ui-rounded,system-ui;text-shadow:0 1px 2px rgba(0,0,0,.45)}#fpHud button{pointer-events:auto;min-height:32px;padding:4px 12px;border-radius:999px;border:1px solid rgba(255,236,180,.55);background:rgba(8,18,16,.4);color:#fff6df;font:800 13px ui-rounded,system-ui}#fpTrack{position:absolute;left:16px;bottom:calc(18px + env(safe-area-inset-bottom));padding:6px 10px;border-radius:999px;background:rgba(8,18,16,.72);color:#fff6df;font:800 13px ui-rounded,system-ui;border:1px solid rgba(255,236,180,.45)}#fpTrack.hot{border-color:#9fe6e0;color:#e7fffb}#fpRing{position:fixed;width:92px;height:92px;margin:-46px 0 0 -46px;border-radius:50%;border:3px solid rgba(255,220,140,.2);display:none;pointer-events:none;z-index:31}#fpRing.on{display:block}#fpRing i{position:absolute;inset:8px;border-radius:50%;border:3px solid #ffe7a8;transform:scale(.2);box-shadow:0 0 10px rgba(255,210,120,.35)}#fpCam{position:absolute;right:16px;bottom:calc(18px + env(safe-area-inset-bottom))}#fpDummy{position:absolute;right:16px;bottom:calc(62px + env(safe-area-inset-bottom))}#handCam{position:fixed;right:12px;bottom:calc(112px + env(safe-area-inset-bottom));width:96px;height:72px;object-fit:cover;border-radius:10px;border:1px solid rgba(255,236,180,.65);z-index:32;background:#000}#handDebug{position:fixed;left:8px;top:calc(58px + env(safe-area-inset-top));z-index:40;display:none;max-width:min(78vw,280px);padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.78);color:#d8ffe8;font:700 11px/1.35 ui-monospace,ui-monospace,monospace;white-space:pre-wrap}#handDebug.on{display:block}#gelFight{position:fixed;left:50%;bottom:calc(112px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:28;min-height:48px;padding:10px 18px;border-radius:999px;border:2px solid #9fe6e0;background:rgba(12,40,38,.9);color:#e9fffb;font:800 16px ui-rounded,system-ui}body.fp-on #gelFight,body.garden-room #gelFight,body:not(.world-on) #gelFight{display:none}';
+  s.textContent = '#fpHud{position:fixed;inset:0;z-index:30;display:none;pointer-events:none}#fpHud.on{display:block}body.fp-on #hud,body.fp-on #worldSpells,body.fp-on #menuBtn,body.fp-on #aroBack,body.fp-on #charBtn,body.fp-on #obj,body.fp-on #banner,body.fp-on #cv,body.fp-on #mapHint,body.fp-on #act,body.fp-on #coach,body.fp-on #spineLevel,body.fp-on #spinePurse,body.fp-on #spineBookBtn{display:none!important}#fpHud .top{position:absolute;left:16px;right:16px;top:calc(14px + env(safe-area-inset-top));display:flex;align-items:center;gap:12px;pointer-events:none}#fpHud .hp{flex:1;height:10px;border-radius:999px;background:rgba(8,18,16,.45);border:1px solid rgba(255,236,180,.55);overflow:hidden}#fpHud .hp i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#e7c56a,#8fd06a)}#fpHud .time{min-width:64px;text-align:center;color:#fff6df;font:800 16px ui-rounded,system-ui;text-shadow:0 1px 2px rgba(0,0,0,.45)}#fpHud button{pointer-events:auto;min-height:32px;padding:4px 12px;border-radius:999px;border:1px solid rgba(255,236,180,.55);background:rgba(8,18,16,.4);color:#fff6df;font:800 13px ui-rounded,system-ui}#fpTrack{position:absolute;left:16px;bottom:calc(18px + env(safe-area-inset-bottom));padding:6px 10px;border-radius:999px;background:rgba(8,18,16,.72);color:#fff6df;font:800 13px ui-rounded,system-ui;border:1px solid rgba(255,236,180,.45)}#fpTrack.hot{border-color:#9fe6e0;color:#e7fffb}#fpRing{position:fixed;width:92px;height:92px;margin:-46px 0 0 -46px;border-radius:50%;border:3px solid rgba(255,220,140,.2);display:none;pointer-events:none;z-index:31}#fpRing.on{display:block}#fpRing i{position:absolute;inset:8px;border-radius:50%;border:3px solid #ffe7a8;transform:scale(.2);box-shadow:0 0 10px rgba(255,210,120,.35)}#fpCam{position:absolute;right:16px;bottom:calc(18px + env(safe-area-inset-bottom))}#fpDummy{position:absolute;right:16px;bottom:calc(62px + env(safe-area-inset-bottom))}#fpView{position:absolute;left:16px;bottom:calc(64px + env(safe-area-inset-bottom))}#handCam{position:fixed;right:12px;bottom:calc(112px + env(safe-area-inset-bottom));width:96px;height:72px;object-fit:cover;border-radius:10px;border:1px solid rgba(255,236,180,.65);z-index:32;background:#000}#handCam.ar{opacity:0;width:8px;height:8px;right:0;bottom:0;border:0}#handDebug{position:fixed;left:8px;top:calc(58px + env(safe-area-inset-top));z-index:40;display:none;max-width:min(78vw,280px);padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.78);color:#d8ffe8;font:700 11px/1.35 ui-monospace,ui-monospace,monospace;white-space:pre-wrap}#handDebug.on{display:block}#gelFight{position:fixed;left:50%;bottom:calc(112px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:28;min-height:48px;padding:10px 18px;border-radius:999px;border:2px solid #9fe6e0;background:rgba(12,40,38,.9);color:#e9fffb;font:800 16px ui-rounded,system-ui}body.fp-on #gelFight,body.garden-room #gelFight,body:not(.world-on) #gelFight{display:none}';
   document.head.appendChild(s);
   const hud = document.createElement('div');
   hud.id = 'fpHud';
-  hud.innerHTML = '<div class="top"><div class="hp"><i data-hp></i></div><b class="time" data-time>00:00</b><button type="button" data-act="off">Back</button></div><div id="fpTrack">Tap to cast</div><button type="button" id="fpDummy">Dummy</button><button type="button" id="fpCam">Camera hands</button>';
+  hud.innerHTML = '<div class="top"><div class="hp"><i data-hp></i></div><b class="time" data-time>00:00</b><button type="button" data-act="off">Back</button></div><div id="fpTrack">Hold, then release to cast</div><button type="button" id="fpView">Virtual</button><button type="button" id="fpDummy">Dummy</button><button type="button" id="fpCam">Camera hands</button>';
   document.body.appendChild(hud);
   const ring = document.createElement('div');
   ring.id = 'fpRing';
@@ -2097,6 +2236,7 @@ function mountFpHud() {
   hud.querySelector('[data-act="off"]').onclick = () => setFp(false);
   hud.querySelector('#fpCam').onclick = () => startHandCam();
   hud.querySelector('#fpDummy').onclick = () => toggleDummy();
+  hud.querySelector('#fpView').onclick = () => setFightView(fp.view === 'camera' ? 'virtual' : 'camera');
   if (!document.getElementById('handDebug')) {
     const dbg = document.createElement('div');
     dbg.id = 'handDebug';
@@ -2211,6 +2351,9 @@ function setFp(on, kind) {
       const home = field.anchors.home;
       fp.yaw = Math.atan2(px - home[0], pz - home[1]);
       facing = fp.yaw;
+      fp.view = 'virtual';
+      fp.aggro = 0;
+      fp.aggroHold = '';
       placeFightBeast();
       placeFightDress();
     }
@@ -2232,6 +2375,11 @@ function setFp(on, kind) {
     if (fightBeast) fightBeast.visible = false;
     if (fightDress) fightDress.visible = false;
     if (fpDummy) fpDummy.visible = false;
+    if (fightCut) fightCut.visible = false;
+    setCameraScene(false);
+    if (camPlate) camPlate.visible = false;
+    fp.view = 'virtual';
+    document.body.classList.remove('fp-cam');
     if (fp.saved) {
       playMode = fp.saved.mode;
       px = fp.saved.x;
@@ -2245,8 +2393,12 @@ function setFp(on, kind) {
   mountFpHud();
   const el = document.getElementById('fpHud');
   if (el) el.classList.toggle('on', fp.on);
-  if (avatar) avatar.visible = !fp.on || !!fp.body;
-  if (fpArms) fpArms.visible = !!fp.on && !fp.body;
+  if (avatar) avatar.visible = fp.view === 'camera' ? false : (!fp.on || !!fp.body);
+  if (fpArms) fpArms.visible = !!fp.on && !fp.body && fp.view !== 'camera';
+  if (fp.on && !fp.fish) {
+    setFightView(fp.view || 'virtual');
+    stepAggro(0);
+  }
   if (!fp.on && camera) { camera.near = 0.1; camera.fov = 42; camera.updateProjectionMatrix(); }
 }
 async function startFpXR() {
@@ -2390,6 +2542,7 @@ function frameFp() {
     }
   }
   poseFpBody();
+  placeCamPlate();
   if (skyMat) skyMat.uniforms.uCam.value.copy(camera.position);
 }
 function poseFpBody() {
@@ -2471,6 +2624,12 @@ function paintTrack() {
     ring.style.left = (fp.track.x * window.innerWidth) + 'px';
     ring.style.top = (fp.track.y * window.innerHeight) + 'px';
     const mark = ring.querySelector('i');
+    if (fp.view === 'camera' && !(fp.track.ready && fp.track.hands > 0)) {
+      fp.track.x = 0.5;
+      fp.track.y = 0.78;
+      ring.style.left = (fp.track.x * window.innerWidth) + 'px';
+      ring.style.top = (fp.track.y * window.innerHeight) + 'px';
+    }
     if (mark) mark.style.transform = 'scale(' + (0.2 + fp.track.charge * 0.8) + ')';
   }
   paintHandDebug();
@@ -2487,6 +2646,7 @@ function paintHandDebug() {
   const d = fp.track;
   const lines = [
     'model ' + (d.model || 'idle'),
+    'vision ' + (d.vision || '—'),
     'delegate ' + (d.delegate || 'none'),
     'video ' + (d.video || 'off'),
     'fps ' + (d.fps || 0),
@@ -2494,6 +2654,7 @@ function paintHandDebug() {
     'state ' + (d.state || 'off'),
   ];
   if (d.err) lines.push('err ' + d.err);
+  if (d.errWhere) lines.push(d.errWhere);
   el.textContent = lines.join('\n');
 }
 let handLandmarker = null;
@@ -2504,7 +2665,21 @@ let handTs = 0;
 let handVision = null;
 let handFiles = null;
 let handEmpty = 0;
+const VISION_VER = '0.10.17';
+const VISION_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@' + VISION_VER;
 const HAND_MODEL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+function formatHandErr(e) {
+  const msg = e && e.message ? String(e.message) : (e && e.name) || String(e);
+  const parts = e && e.stack ? String(e.stack).split('\n').map((s) => s.trim()).filter(Boolean) : [];
+  fp.track.err = msg.slice(0, 220);
+  fp.track.errWhere = (parts[1] || parts[0] || '').slice(0, 180);
+}
+function clearDbgClash() {
+  if (typeof window.dbg === 'function') return;
+  const el = document.getElementById('dbg');
+  if (el) el.id = 'fpsRead';
+  try { delete window.dbg; } catch (err) { /* named elements can stay */ }
+}
 function appleHandDevice() {
   const ua = navigator.userAgent || '';
   return /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2519,13 +2694,15 @@ function nextHandTs() {
   return handTs;
 }
 async function makeHandLandmarker(delegate) {
+  clearDbgClash();
+  if (!handVision) {
+    handVision = await import(VISION_BASE + '/vision_bundle.mjs');
+    handFiles = await handVision.FilesetResolver.forVisionTasks(VISION_BASE + '/wasm');
+  }
   return handVision.HandLandmarker.createFromOptions(handFiles, {
     baseOptions: { modelAssetPath: HAND_MODEL, delegate },
     runningMode: 'VIDEO',
     numHands: 1,
-    minHandDetectionConfidence: 0.25,
-    minHandPresenceConfidence: 0.25,
-    minTrackingConfidence: 0.25,
   });
 }
 function stopHandStream() {
@@ -2566,31 +2743,39 @@ async function startHandCam() {
         setTimeout(done, 700);
       });
     }
-    fp.track.video = (handVideo.videoWidth || 0) + 'x' + (handVideo.videoHeight || 0);
-    if (!handVision) {
-      handVision = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/vision_bundle.mjs');
-      handFiles = await handVision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm');
+    fp.track.video = (handVideo.videoWidth || 0) + 'x' + (handVideo.videoHeight || 0) + ' ready ' + handVideo.readyState;
+    fp.track.vision = VISION_VER;
+    const order = appleHandDevice() ? ['CPU'] : ['GPU', 'CPU'];
+    let lastErr = null;
+    handLandmarker = null;
+    for (const delegate of order) {
+      try {
+        handLandmarker = await makeHandLandmarker(delegate);
+        fp.track.delegate = delegate;
+        lastErr = null;
+        break;
+      } catch (err) {
+        lastErr = err;
+        formatHandErr(err);
+      }
     }
-    const first = appleHandDevice() ? 'CPU' : 'GPU';
-    try {
-      handLandmarker = await makeHandLandmarker(first);
-      fp.track.delegate = first;
-    } catch (e) {
-      handLandmarker = await makeHandLandmarker('CPU');
-      fp.track.delegate = 'CPU';
-      fp.track.err = String((e && e.message) || e).slice(0, 80);
-    }
+    if (!handLandmarker) throw lastErr || new Error('Hand landmarker did not start');
     fp.track.ready = true;
     fp.track.model = 'loaded';
     fp.track.state = 'looking';
+    fp.track.err = '';
+    fp.track.errWhere = '';
     handEmpty = 0;
   } catch (e) {
     fp.track.ready = false;
     fp.track.hands = 0;
-    fp.track.video = 'off';
     handLandmarker = null;
-    stopHandStream();
-    fp.track.err = String((e && (e.name || e.message)) || e).slice(0, 120);
+    formatHandErr(e);
+    const live = !!(handVideo && handVideo.srcObject && handVideo.readyState >= 2);
+    if (!live) {
+      fp.track.video = 'off';
+      stopHandStream();
+    }
     if (cameraDenied(e)) {
       fp.track.state = 'blocked';
       fp.track.model = 'denied';
@@ -2618,21 +2803,7 @@ async function fallbackHandCpu() {
   handBusy = false;
 }
 function readHandResult() {
-  const ts = nextHandTs();
-  let res = handLandmarker.detectForVideo(handVideo, ts);
-  const n = res && res.landmarks ? res.landmarks.length : 0;
-  if (n || !handVideo.videoWidth) return res;
-  if ((handEmpty % 3) !== 0) return res;
-  if (!handCanvas) handCanvas = document.createElement('canvas');
-  if (handCanvas.width !== handVideo.videoWidth || handCanvas.height !== handVideo.videoHeight) {
-    handCanvas.width = handVideo.videoWidth;
-    handCanvas.height = handVideo.videoHeight;
-  }
-  const ctx = handCanvas.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(handVideo, 0, 0, handCanvas.width, handCanvas.height);
-  const alt = handLandmarker.detect(handCanvas);
-  if (alt && alt.landmarks && alt.landmarks.length) return alt;
-  return res;
+  return handLandmarker.detectForVideo(handVideo, nextHandTs());
 }
 function stepHands() {
   if (!fp.on) return;
@@ -2649,9 +2820,13 @@ function stepHands() {
     paintTrack();
     return;
   }
-  if (fp.holding && !fp.track.ready) {
-    fp.track.charge = Math.min(1, fp.track.charge + 0.028);
+  if (fp.holding && !fp.look) {
+    fp.track.charge = Math.min(1, fp.track.charge + 0.045);
     fp.track.state = 'charging';
+    if (fp.view === 'camera') {
+      fp.track.x = 0.5;
+      fp.track.y = 0.78;
+    }
     paintTrack();
     return;
   }
@@ -2663,11 +2838,13 @@ function stepHands() {
   let res = null;
   try { res = readHandResult(); }
   catch (e) {
-    fp.track.err = String((e && e.message) || e).slice(0, 120);
+    formatHandErr(e);
     fp.track.state = 'looking';
     paintTrack();
     return;
   }
+  fp.track.err = '';
+  fp.track.errWhere = '';
   const hands = res && res.landmarks ? res.landmarks.length : 0;
   fp.track.hands = hands;
   const lm = hands ? res.landmarks[0] : null;
@@ -2720,6 +2897,7 @@ function stepFp(dt) {
   if (hud) hud.classList.toggle('pulse', fp.pulse > 0);
   if (palmOrb) palmOrb.visible = false;
   if (!fp.on) return;
+  stepAggro(dt);
   stepHands();
   if (shot === 'fpcast') fp.cast = 0.22;
   fp.clock += dt;
@@ -3002,15 +3180,15 @@ function bindInput(canvas) {
     ptrs.delete(e.pointerId);
     for (const q of ptrs.values()) q.pinch = 0;
     if (p && p.fp && fp.on) {
-      const ready = !!fp.track.ready;
       fp.holding = false;
-      if (!ready) {
-        if (!p.moved && fp.track.charge > 0.05) fpShoot('aether');
-        else {
-          fp.track.charge = 0;
-          fp.track.state = 'off';
-          paintTrack();
-        }
+      if (!p.moved && fp.track.charge > 0.05) fpShoot('aether');
+      else if (!fp.track.ready) {
+        fp.track.charge = 0;
+        fp.track.state = fp.track.model === 'failed' ? 'model' : 'off';
+        paintTrack();
+      } else {
+        fp.track.charge = Math.max(0, fp.track.charge);
+        paintTrack();
       }
       return;
     }
@@ -3126,6 +3304,7 @@ function kickMaterialize(model, feetY) {
   const s = model && model.userData && model.userData.matz;
   if (!s) return;
   s.t = 0;
+  s.t0 = performance.now();
   s.uFill.value = feetY - 0.04;
 }
 function stepMaterialize(model, root, dt) {
@@ -3139,7 +3318,8 @@ function stepMaterialize(model, root, dt) {
     s.uFill.value = 99;
     return;
   }
-  s.t = Math.min(1, s.t + dt / 0.72);
+  const waited = s.t0 ? (performance.now() - s.t0) / 900 : 0;
+  s.t = Math.min(1, Math.max(s.t + dt / 0.72, waited));
   const e = s.t * s.t * (3 - 2 * s.t);
   s.uFill.value = root.position.y - 0.04 + e * 1.9;
 }
@@ -3586,7 +3766,7 @@ function renderCharacter(w, h) {
   renderer.clear(true, true, true);
   camera.layers.set(1);
   renderer.render(scene, camera);
-  if (fp.on && fp.body && vmCam) {
+  if (fp.on && fp.body && vmCam && fp.view !== 'camera') {
     renderer.autoClear = false;
     renderer.clearDepth();
     vmCam.layers.set(2);
@@ -3599,7 +3779,7 @@ function renderCharacter(w, h) {
       renderer.setRenderTarget(charFlat);
       renderer.clear(true, true, true);
       renderer.render(scene, camera);
-      if (fp.on && fp.body && vmCam) {
+      if (fp.on && fp.body && vmCam && fp.view !== 'camera') {
         renderer.autoClear = false;
         renderer.clearDepth();
         renderer.render(scene, vmCam);
@@ -4568,7 +4748,21 @@ const api = {
     else { if (fpDummy) fpDummy.visible = false; placeFightBeast(); }
   },
   seam(name) { return setSeam(name == null ? 'auto' : name); },
-  where() { return { x: px, z: pz, facing, avatarReady, active, mode: playMode }; },
+  where() {
+    const mat = vrm && vrm.userData && vrm.userData.matz;
+    return { x: px, z: pz, facing, avatarReady, active, mode: playMode, fill: mat ? mat.uFill.value : null, matT: mat ? mat.t : null, view: fp.view, aggro: fp.aggro };
+  },
+  aggro(stage) {
+    if (!fp.on) setFp(true, 'fight');
+    fp.aggroHold = stage || '';
+    stepAggro(0);
+    return fp.aggro;
+  },
+  view(mode) {
+    if (!fp.on) setFp(true, 'fight');
+    setFightView(mode === 'camera' ? 'camera' : 'virtual');
+    return fp.view;
+  },
   enter: enterPlay,
   exit: exitPlay,
   cast: castSpell,
