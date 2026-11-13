@@ -10123,6 +10123,21 @@ window.__aroBoard = function () {
 window.__aroOpenFish = function () { if (typeof FI !== 'undefined' && !FI.open) openFish({ nook: true }); };
 window.__aroFishClose = function () { const m = document.getElementById('fishM'); if (m && m.classList.contains('on')) closeModal('fishM'); };
 window.__aroReel = function () { return (typeof FI !== 'undefined' && FI.open) ? FI.phase : ''; };
+window.__aroFishTap = function () { if (typeof fishTap === 'function') fishTap(); };
+window.__aroFishCharge = function () { if (typeof fishCharge === 'function') fishCharge(); };
+window.__aroHandCast = function (strength) {
+  if (typeof FI === 'undefined' || !FI.open || FI.phase !== 'aim') return;
+  const rip = rippleScreen(), me = playerScreen();
+  if (!rip || !me) return;
+  const reach = 0.3 + Math.max(0, Math.min(1, strength)) * 0.65;
+  gradeAndCast(me.x, me.y, me.x + (rip.x - me.x) * reach, me.y + (rip.y - me.y) * reach);
+};
+window.__aroHandReel = function () {
+  if (typeof FI === 'undefined' || !FI.open) return;
+  if (FI.phase !== 'nibble' && FI.phase !== 'wait') return;
+  const rip = rippleScreen(), me = playerScreen();
+  if (rip && me) tryTug({ x0: rip.x, y0: rip.y }, me.x, me.y);
+};
 window.__aroSpar = function (name) {
   if (window.__world3d && window.__world3d.enter) {
     window.__world3d.enter('arena');
