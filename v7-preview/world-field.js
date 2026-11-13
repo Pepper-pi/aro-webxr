@@ -371,7 +371,7 @@ function mount() {
     '#worldChip{position:fixed;left:50%;top:calc(44px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:16;display:none;padding:6px 14px;border-radius:999px;background:rgba(42,24,16,.9);border:1px solid rgba(226,196,138,.8);color:#f6e2c4;font:800 13px sans-serif;pointer-events:none;letter-spacing:.02em}',
     'body.field-on #worldChip{display:block}',
     '#devWalk{position:fixed;left:12px;top:calc(52px + env(safe-area-inset-top,0px));z-index:16;display:none;min-height:36px;padding:6px 12px;border-radius:12px;border:1px solid rgba(226,196,138,.7);background:rgba(42,24,16,.9);color:#f6e2c4;font:800 13px sans-serif}',
-    'body.out-combat #devWalk{display:block}',
+    'body.out-combat #devWalk{display:none}',
     '#worldHud{position:fixed;right:12px;top:calc(8px + env(safe-area-inset-top,0px));z-index:16;display:none;width:min(18rem,calc(100% - 24px));pointer-events:none}',
     'body.field-on.fight-fp:not(.fp-clear) #worldHud{display:block}',
     '#worldHud select,#worldHud button{pointer-events:auto;min-height:36px;margin:0 6px 6px 0;padding:6px 10px;border-radius:10px;border:1px solid rgba(180,220,255,.45);background:rgba(12,10,20,.88);color:#f4f7ff;font:700 13px sans-serif}',

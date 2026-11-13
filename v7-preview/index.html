@@ -26,7 +26,7 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;touch-
 #obj{position:fixed;left:50%;transform:translateX(-50%);top:calc(50px + var(--sat));z-index:5;pointer-events:none;
 background:rgba(26,15,31,.78);border:1px solid rgba(255,201,77,.45);border-radius:14px;padding:6px 12px;font-size:13px;font-weight:800;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;transition:opacity .4s}
 @media (max-width:520px){
-  body.out-combat #obj{top:calc(78px + var(--sat));left:8px;right:8px;transform:none;width:auto;max-width:none;text-align:center;font-size:12px;padding:5px 8px}
+  body.out-combat #obj{top:calc(88px + var(--sat));left:8px;right:8px;transform:none;width:auto;max-width:none;text-align:center;font-size:12px;padding:5px 8px}
 }
 #obj b{color:var(--gold)}
 /* ---------- coach bubble: one gentle prompt at a time ---------- */
@@ -2588,7 +2588,7 @@ function drawSlam(c) {
 }
 function mountPortal() {
   const style = document.createElement('style');
-  style.textContent = '#portalBtn{position:fixed;left:12px;top:calc(148px + env(safe-area-inset-top,0px));z-index:17;min-height:44px;padding:8px 12px;border-radius:12px;border:1px solid rgba(160,230,200,.8);background:rgba(16,36,32,.92);color:#e7fff4;font:800 13px sans-serif}#portalBtn.hide{display:none}@media (max-width:520px){#portalBtn{top:calc(152px + env(safe-area-inset-top,0px));min-height:34px;padding:4px 8px;font-size:12px}}#doorClear{position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;background:#f6f1e8;color:#3a2414;font:800 28px sans-serif}#doorClear.on{display:flex}body.home-in #portalBtn{display:none!important}';
+  style.textContent = '#portalBtn{position:fixed;left:12px;top:calc(148px + env(safe-area-inset-top,0px));z-index:17;min-height:44px;padding:8px 12px;border-radius:12px;border:1px solid rgba(160,230,200,.8);background:rgba(16,36,32,.92);color:#e7fff4;font:800 13px sans-serif}#portalBtn.hide{display:none}@media (max-width:520px){#portalBtn{top:calc(164px + env(safe-area-inset-top,0px));min-height:34px;padding:4px 8px;font-size:12px}}#doorClear{position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;background:#f6f1e8;color:#3a2414;font:800 28px sans-serif}#doorClear.on{display:flex}body.home-in #portalBtn{display:none!important}';
   document.head.appendChild(style);
   const b = document.createElement('button');
   b.id = 'portalBtn';

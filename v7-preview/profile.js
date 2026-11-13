@@ -598,7 +598,7 @@ function mount() {
     '#spineLevel{position:fixed;left:12px;top:calc(46px + env(safe-area-inset-top,0px));z-index:18;display:none;padding:6px 10px;border-radius:999px;background:rgba(42,24,16,.92);border:1px solid rgba(255,211,106,.8);color:#ffe7a8;font:800 13px sans-serif;pointer-events:none}',
     'body.out-combat #spineLevel,body.field-on #spineLevel{display:block}',
     '#spineBookBtn{position:fixed;left:12px;top:calc(96px + env(safe-area-inset-top,0px));z-index:16;display:none;min-height:44px;padding:8px 12px;border-radius:12px;border:1px solid rgba(226,196,138,.7);background:rgba(42,24,16,.92);color:#f6e2c4;font:800 13px sans-serif}',
-    '@media (max-width:520px){body.out-combat #spineBookBtn{top:calc(114px + env(safe-area-inset-top,0px));min-height:32px;padding:4px 8px;font-size:12px}}',
+    '@media (max-width:520px){body.out-combat #spineBookBtn{top:calc(126px + env(safe-area-inset-top,0px));min-height:32px;padding:4px 8px;font-size:12px}}',
     'body.out-combat #spineBookBtn{display:block}',
     '#spineBook,#spineShop,#spineArcade,#spineBoard{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;display:none;width:min(92vw,420px);max-height:min(78vh,560px);overflow:auto;padding:14px;border-radius:16px;background:#24160f;border:1px solid rgba(226,196,138,.8);color:#f6e2c4;font:700 14px/1.4 sans-serif}',
     '#spineBook.on,#spineShop.on,#spineArcade.on,#spineBoard.on{display:block}',
