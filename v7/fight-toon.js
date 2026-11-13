@@ -1779,9 +1779,16 @@ function frame(now) {
 function mount() {
   const style = document.createElement('style');
   style.textContent = [
-    '#fightCv{position:fixed;left:0;right:0;top:0;height:calc(100% - 250px);z-index:2;display:none;pointer-events:none;width:100%}',
+    '#fightCv{position:fixed;left:0;right:0;top:0;height:100%;z-index:2;display:none;pointer-events:none;width:100%}',
     '#fightCv.on{display:block}',
-    '@media (max-height:520px){#fightCv{height:100%;clip-path:inset(0 168px 0 0)}}',
+    '#aimCv{position:fixed;inset:0;width:100%;height:100%;z-index:4;display:none;pointer-events:none}',
+    'body.field-on #aimCv{display:block}',
+    'body.field-on #trainHud{left:8px;right:auto;width:max-content;max-width:calc(100% - 16px)}',
+    'body.field-on #obj{left:8px;right:auto;transform:none;top:calc(118px + var(--sat));max-width:46vw;text-align:left}',
+    'body.field-on #trainHud .rowb button{flex:0 1 auto;min-width:64px;padding:6px 10px}',
+    'body.field-on #castFeed{top:auto !important;bottom:108px;max-width:42vw}',
+    'body.field-on #itemBoard{top:auto !important;bottom:148px;right:8px}',
+    'body.field-on #cellBtn{top:auto !important;bottom:108px;right:8px}',
     '#fightReticle{position:fixed;left:50%;top:34%;width:54px;height:54px;margin:-27px 0 0 -27px;border:2px solid rgba(80,220,255,.9);border-radius:50%;display:none;pointer-events:none;z-index:3;box-shadow:0 0 0 1px rgba(255,40,70,.8) inset}',
     '#fightReticle.on{display:block}',
     '#fightReticle:before,#fightReticle:after{content:"";position:absolute;background:#ff3355}',
@@ -1795,6 +1802,9 @@ function mount() {
   const canvas = document.createElement('canvas');
   canvas.id = 'fightCv';
   document.body.appendChild(canvas);
+  const aim = document.createElement('canvas');
+  aim.id = 'aimCv';
+  document.body.appendChild(aim);
   reticle = document.createElement('div');
   reticle.id = 'fightReticle';
   document.body.appendChild(reticle);
