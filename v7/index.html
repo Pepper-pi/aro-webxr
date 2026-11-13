@@ -61,6 +61,11 @@ clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radia
 #menuBtn span{position:relative;z-index:1;width:26px;height:26px;background:var(--gold);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);box-shadow:0 0 12px var(--gold)}
 #menuBtn.dim{opacity:.0;pointer-events:none;transition:opacity .4s}
 #aroBack{position:fixed;left:10px;top:calc(8px + var(--sat));z-index:80;min-height:48px;min-width:92px;padding:10px 18px;border-radius:14px;background:#ffd978;color:#3a1d05;font-weight:900;font-size:18px;box-shadow:0 4px 0 #9a5f12}
+#worldSpells{position:fixed;right:12px;bottom:calc(86px + var(--sab));z-index:8;display:flex;flex-direction:column;gap:8px}
+#worldSpells button{min-width:96px;min-height:44px;padding:8px 12px;border-radius:14px;font-weight:900;color:#e9fbff;background:rgba(8,24,40,.55);border:1px solid rgba(127,240,255,.55);box-shadow:0 0 14px rgba(127,240,255,.22)}
+#worldSpells button.fire{border-color:rgba(255,170,70,.75);color:#ffe1b0;box-shadow:0 0 14px rgba(255,160,60,.2)}
+body.world-on #hud .chip{background:rgba(8,22,36,.5);border-color:rgba(127,240,255,.45);color:#e7fbff;box-shadow:0 0 10px rgba(90,220,255,.18)}
+body.world-on #menuBtn{filter:drop-shadow(0 0 6px rgba(127,240,255,.45))}
 #simpleMenu{position:fixed;inset:0;z-index:60;background:rgba(8,4,12,.45);display:flex;align-items:flex-end;justify-content:center;padding:12px}
 #simpleMenu.hide{display:none!important}
 #simpleMenu .card{width:min(100%,420px);display:flex;flex-direction:column;gap:8px;background:rgba(22,10,18,.96);border:1px solid rgba(255,214,140,.7);border-radius:18px;padding:14px}
@@ -528,6 +533,10 @@ body.fishing #fishM .focus-nav button{min-height:36px;padding:6px 8px}
 <button type="button" id="mapHint">Tap the ground to walk <b>×</b></button>
 <button id="act" class="hide"></button>
 <button id="menuBtn" class="hide" aria-label="Menu"><span></span><b>Menu</b></button>
+<div id="worldSpells" class="hide">
+  <button type="button" id="castAether">Aether</button>
+  <button type="button" id="castFire" class="fire">Fire</button>
+</div>
 <button type="button" id="aroBack" class="hide">Back</button>
 <div id="simpleMenu" class="hide" role="dialog" aria-label="Menu">
   <div class="card">
@@ -858,6 +867,12 @@ window.__aroGrass = () => {
   if (low) return 900;
   if (typeof TRAIN !== 'undefined' && TRAIN.on && TRAIN.view === 'tactical') return 1600;
   return 2600;
+};
+window.__aroHolo = () => {
+  const low = SET.cozy || (typeof raidViewLow === 'function' && raidViewLow()) || innerWidth < 700;
+  if (low) return 0.22;
+  if (typeof TRAIN !== 'undefined' && TRAIN.on && TRAIN.view === 'tactical') return 0.45;
+  return 1;
 };
 function saveSet() { try { localStorage.setItem('aro7set', JSON.stringify(SET)); } catch (e) { } }
 const canVibrate = typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
@@ -6845,6 +6860,14 @@ function simpleLayer() {
   return '';
 }
 function simpleBack() {
+  if (window.__world3d && window.__world3d.mode && window.__world3d.mode() !== 'world') {
+    const modal = document.querySelector('.modal.on');
+    if (!modal || modal.id === 'fishM') {
+      if (modal && modal.id === 'fishM') closeModal('fishM');
+      window.__world3d.exit();
+      return;
+    }
+  }
   const layer = simpleLayer();
   const backToMenu = simpleBack.fromMenu;
   if (layer === 'modal') {
@@ -7450,6 +7473,8 @@ function frame(now) {
   if (fishOpen) fishUpdate(dt);
   if (window.__world3d) window.__world3d.tick(dt, worldWanted());
   const worldOn = document.body.classList.contains('world-on');
+  const spellBar = document.getElementById('worldSpells');
+  if (spellBar) spellBar.classList.toggle('hide', !worldOn);
   if (marketPlateOn()) drawMarketPlate(T); else if (G.scene === 'arena') drawArena(T); else if (GARDEN_ROOM.on) drawGardenRoom(T); else if (GATHER.on) drawGatherPlate(T); else if (!worldOn) { drawMap(T); drawFX(); dayTint(); weatherWash(); }
   if (typeof syncPortalBtn === 'function') syncPortalBtn();
   if (typeof syncGardenHud === 'function') syncGardenHud();
@@ -9835,9 +9860,17 @@ document.querySelectorAll('#simpleMenu [data-go]').forEach(b => b.addEventListen
   simpleBack.fromMenu = true;
   if (go === 'settings') openModal('setM');
   else if (go === 'collection' && window.__profile && window.__profile.openBook) window.__profile.openBook('pins');
-  else if (go === 'garden') enterGarden();
-  else if (go === 'fishing') openFish({ nook: true });
+  else if (go === 'garden') {
+    if (document.body.classList.contains('world-on') && window.__world3d && window.__world3d.enter) window.__world3d.enter('home');
+    else enterGarden();
+  }
+  else if (go === 'fishing') {
+    if (document.body.classList.contains('world-on') && window.__world3d && window.__world3d.enter) window.__world3d.enter('fish');
+    else openFish({ nook: true });
+  }
 }));
+document.getElementById('castAether').addEventListener('click', () => { if (window.__world3d && window.__world3d.cast) window.__world3d.cast('aether'); });
+document.getElementById('castFire').addEventListener('click', () => { if (window.__world3d && window.__world3d.cast) window.__world3d.cast('fire'); });
 document.getElementById('mapHint').addEventListener('click', () => { SFX.tap(); dismissMapHint(); });
 document.getElementById('navHome').addEventListener('click', () => enterHome());
 document.getElementById('navDome').addEventListener('click', () => goPlace(DOME.q, DOME.r));
@@ -10015,12 +10048,13 @@ function syncMapNav() {
 }
 function worldWanted() {
   if (!window.__world3d || !window.__world3d.ready) return false;
-  if (G.scene !== 'map') return false;
-  if (typeof GARDEN_ROOM !== 'undefined' && GARDEN_ROOM.on) return false;
-  if (document.body.classList.contains('home-in')) return false;
-  if ($('#fishM').classList.contains('on')) return false;
+  const kept = window.__world3d.keepsWorld && window.__world3d.keepsWorld();
+  if (G.scene !== 'map' && !kept) return false;
+  if (typeof GARDEN_ROOM !== 'undefined' && GARDEN_ROOM.on && !kept) return false;
+  if (document.body.classList.contains('home-in') && !kept) return false;
+  if ($('#fishM').classList.contains('on') && !kept) return false;
   if (typeof GATHER !== 'undefined' && GATHER.on) return false;
-  if (typeof marketPlateOn === 'function' && marketPlateOn()) return false;
+  if (typeof marketPlateOn === 'function' && marketPlateOn() && !kept) return false;
   return true;
 }
 window.__aroPlace = function (kind) {
@@ -10032,10 +10066,23 @@ window.__aroPlace = function (kind) {
   MAP.house.q = t.q; MAP.house.r = t.r; MAP.house.x = t.x; MAP.house.y = t.y; MAP.house.mode = 'park';
 };
 window.__aroBoard = function () {
+  if (window.__world3d && window.__world3d.enter) {
+    window.__world3d.enter('home');
+    if (typeof showCast === 'function') showCast('Aboard · the home ship');
+    return;
+  }
   if (typeof showCast === 'function') showCast('Aboard · the home ship');
   enterHome();
 };
+window.__aroOpenFish = function () { if (typeof FI !== 'undefined' && !FI.open) openFish({ nook: true }); };
+window.__aroFishClose = function () { const m = document.getElementById('fishM'); if (m && m.classList.contains('on')) closeModal('fishM'); };
+window.__aroReel = function () { return (typeof FI !== 'undefined' && FI.open) ? FI.phase : ''; };
 window.__aroSpar = function (name) {
+  if (window.__world3d && window.__world3d.enter) {
+    window.__world3d.enter('arena');
+    if (typeof showCast === 'function') showCast('Sparring · ' + (name || 'A and C'));
+    return;
+  }
   if (typeof showCast === 'function') showCast('Test NPC · ' + name + ' · sparring');
   startTrain();
 };
