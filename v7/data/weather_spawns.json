@@ -1,0 +1,31 @@
+{
+  "roll": { "mob": 4, "npc": [2, 3], "vendor": [1, 2] },
+  "entries": [
+    { "id": "slime", "group": "mob", "weight": 2, "rain": 3, "storm": 1.4, "fog": 1.6, "clear": 0.6 },
+    { "id": "blob", "group": "mob", "weight": 1.2, "rain": 2.6, "storm": 1.3, "snow": 0.5 },
+    { "id": "scout", "group": "mob", "weight": 2, "clear": 1.4, "wind": 1.3, "night": 0.8 },
+    { "id": "goblin", "group": "mob", "weight": 1.4, "night": 1.6, "fog": 1.2, "clear": 0.8 },
+    { "id": "glass-brute", "group": "mob", "weight": 0.35, "storm": 4, "night": 1.8, "rain": 0.6, "clear": 0.2 },
+    { "id": "wire-brute", "group": "mob", "weight": 0.55, "storm": 8, "clear": 0, "rain": 0, "fog": 0, "snow": 0, "wind": 0, "night": 0, "name": "Wire brute", "place": "field", "line": "The storm pulls the wire tight." },
+
+    { "id": "npc-dock", "group": "npc", "weight": 1.2, "clear": 1.6, "fog": 1.4, "storm": 0.4, "name": "Brill Quay", "place": "town", "line": "Lake's this way. Watch your step on the wet planks." },
+    { "id": "npc-fisher", "group": "npc", "weight": 1, "rain": 1.5, "wind": 1.4, "snow": 0.7, "name": "Kess Ellow", "place": "town", "line": "No pole. Just a flick at the bright ring, then tug it in." },
+    { "id": "npc-nightwatch", "group": "npc", "weight": 0.8, "night": 2.2, "storm": 1.3, "clear": 0.3, "name": "Vesper Lin", "place": "field", "line": "I have the watch. The pits are glowing." },
+    { "id": "npc-pinwarden", "group": "npc", "weight": 1.0, "clear": 1.5, "wind": 1.3, "fog": 0.5, "name": "Tolla Reed", "place": "town", "line": "Like this place? Pin it. I'll keep the gold dots on your map." },
+    { "id": "npc-pitkeep", "group": "npc", "weight": 0.7, "storm": 2.0, "night": 1.6, "rain": 1.2, "clear": 0.4, "name": "Bram Cullet", "place": "field", "line": "That deep pit is the hot one. Give it a wide walk." },
+    { "id": "npc-hearth", "group": "npc", "weight": 1.1, "clear": 1.8, "snow": 1.4, "storm": 0.35, "name": "Mira Solace", "place": "town", "line": "Fire's going. Come warm up, then head back out." },
+    { "id": "npc-circuit", "group": "npc", "weight": 0.9, "night": 2.0, "wind": 1.3, "clear": 0.8, "snow": 0.4, "name": "Juno Volt", "place": "market", "line": "Welcome to the bright streets. Stay on the lit hexes and you'll be fine." },
+    { "id": "npc-prizehost", "group": "npc", "weight": 0.9, "rain": 1.6, "storm": 1.4, "snow": 1.3, "clear": 1.0, "name": "Pip Cinder", "place": "arcade", "line": "Pick a game, win a prize from the shelf. What's on the card is what you get." },
+    { "id": "npc-windrunner", "group": "npc", "weight": 0.85, "wind": 2.2, "clear": 1.3, "storm": 0.6, "fog": 0.4, "name": "Oren Drift", "place": "town", "line": "Lean into it. The path is still there, just louder today." },
+    { "id": "npc-fogguide", "group": "npc", "weight": 0.85, "fog": 2.4, "night": 1.5, "clear": 0.5, "wind": 0.4, "name": "Nima Veil", "place": "town", "line": "Stay close to my lantern. The town's only a few hexes off." },
+
+    { "id": "vendor-tea", "group": "vendor", "weight": 1.1, "clear": 2, "rain": 0.45, "snow": 1.3, "name": "Lumen Parr", "place": "town", "line": "Warm cup, small snack. Sit a minute if the sun's out." },
+    { "id": "vendor-ink", "group": "vendor", "weight": 0.9, "night": 1.8, "fog": 1.4, "storm": 0.7, "name": "Ivy Sable", "place": "market", "line": "New color, new stamp. All washable. Pick what you like." },
+    { "id": "vendor-gear", "group": "vendor", "weight": 0.8, "wind": 1.6, "storm": 1.2, "clear": 1.1, "name": "Calder Wren", "place": "field", "line": "Cells are for reloads, nothing else. I'll top you up." },
+    { "id": "vendor-bait", "group": "vendor", "weight": 1.0, "rain": 1.6, "wind": 1.3, "clear": 1.2, "snow": 0.6, "name": "Pebble Finn", "place": "town", "line": "Bait's in the tin. Your hands do the rest. I don't sell poles." },
+    { "id": "vendor-snack", "group": "vendor", "weight": 1.0, "clear": 1.5, "rain": 1.4, "wind": 1.2, "storm": 0.5, "name": "Saffron Bumble", "place": "town", "line": "Something small and sweet for the walk. No rush." },
+    { "id": "vendor-shade", "group": "vendor", "weight": 0.85, "night": 1.7, "fog": 1.3, "clear": 1.2, "snow": 0.6, "name": "Tavi Prism", "place": "market", "line": "Hats and glow traces. Try one on. It comes right back off." },
+    { "id": "vendor-prize", "group": "vendor", "weight": 0.85, "rain": 1.5, "storm": 1.3, "snow": 1.4, "night": 1.1, "clear": 0.9, "name": "Blink Solley", "place": "arcade", "line": "The shelf is the list. Play, pick, take what's posted. That's the whole deal." },
+    { "id": "vendor-fieldsnack", "group": "vendor", "weight": 0.8, "storm": 1.5, "wind": 1.4, "night": 1.3, "clear": 0.7, "name": "Orra Flint", "place": "field", "line": "Eat something before the next wave. I've got the easy stuff." }
+  ]
+}
