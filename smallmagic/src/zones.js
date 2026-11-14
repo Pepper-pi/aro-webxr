@@ -1,6 +1,6 @@
 // The ship, the meadow, and Long Lake. All of it is drawn in code. Nothing here is a picture or a recording.
 import * as THREE from 'three';
-import { createBeasts } from './beasts.js';
+import { createBeasts, PACKS } from './beasts.js';
 import { buildVillage } from './cabins.js';
 
 const mat = (color) => new THREE.MeshBasicMaterial({ color });
@@ -133,7 +133,7 @@ export function createZones({ scene, world, walker, camera, air }) {
   scene.add(bobber);
 
   scene.add(meadowRing, hub);
-  const beasts = createBeasts(scene);
+  const beasts = createBeasts(scene, (x, z) => world.ground(x, z));
   hub.visible = meadowRing.visible = false;
 
   const hold = new THREE.Group();
@@ -261,6 +261,95 @@ export function createZones({ scene, world, walker, camera, air }) {
   }));
   document.getElementById('menuX')?.addEventListener('pointerup', (e) => { if (menu) menu.hidden = true; e.preventDefault(); e.stopPropagation(); });
   document.getElementById('menubtn')?.addEventListener('pointerup', (e) => { if (menu) menu.hidden = false; e.preventDefault(); e.stopPropagation(); });
+  const atlas = document.getElementById('atlas');
+  const mapCanvas = document.getElementById('lakemap');
+  const mapCtx = mapCanvas?.getContext('2d');
+  const MAP = { x0: -78, x1: -16, z0: -64, z1: 4 };
+  const spots = [
+    { name: 'Landing', x: -32, z: -8, tx: 12, ty: -28 },
+    { name: 'Village', x: -54, z: -18, tx: 12, ty: -40 },
+    { name: 'Logging camp', x: -66, z: -20, tx: 12, ty: 16 },
+    { name: 'Campfire', x: -64.4, z: -19.7, tx: 12, ty: 40 },
+    { name: PACKS[0].name, x: PACKS[0].x, z: PACKS[0].z, tx: -230, ty: 22 },
+    { name: PACKS[1].name, x: PACKS[1].x, z: PACKS[1].z, tx: 12, ty: -18 },
+    { name: PACKS[2].name, x: PACKS[2].x, z: PACKS[2].z, tx: 12, ty: -18 },
+  ];
+  let pin = null;
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 2.4, 70, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false }));
+  const beamCore = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.35, 70, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff6dc, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }));
+  beam.add(beamCore);
+  beam.visible = false;
+  world.root.add(beam);
+  const toMap = (x, z) => ({
+    sx: ((x - MAP.x0) / (MAP.x1 - MAP.x0)) * mapCanvas.width,
+    sy: (1 - (z - MAP.z0) / (MAP.z1 - MAP.z0)) * mapCanvas.height,
+  });
+  const fromMap = (sx, sy) => ({
+    x: MAP.x0 + (sx / mapCanvas.width) * (MAP.x1 - MAP.x0),
+    z: MAP.z0 + (1 - sy / mapCanvas.height) * (MAP.z1 - MAP.z0),
+  });
+  function drawMap() {
+    if (!mapCtx) return;
+    const g = mapCtx, W = mapCanvas.width, H = mapCanvas.height;
+    g.clearRect(0, 0, W, H);
+    g.fillStyle = '#245234'; g.fillRect(0, 0, W, H);
+    const lake = toMap(-50, -46);
+    g.fillStyle = '#2f7ea8';
+    g.beginPath(); g.ellipse(lake.sx, lake.sy, (14 / (MAP.x1 - MAP.x0)) * W, (9 / (MAP.z1 - MAP.z0)) * H, 0, 0, Math.PI * 2); g.fill();
+    for (const [px, pz, r] of [[-30, -56, 4.2], [-68, -42, 3.5]]) {
+      const p = toMap(px, pz);
+      g.beginPath(); g.arc(p.sx, p.sy, (r / (MAP.x1 - MAP.x0)) * W, 0, Math.PI * 2); g.fill();
+    }
+    for (const s of spots) {
+      const p = toMap(s.x, s.z);
+      g.fillStyle = s.name.startsWith('Beasts') ? '#e23b32' : '#c4a574';
+      g.beginPath(); g.arc(p.sx, p.sy, s.name.startsWith('Beasts') ? 10 : 7, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#f6ead0';
+      g.font = '18px Georgia';
+      g.textAlign = 'left';
+      g.fillText(s.name, p.sx + (s.tx ?? 14), p.sy + (s.ty ?? 6));
+    }
+    const you = toMap(walker.feet.x, walker.feet.z);
+    g.fillStyle = '#fff6dc';
+    g.beginPath(); g.arc(you.sx, you.sy, 8, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#fff6dc'; g.lineWidth = 4;
+    g.beginPath();
+    g.moveTo(you.sx, you.sy);
+    g.lineTo(you.sx + Math.sin(walker.yaw) * 28, you.sy - Math.cos(walker.yaw) * 28);
+    g.stroke();
+    if (pin) {
+      const q = toMap(pin.x, pin.z);
+      g.strokeStyle = '#ffe7a8'; g.lineWidth = 3;
+      g.beginPath(); g.arc(q.sx, q.sy, 14, 0, Math.PI * 2); g.stroke();
+    }
+  }
+  function setPin(x, z) {
+    if (pin && Math.hypot(pin.x - x, pin.z - z) < 3.5) pin = null;
+    else pin = { x, z };
+    beam.visible = !!pin;
+    if (pin) beam.position.set(pin.x, world.ground(pin.x, pin.z) + 35, pin.z);
+    drawMap();
+  }
+  document.getElementById('openMap')?.addEventListener('pointerup', (e) => {
+    if (menu) menu.hidden = true;
+    if (atlas) atlas.hidden = false;
+    drawMap();
+    e.preventDefault(); e.stopPropagation();
+  });
+  document.getElementById('mapX')?.addEventListener('pointerup', (e) => { if (atlas) atlas.hidden = true; e.preventDefault(); e.stopPropagation(); });
+  mapCanvas?.addEventListener('pointerdown', (e) => {
+    const r = mapCanvas.getBoundingClientRect();
+    const sx = (e.clientX - r.left) * (mapCanvas.width / r.width);
+    const sy = (e.clientY - r.top) * (mapCanvas.height / r.height);
+    let hit = null;
+    for (const s of spots) {
+      const p = toMap(s.x, s.z);
+      if (Math.hypot(p.sx - sx, p.sy - sy) < 36) hit = s;
+    }
+    const at = hit || fromMap(sx, sy);
+    setPin(at.x, at.z);
+    e.preventDefault(); e.stopPropagation();
+  });
   back?.addEventListener('pointerup', (e) => { if (menu) menu.hidden = false; e.preventDefault(); e.stopPropagation(); });
   reelBtn?.addEventListener('pointerup', (e) => {
     if (phase === 'bite') { phase = 'reel'; reelT = 0; reelBtn.hidden = true; }
@@ -273,7 +362,7 @@ export function createZones({ scene, world, walker, camera, air }) {
     b.addEventListener('contextmenu', (e) => e.preventDefault());
   });
   addEventListener('pointerup', (e) => {
-    if (name !== 'hub' || (e.target.closest && e.target.closest('#cast, #spell, #stick, #board, #menu, #back, #menubtn, #reel, #catch, #fish, #dusk, #gear, #settings'))) return;
+    if (name !== 'hub' || (e.target.closest && e.target.closest('#cast, #spell, #stick, #board, #menu, #back, #menubtn, #reel, #catch, #fish, #dusk, #gear, #settings, #atlas'))) return;
     ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
     ray.setFromCamera(ndc, camera);
     if (ray.intersectObject(screen, false).length) showBoard();
@@ -415,6 +504,12 @@ export function createZones({ scene, world, walker, camera, air }) {
         if (s.userData.life <= 0) s.visible = false;
       }
       beasts.update(dt, name);
+      if (pin) {
+        beam.visible = name === 'meadow';
+        beam.position.y = world.ground(pin.x, pin.z) + 35 + Math.sin(performance.now() * 0.004) * 0.4;
+        beam.material.opacity = 0.4 + Math.sin(performance.now() * 0.006) * 0.12;
+      }
+      if (atlas && !atlas.hidden) drawMap();
       const gate = name === 'hub' ? hubRing.position : meadowRing.position;
       const d = Math.hypot(walker.feet.x - gate.x, walker.feet.z - gate.z);
       if (d > 2.15) leftRing = true;

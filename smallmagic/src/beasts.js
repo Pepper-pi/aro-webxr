@@ -47,7 +47,13 @@ function one(kind, x, z) {
   return { kind, g, bar, homeX: x, homeZ: z, x, z, hp: HP[kind], max: HP[kind], flash: 0, dead: false, back: 0, tx: x, tz: z, wait: 1 };
 }
 
-export function createBeasts(scene) {
+export const PACKS = [
+  { name: 'Beasts by the landing', x: -26, z: -8 },
+  { name: 'Beasts near the logging camp', x: -64, z: -20 },
+  { name: 'Beasts on the shore', x: -42, z: -34 },
+];
+
+export function createBeasts(scene, ground) {
   const meadow = new THREE.Group();
   const lake = new THREE.Group();
   const all = [];
@@ -57,15 +63,16 @@ export function createBeasts(scene) {
     group.add(b.g);
     all.push(b);
   };
-  add(meadow, 'wolf', 8, 30);
-  add(meadow, 'boar', -4, 28);
-  add(meadow, 'slime', 11, 36);
-  add(meadow, 'wolf', -38, -12);
-  add(meadow, 'boar', -28, -34);
-  add(meadow, 'wolf', -42, -36);
-  add(meadow, 'slime', -58, -36);
-  add(meadow, 'boar', -64, -38);
-  add(meadow, 'slime', -28, -52);
+  add(meadow, 'wolf', -26, -6);
+  add(meadow, 'slime', -30, -14);
+  add(meadow, 'boar', -24, -11);
+  add(meadow, 'wolf', -62, -16);
+  add(meadow, 'boar', -68, -23);
+  add(meadow, 'slime', -63, -22);
+  add(meadow, 'wolf', -44, -34);
+  add(meadow, 'slime', -36, -32);
+  add(meadow, 'boar', 6, 32);
+  for (const b of all) b.g.scale.setScalar(1.4);
   scene.add(meadow, lake);
   const bits = [];
   const cube = new THREE.BoxGeometry(0.16, 0.16, 0.16);
@@ -110,9 +117,9 @@ export function createBeasts(scene) {
           b.back -= dt;
           if (b.back <= 0) {
             b.dead = false; b.hp = b.max; b.g.visible = true; b.flash = 0;
-            b.g.position.set(b.homeX, 0, b.homeZ);
+            b.g.position.set(b.homeX, ground(b.homeX, b.homeZ), b.homeZ);
             b.g.rotation.z = 0;
-            b.g.scale.set(1, 1, 1);
+            b.g.scale.setScalar(1.4);
           }
           continue;
         }
@@ -128,11 +135,12 @@ export function createBeasts(scene) {
           b.g.position.z += (dz / dist) * 0.55 * dt;
           b.g.rotation.y = Math.atan2(dx, dz);
         }
+        b.g.position.y = ground(b.g.position.x, b.g.position.z);
         if (b.flash > 0) {
           b.flash -= dt;
-          b.g.scale.y = 0.72;
+          b.g.scale.y = 1.4 * 0.72;
           b.g.position.x += (Math.random() - 0.5) * 0.04;
-        } else b.g.scale.y = 1;
+        } else b.g.scale.y = 1.4;
         const blob = b.g.getObjectByName('blob');
         if (blob) blob.scale.y = 0.72 + Math.sin(performance.now() * 0.004 + b.homeX) * 0.08;
         b.bar.scale.x = 0.7 * Math.max(0.05, b.hp / b.max);
