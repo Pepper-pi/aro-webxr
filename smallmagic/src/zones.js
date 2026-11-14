@@ -67,57 +67,96 @@ function boardTexture() {
   return t;
 }
 
-function buildCamp(lake) {
+const lit = (color) => new THREE.MeshLambertMaterial({ color, emissive: color, emissiveIntensity: 0.35 });
+const timber = (w, h, d, color, x, y, z) => {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), lit(color));
+  m.position.set(x, y, z);
+  m.castShadow = m.receiveShadow = true;
+  return m;
+};
+const PLOT = [-32, -8];
+function buildVillage(root, world) {
+  const drop = (g, x, z) => { g.position.set(x, world.ground(x, z), z); root.add(g); return g; };
   const lodge = new THREE.Group();
-  lodge.position.set(-8, 0, -3.4);
-  const wall = (w, h, d, x, y, z) => lodge.add(box(w, h, d, '#8d6844', x, y, z));
-  wall(7.2, 2.8, 0.18, 0, 1.4, -2.4);
-  wall(0.18, 2.8, 2.2, -3.5, 1.4, -1.2);
-  wall(0.18, 2.8, 2.2, 3.5, 1.4, -1.2);
-  wall(2.4, 2.8, 0.18, -2.2, 1.4, 2.3);
-  wall(2.4, 2.8, 0.18, 2.2, 1.4, 2.3);
-  lodge.add(box(7.6, 0.16, 5.2, '#6b4428', 0, 2.9, 0));
-  lodge.add(box(7.2, 0.08, 5, '#c4a574', 0, 0.06, 0));
-  lodge.add(box(3.2, 0.9, 0.5, '#6b4428', -1.2, 0.7, -1.2));
-  lodge.add(box(0.7, 0.7, 0.7, '#3e3832', 2.4, 0.5, -1.6));
-  lodge.add(box(0.4, 0.25, 0.4, '#c4554a', 2.4, 0.95, -1.6));
-  lake.add(lodge);
+  const wall = (w, h, d, x, y, z) => lodge.add(timber(w, h, d, '#8d6844', x, y, z));
+  wall(7.2, 2.8, 0.22, 0, 1.4, -2.4);
+  wall(0.22, 2.8, 2.2, -3.5, 1.4, -1.2);
+  wall(0.22, 2.8, 2.2, 3.5, 1.4, -1.2);
+  wall(2.4, 2.8, 0.22, -2.2, 1.4, 2.3);
+  wall(2.4, 2.8, 0.22, 2.2, 1.4, 2.3);
+  lodge.add(timber(7.6, 0.18, 5.2, '#6b4428', 0, 2.9, 0));
+  lodge.add(timber(7.2, 0.08, 5, '#c4a574', 0, 0.06, 0));
+  lodge.add(timber(3.2, 0.9, 0.5, '#6b4428', -1.2, 0.7, -1.2));
+  lodge.add(timber(0.7, 0.7, 0.7, '#3e3832', 2.4, 0.5, -1.6));
+  lodge.add(timber(0.45, 0.22, 0.45, '#c4554a', 2.4, 0.95, -1.6));
+  drop(lodge, -54, -18);
   const loft = new THREE.Group();
-  loft.position.set(-1.2, 0, -4.6);
-  loft.add(box(4.2, 2.6, 0.14, '#a67c52', 0, 1.3, -1.8));
-  loft.add(box(0.14, 2.6, 3.6, '#a67c52', -2, 1.3, 0));
-  loft.add(box(0.14, 2.6, 3.6, '#a67c52', 2, 1.3, 0));
-  loft.add(box(1.4, 2.6, 0.14, '#a67c52', -1.2, 1.3, 1.7));
-  loft.add(box(1.4, 2.6, 0.14, '#a67c52', 1.2, 1.3, 1.7));
-  loft.add(box(4.4, 0.12, 3.8, '#6b4428', 0, 2.7, 0));
-  loft.add(box(4, 0.1, 1.6, '#e7d3a8', 0, 1.55, -0.7));
-  loft.add(box(0.08, 1.5, 0.35, '#c4a574', -1.5, 0.75, 0.6));
-  lake.add(loft);
+  loft.add(timber(4.2, 2.6, 0.16, '#a67c52', 0, 1.3, -1.8));
+  loft.add(timber(0.16, 2.6, 3.6, '#a67c52', -2, 1.3, 0));
+  loft.add(timber(0.16, 2.6, 3.6, '#a67c52', 2, 1.3, 0));
+  loft.add(timber(1.4, 2.6, 0.16, '#a67c52', -1.2, 1.3, 1.7));
+  loft.add(timber(1.4, 2.6, 0.16, '#a67c52', 1.2, 1.3, 1.7));
+  loft.add(timber(4.4, 0.14, 3.8, '#6b4428', 0, 2.7, 0));
+  loft.add(timber(4, 0.1, 1.6, '#e7d3a8', 0, 1.55, -0.7));
+  loft.add(timber(0.08, 1.5, 0.35, '#c4a574', -1.5, 0.75, 0.6));
+  drop(loft, -48, -24);
   const cabin = new THREE.Group();
-  cabin.position.set(3.6, 0, -4.4);
-  cabin.add(box(3.2, 2.1, 2.6, '#8d6844', 0, 1.05, 0));
-  cabin.add(box(3.5, 0.12, 3, '#6b4428', 0, 2.2, 0));
-  lake.add(cabin);
-  const bath = new THREE.Group();
-  bath.position.set(-13.5, 0, -1.6);
-  bath.add(box(2.2, 3.4, 2.2, '#7a8a96', 0, 1.7, 0));
-  bath.add(box(2.5, 0.2, 2.5, '#5c6a74', 0, 3.5, 0));
-  lake.add(bath);
+  cabin.add(timber(3.2, 2.1, 2.6, '#8d6844', 0, 1.05, 0));
+  cabin.add(timber(3.5, 0.14, 3, '#6b4428', 0, 2.2, 0));
+  drop(cabin, -60, -22);
+  const tower = new THREE.Group();
+  tower.add(timber(2.2, 4.2, 2.2, '#7a8a96', 0, 2.1, 0));
+  tower.add(timber(2.6, 0.2, 2.6, '#5c6a74', 0, 4.3, 0));
+  drop(tower, -58, -13);
+  const camp = new THREE.Group();
+  for (let i = 0; i < 4; i++) {
+    const log = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 2.2, 6), lit('#6b4428'));
+    log.rotation.z = Math.PI / 2;
+    log.position.set(0, 0.2 + i * 0.28, -1.2);
+    log.castShadow = true;
+    camp.add(log);
+  }
+  camp.add(timber(1.4, 0.9, 1.1, '#5c4030', 1.6, 0.45, 0.4));
+  const fire = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.55, 7), lit('#e07a2f'));
+  fire.position.set(-0.4, 0.35, 0.6);
+  camp.add(fire);
+  camp.add(timber(0.7, 0.08, 0.12, '#4a3428', -0.7, 0.08, 0.5));
+  camp.add(timber(0.7, 0.08, 0.12, '#4a3428', -0.1, 0.08, 0.7));
+  const glow = new THREE.PointLight(0xff7a30, 6, 9, 2);
+  glow.position.set(-0.4, 0.8, 0.6);
+  camp.add(glow);
+  drop(camp, -66, -20);
+  const plot = new THREE.Mesh(new THREE.CircleGeometry(3.6, 20), lit('#c4a574'));
+  plot.rotation.x = -Math.PI / 2;
+  plot.position.y = 0.05;
+  plot.receiveShadow = true;
+  const plotG = new THREE.Group();
+  plotG.add(plot);
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    plotG.add(timber(0.12, 0.7, 0.12, '#6b4428', Math.cos(a) * 3.4, 0.35, Math.sin(a) * 3.4));
+  }
+  drop(plotG, PLOT[0], PLOT[1]);
+  const dock = new THREE.Group();
+  for (let i = 0; i < 7; i++) dock.add(timber(1.3, 0.08, 0.42, i % 2 ? '#c4a574' : '#8d6240', 0, 0.2, -i * 0.7));
+  drop(dock, -50, -36);
   const boat = new THREE.Group();
-  boat.position.set(-3.2, 0, 0.6);
-  boat.add(box(3.4, 0.12, 2.6, '#6b4428', 0, 2.1, 0));
-  boat.add(box(0.12, 2.1, 0.12, '#8d6844', -1.5, 1.05, -1.1));
-  boat.add(box(0.12, 2.1, 0.12, '#8d6844', 1.5, 1.05, -1.1));
-  boat.add(box(0.12, 2.1, 0.12, '#8d6844', -1.5, 1.05, 1.1));
-  boat.add(box(0.12, 2.1, 0.12, '#8d6844', 1.5, 1.05, 1.1));
-  lake.add(boat);
+  boat.add(timber(3.4, 0.14, 2.6, '#6b4428', 0, 2.1, 0));
+  for (const [x, z] of [[-1.5, -1.1], [1.5, -1.1], [-1.5, 1.1], [1.5, 1.1]]) boat.add(timber(0.14, 2.1, 0.14, '#8d6844', x, 1.05, z));
+  drop(boat, -44, -35);
+  const raft = new THREE.Group();
+  raft.add(timber(2.2, 0.12, 2.2, '#c4a574', 0, 0.15, 0));
+  raft.add(timber(0.1, 0.8, 0.1, '#6b4428', -0.9, 0.5, -0.9));
+  raft.position.set(-54, world.water + 0.02, -48);
+  root.add(raft);
+  root.add(new THREE.HemisphereLight(0xfff0d2, 0x6aaa58, 0.85));
 }
 export function createZones({ scene, world, walker, camera }) {
   const saved = { home: world.home, edge: world.edge, colliders: world.colliders, walk: world.walk, blockers: world.blockers };
   const meadowRing = ring(0x9ee7ff);
-  meadowRing.position.set(world.start.x, 0.15, world.start.z - 1.6);
+  meadowRing.position.set(PLOT[0], world.ground(PLOT[0], PLOT[1]) + 0.2, PLOT[1] - 2.4);
   const hub = new THREE.Group();
-  const lake = new THREE.Group();
+  buildVillage(world.root, world);
   hub.add(sky('#3a2a1c', '#c4a07a'));
   hub.add(box(11, 0.14, 14, '#a67c52', 0, -0.07, 0));
   hub.add(box(11, 2.6, 0.16, '#6b4a32', 0, 1.3, 6.9));
@@ -142,82 +181,10 @@ export function createZones({ scene, world, walker, camera }) {
   lamp.position.set(0, 2, 0.6);
   hub.add(lamp);
 
-  lake.add(sky('#f0a06a', '#f6d7b0'));
-  lake.add(box(42, 0.2, 18, '#6f9a45', 0, -0.1, -6));
-  const waterGeo = new THREE.PlaneGeometry(36, 28, 10, 8);
-  const waterMat = new THREE.ShaderMaterial({
-    transparent: true,
-    uniforms: { uTime: { value: 0 } },
-    vertexShader: `
-      precision mediump float;
-      uniform float uTime; varying vec2 vUv;
-      void main(){
-        vUv = uv;
-        vec3 p = position;
-        p.z += sin(p.x * 0.55 + uTime * 1.1) * sin(p.y * 0.42 - uTime * 0.8) * 0.07;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
-      }`,
-    fragmentShader: `
-      precision mediump float; varying vec2 vUv; uniform float uTime;
-      void main(){
-        float r = sin(vUv.x * 22.0 + uTime * 1.4) * sin(vUv.y * 16.0 - uTime * 0.9);
-        vec3 deep = vec3(0.04, 0.2, 0.32); vec3 mid = vec3(0.15, 0.42, 0.52);
-        vec3 c = mix(deep, mid, 0.5 + 0.5 * r);
-        gl_FragColor = vec4(c, 0.94);
-      }`,
-  });
-  const water = new THREE.Mesh(waterGeo, waterMat);
-  water.rotation.x = -Math.PI / 2;
-  water.position.set(0, -0.04, 16);
-  lake.add(water);
-  for (let i = 0; i < 8; i++) lake.add(box(1.35, 0.08, 0.4, i % 2 ? '#c4a574' : '#8d6240', 0, 0.18, 1.4 + i * 0.7));
-  for (let i = 0; i < 10; i++) {
-    const side = i < 5 ? -1 : 1;
-    lake.add(box(0.045, 0.85, 0.045, '#5f8a42', side * (1.4 + (i % 5) * 0.55), 0.4, 2.2 + (i % 3) * 0.25));
-  }
-  for (let i = 0; i < 6; i++) {
-    const pad = new THREE.Mesh(new THREE.CircleGeometry(0.38, 8), mat(i % 2 ? '#3d8a44' : '#2f6e38'));
-    pad.rotation.x = -Math.PI / 2;
-    pad.position.set((i - 2.5) * 1.6, 0.02, 9 + (i % 2) * 1.2);
-    lake.add(pad);
-  }
-  for (let i = 0; i < 14; i++) {
-    const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.28, 5), mat(i % 2 ? '#b6d96a' : '#7dae46'));
-    tuft.position.set(-8 + (i % 7) * 2.6, 0.12, -2.2 - (i % 3) * 0.7);
-    lake.add(tuft);
-  }
-  for (let i = 0; i < 8; i++) {
-    const bloom = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 5), mat(['#f2d56a', '#f0a0b8', '#fff6df'][i % 3]));
-    bloom.position.set(-6 + i * 1.7, 0.16, -1.2);
-    lake.add(bloom);
-  }
-  const raft = new THREE.Group();
-  raft.add(box(1.6, 0.1, 1.6, '#c4a574', 0, 0.08, 0));
-  raft.add(box(0.08, 0.7, 0.08, '#6b4a32', -0.7, 0.4, -0.7));
-  raft.position.set(5.5, 0, 11);
-  lake.add(raft);
-  for (let i = 0; i < 9; i++) {
-    const fir = new THREE.Group();
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.22, 2.2, 6), mat('#4a3428'));
-    trunk.position.y = 1.1;
-    const h = 4.2 + (i % 3) * 0.8;
-    for (let t = 0; t < 3; t++) {
-      const bough = new THREE.Mesh(new THREE.ConeGeometry(1.15 - t * 0.28, h * 0.42, 7), mat(t === 2 ? '#3d9a48' : '#1e6a32'));
-      bough.position.y = 1.6 + t * h * 0.28;
-      fir.add(bough);
-    }
-    fir.add(trunk);
-    fir.position.set(-15 + i * 3.6, 0, 22 + (i % 2) * 1.6);
-    lake.add(fir);
-  }
-  buildCamp(lake);
-  const lakeRing = ring(0x9ee7ff);
-  lakeRing.position.set(0, 0.2, -5.2);
-  lake.add(lakeRing);
   const target = new THREE.Mesh(new THREE.RingGeometry(0.45, 0.58, 24), new THREE.MeshBasicMaterial({ color: 0xffe7a8, side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));
   target.rotation.x = -Math.PI / 2;
   target.visible = false;
-  lake.add(target);
+  scene.add(target);
   const bobber = new THREE.Group();
   const ball = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), mat('#e23b32'));
   const cap = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 8), mat('#f7fbff'));
@@ -226,11 +193,11 @@ export function createZones({ scene, world, walker, camera }) {
   rip.rotation.x = -Math.PI / 2;
   bobber.add(ball, cap, rip);
   bobber.visible = false;
-  lake.add(bobber);
+  scene.add(bobber);
 
-  scene.add(meadowRing, hub, lake);
+  scene.add(meadowRing, hub);
   const beasts = createBeasts(scene);
-  hub.visible = lake.visible = meadowRing.visible = false;
+  hub.visible = meadowRing.visible = false;
 
   const hold = new THREE.Group();
   const rod = new THREE.Group();
@@ -255,12 +222,14 @@ export function createZones({ scene, world, walker, camera }) {
   scene.add(line);
   const splash = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), mat('#e7f6ff'));
   splash.visible = false;
-  lake.add(splash);
+  scene.add(splash);
 
   const panel = document.getElementById('board');
   const menu = document.getElementById('menu');
   const back = document.getElementById('back');
   const reelBtn = document.getElementById('reel');
+  const fishBtn = document.getElementById('fish');
+  const duskBtn = document.getElementById('dusk');
   const catchEl = document.getElementById('catch');
   const FISH = ['Bluegill', 'Sunperch', 'Reed carp', 'Golden shiner', 'Creek trout'];
   let name = 'hub';
@@ -302,35 +271,41 @@ export function createZones({ scene, world, walker, camera }) {
     splash.visible = false;
     if (reelBtn) reelBtn.hidden = true;
   }
-  function enter(next) {
-    name = next;
-    world.root.visible = next === 'meadow';
-    hub.visible = next === 'hub';
-    lake.visible = next === 'lake';
-    meadowRing.visible = next === 'meadow';
-    hold.visible = next === 'lake';
-    if (back) back.hidden = next === 'hub';
-    if (next !== 'hub') hideBoard();
-    if (menu) menu.hidden = true;
-    world.blockers = next === 'meadow' ? saved.blockers : null;
+  function outdoors() {
+    world.home = saved.home; world.edge = saved.edge; world.colliders = saved.colliders; world.walk = saved.walk;
+    world.blockers = saved.blockers;
     world.wade = null;
+  }
+  function enter(next) {
+    if (next === 'lake') next = 'plot';
+    const outside = next === 'meadow' || next === 'plot';
+    name = outside ? 'meadow' : 'hub';
+    world.root.visible = outside;
+    hub.visible = !outside;
+    meadowRing.visible = outside;
+    hold.visible = false;
+    if (back) back.hidden = outside;
+    if (outside) hideBoard();
+    if (menu) menu.hidden = true;
     resetFish();
-    if (next === 'meadow') {
-      world.home = saved.home; world.edge = saved.edge; world.colliders = saved.colliders; world.walk = saved.walk;
+    if (next === 'plot') {
+      outdoors();
+      const yaw = Math.atan2(-54 - PLOT[0], -18 - PLOT[1]);
+      meadowRing.position.set(PLOT[0] - Math.sin(yaw) * 2.4, world.ground(PLOT[0], PLOT[1]) + 0.2, PLOT[1] - Math.cos(yaw) * 2.4);
+      place(PLOT[0], PLOT[1], yaw);
+    } else if (next === 'meadow') {
+      outdoors();
       const yaw = world.start.yaw + Math.PI;
+      meadowRing.position.set(world.start.x, world.ground(world.start.x, world.start.z) + 0.2, world.start.z - 1.6);
       place(meadowRing.position.x + Math.sin(yaw) * 3.4, meadowRing.position.z + Math.cos(yaw) * 3.4, yaw);
-    } else if (next === 'hub') {
+    } else {
       world.home = [0, 0]; world.edge = 5.1; world.colliders = [];
+      world.blockers = null;
       world.walk = () => 0;
       place(0, -2.2, 0);
       walker.pitch = 0.42;
       boardHeld = false;
       showBoard();
-    } else {
-      world.home = [0, -2]; world.edge = 12; world.colliders = [];
-      world.walk = (x, z) => (Math.abs(x) < 0.7 && z > 1.2 && z < 8.2 ? 0.22 : 0);
-      world.wade = (x, z) => z > 2.4 || (Math.abs(x) < 0.7 && z > 2);
-      place(0, -1.4, 0);
     }
   }
   panel?.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('pointerup', (e) => {
@@ -361,14 +336,20 @@ export function createZones({ scene, world, walker, camera }) {
     b.addEventListener('contextmenu', (e) => e.preventDefault());
   });
   addEventListener('pointerup', (e) => {
-    if (name !== 'hub' || (e.target.closest && e.target.closest('#cast, #spell, #stick, #board, #menu, #back, #menubtn, #reel, #catch'))) return;
+    if (name !== 'hub' || (e.target.closest && e.target.closest('#cast, #spell, #stick, #board, #menu, #back, #menubtn, #reel, #catch, #fish, #dusk'))) return;
     ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
     ray.setFromCamera(ndc, camera);
     if (ray.intersectObject(screen, false).length) showBoard();
   });
 
-  function onWater(x, z) {
-    return Math.abs(x) < 16 && z > 3.5 && z < 26 && !(Math.abs(x) < 0.95 && z < 8.8);
+  function onWater(x, z) { return world.fishHere(x, z); }
+  function byWater() {
+    const x = walker.feet.x, z = walker.feet.z;
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      if (onWater(x + Math.cos(a) * 4.2, z + Math.sin(a) * 4.2)) return true;
+    }
+    return false;
   }
   function waterSpot() {
     camera.getWorldDirection(aimDir);
@@ -379,20 +360,78 @@ export function createZones({ scene, world, walker, camera }) {
     let x = camera.position.x + aimDir.x * dist;
     let z = camera.position.z + aimDir.z * dist;
     if (!onWater(x, z)) {
-      let found = false;
-      for (let t = 2.5; t < 26; t += 0.3) {
+      for (let t = 2.5; t < 22; t += 0.35) {
         const px = camera.position.x + aimDir.x * t;
         const pz = camera.position.z + aimDir.z * t;
-        if (onWater(px, pz)) { x = px; z = pz; found = true; break; }
-      }
-      if (!found) {
-        x = THREE.MathUtils.clamp(x, -14, 14);
-        z = Math.max(4.2, z);
-        if (Math.abs(x) < 0.95 && z < 8.8) x = x >= 0 ? 1.4 : -1.4;
+        if (onWater(px, pz)) { x = px; z = pz; break; }
       }
     }
     return { x, z };
   }
+  function looseLine() {
+    const spot = waterSpot();
+    phase = 'wait';
+    target.visible = false;
+    bobber.visible = true;
+    bobber.position.set(spot.x, world.water + 0.16, spot.z);
+    line.visible = true;
+    flicking = 1;
+    biteAt = performance.now() + 2200 + Math.random() * 2500;
+  }
+  let fishDown = false;
+  fishBtn?.addEventListener('pointerdown', (e) => {
+    fishDown = true;
+    if (name === 'meadow' && (phase === 'idle' || phase === 'caught')) { phase = 'aim'; power = 0.25; target.visible = true; }
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  fishBtn?.addEventListener('pointerup', (e) => {
+    if (fishDown && phase === 'aim') looseLine();
+    fishDown = false;
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  let skyMesh = null;
+  world.root.traverse((o) => { if (!skyMesh && o.material?.uniforms?.uZenith) skyMesh = o; });
+  const dayZenith = skyMesh?.material.uniforms.uZenith.value.clone();
+  const dayHorizon = skyMesh?.material.uniforms.uHorizon.value.clone();
+  let dusk = false;
+  function setDusk(on) {
+    dusk = on;
+    if (duskBtn) duskBtn.textContent = on ? 'Day' : 'Dusk';
+    if (!skyMesh) return;
+    skyMesh.material.uniforms.uZenith.value.set(on ? '#24315f' : dayZenith);
+    skyMesh.material.uniforms.uHorizon.value.set(on ? '#e7a06a' : dayHorizon);
+  }
+  duskBtn?.addEventListener('pointerup', (e) => { setDusk(!dusk); e.preventDefault(); e.stopPropagation(); });
+  addEventListener('keydown', (e) => { if (e.code === 'KeyK' && name === 'meadow') setDusk(!dusk); });
+  const life = new THREE.Group();
+  const motes = [];
+  for (let i = 0; i < 12; i++) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(0.05, 5, 4), new THREE.MeshBasicMaterial({ color: i % 2 ? '#fff6df' : '#f2d56a' }));
+    life.add(s);
+    motes.push(s);
+  }
+  const wings = [];
+  for (let i = 0; i < 4; i++) {
+    const g = new THREE.Group();
+    const w = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.08), new THREE.MeshBasicMaterial({ color: '#f7fbff', side: THREE.DoubleSide, transparent: true, opacity: 0.8 }));
+    g.add(w);
+    g.userData.home = new THREE.Vector3(-56 + i * 5, 0, -16);
+    life.add(g);
+    wings.push(g);
+  }
+  const birds = [];
+  for (let i = 0; i < 3; i++) {
+    const g = new THREE.Group();
+    const a = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.03, 0.07), mat('#2a2622'));
+    a.rotation.z = 0.45; a.position.x = 0.12;
+    const b = a.clone(); b.rotation.z = -0.45; b.position.x = -0.12;
+    g.add(a, b);
+    life.add(g);
+    birds.push(g);
+  }
+  world.root.add(life);
   enter('hub');
   markDest();
   return {
@@ -400,25 +439,10 @@ export function createZones({ scene, world, walker, camera }) {
     get blocksMagic() { return name !== 'meadow'; },
     showBoard, enter,
     hurt(marks) { beasts.hurt(marks, name); },
-    castHeld(_held, pressed, released) {
-      if (name !== 'lake') return;
-      if (pressed) { phase = 'aim'; power = 0.25; target.visible = true; }
-      if (_held && phase === 'aim') power = Math.min(1, power + 0.012);
-      if (released && phase === 'aim') {
-        const spot = waterSpot();
-        phase = 'wait';
-        target.visible = false;
-        bobber.visible = true;
-        bobber.position.set(spot.x, 0.12, spot.z);
-        line.visible = true;
-        flicking = 1;
-        biteAt = performance.now() + 2200 + Math.random() * 2500;
-      }
-    },
+    castHeld() {},
     update(dt) {
-      waterMat.uniforms.uTime.value += dt;
       beasts.update(dt, name);
-      const gate = name === 'hub' ? hubRing.position : name === 'lake' ? lakeRing.position : meadowRing.position;
+      const gate = name === 'hub' ? hubRing.position : meadowRing.position;
       const d = Math.hypot(walker.feet.x - gate.x, walker.feet.z - gate.z);
       if (d > 2.15) leftRing = true;
       if (leftRing && performance.now() >= armUntil && d < 0.95) enter(name === 'hub' ? dest : 'hub');
@@ -427,26 +451,27 @@ export function createZones({ scene, world, walker, camera }) {
         if (bd > 2.1) boardHeld = false;
         if (!boardHeld && bd < 1.7 && panel?.hidden) showBoard();
       }
-      if (name === 'lake') {
-        const onDock = Math.abs(walker.feet.x) < 0.7 && walker.feet.z > 1.2 && walker.feet.z < 8.2;
-        if (!onDock && walker.feet.z > 2.2) walker.feet.z = 2.2;
-        if (phase === 'aim') { const spot = waterSpot(); target.position.set(spot.x, 0.06, spot.z); }
+      const fishing = name === 'meadow' && (byWater() || phase !== 'idle');
+      if (fishBtn) fishBtn.hidden = !(name === 'meadow' && (byWater() || phase === 'aim') && phase !== 'bite' && phase !== 'reel');
+      if (name === 'meadow' && fishing) {
+        if (fishDown && phase === 'aim') power = Math.min(1, power + 0.012);
+        if (phase === 'aim') { const spot = waterSpot(); target.position.set(spot.x, world.water + 0.05, spot.z); }
         if (phase === 'wait' && performance.now() >= biteAt) {
           phase = 'bite';
           biteUntil = performance.now() + 1700;
           if (reelBtn) reelBtn.hidden = false;
         }
         if (phase === 'bite') {
-          bobber.position.y = 0.02 + Math.sin(performance.now() * 0.02) * 0.08;
+          bobber.position.y = world.water + Math.sin(performance.now() * 0.02) * 0.08;
           splash.visible = true;
           splash.position.copy(bobber.position);
           splash.scale.setScalar(1 + Math.sin(performance.now() * 0.03));
-          if (performance.now() > biteUntil) { phase = 'idle'; resetFish(); }
+          if (performance.now() > biteUntil) resetFish();
         }
         if (phase === 'reel') {
           reelT += dt;
           bobber.position.lerp(walker.feet, Math.min(1, dt * 3));
-          bobber.position.y = 0.2;
+          bobber.position.y = walker.feet.y + 1.1;
           if (reelT > 0.7) {
             const title = document.getElementById('catchName');
             if (title) title.textContent = FISH[Math.floor(Math.random() * FISH.length)];
@@ -457,6 +482,7 @@ export function createZones({ scene, world, walker, camera }) {
             splash.visible = false;
           }
         }
+        hold.visible = true;
         hold.position.copy(camera.position);
         hold.quaternion.copy(camera.quaternion);
         if (phase === 'aim') cock = Math.min(1, cock + dt * 2.6);
@@ -481,13 +507,28 @@ export function createZones({ scene, world, walker, camera }) {
           pos.needsUpdate = true;
         }
         if (bobber.visible && phase !== 'bite') {
-          const u = (waterMat.uniforms.uTime.value * 0.7) % 1;
+          const u = (performance.now() * 0.0007) % 1;
           rip.scale.setScalar(0.8 + u * 1.3);
           rip.material.opacity = (1 - u) * 0.7;
         }
+        const t = performance.now() * 0.001;
+        motes.forEach((s, i) => s.position.set(-46 + Math.sin(t * 0.25 + i) * 16, 2 + (i % 4) * 0.45, -22 + Math.cos(t * 0.18 + i * 0.7) * 10));
+        wings.forEach((g, i) => {
+          const hx = g.userData.home.x, hz = g.userData.home.z;
+          g.position.set(hx + Math.sin(t * 0.8 + i) * 1.5, world.ground(hx, hz) + 1.2 + Math.sin(t * 2 + i) * 0.3, hz + Math.cos(t * 0.7 + i) * 1.2);
+          g.children[0].rotation.y = Math.sin(t * 14 + i) * 0.9;
+        });
+        birds.forEach((g, i) => {
+          const a = t * 0.22 + i * 2.1;
+          g.position.set(-50 + Math.cos(a) * 18, 12 + i * 1.4, -24 + Math.sin(a) * 12);
+          g.rotation.y = -a;
+        });
       } else hold.visible = false;
+      if (name === 'meadow' && !fishing) {
+        const t = performance.now() * 0.001;
+        motes.forEach((s, i) => s.position.set(walker.feet.x + Math.sin(t * 0.3 + i) * 8, walker.feet.y + 1.5 + (i % 3) * 0.4, walker.feet.z + Math.cos(t * 0.2 + i) * 8));
+      }
       hub.children[0].position.copy(camera.position);
-      lake.children[0].position.copy(camera.position);
     },
   };
 }

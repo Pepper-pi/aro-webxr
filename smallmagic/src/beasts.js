@@ -58,15 +58,14 @@ export function createBeasts(scene) {
     all.push(b);
   };
   add(meadow, 'wolf', 8, 30);
-  add(meadow, 'wolf', -7, 33);
-  add(meadow, 'boar', 5, 40);
   add(meadow, 'boar', -4, 28);
   add(meadow, 'slime', 11, 36);
-  add(meadow, 'slime', -9, 38);
-  add(lake, 'wolf', -6, -3.2);
-  add(lake, 'boar', 7, -2.4);
-  add(lake, 'slime', -2.2, -3.6);
-  add(lake, 'slime', 3.4, -4);
+  add(meadow, 'wolf', -38, -12);
+  add(meadow, 'boar', -28, -34);
+  add(meadow, 'wolf', -42, -36);
+  add(meadow, 'slime', -58, -36);
+  add(meadow, 'boar', -64, -38);
+  add(meadow, 'slime', -28, -52);
   scene.add(meadow, lake);
   return {
     meadow, lake,

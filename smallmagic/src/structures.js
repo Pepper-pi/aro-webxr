@@ -23,6 +23,12 @@ export const PADS = [
   { name: 'cottage', group: 'west', x: -10, z: 30.3, hx: 9.5, hz: 7.3, fall: 5 },
   { name: 'mill', x: 22.5, z: 20.9, hx: 3.6, hz: 4.2, fall: 4 },
   { name: 'abbey', x: 27, z: 42, hx: 10.6, hz: 5.6, fall: 5 },
+  { name: 'lodge', x: -54, z: -18, hx: 4.4, hz: 3.2, fall: 4 },
+  { name: 'loft', x: -48, z: -24, hx: 2.6, hz: 2.3, fall: 3 },
+  { name: 'cabin', x: -60, z: -22, hx: 2.1, hz: 1.8, fall: 3 },
+  { name: 'tower', x: -58, z: -13, hx: 1.5, hz: 1.5, fall: 2.5 },
+  { name: 'lumber', x: -66, z: -20, hx: 2.6, hz: 2.2, fall: 3 },
+  { name: 'plot', x: -32, z: -8, hx: 4.2, hz: 4.2, fall: 5 },
 ];
 /** Lanes, from the path to each door. */
 export const LANES = [
@@ -32,7 +38,7 @@ export const LANES = [
   [[0, 36], [8, 40], [17.6, 42]],
 ];
 /** Ground trodden bare (x0, z0, x1, z1), and ground sown with flowers. */
-export const YARDS = [[-16, 32.7, -8, 35.3], [-26.4, 20.5, -17.6, 25.4], [20.6, 22.6, 24.4, 24.4]];
+export const YARDS = [[-16, 32.7, -8, 35.3], [-26.4, 20.5, -17.6, 25.4], [20.6, 22.6, 24.4, 24.4], [-64, -27, -46, -12], [-36, -12, -28, -4]];
 export const GARDENS = [[-7.5, 34.0, -2.6, 36.9]];
 
 export function plan(gnd, trees = [], parts = []) {

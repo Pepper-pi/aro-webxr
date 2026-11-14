@@ -16,6 +16,15 @@ const TAU = Math.PI * 2, C = (hex) => new THREE.Color(hex);
 export const WATER = -0.14;
 const HOME = [0, -4], EDGE = 84;
 const CIRCLE = [5, -31], POND = [19, 5, 7.5];
+// Long Lake, grown out of the same meadow: a long basin south of the village, and two smaller ponds.
+const LAKE = { x: -50, z: -46, rx: 14, rz: 9 };
+const PONDS = [{ x: -30, z: -56, r: 4.2 }, { x: -68, z: -42, r: 3.5 }];
+function basin(x, z) {
+  const e = ((x - LAKE.x) / LAKE.rx) ** 2 + ((z - LAKE.z) / LAKE.rz) ** 2;
+  let w = (1 - e) * 7;
+  for (const p of PONDS) w = Math.max(w, p.r - Math.hypot(x - p.x, z - p.z));
+  return w;
+}
 const STREAM = [[-140, 22], [-70, 12], [-34, 7], [-14, 2.5], [0, 4.5], [10, 3.5], [19, 5], [34, 1], [60, -8], [140, -24]];
 const WAY = [[0, 36], [-1, 26], [-3, 16], [-1.5, 8], [0, 4.5], [1.5, -2], [0.5, -12], [3, -22], [5, -30]];
 const STEPS = [[-0.9, 6.3], [-0.4, 5.2], [0.1, 4.2], [0.5, 3.2], [0.9, 2.3]];
@@ -33,7 +42,7 @@ const streamLine = new THREE.CatmullRomCurve3(STREAM.map(([x, z]) => V(x, 0, z))
 const wayLine = new THREE.CatmullRomCurve3(WAY.map(([x, z]) => V(x, 0, z))).getPoints(60).map((p) => [p.x, p.z]);
 const nearStream = along(streamLine), nearWay = along(wayLine);
 /** How far inside the water's edge (x, z) is: above 0 in the stream or the pond. */
-const wet = (x, z) => Math.max(1.7 - nearStream(x, z), POND[2] - Math.hypot(x - POND[0], z - POND[1]) + 1.2 * noise(x * 0.3, z * 0.3));
+const wet = (x, z) => Math.max(1.7 - nearStream(x, z), POND[2] - Math.hypot(x - POND[0], z - POND[1]) + 1.2 * noise(x * 0.3, z * 0.3), basin(x, z));
 
 function raw(x, z) {
   const w = wet(x, z), r = Math.hypot(x - HOME[0], z - HOME[1]);
@@ -642,6 +651,9 @@ export async function createWorld({ air, scene, say, turn }) {
       return { point, dist: hit, tree, ground: found, water: found && ground(point.x, point.z) < WATER, none: !found && !tree };
     },
     start: { x: sx, z: sz, yaw: Math.atan2(WAY[1][0] - sx, WAY[1][1] - sz) },
+    /** Long Lake and its ponds, not the stream: where a line can be fished. */
+    fishHere(x, z) { return basin(x, z) > 0.35 && ground(x, z) < WATER + 0.02; },
+    lake: LAKE, ponds: PONDS,
     way: new THREE.CatmullRomCurve3(WAY.map(([x, z]) => V(x, 0, z))).getPoints(160).map((p) => [p.x, p.z]),
     fov: 62, far: 6000, sun: SUN,
     counts: { dabs: dabs.count, pieces: solids.count },
