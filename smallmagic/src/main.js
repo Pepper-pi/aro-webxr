@@ -89,7 +89,7 @@ lap('ruin');
 const flames = createFlames(air);
 scene.add(flames.mesh);
 const fire = createFire({ world, air, fx, flames });
-const zones = createZones({ scene, world, walker, camera });
+const zones = createZones({ scene, world, walker, camera, air });
 const spellsBar = spellBar(document.getElementById('spells'), SPELLS);
 const beam = createBeam(air);
 scene.add(beam.mesh);

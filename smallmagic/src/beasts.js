@@ -67,17 +67,36 @@ export function createBeasts(scene) {
   add(meadow, 'boar', -64, -38);
   add(meadow, 'slime', -28, -52);
   scene.add(meadow, lake);
+  const bits = [];
+  const cube = new THREE.BoxGeometry(0.16, 0.16, 0.16);
   return {
     meadow, lake,
-    hurt(marks, zone) {
+    hurt(marks, zone, onHit) {
       if (!marks || !marks.length) return;
       for (const b of all) {
         if (b.dead || b.where !== zone) continue;
+        let shown = 0;
         for (const m of marks) {
-          if (Math.hypot(b.g.position.x - m.x, b.g.position.z - m.z) < m.r + 0.6) {
-            b.hp -= m.d;
-            b.flash = 0.28;
-            if (b.hp <= 0) { b.dead = true; b.g.visible = false; b.back = 12; }
+          if (Math.hypot(b.g.position.x - m.x, b.g.position.z - m.z) > m.r + 0.6) continue;
+          b.hp -= m.d;
+          b.flash = 0.28;
+          if (shown < 3) {
+            shown++;
+            b.stack = (b.stack || 0) + 1;
+            onHit?.({ x: b.g.position.x + (shown - 1) * 0.22, y: b.g.position.y + 1.15 + (b.stack % 4) * 0.32, z: b.g.position.z, n: Math.round(m.d), k: m.k || 'fire' });
+          }
+          if (b.hp <= 0) {
+            b.dead = true; b.g.visible = false; b.back = 12; b.stack = 0;
+            const tint = b.kind === 'slime' ? '#3dba6a' : b.kind === 'boar' ? '#8a5a3a' : '#6a6158';
+            for (let i = 0; i < 7; i++) {
+              const bit = new THREE.Mesh(cube, new THREE.MeshBasicMaterial({ color: tint }));
+              bit.position.set(b.g.position.x, 0.45, b.g.position.z);
+              bit.userData.v = new THREE.Vector3((Math.random() - 0.5) * 3.2, 1.4 + Math.random() * 2.2, (Math.random() - 0.5) * 3.2);
+              bit.userData.life = 0.8;
+              meadow.add(bit);
+              bits.push(bit);
+            }
+            break;
           }
         }
       }
@@ -117,6 +136,15 @@ export function createBeasts(scene) {
         const blob = b.g.getObjectByName('blob');
         if (blob) blob.scale.y = 0.72 + Math.sin(performance.now() * 0.004 + b.homeX) * 0.08;
         b.bar.scale.x = 0.7 * Math.max(0.05, b.hp / b.max);
+        if (b.stack) b.stack = Math.max(0, b.stack - dt * 1.6);
+      }
+      for (let i = bits.length - 1; i >= 0; i--) {
+        const bit = bits[i];
+        bit.userData.life -= dt;
+        bit.userData.v.y -= 7 * dt;
+        bit.position.addScaledVector(bit.userData.v, dt);
+        bit.scale.setScalar(Math.max(0.05, bit.userData.life));
+        if (bit.userData.life <= 0) { meadow.remove(bit); bits.splice(i, 1); }
       }
     },
   };

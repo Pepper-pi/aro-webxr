@@ -55,7 +55,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
   }
   function burst(p, big) {
     const onWater = world.ground(p.x, p.z) < world.water, r = 1.5 + 2.3 * big;
-    marks.push({ x: p.x, z: p.z, r: r * 0.7, d: 50 + 40 * big });
+    marks.push({ x: p.x, z: p.z, r: r * 0.7, d: 50 + 40 * big, k: 'fire' });
     heard?.('fireBurst', { p, big, water: onWater });
     for (let i = 0, n = 70 + 150 * big; i < n; i++) {
       const a = Math.random() * 6.283, up = Math.random(), sp = (2 + 7 * Math.random()) * (1 + big);
@@ -261,6 +261,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
       cast.pour = spell.pour && down ? spell.key : null; cast.target = cast.pour && target ? target : null;
       cast.spread = spell.key === 'frost' ? 1.2 + 4.3 * (1 - Math.exp(-hold * 0.55)) : 1.4 + 4.4 * (1 - Math.exp(-hold * 0.5));
       cast.water = Boolean(cast.target) && world.ground(target.x, target.z) < world.water;
+      if (cast.pour && target) marks.push({ x: target.x, z: target.z, r: Math.max(1.4, cast.spread * 0.45), d: 12, k: 'arcane' });
 
       // --- what has been thrown ---
       let carried = null;
@@ -274,7 +275,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
         if (Math.random() < 20 * dt) fx.spawn({ kind: 1, x: b.p.x, y: b.p.y, z: b.p.z, vx: rnd(3), vy: rnd(3), vz: rnd(3), life: 0.5 + 0.5 * Math.random(), size: [0.035, 0.01], colour: [1, 0.6, 0.15], grav: -4, drag: 1 });
         if (Math.random() < 14 * dt) fx.spawn({ kind: 2, x: b.p.x, y: b.p.y, z: b.p.z, life: 1.1, size: [0.25, 1.1 + b.big], colour: [0.12, 0.12, 0.15], alpha: 0.3, vy: 0.6 });
         carried = b;
-        marks.push({ x: b.p.x, z: b.p.z, r: 0.7, d: 16 });
+        marks.push({ x: b.p.x, z: b.p.z, r: 0.7, d: 16, k: 'fire' });
         const floor = Math.max(world.ground(b.p.x, b.p.z), world.water);
         const inTree = world.trees.some((t, k) => k && t.burnt < 0.9 && t.clumps.some(([x, y, z, r]) => Math.hypot(x - b.p.x, y - b.p.y, z - b.p.z) < r * 0.75));
         if (b.p.y <= floor + 0.1 || inTree || b.life > 4 || ruin?.touches(b.p, 0.25 + 0.2 * b.big)) { if (b.p.y < floor) b.p.y = floor; burst(b.p, b.big); bolts.splice(i, 1); carried = null; }

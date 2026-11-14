@@ -1,6 +1,7 @@
 // The ship, the meadow, and Long Lake. All of it is drawn in code. Nothing here is a picture or a recording.
 import * as THREE from 'three';
 import { createBeasts } from './beasts.js';
+import { buildVillage } from './cabins.js';
 
 const mat = (color) => new THREE.MeshBasicMaterial({ color });
 const box = (w, h, d, color, x, y, z) => {
@@ -67,96 +68,32 @@ function boardTexture() {
   return t;
 }
 
-const lit = (color) => new THREE.MeshLambertMaterial({ color, emissive: color, emissiveIntensity: 0.35 });
-const timber = (w, h, d, color, x, y, z) => {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), lit(color));
-  m.position.set(x, y, z);
-  m.castShadow = m.receiveShadow = true;
-  return m;
-};
 const PLOT = [-32, -8];
-function buildVillage(root, world) {
-  const drop = (g, x, z) => { g.position.set(x, world.ground(x, z), z); root.add(g); return g; };
-  const lodge = new THREE.Group();
-  const wall = (w, h, d, x, y, z) => lodge.add(timber(w, h, d, '#8d6844', x, y, z));
-  wall(7.2, 2.8, 0.22, 0, 1.4, -2.4);
-  wall(0.22, 2.8, 2.2, -3.5, 1.4, -1.2);
-  wall(0.22, 2.8, 2.2, 3.5, 1.4, -1.2);
-  wall(2.4, 2.8, 0.22, -2.2, 1.4, 2.3);
-  wall(2.4, 2.8, 0.22, 2.2, 1.4, 2.3);
-  lodge.add(timber(7.6, 0.18, 5.2, '#6b4428', 0, 2.9, 0));
-  lodge.add(timber(7.2, 0.08, 5, '#c4a574', 0, 0.06, 0));
-  lodge.add(timber(3.2, 0.9, 0.5, '#6b4428', -1.2, 0.7, -1.2));
-  lodge.add(timber(0.7, 0.7, 0.7, '#3e3832', 2.4, 0.5, -1.6));
-  lodge.add(timber(0.45, 0.22, 0.45, '#c4554a', 2.4, 0.95, -1.6));
-  drop(lodge, -54, -18);
-  const loft = new THREE.Group();
-  loft.add(timber(4.2, 2.6, 0.16, '#a67c52', 0, 1.3, -1.8));
-  loft.add(timber(0.16, 2.6, 3.6, '#a67c52', -2, 1.3, 0));
-  loft.add(timber(0.16, 2.6, 3.6, '#a67c52', 2, 1.3, 0));
-  loft.add(timber(1.4, 2.6, 0.16, '#a67c52', -1.2, 1.3, 1.7));
-  loft.add(timber(1.4, 2.6, 0.16, '#a67c52', 1.2, 1.3, 1.7));
-  loft.add(timber(4.4, 0.14, 3.8, '#6b4428', 0, 2.7, 0));
-  loft.add(timber(4, 0.1, 1.6, '#e7d3a8', 0, 1.55, -0.7));
-  loft.add(timber(0.08, 1.5, 0.35, '#c4a574', -1.5, 0.75, 0.6));
-  drop(loft, -48, -24);
-  const cabin = new THREE.Group();
-  cabin.add(timber(3.2, 2.1, 2.6, '#8d6844', 0, 1.05, 0));
-  cabin.add(timber(3.5, 0.14, 3, '#6b4428', 0, 2.2, 0));
-  drop(cabin, -60, -22);
-  const tower = new THREE.Group();
-  tower.add(timber(2.2, 4.2, 2.2, '#7a8a96', 0, 2.1, 0));
-  tower.add(timber(2.6, 0.2, 2.6, '#5c6a74', 0, 4.3, 0));
-  drop(tower, -58, -13);
-  const camp = new THREE.Group();
-  for (let i = 0; i < 4; i++) {
-    const log = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 2.2, 6), lit('#6b4428'));
-    log.rotation.z = Math.PI / 2;
-    log.position.set(0, 0.2 + i * 0.28, -1.2);
-    log.castShadow = true;
-    camp.add(log);
-  }
-  camp.add(timber(1.4, 0.9, 1.1, '#5c4030', 1.6, 0.45, 0.4));
-  const fire = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.55, 7), lit('#e07a2f'));
-  fire.position.set(-0.4, 0.35, 0.6);
-  camp.add(fire);
-  camp.add(timber(0.7, 0.08, 0.12, '#4a3428', -0.7, 0.08, 0.5));
-  camp.add(timber(0.7, 0.08, 0.12, '#4a3428', -0.1, 0.08, 0.7));
-  const glow = new THREE.PointLight(0xff7a30, 6, 9, 2);
-  glow.position.set(-0.4, 0.8, 0.6);
-  camp.add(glow);
-  drop(camp, -66, -20);
-  const plot = new THREE.Mesh(new THREE.CircleGeometry(3.6, 20), lit('#c4a574'));
-  plot.rotation.x = -Math.PI / 2;
-  plot.position.y = 0.05;
-  plot.receiveShadow = true;
-  const plotG = new THREE.Group();
-  plotG.add(plot);
-  for (let i = 0; i < 8; i++) {
-    const a = (i / 8) * Math.PI * 2;
-    plotG.add(timber(0.12, 0.7, 0.12, '#6b4428', Math.cos(a) * 3.4, 0.35, Math.sin(a) * 3.4));
-  }
-  drop(plotG, PLOT[0], PLOT[1]);
-  const dock = new THREE.Group();
-  for (let i = 0; i < 7; i++) dock.add(timber(1.3, 0.08, 0.42, i % 2 ? '#c4a574' : '#8d6240', 0, 0.2, -i * 0.7));
-  drop(dock, -50, -36);
-  const boat = new THREE.Group();
-  boat.add(timber(3.4, 0.14, 2.6, '#6b4428', 0, 2.1, 0));
-  for (const [x, z] of [[-1.5, -1.1], [1.5, -1.1], [-1.5, 1.1], [1.5, 1.1]]) boat.add(timber(0.14, 2.1, 0.14, '#8d6844', x, 1.05, z));
-  drop(boat, -44, -35);
-  const raft = new THREE.Group();
-  raft.add(timber(2.2, 0.12, 2.2, '#c4a574', 0, 0.15, 0));
-  raft.add(timber(0.1, 0.8, 0.1, '#6b4428', -0.9, 0.5, -0.9));
-  raft.position.set(-54, world.water + 0.02, -48);
-  root.add(raft);
-  root.add(new THREE.HemisphereLight(0xfff0d2, 0x6aaa58, 0.85));
+function numeral(text, color) {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 128;
+  const g = c.getContext('2d');
+  g.font = '900 92px Georgia';
+  g.textAlign = 'center';
+  g.lineJoin = 'round';
+  g.lineWidth = 16;
+  g.strokeStyle = '#1a1008';
+  g.strokeText(text, 128, 100);
+  g.fillStyle = color;
+  g.fillText(text, 128, 100);
+  const tex = new THREE.CanvasTexture(c);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  s.center.set(0.5, 0.2);
+  return s;
 }
-export function createZones({ scene, world, walker, camera }) {
+export function createZones({ scene, world, walker, camera, air }) {
   const saved = { home: world.home, edge: world.edge, colliders: world.colliders, walk: world.walk, blockers: world.blockers };
   const meadowRing = ring(0x9ee7ff);
   meadowRing.position.set(PLOT[0], world.ground(PLOT[0], PLOT[1]) + 0.2, PLOT[1] - 2.4);
   const hub = new THREE.Group();
-  buildVillage(world.root, world);
+  const village = buildVillage(world.root, world, air);
+  const priorBlock = world.blockers;
+  const blockFeet = (f) => { priorBlock?.(f); village.block(f); };
   hub.add(sky('#3a2a1c', '#c4a07a'));
   hub.add(box(11, 0.14, 14, '#a67c52', 0, -0.07, 0));
   hub.add(box(11, 2.6, 0.16, '#6b4a32', 0, 1.3, 6.9));
@@ -273,7 +210,7 @@ export function createZones({ scene, world, walker, camera }) {
   }
   function outdoors() {
     world.home = saved.home; world.edge = saved.edge; world.colliders = saved.colliders; world.walk = saved.walk;
-    world.blockers = saved.blockers;
+    world.blockers = blockFeet;
     world.wade = null;
   }
   function enter(next) {
@@ -432,15 +369,47 @@ export function createZones({ scene, world, walker, camera }) {
     birds.push(g);
   }
   world.root.add(life);
+  const pool = [];
   enter('hub');
   markDest();
   return {
     get name() { return name; },
     get blocksMagic() { return name !== 'meadow'; },
     showBoard, enter,
-    hurt(marks) { beasts.hurt(marks, name); },
+    hurt(marks) {
+      beasts.hurt(marks, name, (hit) => {
+        const color = hit.k === 'arcane' ? '#d7a6ff' : '#ffb043';
+        const key = `${hit.n}-${hit.k}`;
+        let sprite = pool.find((s) => s.userData.life <= 0);
+        if (!sprite) {
+          if (pool.length > 16) return;
+          sprite = numeral(String(hit.n), color);
+          sprite.userData.key = key;
+          scene.add(sprite);
+          pool.push(sprite);
+        } else if (sprite.userData.key !== key) {
+          sprite.material.map.dispose();
+          sprite.material.map = numeral(String(hit.n), color).material.map;
+          sprite.userData.key = key;
+        }
+        sprite.userData.life = 0.9;
+        sprite.position.set(hit.x, hit.y, hit.z);
+        sprite.visible = true;
+        sprite.material.opacity = 1;
+      });
+    },
     castHeld() {},
     update(dt) {
+      for (const s of pool) {
+        if (s.userData.life <= 0) continue;
+        s.userData.life -= dt;
+        const u = 1 - s.userData.life / 0.9;
+        const pop = u < 0.16 ? 0.45 + (u / 0.16) * 0.95 : 1.4 - (u - 0.16) * 0.28;
+        s.scale.set(1.8 * pop, 0.9 * pop, 1);
+        s.position.y += dt * 1.4;
+        s.material.opacity = s.userData.life > 0.28 ? 1 : Math.max(0, s.userData.life / 0.28);
+        if (s.userData.life <= 0) s.visible = false;
+      }
       beasts.update(dt, name);
       const gate = name === 'hub' ? hubRing.position : meadowRing.position;
       const d = Math.hypot(walker.feet.x - gate.x, walker.feet.z - gate.z);
