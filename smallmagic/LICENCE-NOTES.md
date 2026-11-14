@@ -18,6 +18,6 @@ Nothing here has no stated source.
 
 ## What this Aether Realms copy kept and left out
 
-Kept: `LICENSE`, this file, `src/`, `index.html`, `tools/`, `vendor/three-avbd` (MIT), `public/CREDITS.md`, `public/LICENSES/CC0-1.0.txt`, and the five Kenney footsteps `public/sfx/step1.ogg` to `step5.ogg` (CC0).
+Kept: `LICENSE`, this file, `src/`, `index.html`, `tools/`, `vendor/three-avbd` (MIT), `public/CREDITS.md`, `public/LICENSES/CC0-1.0.txt`, the five Kenney Impact footsteps `public/sfx/step1.ogg` to `step5.ogg` (CC0), four Kenney RPG Audio steps `sfx/grass1.ogg` to `grass4.ogg` (CC0), and three rubberduck water splashes `sfx/wade1.ogg` to `wade3.ogg` (CC0).
 
 Left out: `public/ui/1.webp` to `7.webp` (painted medallions; not a stated open licence, so the drawn emblems stand in), `docs/rune-circles.jpg` (a picture, not code), and every Sonniss recording (`public/audio`, `sonniss/`). Those recordings were not downloaded. The game already plays when they are missing.

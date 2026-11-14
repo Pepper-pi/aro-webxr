@@ -15,7 +15,9 @@ Code MIT. The world and everything in it is made in code by Patch.
 ## Sound
 
 - The sound of every spell, of fire, of footsteps and of the place is built in code (`src/sound.js`, MIT).
-- Footsteps on grass, `sfx/step1.ogg` to `step5.ogg`: Kenney's Impact Sounds (kenney.nl), CC0 1.0.
+- Footsteps on grass, `sfx/step1.ogg` to `step5.ogg`: Kenney's Impact Sounds (kenney.nl), CC0 1.0. Kept as a fallback.
+- Softer meadow steps, `sfx/grass1.ogg` to `grass4.ogg`: Kenney RPG Audio (kenney.nl), CC0 1.0.
+- Water steps, `sfx/wade1.ogg` to `wade3.ogg`: rubberduck, "40 CC0 water / splash / slime SFX" (OpenGameArt), CC0 1.0. Shortened.
 - The published game also plays recordings from the Sonniss GDC Game Audio Bundles (sonniss.com), under their
   licence: free to use in a game, not to pass on as files. They are not part of this game's open licence, and are not
   in its repo: `MISSING_ASSETS.md` there names each one.

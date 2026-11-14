@@ -128,7 +128,7 @@ function tick(dt) {
   air.uniforms.uNow.value += dt * pace;
   const inp = input.read(dt);
   if (zones.blocksMagic) {
-    if (inp.cast && !padCast) zones.onCast();
+    zones.castHeld(!!inp.cast, !padCast && !!inp.cast, padCast && !inp.cast);
     padCast = !!inp.cast;
     spells?.release();
   } else if (spells) {
@@ -159,7 +159,7 @@ function tick(dt) {
   if (hole.shockP > 0) post.shock(camera, hole.centre, hole.shockR, hole.shockP); else post.shock(camera, blastAt.copy(blast.centre).setY(blast.centre.y + 3), blast.shockR, blast.shockP);
   post.hole(camera, hole.centre, hole.radius, hole.power, hole.blur, hole.reach * 1.05);
   post.heat = Math.min(1, fire.glare * 0.85 + (spells?.glare ?? 0) * 0.6);
-  post.render(scene, camera, free ? null : staff, SUN);
+  post.render(scene, camera, free || zones.name === 'lake' ? null : staff, SUN);
 }
 
 // (the measuring tools were written for a figure seen from behind: these are the same handles on one seen from within)

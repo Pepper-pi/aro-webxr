@@ -104,6 +104,8 @@ export function createSound({ offline = 0 } = {}) {
       try { const r = await fetch(`${RECORDINGS}${name}.ogg`); if (r.ok) buffers[name] = await ctx.decodeAudioData(await r.arrayBuffer()); } catch { /* that one is done without */ }
     }));
     await Promise.all([1, 2, 3, 4, 5].map(async (i) => { try { const r = await fetch(`sfx/step${i}.ogg`); if (r.ok) buffers[`free${i}`] = await ctx.decodeAudioData(await r.arrayBuffer()); } catch { /* none */ } }));
+    await Promise.all([1, 2, 3, 4].map(async (i) => { try { const r = await fetch(`sfx/grass${i}.ogg`); if (r.ok) buffers[`soft${i}`] = await ctx.decodeAudioData(await r.arrayBuffer()); } catch { /* none */ } }));
+    await Promise.all([1, 2, 3].map(async (i) => { try { const r = await fetch(`sfx/wade${i}.ogg`); if (r.ok) buffers[`wade${i}`] = await ctx.decodeAudioData(await r.arrayBuffer()); } catch { /* none */ } }));
     // (turned round now, not in the middle of a spell)
     // (said once, where an agent or a person looking will see it; not an error)
     if (!names.length) console.info('Sound: playing with no recordings, only what is made in code. MISSING_ASSETS.md in the repo says what the published game adds and how to get it: node tools/sounds.mjs fetch');
@@ -878,7 +880,8 @@ export function createSound({ offline = 0 } = {}) {
   /** What is under their feet: water, ground a spell froze or burnt, something built, the path, or grass. */
   function underfoot(world, walker) {
     const f = walker.feet, S = world.state, g = world.ground(f.x, f.z);
-    if (g < world.water - 0.02) return 'water';
+    if (typeof world.wade === 'function' && world.wade(f.x, f.z)) return 'water';
+    if (g < world.water + 0.04) return 'water';
     const i = Math.floor((f.x - S.x0) / S.cell), j = Math.floor((f.z - S.z0) / S.cell);
     if (i >= 0 && j >= 0 && i < S.N && j < S.N) { const k = (j * S.N + i) * 4; if (S.data[k + 1] > 110) return 'snow'; if (S.data[k] > 110) return 'ash'; }
     if (world.walk && world.walk(f.x, f.z) > g + 0.03) return 'stone';
@@ -893,14 +896,14 @@ export function createSound({ offline = 0 } = {}) {
     let take;
     do take = 1 + Math.floor(R() * 8); while (take === lastTake[surface]);
     lastTake[surface] = take;
-    const o = { at, gain: (0.17 + 0.13 * hard) * (0.85 + 0.3 * R()), rate: 0.94 + 0.12 * R(), pan: 0.14 * foot, air: 0.08 };
-    if (!play(STEPS[surface] + take, o)) play(`free${1 + Math.floor(R() * 5)}`, { ...o, ...SHAPED[surface], rate: o.rate * (SHAPED[surface].rate ?? 1) });
-    if (surface === 'water') {
-      const e = G(0);
-      swell(e.gain, at, 0.32, 0.22 + 0.2 * hard, 0.45);
-      send(chain(noise('white', at, at + 0.35), F('bandpass', 1400 + 900 * R(), 0.9), e, P(0.14 * foot)), { air: 0.1 });
-      const s = play('rush', { at, loop: true, gain: 0.5, rate: 1.3, pan: 0.14 * foot, shape: [[0, 0.1], [0.05, 1], [0.35, 0.001]] });
-      s?.stop(at + 0.4);
+    const o = { at, gain: (0.06 + 0.04 * hard) * (0.75 + 0.4 * R()), rate: 0.82 + 0.36 * R(), pan: 0.12 * foot, air: 0.05 };
+    const heard = surface === 'water'
+      ? play(`wade${1 + Math.floor(R() * 3)}`, o)
+      : (surface === 'grass' || surface === 'dirt')
+        ? play(`soft${1 + Math.floor(R() * 4)}`, { ...o, low: 2400 })
+        : null;
+    if (!heard && !play(STEPS[surface] + take, { ...o, gain: o.gain * 0.35 })) {
+      play(`free${1 + Math.floor(R() * 5)}`, { ...o, ...SHAPED[surface], gain: o.gain * 0.45, rate: o.rate * (SHAPED[surface].rate ?? 1) });
     }
   }
   function stepFeed(world, walker) {
