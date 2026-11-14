@@ -273,7 +273,7 @@ export function createZones({ scene, world, walker, camera, air }) {
     b.addEventListener('contextmenu', (e) => e.preventDefault());
   });
   addEventListener('pointerup', (e) => {
-    if (name !== 'hub' || (e.target.closest && e.target.closest('#cast, #spell, #stick, #board, #menu, #back, #menubtn, #reel, #catch, #fish, #dusk'))) return;
+    if (name !== 'hub' || (e.target.closest && e.target.closest('#cast, #spell, #stick, #board, #menu, #back, #menubtn, #reel, #catch, #fish, #dusk, #gear, #settings'))) return;
     ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
     ray.setFromCamera(ndc, camera);
     if (ray.intersectObject(screen, false).length) showBoard();
@@ -322,12 +322,14 @@ export function createZones({ scene, world, walker, camera, air }) {
     e.preventDefault();
     e.stopPropagation();
   });
-  fishBtn?.addEventListener('pointerup', (e) => {
+  const endFish = (e) => {
     if (fishDown && phase === 'aim') looseLine();
     fishDown = false;
     e.preventDefault();
     e.stopPropagation();
-  });
+  };
+  fishBtn?.addEventListener('pointerup', endFish);
+  fishBtn?.addEventListener('pointercancel', endFish);
   let skyMesh = null;
   world.root.traverse((o) => { if (!skyMesh && o.material?.uniforms?.uZenith) skyMesh = o; });
   const dayZenith = skyMesh?.material.uniforms.uZenith.value.clone();
@@ -396,6 +398,8 @@ export function createZones({ scene, world, walker, camera, air }) {
         sprite.position.set(hit.x, hit.y, hit.z);
         sprite.visible = true;
         sprite.material.opacity = 1;
+        const mark = document.getElementById('xmark');
+        if (mark) { mark.classList.add('on'); clearTimeout(mark._t); mark._t = setTimeout(() => mark.classList.remove('on'), 400); }
       });
     },
     castHeld() {},

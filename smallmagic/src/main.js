@@ -115,6 +115,35 @@ if (sound && spells) spells.hear = (what, o) => sound.cue(what, o);
 
 // The one clock. Everything that moves is a function of it; `pace` is how fast it runs (1 as a rule).
 const clock = { pace: 1 };
+const settings = { hands: false, gfx: 'high' };
+const handsEl = document.getElementById('hands');
+const gear = document.getElementById('gear');
+const settingsEl = document.getElementById('settings');
+gear?.addEventListener('pointerup', (e) => { if (settingsEl) settingsEl.hidden = false; e.preventDefault(); e.stopPropagation(); });
+document.getElementById('setX')?.addEventListener('pointerup', (e) => { if (settingsEl) settingsEl.hidden = true; e.preventDefault(); e.stopPropagation(); });
+settingsEl?.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('pointerup', (e) => {
+  settingsEl.querySelectorAll('[data-tab]').forEach((t) => t.classList.toggle('on', t === b));
+  const tab = b.getAttribute('data-tab');
+  settingsEl.querySelectorAll('[data-pane]').forEach((p) => { p.hidden = p.getAttribute('data-pane') !== tab; });
+  e.preventDefault(); e.stopPropagation();
+}));
+document.getElementById('handsToggle')?.addEventListener('pointerup', (e) => {
+  settings.hands = !settings.hands;
+  e.currentTarget.textContent = settings.hands ? 'Hands mode: on' : 'Hands mode: off';
+  e.currentTarget.classList.toggle('on', settings.hands);
+  if (handsEl) handsEl.hidden = !settings.hands;
+  e.preventDefault(); e.stopPropagation();
+});
+settingsEl?.querySelectorAll('[data-gfx]').forEach((b) => b.addEventListener('pointerup', (e) => {
+  settings.gfx = b.getAttribute('data-gfx');
+  settingsEl.querySelectorAll('[data-gfx]').forEach((t) => t.classList.toggle('on', t === b));
+  const low = settings.gfx === 'low';
+  renderer.setPixelRatio(low ? 1 : Math.min(devicePixelRatio, phone ? 1.5 : 2));
+  renderer.shadowMap.enabled = !low && !phone;
+  fitView();
+  e.preventDefault(); e.stopPropagation();
+}));
+document.getElementById('vol')?.addEventListener('input', (e) => { if (sound) sound.volume = Number(e.target.value) / 100; });
 let padCast = false;
 let free = null;
 let shaking = 0;
@@ -160,13 +189,14 @@ function tick(dt) {
   if (hole.shockP > 0) post.shock(camera, hole.centre, hole.shockR, hole.shockP); else post.shock(camera, blastAt.copy(blast.centre).setY(blast.centre.y + 3), blast.shockR, blast.shockP);
   post.hole(camera, hole.centre, hole.radius, hole.power, hole.blur, hole.reach * 1.05);
   post.heat = Math.min(1, fire.glare * 0.85 + (spells?.glare ?? 0) * 0.6);
-  post.render(scene, camera, free || zones.name === 'hub' ? null : staff, SUN);
+  if (handsEl) handsEl.classList.toggle('on', !!(settings.hands && (inp.cast || spells?.cast?.holding || spells?.cast?.pour)));
+  post.render(scene, camera, free || zones.name === 'hub' || settings.hands ? null : staff, SUN);
 }
 
 // (the measuring tools were written for a figure seen from behind: these are the same handles on one seen from within)
 const head = new THREE.Vector3();
 const lab = window.lab = {
-  THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
+  THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
   player: walker,
   follow: { get yaw() { return walker.yaw; }, set yaw(v) { walker.yaw = v; }, get pitch() { return walker.pitch; }, set pitch(v) { walker.pitch = v; }, want: 0, distance: 0, pivot: new THREE.Vector3() },
   doll: { man: { bones: { Head: { getWorldPosition: (v) => v.copy(walker.feet).setY(walker.feet.y + 1.66) } } } },
