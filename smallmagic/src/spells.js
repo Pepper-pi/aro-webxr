@@ -55,6 +55,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
   }
   function burst(p, big) {
     const onWater = world.ground(p.x, p.z) < world.water, r = 1.5 + 2.3 * big;
+    marks.push({ x: p.x, z: p.z, r: r * 0.7, d: 50 + 40 * big });
     heard?.('fireBurst', { p, big, water: onWater });
     for (let i = 0, n = 70 + 150 * big; i < n; i++) {
       const a = Math.random() * 6.283, up = Math.random(), sp = (2 + 7 * Math.random()) * (1 + big);
@@ -93,16 +94,19 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     for (let i = 0; i < 26; i++) fx.spawn({ kind: 5, x: tip.x + rnd(0.3), y: tip.y + rnd(0.3), z: tip.z + rnd(0.3), vx: dir.x * 26 + rnd(7), vy: dir.y * 26 + rnd(5), vz: dir.z * 26 + rnd(7), life: 0.22 + 0.15 * Math.random(), size: [0.012, 0.012], colour: [0.92, 1, 0.96], alpha: 0.5, rot: 30 + 30 * Math.random() });
   }
 
+  const marks = [];
   const api = {
     get selected() { return selected; }, select,
     get cast() { return cast; }, set hear(fn) { heard = fn; },
     press() { down = true; }, release() { down = false; },
     get busy() { return bolts.length + gusts.length; },
+    marks,
     /** How bright the last burst still is to the eye, 0 to 1. */
     get glare() { return flash.power * flash.power * Math.max(0, 1 - Math.hypot(flash.x - camera.position.x, flash.z - camera.position.z) / 50); },
     blast, hole, twister,
     update(dt, realDt = dt) {
       const spell = SPELLS[selected], col = cols[selected];
+      marks.length = 0;
       camera.getWorldDirection(dir);
       staff.tip(camera, tip);
       const hit = world.aim(camera.position, dir, 70), reach = spell.key === 'frost' ? 17 : 34;
@@ -270,6 +274,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
         if (Math.random() < 20 * dt) fx.spawn({ kind: 1, x: b.p.x, y: b.p.y, z: b.p.z, vx: rnd(3), vy: rnd(3), vz: rnd(3), life: 0.5 + 0.5 * Math.random(), size: [0.035, 0.01], colour: [1, 0.6, 0.15], grav: -4, drag: 1 });
         if (Math.random() < 14 * dt) fx.spawn({ kind: 2, x: b.p.x, y: b.p.y, z: b.p.z, life: 1.1, size: [0.25, 1.1 + b.big], colour: [0.12, 0.12, 0.15], alpha: 0.3, vy: 0.6 });
         carried = b;
+        marks.push({ x: b.p.x, z: b.p.z, r: 0.7, d: 16 });
         const floor = Math.max(world.ground(b.p.x, b.p.z), world.water);
         const inTree = world.trees.some((t, k) => k && t.burnt < 0.9 && t.clumps.some(([x, y, z, r]) => Math.hypot(x - b.p.x, y - b.p.y, z - b.p.z) < r * 0.75));
         if (b.p.y <= floor + 0.1 || inTree || b.life > 4 || ruin?.touches(b.p, 0.25 + 0.2 * b.big)) { if (b.p.y < floor) b.p.y = floor; burst(b.p, b.big); bolts.splice(i, 1); carried = null; }

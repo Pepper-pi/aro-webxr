@@ -1,5 +1,6 @@
 // The ship, the meadow, and Long Lake. All of it is drawn in code. Nothing here is a picture or a recording.
 import * as THREE from 'three';
+import { createBeasts } from './beasts.js';
 
 const mat = (color) => new THREE.MeshBasicMaterial({ color });
 const box = (w, h, d, color, x, y, z) => {
@@ -66,6 +67,51 @@ function boardTexture() {
   return t;
 }
 
+function buildCamp(lake) {
+  const lodge = new THREE.Group();
+  lodge.position.set(-8, 0, -3.4);
+  const wall = (w, h, d, x, y, z) => lodge.add(box(w, h, d, '#8d6844', x, y, z));
+  wall(7.2, 2.8, 0.18, 0, 1.4, -2.4);
+  wall(0.18, 2.8, 2.2, -3.5, 1.4, -1.2);
+  wall(0.18, 2.8, 2.2, 3.5, 1.4, -1.2);
+  wall(2.4, 2.8, 0.18, -2.2, 1.4, 2.3);
+  wall(2.4, 2.8, 0.18, 2.2, 1.4, 2.3);
+  lodge.add(box(7.6, 0.16, 5.2, '#6b4428', 0, 2.9, 0));
+  lodge.add(box(7.2, 0.08, 5, '#c4a574', 0, 0.06, 0));
+  lodge.add(box(3.2, 0.9, 0.5, '#6b4428', -1.2, 0.7, -1.2));
+  lodge.add(box(0.7, 0.7, 0.7, '#3e3832', 2.4, 0.5, -1.6));
+  lodge.add(box(0.4, 0.25, 0.4, '#c4554a', 2.4, 0.95, -1.6));
+  lake.add(lodge);
+  const loft = new THREE.Group();
+  loft.position.set(-1.2, 0, -4.6);
+  loft.add(box(4.2, 2.6, 0.14, '#a67c52', 0, 1.3, -1.8));
+  loft.add(box(0.14, 2.6, 3.6, '#a67c52', -2, 1.3, 0));
+  loft.add(box(0.14, 2.6, 3.6, '#a67c52', 2, 1.3, 0));
+  loft.add(box(1.4, 2.6, 0.14, '#a67c52', -1.2, 1.3, 1.7));
+  loft.add(box(1.4, 2.6, 0.14, '#a67c52', 1.2, 1.3, 1.7));
+  loft.add(box(4.4, 0.12, 3.8, '#6b4428', 0, 2.7, 0));
+  loft.add(box(4, 0.1, 1.6, '#e7d3a8', 0, 1.55, -0.7));
+  loft.add(box(0.08, 1.5, 0.35, '#c4a574', -1.5, 0.75, 0.6));
+  lake.add(loft);
+  const cabin = new THREE.Group();
+  cabin.position.set(3.6, 0, -4.4);
+  cabin.add(box(3.2, 2.1, 2.6, '#8d6844', 0, 1.05, 0));
+  cabin.add(box(3.5, 0.12, 3, '#6b4428', 0, 2.2, 0));
+  lake.add(cabin);
+  const bath = new THREE.Group();
+  bath.position.set(-13.5, 0, -1.6);
+  bath.add(box(2.2, 3.4, 2.2, '#7a8a96', 0, 1.7, 0));
+  bath.add(box(2.5, 0.2, 2.5, '#5c6a74', 0, 3.5, 0));
+  lake.add(bath);
+  const boat = new THREE.Group();
+  boat.position.set(-3.2, 0, 0.6);
+  boat.add(box(3.4, 0.12, 2.6, '#6b4428', 0, 2.1, 0));
+  boat.add(box(0.12, 2.1, 0.12, '#8d6844', -1.5, 1.05, -1.1));
+  boat.add(box(0.12, 2.1, 0.12, '#8d6844', 1.5, 1.05, -1.1));
+  boat.add(box(0.12, 2.1, 0.12, '#8d6844', -1.5, 1.05, 1.1));
+  boat.add(box(0.12, 2.1, 0.12, '#8d6844', 1.5, 1.05, 1.1));
+  lake.add(boat);
+}
 export function createZones({ scene, world, walker, camera }) {
   const saved = { home: world.home, edge: world.edge, colliders: world.colliders, walk: world.walk, blockers: world.blockers };
   const meadowRing = ring(0x9ee7ff);
@@ -152,14 +198,19 @@ export function createZones({ scene, world, walker, camera }) {
   lake.add(raft);
   for (let i = 0; i < 9; i++) {
     const fir = new THREE.Group();
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 1.4, 5), mat('#5c4030'));
-    trunk.position.y = 0.7;
-    const bough = new THREE.Mesh(new THREE.ConeGeometry(0.9 - (i % 3) * 0.1, 3.2 + (i % 3) * 0.6, 7), mat(i % 2 ? '#1f6b34' : '#2f8a44'));
-    bough.position.y = 2.4;
-    fir.add(trunk, bough);
-    fir.position.set(-14 + i * 3.4, 0, 23 + (i % 2) * 1.4);
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.22, 2.2, 6), mat('#4a3428'));
+    trunk.position.y = 1.1;
+    const h = 4.2 + (i % 3) * 0.8;
+    for (let t = 0; t < 3; t++) {
+      const bough = new THREE.Mesh(new THREE.ConeGeometry(1.15 - t * 0.28, h * 0.42, 7), mat(t === 2 ? '#3d9a48' : '#1e6a32'));
+      bough.position.y = 1.6 + t * h * 0.28;
+      fir.add(bough);
+    }
+    fir.add(trunk);
+    fir.position.set(-15 + i * 3.6, 0, 22 + (i % 2) * 1.6);
     lake.add(fir);
   }
+  buildCamp(lake);
   const lakeRing = ring(0x9ee7ff);
   lakeRing.position.set(0, 0.2, -5.2);
   lake.add(lakeRing);
@@ -178,6 +229,7 @@ export function createZones({ scene, world, walker, camera }) {
   lake.add(bobber);
 
   scene.add(meadowRing, hub, lake);
+  const beasts = createBeasts(scene);
   hub.visible = lake.visible = meadowRing.visible = false;
 
   const hold = new THREE.Group();
@@ -191,7 +243,7 @@ export function createZones({ scene, world, walker, camera }) {
   reel.rotation.z = Math.PI / 2;
   reel.position.set(0.045, 0.1, 0);
   rod.add(grip, blank, tipM, reel);
-  rod.position.set(0.14, -0.28, -0.82);
+  rod.position.set(0.05, -0.28, -0.82);
   rod.rotation.set(0.5, 0.12, -0.18);
   hold.add(rod);
   scene.add(hold);
@@ -347,6 +399,7 @@ export function createZones({ scene, world, walker, camera }) {
     get name() { return name; },
     get blocksMagic() { return name !== 'meadow'; },
     showBoard, enter,
+    hurt(marks) { beasts.hurt(marks, name); },
     castHeld(_held, pressed, released) {
       if (name !== 'lake') return;
       if (pressed) { phase = 'aim'; power = 0.25; target.visible = true; }
@@ -364,6 +417,7 @@ export function createZones({ scene, world, walker, camera }) {
     },
     update(dt) {
       waterMat.uniforms.uTime.value += dt;
+      beasts.update(dt, name);
       const gate = name === 'hub' ? hubRing.position : name === 'lake' ? lakeRing.position : meadowRing.position;
       const d = Math.hypot(walker.feet.x - gate.x, walker.feet.z - gate.z);
       if (d > 2.15) leftRing = true;

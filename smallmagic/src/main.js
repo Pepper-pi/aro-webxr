@@ -146,6 +146,7 @@ function tick(dt) {
   staff?.update(dt, walker, camera, world.sunAt?.(camera.position) ?? 1);
   ruin?.update(dt * pace);
   if (spells) spells.update(dt * pace, dt); else { blast.update(dt * pace, dt, camera.position); hole.update(dt * pace, dt, camera.position); twister.update(dt * pace, dt, camera.position); }
+  if (spells) zones.hurt(spells.marks);
   fire.step(dt * pace, camera.position);
   fx.update(dt * pace);
   sound?.update(dt, { blast, hole, twister, ruin, camera, fire, cast: spells?.cast, world, walker });
