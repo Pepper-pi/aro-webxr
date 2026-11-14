@@ -16,6 +16,7 @@ Code MIT. The world and everything in it is made in code by Patch.
 
 - The sound of every spell, of fire, of footsteps and of the place is built in code (`src/sound.js`, MIT).
 - Footsteps on grass, `sfx/step1.ogg` to `step5.ogg`: Kenney's Impact Sounds (kenney.nl), CC0 1.0. Kept as a fallback.
+- The camp and the beasts on Long Lake and in the meadow are drawn in code. No animal models were imported.
 - Softer meadow steps, `sfx/grass1.ogg` to `grass4.ogg`: Kenney RPG Audio (kenney.nl), CC0 1.0.
 - Water steps, `sfx/wade1.ogg` to `wade3.ogg`: rubberduck, "40 CC0 water / splash / slime SFX" (OpenGameArt), CC0 1.0. Shortened.
 - The published game also plays recordings from the Sonniss GDC Game Audio Bundles (sonniss.com), under their
