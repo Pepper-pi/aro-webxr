@@ -72,19 +72,22 @@ export function createZones({ scene, world, walker, camera }) {
   meadowRing.position.set(world.start.x, 0.15, world.start.z - 1.6);
   const hub = new THREE.Group();
   const lake = new THREE.Group();
-  hub.add(sky('#2a2218', '#6a5340'));
-  hub.add(box(6.2, 0.12, 5.2, '#a67c52', 0, -0.06, 0.4));
-  hub.add(box(6.2, 2.3, 0.12, '#6b4a32', 0, 1.15, 2.55));
-  hub.add(box(0.12, 2.3, 5.2, '#7a5538', -3.05, 1.15, 0.4));
-  hub.add(box(0.12, 2.3, 5.2, '#7a5538', 3.05, 1.15, 0.4));
-  hub.add(box(6.2, 0.1, 5.2, '#4a3428', 0, 2.3, 0.4));
-  hub.add(box(1.4, 0.08, 0.7, '#c4a574', 0, 0.72, 1.55));
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 1.45), new THREE.MeshBasicMaterial({ map: boardTexture() }));
-  screen.position.set(0, 1.25, 2.46);
+  hub.add(sky('#3a2a1c', '#c4a07a'));
+  hub.add(box(11, 0.14, 14, '#a67c52', 0, -0.07, 0));
+  hub.add(box(11, 2.6, 0.16, '#6b4a32', 0, 1.3, 6.9));
+  hub.add(box(0.16, 2.6, 14, '#7a5538', -5.5, 1.3, 0));
+  hub.add(box(0.16, 2.6, 14, '#7a5538', 5.5, 1.3, 0));
+  hub.add(box(11, 2.6, 0.16, '#5c4030', 0, 1.3, -6.9));
+  hub.add(box(11, 0.12, 14, '#4a3428', 0, 2.6, 0));
+  hub.add(box(1.6, 0.08, 0.8, '#c4a574', 2.4, 0.74, 1.2));
+  hub.add(box(2.4, 2.5, 0.08, '#e7d3a8', 0, 1.35, 6.72));
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.7), new THREE.MeshBasicMaterial({ map: boardTexture() }));
+  screen.position.set(0, 1.35, 6.8);
+  screen.scale.set(1.2, 1.2, 1);
   screen.name = 'command-board';
   hub.add(screen);
   const hubRing = ring(0xffe08a);
-  hubRing.position.set(0, 0.08, 1.55);
+  hubRing.position.set(0, 0.08, -4.4);
   const destTag = labelSprite('Meadow');
   destTag.position.y = 0.7;
   hubRing.add(destTag);
@@ -94,33 +97,71 @@ export function createZones({ scene, world, walker, camera }) {
   hub.add(lamp);
 
   lake.add(sky('#f0a06a', '#f6d7b0'));
-  lake.add(box(16, 0.2, 10, '#7d9a48', 0, -0.1, -2));
-  const waterGeo = new THREE.PlaneGeometry(16, 14, 1, 1);
+  lake.add(box(42, 0.2, 18, '#6f9a45', 0, -0.1, -6));
+  const waterGeo = new THREE.PlaneGeometry(36, 28, 10, 8);
   const waterMat = new THREE.ShaderMaterial({
     transparent: true,
     uniforms: { uTime: { value: 0 } },
-    vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+    vertexShader: `
+      precision mediump float;
+      uniform float uTime; varying vec2 vUv;
+      void main(){
+        vUv = uv;
+        vec3 p = position;
+        p.z += sin(p.x * 0.55 + uTime * 1.1) * sin(p.y * 0.42 - uTime * 0.8) * 0.07;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }`,
     fragmentShader: `
       precision mediump float; varying vec2 vUv; uniform float uTime;
       void main(){
-        float r = sin(vUv.x * 28.0 + uTime * 1.6) * sin(vUv.y * 22.0 - uTime * 1.2);
-        vec3 deep = vec3(0.05, 0.22, 0.34); vec3 mid = vec3(0.16, 0.45, 0.55);
+        float r = sin(vUv.x * 22.0 + uTime * 1.4) * sin(vUv.y * 16.0 - uTime * 0.9);
+        vec3 deep = vec3(0.04, 0.2, 0.32); vec3 mid = vec3(0.15, 0.42, 0.52);
         vec3 c = mix(deep, mid, 0.5 + 0.5 * r);
-        c = mix(c * vec3(0.45, 0.6, 0.7), c, smoothstep(0.0, 0.45, vUv.y));
         gl_FragColor = vec4(c, 0.94);
       }`,
   });
   const water = new THREE.Mesh(waterGeo, waterMat);
   water.rotation.x = -Math.PI / 2;
-  water.position.set(0, -0.05, 6);
+  water.position.set(0, -0.04, 16);
   lake.add(water);
-  for (let i = 0; i < 6; i++) lake.add(box(1.3, 0.08, 0.42, i % 2 ? '#c4a574' : '#a67c52', 0, 0.16, 1.2 + i * 0.55));
-  for (let i = 0; i < 7; i++) {
-    const reed = box(0.04, 0.9, 0.04, '#6a8a48', (i - 3) * 0.7, 0.4, 1.05);
-    lake.add(reed);
+  for (let i = 0; i < 8; i++) lake.add(box(1.35, 0.08, 0.4, i % 2 ? '#c4a574' : '#8d6240', 0, 0.18, 1.4 + i * 0.7));
+  for (let i = 0; i < 10; i++) {
+    const side = i < 5 ? -1 : 1;
+    lake.add(box(0.045, 0.85, 0.045, '#5f8a42', side * (1.4 + (i % 5) * 0.55), 0.4, 2.2 + (i % 3) * 0.25));
+  }
+  for (let i = 0; i < 6; i++) {
+    const pad = new THREE.Mesh(new THREE.CircleGeometry(0.38, 8), mat(i % 2 ? '#3d8a44' : '#2f6e38'));
+    pad.rotation.x = -Math.PI / 2;
+    pad.position.set((i - 2.5) * 1.6, 0.02, 9 + (i % 2) * 1.2);
+    lake.add(pad);
+  }
+  for (let i = 0; i < 14; i++) {
+    const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.28, 5), mat(i % 2 ? '#b6d96a' : '#7dae46'));
+    tuft.position.set(-8 + (i % 7) * 2.6, 0.12, -2.2 - (i % 3) * 0.7);
+    lake.add(tuft);
+  }
+  for (let i = 0; i < 8; i++) {
+    const bloom = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 5), mat(['#f2d56a', '#f0a0b8', '#fff6df'][i % 3]));
+    bloom.position.set(-6 + i * 1.7, 0.16, -1.2);
+    lake.add(bloom);
+  }
+  const raft = new THREE.Group();
+  raft.add(box(1.6, 0.1, 1.6, '#c4a574', 0, 0.08, 0));
+  raft.add(box(0.08, 0.7, 0.08, '#6b4a32', -0.7, 0.4, -0.7));
+  raft.position.set(5.5, 0, 11);
+  lake.add(raft);
+  for (let i = 0; i < 9; i++) {
+    const fir = new THREE.Group();
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 1.4, 5), mat('#5c4030'));
+    trunk.position.y = 0.7;
+    const bough = new THREE.Mesh(new THREE.ConeGeometry(0.9 - (i % 3) * 0.1, 3.2 + (i % 3) * 0.6, 7), mat(i % 2 ? '#1f6b34' : '#2f8a44'));
+    bough.position.y = 2.4;
+    fir.add(trunk, bough);
+    fir.position.set(-14 + i * 3.4, 0, 23 + (i % 2) * 1.4);
+    lake.add(fir);
   }
   const lakeRing = ring(0x9ee7ff);
-  lakeRing.position.set(0, 0.2, -3.2);
+  lakeRing.position.set(0, 0.2, -5.2);
   lake.add(lakeRing);
   const target = new THREE.Mesh(new THREE.RingGeometry(0.45, 0.58, 24), new THREE.MeshBasicMaterial({ color: 0xffe7a8, side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));
   target.rotation.x = -Math.PI / 2;
@@ -150,8 +191,8 @@ export function createZones({ scene, world, walker, camera }) {
   reel.rotation.z = Math.PI / 2;
   reel.position.set(0.045, 0.1, 0);
   rod.add(grip, blank, tipM, reel);
-  rod.position.set(0.16, -0.2, -0.9);
-  rod.rotation.set(0.72, 0.05, -0.35);
+  rod.position.set(0.14, -0.28, -0.82);
+  rod.rotation.set(0.5, 0.12, -0.18);
   hold.add(rod);
   scene.add(hold);
   const lineGeo = new THREE.BufferGeometry();
@@ -180,6 +221,9 @@ export function createZones({ scene, world, walker, camera }) {
   let biteUntil = 0;
   let reelT = 0;
   let power = 0.35;
+  let cock = 0;
+  let flicking = 0;
+  const aimDir = new THREE.Vector3();
   const tipW = new THREE.Vector3();
   const ray = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
@@ -224,16 +268,17 @@ export function createZones({ scene, world, walker, camera }) {
       const yaw = world.start.yaw + Math.PI;
       place(meadowRing.position.x + Math.sin(yaw) * 3.4, meadowRing.position.z + Math.cos(yaw) * 3.4, yaw);
     } else if (next === 'hub') {
-      world.home = [0, 0]; world.edge = 2.55; world.colliders = [];
+      world.home = [0, 0]; world.edge = 5.1; world.colliders = [];
       world.walk = () => 0;
-      place(0, -1.55, Math.PI);
+      place(0, -2.2, 0);
+      walker.pitch = 0.42;
       boardHeld = false;
       showBoard();
     } else {
-      world.home = [0, 0]; world.edge = 7.5; world.colliders = [];
-      world.walk = (x, z) => (Math.abs(x) < 0.75 && z > 0.9 && z < 4.8 ? 0.22 : 0);
-      world.wade = (x, z) => z > 0.7;
-      place(0, 0.2, 0);
+      world.home = [0, -2]; world.edge = 12; world.colliders = [];
+      world.walk = (x, z) => (Math.abs(x) < 0.7 && z > 1.2 && z < 8.2 ? 0.22 : 0);
+      world.wade = (x, z) => z > 2.4 || (Math.abs(x) < 0.7 && z > 2);
+      place(0, -1.4, 0);
     }
   }
   panel?.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('pointerup', (e) => {
@@ -259,6 +304,10 @@ export function createZones({ scene, world, walker, camera }) {
     e.stopPropagation();
   });
   document.getElementById('catchOk')?.addEventListener('pointerup', (e) => { if (catchEl) catchEl.hidden = true; resetFish(); e.preventDefault(); e.stopPropagation(); });
+  document.querySelectorAll('button').forEach((b) => {
+    b.addEventListener('pointerdown', (e) => e.preventDefault());
+    b.addEventListener('contextmenu', (e) => e.preventDefault());
+  });
   addEventListener('pointerup', (e) => {
     if (name !== 'hub' || (e.target.closest && e.target.closest('#cast, #spell, #stick, #board, #menu, #back, #menubtn, #reel, #catch'))) return;
     ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
@@ -266,6 +315,32 @@ export function createZones({ scene, world, walker, camera }) {
     if (ray.intersectObject(screen, false).length) showBoard();
   });
 
+  function onWater(x, z) {
+    return Math.abs(x) < 16 && z > 3.5 && z < 26 && !(Math.abs(x) < 0.95 && z < 8.8);
+  }
+  function waterSpot() {
+    camera.getWorldDirection(aimDir);
+    aimDir.y = 0;
+    if (aimDir.lengthSq() < 1e-6) aimDir.set(0, 0, 1);
+    aimDir.normalize();
+    const dist = 4 + power * 11;
+    let x = camera.position.x + aimDir.x * dist;
+    let z = camera.position.z + aimDir.z * dist;
+    if (!onWater(x, z)) {
+      let found = false;
+      for (let t = 2.5; t < 26; t += 0.3) {
+        const px = camera.position.x + aimDir.x * t;
+        const pz = camera.position.z + aimDir.z * t;
+        if (onWater(px, pz)) { x = px; z = pz; found = true; break; }
+      }
+      if (!found) {
+        x = THREE.MathUtils.clamp(x, -14, 14);
+        z = Math.max(4.2, z);
+        if (Math.abs(x) < 0.95 && z < 8.8) x = x >= 0 ? 1.4 : -1.4;
+      }
+    }
+    return { x, z };
+  }
   enter('hub');
   markDest();
   return {
@@ -274,14 +349,16 @@ export function createZones({ scene, world, walker, camera }) {
     showBoard, enter,
     castHeld(_held, pressed, released) {
       if (name !== 'lake') return;
-      if (pressed) { phase = 'aim'; power = 0.3; target.visible = true; }
-      if (_held && phase === 'aim') power = Math.min(1, power + 0.015);
+      if (pressed) { phase = 'aim'; power = 0.25; target.visible = true; }
+      if (_held && phase === 'aim') power = Math.min(1, power + 0.012);
       if (released && phase === 'aim') {
+        const spot = waterSpot();
         phase = 'wait';
         target.visible = false;
         bobber.visible = true;
-        bobber.position.set(0, 0.16, 2.2 + power * 3.6);
+        bobber.position.set(spot.x, 0.12, spot.z);
         line.visible = true;
+        flicking = 1;
         biteAt = performance.now() + 2200 + Math.random() * 2500;
       }
     },
@@ -297,9 +374,9 @@ export function createZones({ scene, world, walker, camera }) {
         if (!boardHeld && bd < 1.7 && panel?.hidden) showBoard();
       }
       if (name === 'lake') {
-        const onDock = Math.abs(walker.feet.x) < 0.75 && walker.feet.z > 0.9 && walker.feet.z < 4.8;
-        if (!onDock && walker.feet.z > 1.05) walker.feet.z = 1.05;
-        if (phase === 'aim') target.position.set(0, 0.05, 2.2 + power * 3.6);
+        const onDock = Math.abs(walker.feet.x) < 0.7 && walker.feet.z > 1.2 && walker.feet.z < 8.2;
+        if (!onDock && walker.feet.z > 2.2) walker.feet.z = 2.2;
+        if (phase === 'aim') { const spot = waterSpot(); target.position.set(spot.x, 0.06, spot.z); }
         if (phase === 'wait' && performance.now() >= biteAt) {
           phase = 'bite';
           biteUntil = performance.now() + 1700;
@@ -326,9 +403,19 @@ export function createZones({ scene, world, walker, camera }) {
             splash.visible = false;
           }
         }
+        hold.position.copy(camera.position);
+        hold.quaternion.copy(camera.quaternion);
+        if (phase === 'aim') cock = Math.min(1, cock + dt * 2.6);
+        else if (flicking <= 0) cock = Math.max(0, cock - dt * 3);
+        let pose = cock;
+        if (flicking > 0) {
+          flicking -= dt * 3.2;
+          pose = flicking > 0.5 ? (flicking - 0.5) / 0.5 : (flicking / 0.5) * -0.45;
+          if (flicking <= 0) { flicking = 0; cock = 0; }
+        }
+        rod.rotation.x = 0.4 + pose * 0.95;
+        rod.rotation.z = -0.1 - Math.max(0, pose) * 0.3;
         if (line.visible) {
-          hold.position.copy(camera.position);
-          hold.quaternion.copy(camera.quaternion);
           tipM.getWorldPosition(tipW);
           const pos = lineGeo.attributes.position;
           const end = bobber.position;
