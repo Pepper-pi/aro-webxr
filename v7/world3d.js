@@ -33171,6 +33171,8 @@ var camTex;
 var kingShadow;
 var bobber;
 var fishLine;
+var fishGlow;
+var castRing;
 var npcs = [];
 var playerPose = { amp: 0, phase: 0 };
 var worldT = 0;
@@ -33211,6 +33213,7 @@ var fp = { on: false, view: "virtual", aggro: 0, aggroHold: "", yaw: 0, pitch: 0
 var palmOrb = null;
 var playSaved = null;
 var lastDt = 0.016;
+var moveSpeed = 0;
 var runHold = 0;
 var runUntil = 0;
 var camInit = false;
@@ -33728,6 +33731,7 @@ function buildGround() {
       uLake: { value: new Vector2(12, -1.6) },
       uRad: { value: 34 },
       uCam: { value: new Vector3() },
+      uLift: { value: 0 },
       uCurveK: curveU.k,
       uCurveCam: curveU.cam
     },
@@ -33755,6 +33759,7 @@ function buildGround() {
       uniform vec2 uLake;
       uniform float uRad;
       uniform vec3 uCam;
+      uniform float uLift;
       void main(){
         float rip = sin(vW.x * 0.55 + uTime * 1.35) * sin(vW.z * 0.48 - uTime * 0.95);
         vec3 deep = vec3(0.10, 0.48, 0.78);
@@ -33777,6 +33782,7 @@ function buildGround() {
         float foam = smoothstep(0.25, 0.95, vShore);
         foam *= 0.55 + 0.45 * sin(vW.x * 1.6 + vW.z * 1.2 + uTime * 2.2);
         c = mix(c, vec3(0.93, 0.98, 1.0), clamp(foam, 0.0, 1.0) * 0.65);
+        c = mix(c, c * vec3(1.2, 1.28, 1.22) + vec3(0.06, 0.1, 0.08), uLift);
         gl_FragColor = vec4(c, 0.96);
       }`
   });
@@ -34430,7 +34436,7 @@ function cullGrass(force) {
       seedOf(kit.decals, n.decals, h);
       n.decals++;
     }
-    if (d > 10 && d < 32 && g > 0 && n.hexes < caps.hexes) {
+    if (false) {
       const hs = 0.35 + Math.min(1, (d - 10) / 10);
       placeInst(kit.hexes, n.hexes, x, y + 0.04, z, yaw * 0.2, 1.15 * hs, 1, 1.15 * hs);
       n.hexes++;
@@ -34833,7 +34839,7 @@ function stepAggro(dt) {
 }
 function setCameraScene(hideWorld) {
   if (!scene) return;
-  const keep = /* @__PURE__ */ new Set([fightBeast, fightCut, camPlate, fpDummy, rod, kingShadow, bobber, fishLine]);
+  const keep = /* @__PURE__ */ new Set([fightBeast, fightCut, camPlate, fpDummy, rod, kingShadow, bobber, fishLine, fishGlow, castRing]);
   scene.children.forEach((o) => {
     if (o.isLight || keep.has(o)) return;
     if (hideWorld) {
@@ -35304,10 +35310,12 @@ function applyPose(model, time, dt, speed, state) {
     setBone("rightLowerArm", 0.7 + pull, -0.35, -0.25);
   } else {
     const swing = Math.sin(state.phase);
-    setBone("leftUpperArm", swing * 0.45 * w, 0, 1.15);
-    setBone("rightUpperArm", -swing * 0.45 * w, 0, -1.15);
-    setBone("leftLowerArm", 0.18 + Math.max(0, swing) * 0.28 * w, 0.08, 0);
-    setBone("rightLowerArm", 0.18 + Math.max(0, -swing) * 0.28 * w, -0.08, 0);
+    const run2 = speed > 1.15;
+    const amp = speed > 0.28 ? run2 ? 0.85 : 0.45 : 0.08;
+    setBone("leftUpperArm", 0.15 + swing * amp, 0.05, 1.55);
+    setBone("rightUpperArm", 0.15 - swing * amp, -0.05, -1.55);
+    setBone("leftLowerArm", 0.45 + Math.max(0, swing) * 0.25 * (speed > 0.28 ? 1 : 0), 0, 0);
+    setBone("rightLowerArm", 0.45 + Math.max(0, -swing) * 0.25 * (speed > 0.28 ? 1 : 0), 0, 0);
   }
   if (fp.on && model === vrm) {
     facing = fp.yaw;
@@ -35509,7 +35517,7 @@ function mountFpHud() {
   document.head.appendChild(s);
   const hud = document.createElement("div");
   hud.id = "fpHud";
-  hud.innerHTML = '<div class="top"><div class="hp"><i data-hp></i></div><b class="time" data-time>00:00</b><button type="button" data-act="off">Back</button></div><div id="fpTrack">Hold, then release to cast</div><button type="button" id="fpView">Virtual</button><button type="button" id="fpDummy">Dummy</button><button type="button" id="fpCam">Camera hands</button><button type="button" id="fpLock">Lock</button>';
+  hud.innerHTML = '<div class="top"><div class="hp"><i data-hp></i></div><b class="time" data-time>00:00</b><button type="button" data-act="off">Back</button></div><div id="fpTrack">Hold, then release to cast</div><button type="button" id="fpView">Virtual</button><button type="button" id="fpDummy">Dummy</button><button type="button" id="fpCam">Camera hands</button><button type="button" id="fpSteady">Steady</button><button type="button" id="fpLock">Lock</button>';
   document.body.appendChild(hud);
   const ring = document.createElement("div");
   ring.id = "fpRing";
@@ -35520,6 +35528,14 @@ function mountFpHud() {
   hud.querySelector("#fpDummy").onclick = () => toggleDummy();
   hud.querySelector("#fpView").onclick = () => setFightView(fp.view === "camera" ? "virtual" : "camera");
   hud.querySelector("#fpLock").onclick = () => toggleFishLock();
+  hud.querySelector("#fpSteady").onclick = () => {
+    fp.steady = !fp.steady;
+    const b = document.getElementById("fpSteady");
+    if (b) {
+      b.textContent = fp.steady ? "Steady on" : "Steady";
+      b.classList.toggle("on", !!fp.steady);
+    }
+  };
   if (!document.getElementById("fishMeter")) {
     const meter = document.createElement("div");
     meter.id = "fishMeter";
@@ -35535,22 +35551,17 @@ function mountFpHud() {
   extra.textContent = "#longLake{position:fixed;left:12px;bottom:calc(172px + env(safe-area-inset-bottom));z-index:28;min-height:44px;padding:8px 14px;border-radius:999px;border:2px solid #9ad8ff;background:rgba(10,28,48,.92);color:#e7f6ff;font:800 15px ui-rounded,system-ui}body.fp-on #longLake,body.garden-room #longLake,body:not(.world-on) #longLake{display:none}#handGuide{position:fixed;left:12px;bottom:calc(118px + env(safe-area-inset-bottom));width:96px;height:128px;z-index:33;border-radius:14px;overflow:hidden;border:1px solid rgba(255,236,180,.8);box-shadow:0 8px 18px rgba(0,0,0,.4);opacity:0;pointer-events:none}body.fp-cam #handGuide{opacity:1}#handGuide #handCam,#handGuide #handCam.ar{position:absolute;inset:0;width:100%;height:100%;opacity:1;border:0;border-radius:0;right:auto;bottom:auto;object-fit:cover}#handGuide i{position:absolute;left:18%;right:18%;top:40%;height:38%;border:3px solid #fff6df;border-radius:12px;box-shadow:0 0 0 2px rgba(0,0,0,.72),0 0 10px rgba(255,210,120,.85)}";
   document.head.appendChild(extra);
   const heat = document.createElement("style");
-  heat.textContent = "body.fp-on:not(.fishing) #handGuide{opacity:1;left:auto;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));width:112px;height:150px;background:#041018;border-color:rgba(80,255,230,.55)}body.fishing #handGuide{opacity:0!important;visibility:hidden}body.fp-on:not(.fishing) #fpCam,body.fp-on:not(.fishing) #fpDummy{right:auto;left:16px}body.fp-on:not(.fishing) #fpDummy{bottom:calc(112px + env(safe-area-inset-bottom))}body.fp-on:not(.fishing) #fpCam{bottom:calc(156px + env(safe-area-inset-bottom))}body.fishing #fpDummy,body.fishing #fpCam{display:none}#fpLock{display:none;position:absolute;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));min-height:44px;padding:8px 18px;z-index:34}body.fishing #fpLock{display:block;left:auto;right:16px;transform:none}body.fishing #fpLock.on{background:rgba(12,42,28,.88);border-color:#7dffb0;color:#e9fff4}body.fishing #fpTrack{bottom:calc(64px + env(safe-area-inset-bottom));max-width:52vw}body.fishing #fpView{bottom:calc(16px + env(safe-area-inset-bottom))}#fishMeter{display:none;position:fixed;left:16px;bottom:calc(214px + env(safe-area-inset-bottom));width:22px;height:132px;border-radius:999px;border:2px solid rgba(255,224,138,.9);background:rgba(6,14,18,.62);z-index:35;overflow:visible}body.fishing.fp-on #fishMeter.show{display:block}#fishMeter b{position:absolute;left:0;right:0;bottom:0;height:0;border-radius:999px;background:linear-gradient(0deg,#ff9a3a,#fff3b0);box-shadow:0 0 14px rgba(255,200,80,.8)}#fishMeter span{position:absolute;left:30px;top:50%;transform:translateY(-50%);color:#fff6df;font:800 14px ui-rounded,system-ui;text-shadow:0 1px 2px #000;white-space:nowrap}#handGuide.locked{box-shadow:0 0 0 2px #7dffb0,0 0 16px rgba(80,255,180,.7)}#handGuide.hot{box-shadow:0 0 0 2px #ffe08a,0 0 18px rgba(255,200,80,.85)}#handGuide #handCam{filter:grayscale(1) sepia(.75) hue-rotate(150deg) contrast(1.8) brightness(.4) saturate(2.4)}#handGuide #handCam{z-index:1}#handGuide canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}#handGuide i{display:none}";
+  heat.textContent = "body.fp-on:not(.fishing) #handGuide{opacity:1;left:auto;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));width:112px;height:150px;background:#041018;border-color:rgba(80,255,230,.55)}body.fishing #handGuide{opacity:0!important;visibility:hidden}body.fp-on:not(.fishing) #fpCam,body.fp-on:not(.fishing) #fpDummy{right:auto;left:16px}body.fp-on:not(.fishing) #fpDummy{bottom:calc(112px + env(safe-area-inset-bottom))}body.fp-on:not(.fishing) #fpCam{bottom:calc(156px + env(safe-area-inset-bottom))}body.fishing #fpDummy,body.fishing #fpCam{display:none}#fpLock{display:none;position:absolute;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));min-height:44px;padding:8px 18px;z-index:34}body.fishing #fpLock{display:block;left:auto;right:16px;transform:none}body.fishing #fpLock.on{background:rgba(12,42,28,.88);border-color:#7dffb0;color:#e9fff4}body.fishing #fpTrack{bottom:calc(64px + env(safe-area-inset-bottom));max-width:52vw}body.fishing #fpView{bottom:calc(16px + env(safe-area-inset-bottom))}body.fishing #fpSteady{display:block}#fpSteady{display:none;position:absolute;right:16px;bottom:calc(64px + env(safe-area-inset-bottom));min-height:36px}body.fishing #fpSteady.on{border-color:#ffe08a;color:#fff6df}#fishMeter{display:none;position:fixed;left:16px;bottom:calc(214px + env(safe-area-inset-bottom));width:22px;height:132px;border-radius:999px;border:2px solid rgba(255,224,138,.9);background:rgba(6,14,18,.62);z-index:35;overflow:visible}body.fishing.fp-on #fishMeter.show{display:block}#fishMeter b{position:absolute;left:0;right:0;bottom:0;height:0;border-radius:999px;background:linear-gradient(0deg,#ff9a3a,#fff3b0);box-shadow:0 0 14px rgba(255,200,80,.8)}#fishMeter span{position:absolute;left:30px;top:50%;transform:translateY(-50%);color:#fff6df;font:800 14px ui-rounded,system-ui;text-shadow:0 1px 2px #000;white-space:nowrap}#handGuide.locked{box-shadow:0 0 0 2px #7dffb0,0 0 16px rgba(80,255,180,.7)}#handGuide.hot{box-shadow:0 0 0 2px #ffe08a,0 0 18px rgba(255,200,80,.85)}#handGuide #handCam{filter:grayscale(1) sepia(.75) hue-rotate(150deg) contrast(1.8) brightness(.4) saturate(2.4)}#handGuide #handCam{z-index:1}#handGuide canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}#handGuide i{display:none}";
   document.head.appendChild(heat);
   if (!document.getElementById("longLake")) {
     const lake = document.createElement("button");
     lake.id = "longLake";
     lake.type = "button";
     lake.textContent = "Long Lake";
-    lake.onclick = () => {
-      const ask = window.DeviceOrientationEvent && DeviceOrientationEvent.requestPermission;
-      const go = () => {
-        if (window.__aroPhoneRod) window.__aroPhoneRod();
-        setFp(true, "fish");
-      };
-      if (typeof ask === "function") ask().then(go).catch(go);
-      else go();
-    };
+    lake.onclick = () => askPhoneAim(() => {
+      if (window.__aroPhoneRod) window.__aroPhoneRod();
+      setFp(true, "fish");
+    });
     document.body.appendChild(lake);
   }
   if (!document.getElementById("gelFight")) {
@@ -35558,7 +35569,7 @@ function mountFpHud() {
     fight.id = "gelFight";
     fight.type = "button";
     fight.textContent = "Gel King fight";
-    fight.onclick = () => setFp(true, "fight");
+    fight.onclick = () => askPhoneAim(() => setFp(true, "fight"));
     document.body.appendChild(fight);
   }
 }
@@ -35855,7 +35866,9 @@ function poseFpBody() {
     if (b) b.rotation.set(x, y, z);
   };
   if (fp.fish) {
-    const bend = window.__aroFishPose && window.__aroFishPose().kind === "heavy" && (window.__aroFishPose().phase === "nibble" || window.__aroFishPose().phase === "fight") ? 0.28 : 0;
+    const fishNow = window.__aroFishPose && window.__aroFishPose();
+    const tug = fishNow && (fishNow.phase === "nibble" || fishNow.phase === "fight");
+    const bend = tug ? fishNow.kind === "heavy" ? 0.45 : 0.24 : 0;
     const narrow2 = vmCam && vmCam.aspect < 0.9;
     setBone("hips", 0, 0, 0);
     setBone("spine", 0.1, 0, 0);
@@ -35879,6 +35892,25 @@ function poseFpBody() {
     return;
   }
   const punch = fp.cast > 0 ? Math.sin((1 - Math.min(fp.cast, 0.35) / 0.35) * Math.PI) : 0;
+  const ready = fp.cast > 0 || fp.track && fp.track.charge > 0.08 || !!(fightBeast && fightBeast.visible);
+  const moving = moveSpeed > 0.28;
+  const running = moveSpeed > 1.15;
+  if (!ready) {
+    const swing = Math.sin(worldT * (running ? 8.5 : 4.2)) * (running ? 0.62 : 0.32) * (moving ? 1 : 0.2);
+    setBone("hips", 0, 0, 0);
+    setBone("spine", 0.06, 0, 0);
+    setBone("chest", 0.02, 0, 0);
+    setBone("leftUpperArm", 0.42 + swing, 0.28, 0.42);
+    setBone("leftLowerArm", 0.55, 0.04, 0.04);
+    setBone("leftHand", 0.1, -0.2, 0.15);
+    setBone("rightUpperArm", 0.42 - swing, -0.28, -0.42);
+    setBone("rightLowerArm", 0.55, -0.04, -0.04);
+    setBone("rightHand", 0.1, 0.2, -0.15);
+    const head2 = vrm.humanoid.getNormalizedBoneNode("head");
+    if (head2) head2.scale.setScalar(1e-3);
+    vrm.humanoid.update();
+    return;
+  }
   const sway = Math.sin(worldT * 1.25) * 0.06;
   setBone("hips", 0, 0, 0);
   setBone("spine", 0.08, 0, 0);
@@ -35966,13 +35998,22 @@ function fpShoot(kind, power) {
   fp.track.firedUntil = performance.now() + 700;
   fp.track.charge = 0;
 }
-function stepBobber() {
-  const fishing = fp.on && fp.fish && field;
-  if (!fishing) {
-    if (bobber) bobber.visible = false;
-    if (fishLine) fishLine.visible = false;
-    return;
-  }
+function aimYaw() {
+  if (!fp.fish || !fp.steady || !field) return fp.yaw;
+  const lake = field.anchors.lake;
+  const want = Math.atan2(lake[0] - px2, lake[1] - pz2);
+  const d = Math.atan2(Math.sin(want - fp.yaw), Math.cos(want - fp.yaw));
+  return fp.yaw + d * 0.82;
+}
+function castSpot(power) {
+  const yaw = aimYaw();
+  const reach = 5 + Math.max(0, Math.min(1, power)) * 11;
+  const x = px2 + Math.sin(yaw) * reach;
+  const z = pz2 + Math.cos(yaw) * reach;
+  const y = (kindAt(x, z) === 3 ? -0.22 : groundY(x, z)) + 0.08;
+  return { x, y, z };
+}
+function ensureCastGear() {
   if (!bobber) {
     bobber = new Group();
     const ball = new Mesh(new SphereGeometry(0.16, 12, 10), new MeshBasicMaterial({ color: 14826034 }));
@@ -35983,39 +36024,98 @@ function stepBobber() {
     scene.add(bobber);
   }
   if (!fishLine) {
-    fishLine = new Mesh(
-      new CylinderGeometry(0.012, 0.012, 1, 4),
-      new MeshBasicMaterial({ color: 15334399 })
-    );
+    const geo = new BufferGeometry();
+    geo.setAttribute("position", new BufferAttribute(new Float32Array(8 * 3), 3));
+    fishLine = new Line(geo, new LineBasicMaterial({ color: 14220287, transparent: true, opacity: 0.95 }));
     fishLine.frustumCulled = false;
     scene.add(fishLine);
+    fishGlow = new Line(geo.clone(), new LineBasicMaterial({ color: 8319231, transparent: true, opacity: 0.45, blending: AdditiveBlending, depthWrite: false }));
+    fishGlow.frustumCulled = false;
+    scene.add(fishGlow);
   }
+  if (!castRing) {
+    castRing = new Mesh(
+      new RingGeometry(0.82, 1, 28),
+      new MeshBasicMaterial({ color: 16770984, side: DoubleSide, transparent: true, opacity: 0.88, depthWrite: false })
+    );
+    castRing.rotation.x = -Math.PI / 2;
+    scene.add(castRing);
+  }
+}
+function stepBobber() {
+  const fishing = fp.on && fp.fish && field;
+  if (!fishing) {
+    if (bobber) bobber.visible = false;
+    if (fishLine) fishLine.visible = false;
+    if (fishGlow) fishGlow.visible = false;
+    if (castRing) castRing.visible = false;
+    if (rodLine) rodLine.visible = false;
+    fp.land = null;
+    return;
+  }
+  ensureCastGear();
+  if (rodLine) rodLine.visible = false;
   const pose = window.__aroFishPose ? window.__aroFishPose() : { phase: "aim", kind: "light", t: 0 };
-  const ahead = new Vector3(Math.sin(fp.yaw), 0, Math.cos(fp.yaw));
-  const reach = pose.phase === "aim" ? 3.2 : 6.5;
-  const x = px2 + ahead.x * reach;
-  const z = pz2 + ahead.z * reach;
-  let dip = Math.sin(worldT * 2.2) * 0.03;
-  if (pose.phase === "nibble") dip = pose.kind === "heavy" ? -0.22 : -0.08 * Math.abs(Math.sin(worldT * 10));
-  if (pose.phase === "fight") dip = -0.12 + Math.sin(worldT * 6) * 0.05;
-  const y = groundY(x, z) + 0.12 + dip;
   const cast = pose.phase && pose.phase !== "aim";
-  bobber.visible = !!cast;
+  const tug = pose.phase === "nibble" || pose.phase === "fight";
+  if (!cast) {
+    fp.land = null;
+    bobber.visible = false;
+    fishLine.visible = false;
+    fishGlow.visible = false;
+    const power = Math.max(0.15, Math.min(1, fp.fishPower || 0.35));
+    const spot = castSpot(power);
+    castRing.visible = true;
+    castRing.position.set(spot.x, spot.y + 0.04, spot.z);
+    const s = 0.55 + power * 1.7;
+    castRing.scale.set(s, s, s);
+    return;
+  }
+  if (!fp.land || fp.land.phase !== pose.phase && pose.phase === "fly") {
+    const power = Math.max(0.15, Math.min(1, window.FI && window.FI.castPower || fp.fishPower || 0.6));
+    const spot = castSpot(power);
+    fp.land = { x: spot.x, z: spot.z, phase: pose.phase };
+  } else fp.land.phase = pose.phase;
+  castRing.visible = false;
+  const side = Math.cos(fp.yaw);
+  const fwd = Math.sin(fp.yaw);
+  const drift = tug ? 0 : Math.sin(worldT * 0.7) * 0.45;
+  const x = fp.land.x + side * drift;
+  const z = fp.land.z - fwd * drift;
+  let dip = tug ? pose.kind === "heavy" ? -0.16 : -0.06 : Math.sin(worldT * 1.6) * 0.04;
+  const y = (kindAt(x, z) === 3 ? -0.22 : groundY(x, z)) + 0.1 + dip;
+  bobber.visible = true;
   bobber.position.set(x, y, z);
   let tip = new Vector3(px2, groundY(px2, pz2) + 1.2, pz2);
   if (rod) {
     tip.set(0, 1.45, 0);
     rod.localToWorld(tip);
   }
-  const mid = tip.clone().lerp(bobber.position, 0.5);
-  const len = Math.max(0.2, tip.distanceTo(bobber.position));
-  fishLine.visible = !!cast;
-  fishLine.position.copy(mid);
-  fishLine.scale.set(1, len, 1);
-  fishLine.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), tip.clone().sub(bobber.position).normalize());
-  if (rod && fp.view === "camera" && pose.kind === "heavy" && (pose.phase === "nibble" || pose.phase === "fight")) {
-    rod.rotateX(0.35);
+  const sag = tug ? 0.05 : 1.35 + Math.sin(worldT * 1.3) * 0.12;
+  const pos = fishLine.geometry.attributes.position;
+  const glow = fishGlow.geometry.attributes.position;
+  for (let i = 0; i < 8; i++) {
+    const t = i / 7;
+    const pxv = tip.x + (x - tip.x) * t;
+    const pzv = tip.z + (z - tip.z) * t;
+    const bow = Math.sin(t * Math.PI) * sag;
+    const py2 = tip.y + (y - tip.y) * t - bow;
+    const lat = Math.cos(aimYaw());
+    const laz = -Math.sin(aimYaw());
+    const lx = pxv + lat * bow * 0.25;
+    const lz = pzv + laz * bow * 0.25;
+    pos.setXYZ(i, lx, py2, lz);
+    glow.setXYZ(i, lx, py2 + 0.03, lz);
   }
+  pos.needsUpdate = true;
+  glow.needsUpdate = true;
+  fishLine.geometry.computeBoundingSphere();
+  fishGlow.geometry.computeBoundingSphere();
+  fishLine.visible = true;
+  fishGlow.visible = true;
+  const hot = 0.55 + (tug ? 0.45 : 0.2) * (0.5 + 0.5 * Math.sin(worldT * (tug ? 10 : 2)));
+  fishGlow.material.opacity = hot;
+  if (rod && tug) rod.rotateX(pose.kind === "heavy" ? 0.42 : 0.22);
 }
 function handHull(pts) {
   const p = pts.slice().sort((a, b) => a.x - b.x || a.y - b.y);
@@ -36085,10 +36185,6 @@ function paintHandOcc() {
   ctx.fill();
   ctx.restore();
 }
-function fishCastOut() {
-  const phase = typeof window.__aroReel === "function" ? window.__aroReel() : "";
-  return phase === "fly" || phase === "wait" || phase === "nibble" || phase === "reel" || phase === "fight" || phase === "catch";
-}
 function seatFishRod() {
   if (!rod || !fp.on || !fp.fish) return;
   const cam = vmCam || camera;
@@ -36108,7 +36204,7 @@ function seatFishRod() {
   rod.quaternion.copy(cam.quaternion);
   rod.rotateX(-0.75);
   rod.rotateZ(0.18);
-  if (rodLine) rodLine.visible = fishCastOut();
+  if (rodLine) rodLine.visible = false;
 }
 function parkFishRod() {
   if (!rod || !fp.on || !fp.fish || !camera) return;
@@ -36131,7 +36227,7 @@ function parkFishRod() {
   rod.quaternion.copy(camera.quaternion);
   rod.rotateX(-0.82);
   rod.rotateZ(0.08);
-  if (rodLine) rodLine.visible = fishCastOut();
+  if (rodLine) rodLine.visible = false;
 }
 function paintTrack() {
   const el = document.getElementById("fpTrack");
@@ -36943,15 +37039,11 @@ function bindInput(canvas) {
       return;
     }
     if (fp.on && p.fp) {
-      if (!(fp.fish && fp.lookLock)) {
+      if (!gyro.ready && !(fp.fish && fp.lookLock)) {
         fp.yaw -= dx * 5e-3;
         fp.pitch = clamp2(fp.pitch - dy * 4e-3, -0.7, 0.6);
         gyro.wantYaw = fp.yaw;
         gyro.wantPitch = fp.pitch;
-        gyro.baseWant = fp.yaw;
-        gyro.basePitchWant = fp.pitch;
-        gyro.baseRaw = gyro.rawYaw;
-        gyro.basePitch = gyro.rawPitch;
       }
       if (p.moved) fp.look = true;
       return;
@@ -37000,6 +37092,8 @@ function bindInput(canvas) {
       useSpecial(special);
       return;
     }
+    const groundHit = pickGround(e);
+    if (groundHit && takeVeggie(groundHit.x, groundHit.z)) return;
     if (!tapOn()) return;
     const hit = pickGround(e);
     if (!hit) return;
@@ -37651,6 +37745,7 @@ function tick(dt, show) {
   }
   if (shot === "walk" && !dest && playMode === "world") dest = { x: px2 + 7, z: pz2 + 2.5 };
   const speed = steer(step);
+  moveSpeed = speed;
   applyPose(vrm, worldT, step, speed, playerPose);
   const jumped = placeAvatar(speed);
   stepMaterialize(vrm, avatar, step);
@@ -37658,6 +37753,8 @@ function tick(dt, show) {
   stepMatzSparks();
   stepSprings(vrm, step, jumped);
   stepLife(step, speed);
+  stepPropFade();
+  stepVeggies(step);
   for (const n of npcs) {
     if (!n.vrm) continue;
     if ((n.warm | 0) > 0) n.warm -= 1;
@@ -37711,6 +37808,7 @@ function tick(dt, show) {
   if (waterMat) {
     waterMat.uniforms.uTime.value = worldT;
     if (camera && waterMat.uniforms.uCam) waterMat.uniforms.uCam.value.copy(camera.position);
+    if (waterMat.uniforms.uLift) waterMat.uniforms.uLift.value = fp.on && fp.fish ? 1 : 0;
   }
   stepBobber();
   paintHandOcc();
@@ -37949,7 +38047,7 @@ function stepProps(dt) {
   if (rod) {
     const fishing = playMode === "fish" || fp.on && fp.fish;
     if (!(fp.on && fp.fish)) rod.visible = fishing;
-    if (rodLine) rodLine.visible = fishing && fishCastOut();
+    if (rodLine) rodLine.visible = false;
   }
 }
 function cutaway(id, w, d, h, wall, floor) {
@@ -38761,9 +38859,15 @@ function planNpcSpots() {
     npcSpots.push(picked || nearestWalkable(x, z));
   }
 }
+function warmPropColor(color) {
+  const c = color ? color.clone() : new Color("#c4b39a");
+  if (c.r > 0.42 && c.r > c.g * 1.15 && c.b < 0.42) c.set("#8d5a32");
+  else if (c.r > 0.5 && c.g > 0.28 && c.g < 0.55 && c.b < 0.35) c.set("#a89880");
+  return c;
+}
 function celOf(src, sway) {
   const mat = new MeshToonMaterial({
-    color: src && src.color ? src.color.clone() : new Color("#ffffff"),
+    color: warmPropColor(src && src.color),
     map: src && src.map ? src.map : null,
     gradientMap: ramp
   });
@@ -38787,7 +38891,10 @@ function celOf(src, sway) {
 }
 function propSpots(n, minR, maxR, origin, salt) {
   const out = [];
-  for (let i = 0, guard = 0; out.length < n && guard < 90; guard++, i++) {
+  const want = Math.max(1, Math.round(n * 0.65));
+  minR *= 1.28;
+  maxR *= 1.22;
+  for (let i = 0, guard = 0; out.length < want && guard < 90; guard++, i++) {
     const a = salt + i * 2.399;
     const r = minR + (Math.sin(salt * 3 + i) * 0.5 + 0.5) * (maxR - minR);
     const x = origin[0] + Math.cos(a) * r;
@@ -38798,9 +38905,32 @@ function propSpots(n, minR, maxR, origin, salt) {
   }
   return out;
 }
-function placeProp(root, spots, scale) {
+var freeFade = [];
+var moundGeo = null;
+function addMound(x, z) {
+  if (kindAt(x, z) == null || kindAt(x, z) === 3) return;
+  if (!moundGeo) {
+    moundGeo = new SphereGeometry(0.7, 8, 5);
+    moundGeo.scale(1, 0.22, 1);
+  }
+  const g = new Group();
+  const moss = new Mesh(moundGeo, toonMat("#6d8f46"));
+  moss.position.y = 0.02;
+  const stone = new Mesh(new DodecahedronGeometry(0.16, 0), toonMat("#a89880"));
+  stone.position.set(0.38, 0.08, 0.12);
+  const shade = new Mesh(new CircleGeometry(0.85, 10), new MeshBasicMaterial({ color: 1840140, transparent: true, opacity: 0.28, depthWrite: false }));
+  shade.rotation.x = -Math.PI / 2;
+  shade.position.y = 0.03;
+  g.add(shade, moss, stone);
+  g.position.set(x, groundY(x, z), z);
+  g.userData.fadeAt = { x, z };
+  scene.add(g);
+  freeFade.push({ group: g, x, z });
+}
+function placeProp(root, spots, scale, file) {
   if (!spots.length) return;
   root.updateMatrixWorld(true);
+  const tree = file && /tree|pine|palm|oak/i.test(file) && !/waterplant/i.test(file);
   const parts = [];
   root.traverse((o) => {
     if (o.isMesh) parts.push(o);
@@ -38813,16 +38943,116 @@ function placeProp(root, spots, scale) {
     const mesh = new InstancedMesh(geo, mat, spots.length);
     mesh.frustumCulled = false;
     const dummy = new Object3D();
+    const scales = [];
     spots.forEach((p, i) => {
       dummy.position.set(p[0], groundY(p[0], p[1]), p[1]);
       dummy.rotation.y = saltOf(p[0], p[1]) * 6.2 % (Math.PI * 2);
-      const s = scale * (0.88 + i % 5 * 0.05);
+      const s = scale * 0.62 * (0.9 + i % 5 * 0.04);
+      scales.push(s);
       dummy.scale.setScalar(s);
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
+      if (tree) addMound(p[0], p[1]);
     });
     scene.add(mesh);
+    freeFade.push({ mesh, spots, scales });
   });
+}
+function stepPropFade() {
+  if (!freeFade.length || !camera) return;
+  const dummy = stepPropFade.dummy || (stepPropFade.dummy = new Object3D());
+  const cam = camera.position;
+  const px1 = px2;
+  const pz1 = pz2;
+  const abx = px1 - cam.x;
+  const abz = pz1 - cam.z;
+  const ab2 = abx * abx + abz * abz || 1;
+  freeFade.forEach((rec) => {
+    if (rec.group) {
+      const d = Math.hypot(rec.x - px1, rec.z - pz1);
+      let fade = d < 1.5 ? Math.max(0.08, d / 1.5) : 1;
+      const t = ((rec.x - cam.x) * abx + (rec.z - cam.z) * abz) / ab2;
+      if (t > 0.08 && t < 0.92) {
+        const cx = cam.x + abx * t;
+        const cz = cam.z + abz * t;
+        if (Math.hypot(rec.x - cx, rec.z - cz) < 1.15) fade *= 0.12;
+      }
+      rec.group.visible = fade > 0.12;
+      rec.group.scale.setScalar(fade);
+      return;
+    }
+    if (!rec.mesh) return;
+    rec.spots.forEach((p, i) => {
+      const d = Math.hypot(p[0] - px1, p[1] - pz1);
+      let s = rec.scales[i];
+      if (d < 1.7) s *= Math.max(0.06, d / 1.7);
+      const t = ((p[0] - cam.x) * abx + (p[1] - cam.z) * abz) / ab2;
+      if (t > 0.08 && t < 0.92) {
+        const cx = cam.x + abx * t;
+        const cz = cam.z + abz * t;
+        if (Math.hypot(p[0] - cx, p[1] - cz) < 1.15) s *= 0.12;
+      }
+      dummy.position.set(p[0], groundY(p[0], p[1]), p[1]);
+      dummy.rotation.y = saltOf(p[0], p[1]) * 6.2 % (Math.PI * 2);
+      dummy.scale.setScalar(s);
+      dummy.updateMatrix();
+      rec.mesh.setMatrixAt(i, dummy.matrix);
+    });
+    rec.mesh.instanceMatrix.needsUpdate = true;
+  });
+}
+var veggies = [];
+function chibiVeggie(x, z) {
+  if (kindAt(x, z) == null || kindAt(x, z) === 3) return;
+  const g = new Group();
+  const body = new Mesh(new SphereGeometry(0.34, 8, 6), toonMat("#e07a32"));
+  body.scale.set(1.05, 0.78, 1.05);
+  body.position.y = 0.2;
+  const stem = new Mesh(new CylinderGeometry(0.028, 0.04, 0.16, 5), toonMat("#3c8a42"));
+  stem.position.y = 0.4;
+  const aura = new Mesh(new RingGeometry(0.26, 0.42, 16), new MeshBasicMaterial({ color: 16769162, transparent: true, opacity: 0.7, side: DoubleSide, depthWrite: false }));
+  aura.rotation.x = -Math.PI / 2;
+  aura.position.y = 0.04;
+  g.add(body, stem, aura);
+  g.position.set(x, groundY(x, z), z);
+  scene.add(g);
+  veggies.push(g);
+}
+function seedVeggies() {
+  superHexes.forEach((h, i) => {
+    if (i % 2) return;
+    const a = i * 1.7;
+    chibiVeggie(h.position.x + Math.cos(a) * 3.4, h.position.z + Math.sin(a) * 3.4);
+  });
+  chibiVeggie(px2 - 1.8, pz2 - 0.4);
+}
+function stepVeggies(dt) {
+  for (let i = veggies.length - 1; i >= 0; i--) {
+    const g = veggies[i];
+    if (!g.parent) {
+      veggies.splice(i, 1);
+      continue;
+    }
+    g.position.y = groundY(g.position.x, g.position.z) + Math.sin(worldT * 2.2 + g.position.x) * 0.05;
+    const aura = g.children[2];
+    if (aura && aura.material) aura.material.opacity = 0.35 + 0.3 * Math.sin(worldT * 3 + i);
+  }
+  if (veggies.length >= 8) return;
+  if (Math.random() > dt * 0.035) return;
+  const a = Math.random() * Math.PI * 2;
+  const r = 10 + Math.random() * 12;
+  chibiVeggie(px2 + Math.cos(a) * r, pz2 + Math.sin(a) * r);
+}
+function takeVeggie(x, z) {
+  for (const g of veggies) {
+    if (!g.parent) continue;
+    if (Math.hypot(g.position.x - x, g.position.z - z) < 1.8) {
+      scene.remove(g);
+      if (typeof window.addItem === "function") window.addItem("pumpkin", 1);
+      return true;
+    }
+  }
+  return false;
 }
 function saltOf(x, z) {
   const s = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453;
@@ -38865,11 +39095,14 @@ function loadFreeProps() {
   const rx = -uz;
   const rz = ux;
   const beside = (along, side) => {
-    const x = shore[0] + ux * along + rx * side;
-    const z = shore[1] + uz * along + rz * side;
-    const k = kindAt(x, z);
-    if (k == null) return null;
-    return [x, z];
+    for (let pull = 0; pull < 8; pull++) {
+      const a = Math.max(1.2, along - pull * 1.6);
+      const x = shore[0] + ux * a + rx * side;
+      const z = shore[1] + uz * a + rz * side;
+      const k = kindAt(x, z);
+      if (k != null && k !== 3 && k !== 4) return [x, z];
+    }
+    return null;
   };
   const bank = [
     ["kenney-oak.glb", beside(11, 2.2), 4.4],
@@ -38891,7 +39124,7 @@ function loadFreeProps() {
       gltf.scene.traverse((o) => {
         if (o.isMesh && o.material) o.material.userData.sway = job[3];
       });
-      placeProp(gltf.scene, spots, job[2]);
+      placeProp(gltf.scene, spots, job[2], job[0]);
     }, void 0, () => {
     });
   });
@@ -38924,6 +39157,7 @@ function bootField(data) {
   loadAvatar();
   loadNpcs();
   loadFreeProps();
+  seedVeggies();
 }
 function boot() {
   const canvas = document.getElementById("worldCv");
@@ -39055,45 +39289,54 @@ var gyro = {
 function resetGyro() {
   gyro.ready = false;
 }
-function screenOrientRad() {
-  if (typeof screen !== "undefined" && screen.orientation && typeof screen.orientation.angle === "number") {
-    return MathUtils.degToRad(screen.orientation.angle);
-  }
-  return MathUtils.degToRad(window.orientation || 0);
+function screenOrientDeg() {
+  if (typeof screen !== "undefined" && screen.orientation && typeof screen.orientation.angle === "number") return screen.orientation.angle;
+  const o = window.orientation || 0;
+  return o < 0 ? o + 360 : o;
+}
+function askPhoneAim(done) {
+  const ask = window.DeviceOrientationEvent && DeviceOrientationEvent.requestPermission;
+  const go = () => {
+    if (done) done();
+  };
+  if (typeof ask === "function") ask().then(go).catch(go);
+  else go();
 }
 function readGyro(e) {
-  let alpha = MathUtils.degToRad(e.alpha || 0);
-  const beta = MathUtils.degToRad(e.beta || 0);
-  const gamma = MathUtils.degToRad(e.gamma || 0);
   gyro.ios = typeof e.webkitCompassHeading === "number" && !Number.isNaN(e.webkitCompassHeading);
-  if (gyro.ios) alpha = MathUtils.degToRad(e.webkitCompassHeading);
-  gyro.euler.set(beta, alpha, -gamma, "YXZ");
-  gyro.q.setFromEuler(gyro.euler);
-  gyro.q.multiply(gyro.q1);
-  gyro.q.multiply(gyro.q0.setFromAxisAngle(gyro.zee, -screenOrientRad()));
-  gyro.fwd.set(0, 0, -1).applyQuaternion(gyro.q);
-  const rawYaw = Math.atan2(gyro.fwd.x, gyro.fwd.z);
-  const rawPitch = Math.atan2(gyro.fwd.y, Math.hypot(gyro.fwd.x, gyro.fwd.z) || 1e-4);
-  gyro.rawYaw = rawYaw;
-  gyro.rawPitch = rawPitch;
+  const orient = screenOrientDeg();
+  let heading = gyro.ios ? e.webkitCompassHeading : 360 - (e.alpha || 0);
+  let beta = e.beta == null ? 90 : e.beta;
+  if (orient === 90) beta = 90 + (e.gamma || 0);
+  else if (orient === 270 || orient === -90) beta = 90 - (e.gamma || 0);
+  if (gyro.smHead == null) gyro.smHead = heading;
+  let dh = heading - gyro.smHead;
+  if (dh > 180) dh -= 360;
+  if (dh < -180) dh += 360;
+  gyro.smHead += dh * 0.45;
+  if (gyro.smBeta == null) gyro.smBeta = beta;
+  gyro.smBeta += (beta - gyro.smBeta) * 0.45;
   if (!gyro.ready) {
     gyro.ready = true;
-    gyro.baseRaw = rawYaw;
-    gyro.basePitch = rawPitch;
+    gyro.baseHead = gyro.smHead;
+    gyro.baseBeta = gyro.smBeta;
     gyro.baseWant = fp.yaw;
     gyro.basePitchWant = fp.pitch;
     gyro.wantYaw = fp.yaw;
     gyro.wantPitch = fp.pitch;
     return;
   }
-  const dy = Math.atan2(Math.sin(rawYaw - gyro.baseRaw), Math.cos(rawYaw - gyro.baseRaw));
-  const yawSign = gyro.ios ? 1 : -1;
-  gyro.wantYaw = gyro.baseWant + yawSign * dy;
-  gyro.wantPitch = clamp2(gyro.basePitchWant + (rawPitch - gyro.basePitch), -0.75, 0.65);
+  let dHead = gyro.smHead - gyro.baseHead;
+  if (dHead > 180) dHead -= 360;
+  if (dHead < -180) dHead += 360;
+  if (orient === 90 || orient === 270) dHead = -dHead;
+  const dBeta = gyro.smBeta - gyro.baseBeta;
+  gyro.wantYaw = gyro.baseWant + MathUtils.degToRad(dHead);
+  gyro.wantPitch = clamp2(gyro.basePitchWant + MathUtils.degToRad(dBeta) * 0.85, -0.75, 0.65);
 }
 function smoothGyro(dt) {
   if (!fp.on || !gyro.ready || fp.fish && fp.lookLock) return;
-  const k = 1 - Math.exp(-Math.max(1e-3, dt) * 14);
+  const k = 1 - Math.exp(-Math.max(1e-3, dt) * 8);
   const err = Math.atan2(Math.sin(gyro.wantYaw - fp.yaw), Math.cos(gyro.wantYaw - fp.yaw));
   fp.yaw += err * k;
   fp.pitch += (gyro.wantPitch - fp.pitch) * k;
