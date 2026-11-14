@@ -33540,8 +33540,8 @@ function dressGround(mesh) {
         under = mix(under, stoneG, pebMix);
         float clump = sin(vWorld.x * 0.042) * cos(vWorld.z * 0.036);
         clump += sin(vWorld.x * 0.09 + 1.3) * sin(vWorld.z * 0.078 + 0.4) * 0.4;
-        under = mix(under, vec3(0.48, 0.62, 0.22), smoothstep(0.08, 0.7, clump) * 0.26);
-        under = mix(under, vec3(0.09, 0.24, 0.08), (1.0 - smoothstep(0.0, 0.55, abs(clump))) * 0.14);
+        under = mix(under, vec3(0.52, 0.66, 0.24), smoothstep(0.05, 0.55, clump) * 0.48);
+        under = mix(under, vec3(0.16, 0.36, 0.14), smoothstep(-0.35, 0.05, -clump) * 0.42);
         float n1 = holoHash(floor(vWorld.xz * 0.17));
         float n2 = holoHash(vWorld.xz * 0.11 + 4.2);
         float vein = 1.0 - smoothstep(0.0, 0.04, abs(n1 - 0.5));
@@ -33951,7 +33951,7 @@ function instanced(geo, spots, scaleOf, shell) {
   const inkMat = new MeshBasicMaterial({ color: 1709070, side: BackSide });
   if (shell) bindShell(inkMat, true);
   bendMat(inkMat);
-  const ink = new InstancedMesh(inflate(geo, 0.02), inkMat, spots.length);
+  const ink = shell ? null : new InstancedMesh(inflate(geo, 0.02), inkMat, spots.length);
   const dummy = new Object3D();
   spots.forEach((p, i) => {
     const s = scaleOf(i, p);
@@ -33960,11 +33960,14 @@ function instanced(geo, spots, scaleOf, shell) {
     dummy.scale.set(s, s * (0.85 + i % 5 * 0.06), s);
     dummy.updateMatrix();
     mesh.setMatrixAt(i, dummy.matrix);
-    ink.setMatrixAt(i, dummy.matrix);
+    if (ink) ink.setMatrixAt(i, dummy.matrix);
   });
   mesh.instanceMatrix.needsUpdate = true;
-  ink.instanceMatrix.needsUpdate = true;
-  scene.add(ink, mesh);
+  if (ink) {
+    ink.instanceMatrix.needsUpdate = true;
+    scene.add(ink);
+  }
+  scene.add(mesh);
   if (shell) {
     const wire = new InstancedMesh(geo, wireMat(true), spots.length);
     wire.instanceMatrix.copy(mesh.instanceMatrix);
@@ -35808,15 +35811,23 @@ function frameFp() {
     const vm = ensureVmCam();
     vm.aspect = camera.aspect;
     const narrow = camera.aspect < 0.9;
-    vm.fov = fp.fish ? narrow ? 62 : 50 : narrow ? 66 : 46;
-    vm.near = fp.fish ? 0.05 : narrow ? 0.4 : 0.28;
-    vm.far = 6;
     vm.position.copy(camera.position);
-    if (fp.fish) vm.position.addScaledVector(ahead, 0.22);
-    vm.up.set(0, 1, 0);
-    const aim = fp.fish ? new Vector3(px2 + ahead.x * 1.15, gy + 1.22, pz2 + ahead.z * 1.15) : new Vector3(px2 + ahead.x * (narrow ? 0.5 : 0.62), gy + (narrow ? 0.95 : 0.9), pz2 + ahead.z * (narrow ? 0.5 : 0.62));
-    vm.lookAt(aim);
+    vm.up.copy(camera.up);
+    if (fp.fish) {
+      vm.fov = camera.fov;
+      vm.near = 0.04;
+      vm.far = camera.far;
+      vm.quaternion.copy(camera.quaternion);
+      if (avatar) avatar.visible = false;
+    } else {
+      vm.fov = narrow ? 66 : 46;
+      vm.near = narrow ? 0.4 : 0.28;
+      vm.far = 6;
+      const aim2 = new Vector3(px2 + ahead.x * (narrow ? 0.5 : 0.62), gy + (narrow ? 0.95 : 0.9), pz2 + ahead.z * (narrow ? 0.5 : 0.62));
+      vm.lookAt(aim2);
+    }
     vm.updateProjectionMatrix();
+    const aim = fp.fish ? new Vector3(lx, ly, lz) : new Vector3(px2 + ahead.x * (narrow ? 0.5 : 0.62), gy + (narrow ? 0.95 : 0.9), pz2 + ahead.z * (narrow ? 0.5 : 0.62));
     if (fpFill) {
       fpFill.position.copy(vm.position).add(new Vector3(-ahead.z * 0.25, 0.35, ahead.x * 0.25));
       fpFill.target.position.copy(aim);
@@ -35849,6 +35860,7 @@ function frameFp() {
   poseFpBody();
   placeCamPlate();
   parkFishRod();
+  paintFishLine();
   if (skyMat) skyMat.uniforms.uCam.value.copy(camera.position);
 }
 function poseFpBody() {
@@ -36078,40 +36090,45 @@ function stepBobber() {
   const y = (kindAt(x, z) === 3 ? -0.22 : groundY(x, z)) + 0.1 + dip;
   bobber.visible = true;
   bobber.position.set(x, y, z);
-  let tip = new Vector3(px2, groundY(px2, pz2) + 1.2, pz2);
-  if (rod) {
-    tip.set(0, 1.45, 0);
-    rod.localToWorld(tip);
-  }
-  const waterY = y;
+  fishLine.visible = true;
+  fishGlow.visible = true;
+  fishLine.userData.tug = tug;
+  if (rod && tug) rod.rotateX(pose.kind === "heavy" ? 0.42 : 0.22);
+}
+function rodTipWorld() {
+  const tipMesh = rod && rod.getObjectByName("rodTip");
+  if (!tipMesh) return new Vector3(px2, groundY(px2, pz2) + 1.35, pz2);
+  tipMesh.updateWorldMatrix(true, false);
+  return tipMesh.localToWorld(new Vector3(0, 0.2, 0));
+}
+function paintFishLine() {
+  if (!fishLine || !fishGlow || !fishLine.visible || !bobber || !bobber.visible) return;
+  const tip = rodTipWorld();
+  const end = bobber.position;
+  const waterY = end.y;
+  const tug = fishLine.userData.tug;
   const ctrl = new Vector3(
-    tip.x + (x - tip.x) * 0.78,
-    tug ? (tip.y + waterY) * 0.5 : waterY + 0.06,
-    tip.z + (z - tip.z) * 0.78
+    tip.x + (end.x - tip.x) * 0.72,
+    tug ? (tip.y + waterY) * 0.55 : tip.y * 0.22 + waterY * 0.78,
+    tip.z + (end.z - tip.z) * 0.72
   );
   const pos = fishLine.geometry.attributes.position;
   const glow = fishGlow.geometry.attributes.position;
   for (let i = 0; i < 8; i++) {
     const t = i / 7;
     const u = 1 - t;
-    const lx = u * u * tip.x + 2 * u * t * ctrl.x + t * t * x;
-    const lz = u * u * tip.z + 2 * u * t * ctrl.z + t * t * z;
+    const lx = u * u * tip.x + 2 * u * t * ctrl.x + t * t * end.x;
+    const lz = u * u * tip.z + 2 * u * t * ctrl.z + t * t * end.z;
     let py2 = u * u * tip.y + 2 * u * t * ctrl.y + t * t * waterY;
-    const settle = t * t * (3 - 2 * t);
-    if (!tug) py2 = py2 * (1 - settle * 0.35) + waterY * (settle * 0.35);
-    py2 = Math.max(py2, waterY);
+    if (t > 0.78) py2 = waterY + (1 - t) * 0.08;
+    py2 = Math.max(py2, waterY - 0.01);
     pos.setXYZ(i, lx, py2, lz);
-    glow.setXYZ(i, lx, py2 + 0.03, lz);
+    glow.setXYZ(i, lx, py2 + 0.02, lz);
   }
   pos.needsUpdate = true;
   glow.needsUpdate = true;
-  fishLine.geometry.computeBoundingSphere();
-  fishGlow.geometry.computeBoundingSphere();
-  fishLine.visible = true;
-  fishGlow.visible = true;
-  const hot = 0.55 + (tug ? 0.45 : 0.2) * (0.5 + 0.5 * Math.sin(worldT * (tug ? 10 : 2)));
+  const hot = 0.55 + (tug ? 0.4 : 0.15);
   fishGlow.material.opacity = hot;
-  if (rod && tug) rod.rotateX(pose.kind === "heavy" ? 0.42 : 0.22);
 }
 function handHull(pts) {
   const p = pts.slice().sort((a, b) => a.x - b.x || a.y - b.y);
@@ -38323,33 +38340,37 @@ function buildSites() {
   blank.position.y = 0.78;
   const tip = new Mesh(new CylinderGeometry(0.01, 0.02, 0.36, 6), toonMat("#f2e2b8"));
   tip.position.y = 1.48;
-  const reel = new Mesh(new CylinderGeometry(0.08, 0.08, 0.05, 12), toonMat("#d5dde4"));
+  tip.name = "rodTip";
+  const reel = new Mesh(new CylinderGeometry(0.11, 0.11, 0.045, 20), toonMat("#c4a06a"));
   reel.rotation.z = Math.PI / 2;
-  reel.position.set(0.07, 0.24, 0);
-  const hub = new Mesh(new CylinderGeometry(0.03, 0.03, 0.07, 10), toonMat("#2a2e33"));
+  reel.position.set(0.09, 0.22, 0);
+  const hub = new Mesh(new CylinderGeometry(0.035, 0.035, 0.07, 14), toonMat("#6b5344"));
   hub.rotation.z = Math.PI / 2;
-  hub.position.set(0.07, 0.24, 0);
-  for (let i = 0; i < 4; i++) {
-    const guide = new Mesh(new TorusGeometry(0.02, 4e-3, 4, 8), new MeshBasicMaterial({ color: 14147042 }));
-    guide.position.y = 0.42 + i * 0.28;
+  hub.position.set(0.09, 0.22, 0);
+  [0.7, 1.15, 1.55].forEach((y) => {
+    const guide = new Mesh(new TorusGeometry(0.034, 6e-3, 8, 16), new MeshBasicMaterial({ color: 15921126 }));
+    guide.position.y = y;
     guide.rotation.y = Math.PI / 2;
     rod.add(guide);
-  }
+  });
   const hands = new Group();
   hands.name = "rodHands";
-  const skin = toonMat("#e8b892");
-  const sleeveMat = toonMat("#f7f1e6");
+  const glove = toonMat("#e4c4a4");
+  const cuffMat = toonMat("#c4a882");
   const mitt = (x, z) => {
     const g = new Group();
-    const palm = new Mesh(new SphereGeometry(0.055, 10, 8), skin);
-    palm.scale.set(1.15, 0.72, 0.9);
-    const sleeve = new Mesh(new CylinderGeometry(0.04, 0.055, 0.18, 8), sleeveMat);
-    sleeve.position.y = -0.12;
-    g.add(palm, sleeve);
+    const palm = new Mesh(new SphereGeometry(0.062, 22, 16), glove);
+    palm.scale.set(1.02, 0.86, 0.94);
+    const thumb = new Mesh(new SphereGeometry(0.026, 14, 12), glove);
+    thumb.position.set(x > 0 ? 0.04 : -0.04, -0.01, 0.03);
+    const cuff = new Mesh(new TorusGeometry(0.04, 0.012, 8, 16), cuffMat);
+    cuff.rotation.x = Math.PI / 2;
+    cuff.position.y = -0.05;
+    g.add(palm, thumb, cuff);
     g.position.set(x, 0.16, z);
     return g;
   };
-  hands.add(mitt(0.02, 0.04), mitt(-0.05, -0.02));
+  hands.add(mitt(0, 0.05), mitt(-0.02, -0.01));
   rod.add(grip, blank, tip, reel, hub, hands);
   rod.rotation.x = 0.85;
   rod.rotation.z = 0.15;
@@ -38632,7 +38653,9 @@ function dressLake() {
     plank.rotation.y = Math.atan2(ux, uz);
     const grain = new Mesh(new BoxGeometry(1.2, 0.012, 0.06), toonMat("#7d5a3c"));
     grain.position.y = 0.046;
-    plank.add(grain);
+    const lip = new Mesh(new BoxGeometry(1.35, 0.045, 0.1), toonMat("#6b4a30"));
+    lip.position.set(0, -0.015, 0.22);
+    plank.add(grain, lip);
     g.add(plank);
   }
   const post = new Mesh(new CylinderGeometry(0.06, 0.07, 1.5, 5), toonMat("#8d6844"));
@@ -39057,13 +39080,75 @@ function chibiVeggie(x, z, kind) {
   scene.add(g);
   veggies.push(g);
 }
+function scatterMeadow() {
+  const tuftGeo = new ConeGeometry(0.16, 0.42, 6);
+  tuftGeo.translate(0, 0.2, 0);
+  const flowerGeo = new SphereGeometry(0.07, 8, 6);
+  flowerGeo.translate(0, 0.16, 0);
+  const bush = new Mesh(new IcosahedronGeometry(0.42, 1), toonMat("#4f9a48"));
+  bush.scale.set(1.2, 0.7, 1.1);
+  const placed = [];
+  const ok = (x, z, minD) => {
+    const k = kindAt(x, z);
+    if (k == null || k === 3 || k === 4) return false;
+    if (Math.hypot(x - px2, z - pz2) < 7) return false;
+    return placed.every((p) => Math.hypot(p[0] - x, p[1] - z) > minD);
+  };
+  for (let i = 0; i < 22; i++) {
+    const a = i * 2.399;
+    const r = 8 + i % 5 * 1.6;
+    const x = px2 + Math.cos(a) * r;
+    const z = pz2 + Math.sin(a) * r;
+    if (!ok(x, z, 1.8)) continue;
+    placed.push([x, z]);
+    const g = new Group();
+    for (let b = 0; b < 4; b++) {
+      const blade = new Mesh(tuftGeo, toonMat(b % 2 ? "#6aaa3a" : "#3f7a28"));
+      blade.position.set(Math.cos(b) * 0.12, 0, Math.sin(b) * 0.12);
+      blade.rotation.z = (b - 1.5) * 0.18;
+      g.add(blade);
+    }
+    g.position.set(x, groundY(x, z), z);
+    scene.add(g);
+  }
+  for (let i = 0; i < 8; i++) {
+    const a = 0.7 + i * 0.8;
+    const r = 10 + i % 3 * 2.2;
+    const x = px2 + Math.cos(a) * r;
+    const z = pz2 + Math.sin(a) * r;
+    if (!ok(x, z, 2.2)) continue;
+    placed.push([x, z]);
+    const g = new Group();
+    const colors = ["#f2d56a", "#f0a0b8", "#fff6df"];
+    for (let b = 0; b < 3; b++) {
+      const bloom = new Mesh(flowerGeo, toonMat(colors[b]));
+      bloom.position.set((b - 1) * 0.14, 0, b % 2 * 0.08);
+      g.add(bloom);
+    }
+    g.position.set(x, groundY(x, z), z);
+    scene.add(g);
+  }
+  for (let i = 0; i < 4; i++) {
+    const a = 1.2 + i * 1.5;
+    const r = 13 + i * 1.5;
+    const x = px2 + Math.cos(a) * r;
+    const z = pz2 + Math.sin(a) * r;
+    if (!ok(x, z, 3)) continue;
+    const b = bush.clone();
+    b.position.set(x, groundY(x, z) + 0.22, z);
+    b.scale.multiplyScalar(0.7 + i % 2 * 0.25);
+    scene.add(b);
+  }
+}
 function seedVeggies() {
   superHexes.forEach((h, i) => {
     if (i % 2) return;
     const a = i * 1.7;
     chibiVeggie(h.position.x + Math.cos(a) * 3.4, h.position.z + Math.sin(a) * 3.4, ["pumpkin", "carrot", "herb"][i % 3]);
   });
-  chibiVeggie(px2 - 3.2, pz2 + 3.4, "carrot");
+  const face = Math.atan2(Math.sin(facing), Math.cos(facing));
+  chibiVeggie(px2 + Math.sin(face) * 5.2 + Math.cos(face) * 1.4, pz2 + Math.cos(face) * 5.2 - Math.sin(face) * 1.4, "pumpkin");
+  chibiVeggie(px2 + Math.sin(face) * 7.5 - Math.cos(face) * 2.2, pz2 + Math.cos(face) * 7.5 + Math.sin(face) * 2.2, "carrot");
 }
 function stepVeggies(dt) {
   for (let i = veggies.length - 1; i >= 0; i--) {
@@ -39195,6 +39280,7 @@ function bootField(data) {
   loadAvatar();
   loadNpcs();
   loadFreeProps();
+  scatterMeadow();
   seedVeggies();
 }
 function boot() {
