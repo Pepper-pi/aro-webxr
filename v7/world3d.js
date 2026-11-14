@@ -33630,6 +33630,9 @@ function dressGround(mesh) {
         col += vec3(0.0, 0.0, 0.0) * sunk * seam * 0.35;
         col *= mix(1.0, 0.45, sunk * seam);
         col = mix(col, seamCol, clamp(seam * seamAmp * 0.4, 0.0, 0.28) * (1.0 - dropout));
+        float fogD = distance(vWorld.xz, cameraPosition.xz);
+        float haze = smoothstep(24.0, 62.0, fogD);
+        col = mix(col, vec3(0.965, 0.843, 0.69), haze * 0.94);
         gl_FragColor = vec4(col, 1.0);
       }`
   });
@@ -33732,10 +33735,12 @@ function buildGround() {
       uRad: { value: 34 },
       uCam: { value: new Vector3() },
       uLift: { value: 0 },
+      uBob: { value: new Vector2(1e5, 1e5) },
       uCurveK: curveU.k,
       uCurveCam: curveU.cam
     },
     vertexShader: `
+      precision mediump float;
       attribute float aShore;
       varying vec3 vW;
       varying float vShore;
@@ -33760,6 +33765,7 @@ function buildGround() {
       uniform float uRad;
       uniform vec3 uCam;
       uniform float uLift;
+      uniform vec2 uBob;
       void main(){
         float rip = sin(vW.x * 0.55 + uTime * 1.35) * sin(vW.z * 0.48 - uTime * 0.95);
         vec3 deep = vec3(0.18, 0.66, 0.74);
@@ -33785,6 +33791,15 @@ function buildGround() {
         foam *= 0.55 + 0.45 * sin(vW.x * 1.6 + vW.z * 1.2 + uTime * 2.2);
         c = mix(c, vec3(0.93, 0.98, 1.0), clamp(foam, 0.0, 1.0) * 0.65);
         c = mix(c, c * vec3(1.2, 1.28, 1.22) + vec3(0.06, 0.1, 0.08), uLift);
+        float bobD = length(vW.xz - uBob);
+        float nearBob = 1.0 - smoothstep(0.15, 4.8, bobD);
+        float flick = sin(bobD * 10.0 - uTime * 2.6);
+        float flick2 = sin(vW.x * 1.6 + vW.z * 1.25 + uTime * 1.15);
+        float ring = 1.0 - smoothstep(0.0, 0.22, abs(bobD - (0.85 + 0.25 * sin(uTime * 2.2))));
+        c += vec3(0.82, 0.97, 1.0) * (nearBob * (0.1 + 0.22 * max(flick, 0.0)) + ring * 0.42);
+        float viewD = distance(vW, uCam);
+        float fore = smoothstep(30.0, 6.0, viewD);
+        c = mix(c, c * vec3(0.36, 0.5, 0.58), fore * uLift * 0.8);
         gl_FragColor = vec4(c, 0.96);
       }`
   });
@@ -34064,10 +34079,10 @@ function archBlade() {
   const pos = [];
   const uv = [];
   const idx = [];
-  const h = 0.16;
+  const h = 0.13;
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
-    const width = 0.12 * (1 - t * 0.62);
+    const width = 0.055 * (1 - t * 0.72);
     const y = h * t;
     const z = t * t * 0.035;
     pos.push(-width, y, z, width, y, z);
@@ -34128,7 +34143,7 @@ function rockCluster(n, spread, rad, moss) {
     const top = moss && y > rad * 0.7;
     const grit = 0.94 + 0.06 * Math.sin(p.getX(i) * 9 + p.getZ(i) * 7);
     const warm = p.getX(i) > 0 ? 0.06 : 0;
-    const c = top ? [0.36, 0.42, 0.32] : [0.52 + warm, 0.48, 0.58];
+    const c = top ? [0.48, 0.5, 0.36] : [0.66 + warm, 0.56, 0.46];
     col[i * 3] = c[0] * grit;
     col[i * 3 + 1] = c[1] * grit;
     col[i * 3 + 2] = c[2] * grit;
@@ -34165,7 +34180,7 @@ function buildTileGrass(trees) {
         vEdge = abs(uv.x - 0.5) * 2.0;
         vHue = aSeed; vFade = aFade;
         vec3 p = position;
-        float sway = sin(uTime * 1.15 + aSeed * 6.2) * 0.045 * vH;
+        float sway = sin(uTime * 1.15 + aSeed * 6.2) * 0.08 * vH;
         p.x += sway;
         p.z += cos(uTime * 0.85 + aSeed * 4.0) * 0.022 * vH;
         vec4 w = instanceMatrix * vec4(p, 1.0);
@@ -34176,12 +34191,12 @@ function buildTileGrass(trees) {
       precision highp float; varying float vH; varying float vHue; varying float vFade; varying float vEdge;
       uniform float uTime;
       void main(){
-        vec3 deep = vec3(0.12, 0.32, 0.09);
-        vec3 mid = vec3(0.34, 0.58, 0.18);
-        vec3 sun = vec3(0.78, 0.84, 0.30);
+        vec3 deep = vec3(0.45, 0.68, 0.28);
+        vec3 mid = vec3(0.66, 0.84, 0.4);
+        vec3 sun = vec3(0.9, 0.95, 0.62);
         vec3 c = mix(deep, mid, smoothstep(0.0, 0.5, vH));
-        c = mix(c, sun, smoothstep(0.4, 1.0, vH));
-        c = mix(c, deep, smoothstep(0.42, 1.0, vEdge) * 0.55);
+        c = mix(c, sun, smoothstep(0.45, 1.0, vH));
+        c = mix(c, deep, smoothstep(0.55, 1.0, vEdge) * 0.18);
         float warm = (vHue - 0.5) * 0.035;
         c.r += warm;
         c.g += warm * 0.45;
@@ -35232,8 +35247,8 @@ function labelSprite(text, color, scale) {
 }
 function hourLook() {
   const t = window.__aroSun ? window.__aroSun() : 0.2;
-  if (t < 0.15) return { sky: "#ffb07a", horizon: "#ffe3c4", ground: "#9dcc72", sun: "#ffe0b0", up: 0.42, hemi: 1.05, dir: 1.45 };
-  if (t < 0.6) return { sky: "#8ec6ee", horizon: "#f6d7b0", ground: "#c6d98a", sun: "#fff1c8", up: 0.92, hemi: 1.05, dir: 1.55 };
+  if (t < 0.15) return { sky: "#9ecaea", horizon: "#f6d7b0", ground: "#f3dcc4", sun: "#ffe0b0", up: 0.42, hemi: 1.05, dir: 1.45 };
+  if (t < 0.6) return { sky: "#8ec6ee", horizon: "#f6d7b0", ground: "#f0d8bc", sun: "#fff1c8", up: 0.92, hemi: 1.05, dir: 1.55 };
   if (t < 0.88) return { sky: "#f08a5a", horizon: "#ffc9a4", ground: "#d4926a", sun: "#ffb07a", up: 0.32, hemi: 0.8, dir: 1.15 };
   return { sky: "#243864", horizon: "#4d6294", ground: "#2a3a52", sun: "#b7c8ef", up: 0.28, hemi: 0.7, dir: 0.85 };
 }
@@ -36050,6 +36065,9 @@ function stepBobber() {
   const fishing = fp.on && fp.fish && field;
   if (!fishing) {
     if (bobber) bobber.visible = false;
+    if (bobber && bobber.userData.rips) bobber.userData.rips.forEach((rip) => {
+      rip.visible = false;
+    });
     if (fishLine) fishLine.visible = false;
     if (fishGlow) fishGlow.visible = false;
     if (castRing) castRing.visible = false;
@@ -36065,6 +36083,9 @@ function stepBobber() {
   if (!cast) {
     fp.land = null;
     bobber.visible = false;
+    if (bobber.userData.rips) bobber.userData.rips.forEach((rip) => {
+      rip.visible = false;
+    });
     fishLine.visible = false;
     fishGlow.visible = false;
     const power = Math.max(0.15, Math.min(1, fp.fishPower || 0.35));
@@ -36090,6 +36111,25 @@ function stepBobber() {
   const y = (kindAt(x, z) === 3 ? -0.22 : groundY(x, z)) + 0.1 + dip;
   bobber.visible = true;
   bobber.position.set(x, y, z);
+  if (!bobber.userData.rips) {
+    bobber.userData.rips = [0, 1].map(() => {
+      const rip = new Mesh(
+        new RingGeometry(0.46, 0.54, 28),
+        new MeshBasicMaterial({ color: 15203327, transparent: true, opacity: 0.5, side: DoubleSide, depthWrite: false })
+      );
+      rip.rotation.x = -Math.PI / 2;
+      scene.add(rip);
+      return rip;
+    });
+  }
+  bobber.userData.rips.forEach((rip, i) => {
+    const u = (worldT * 0.45 + i * 0.5) % 1;
+    const s = 0.28 + u * 1.35;
+    rip.visible = true;
+    rip.position.set(x, y + 0.02, z);
+    rip.scale.set(s, s, 1);
+    rip.material.opacity = (1 - u) * 0.5;
+  });
   fishLine.visible = true;
   fishGlow.visible = true;
   fishLine.userData.tug = tug;
@@ -37824,6 +37864,10 @@ function tick(dt, show) {
     if (waterMat.uniforms.uLift) waterMat.uniforms.uLift.value = fp.on && fp.fish ? 1 : 0;
   }
   stepBobber();
+  if (waterMat && waterMat.uniforms.uBob) {
+    if (fp.on && fp.fish && bobber && bobber.visible) waterMat.uniforms.uBob.value.set(bobber.position.x, bobber.position.z);
+    else waterMat.uniforms.uBob.value.set(1e5, 1e5);
+  }
   paintHandOcc();
   applySky();
   syncHolo();
@@ -38336,9 +38380,9 @@ function buildSites() {
   rod = new Group();
   const grip = new Mesh(new CylinderGeometry(0.04, 0.045, 0.32, 8), toonMat("#6a3a22"));
   grip.position.y = 0.14;
-  const blank = new Mesh(new CylinderGeometry(0.02, 0.03, 1.15, 7), toonMat("#e2c48a"));
+  const blank = new Mesh(new CylinderGeometry(5e-3, 0.036, 1.15, 10), toonMat("#e2c48a"));
   blank.position.y = 0.78;
-  const tip = new Mesh(new CylinderGeometry(0.01, 0.02, 0.36, 6), toonMat("#f2e2b8"));
+  const tip = new Mesh(new CylinderGeometry(25e-4, 0.01, 0.42, 8), toonMat("#f2e2b8"));
   tip.position.y = 1.48;
   tip.name = "rodTip";
   const reel = new Mesh(new CylinderGeometry(0.11, 0.11, 0.045, 20), toonMat("#c4a06a"));
@@ -39074,15 +39118,38 @@ function chibiVeggie(x, z, kind) {
   const aura = new Mesh(new RingGeometry(0.26, 0.42, 16), new MeshBasicMaterial({ color: 16769162, transparent: true, opacity: 0.7, side: DoubleSide, depthWrite: false }));
   aura.rotation.x = -Math.PI / 2;
   aura.position.y = 0.04;
+  aura.name = "lootAura";
   g.add(aura);
   g.position.set(x, groundY(x, z), z);
   g.userData.kind = pick;
   scene.add(g);
   veggies.push(g);
 }
+var meadowTufts = [];
+function softBlade() {
+  const steps = 4;
+  const pos = [];
+  const idx = [];
+  const h = 0.28;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const width = 0.08 * (1 - t * 0.65);
+    const y = h * t;
+    const z = t * t * 0.07;
+    pos.push(-width, y, z, width, y, z);
+  }
+  for (let i = 0; i < steps; i++) {
+    const a = i * 2;
+    idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+  }
+  const geo = new BufferGeometry();
+  geo.setAttribute("position", new Float32BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  return geo;
+}
 function scatterMeadow() {
-  const tuftGeo = new ConeGeometry(0.16, 0.42, 6);
-  tuftGeo.translate(0, 0.2, 0);
+  const tuftGeo = softBlade();
   const flowerGeo = new SphereGeometry(0.07, 8, 6);
   flowerGeo.translate(0, 0.16, 0);
   const bush = new Mesh(new IcosahedronGeometry(0.42, 1), toonMat("#4f9a48"));
@@ -39102,14 +39169,17 @@ function scatterMeadow() {
     if (!ok(x, z, 1.8)) continue;
     placed.push([x, z]);
     const g = new Group();
-    for (let b = 0; b < 4; b++) {
-      const blade = new Mesh(tuftGeo, toonMat(b % 2 ? "#6aaa3a" : "#3f7a28"));
-      blade.position.set(Math.cos(b) * 0.12, 0, Math.sin(b) * 0.12);
-      blade.rotation.z = (b - 1.5) * 0.18;
+    for (let b = 0; b < 3; b++) {
+      const blade = new Mesh(tuftGeo, new MeshBasicMaterial({ color: b === 1 ? 15202244 : 13035674, side: DoubleSide }));
+      blade.rotation.y = b * 0.55 - 0.2;
+      blade.rotation.x = -0.35;
+      blade.scale.setScalar(0.82);
       g.add(blade);
     }
     g.position.set(x, groundY(x, z), z);
+    g.scale.setScalar(0.78);
     scene.add(g);
+    meadowTufts.push(g);
   }
   for (let i = 0; i < 8; i++) {
     const a = 0.7 + i * 0.8;
@@ -39158,9 +39228,32 @@ function stepVeggies(dt) {
       continue;
     }
     g.position.y = groundY(g.position.x, g.position.z) + Math.sin(worldT * 2.2 + g.position.x) * 0.05;
-    const aura = g.children[g.children.length - 1];
-    if (aura && aura.material) aura.material.opacity = 0.35 + 0.3 * Math.sin(worldT * 3 + i);
+    const aura = g.getObjectByName("lootAura");
+    const pulse = 0.5 + 0.5 * Math.sin(worldT * 2.6 + i);
+    if (aura && aura.material) {
+      aura.material.opacity = 0.28 + pulse * 0.5;
+      const s = 0.9 + pulse * 0.28;
+      aura.scale.set(s, s, s);
+    }
+    if (!g.userData.motes) {
+      g.userData.motes = [];
+      for (let m = 0; m < 3; m++) {
+        const mote = new Mesh(new SphereGeometry(0.09, 6, 5), new MeshBasicMaterial({ color: 16774848, transparent: true, opacity: 0.95, depthWrite: false }));
+        g.add(mote);
+        g.userData.motes.push(mote);
+      }
+    }
+    g.userData.motes.forEach((mote, m) => {
+      const u = (worldT * 0.4 + m * 0.33) % 1;
+      mote.position.set(Math.cos(m * 2.1 + i) * 0.22, 0.18 + u * 0.95, Math.sin(m * 2.1 + i) * 0.22);
+      mote.material.opacity = (1 - u) * 0.9;
+    });
   }
+  meadowTufts.forEach((tuft, n) => {
+    tuft.children.forEach((blade, k) => {
+      blade.rotation.z = Math.sin(worldT * 1.5 + n + k) * 0.14;
+    });
+  });
   if (veggies.length >= 8) return;
   if (Math.random() > dt * 0.035) return;
   const a = Math.random() * Math.PI * 2;
@@ -39294,7 +39387,7 @@ function boot() {
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.setClearColor(9357550, 1);
   scene = new Scene();
-  scene.fog = new Fog(16177072, 50, 300);
+  scene.fog = new Fog(16177072, 36, 100);
   camera = new PerspectiveCamera(42, 1, 0.1, 2200);
   clock = new Clock();
   hemi = new HemisphereLight(13626111, 6982216, 0.85);
@@ -39350,8 +39443,8 @@ function boot() {
       void main(){
         vec3 dir = normalize(vW - uCam);
         float hgt = dir.y;
-        vec3 c = mix(uBot, uHor, smoothstep(-0.15, 0.22, hgt));
-        c = mix(c, uTop, smoothstep(0.08, 0.72, hgt));
+        vec3 c = mix(uBot, uHor, smoothstep(-0.4, -0.05, hgt));
+        c = mix(c, uTop, smoothstep(-0.08, 0.07, hgt));
         vec2 cuv = dir.xz / max(0.2, hgt + 0.45);
         float n = sin(cuv.x * 2.2 + uTime * 0.04) * sin(cuv.y * 1.8);
         n += sin(cuv.x * 5.5 + 2.0) * sin(cuv.y * 4.8 + uTime * 0.06) * 0.65;
