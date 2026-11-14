@@ -1,0 +1,13 @@
+{
+	"project": "blendi/small-magic",
+	"version": "1.0.3",
+	"channel": "public",
+	"files": "dist",
+	"recipe": {
+		"test": {
+			"move_keys": [
+				"KeyW"
+			]
+		}
+	}
+}

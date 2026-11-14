@@ -1,0 +1,9 @@
+node_modules
+dist
+shots
+# recordings that may not be passed on as files (MISSING_ASSETS.md)
+public/audio/*.ogg
+public/audio/manifest.json
+# the recordings themselves, as fetched (tools/sounds.mjs fetch)
+sonniss/
+.build.log

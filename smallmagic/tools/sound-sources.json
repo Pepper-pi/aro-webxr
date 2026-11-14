@@ -1,0 +1,158 @@
+{
+  "boom": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2017/individual/Gamemaster%20Audio%20-%20%20Explosion%20Sound%20Pack/explosion_large_08.wav",
+    "bytes": 2141840
+  },
+  "deep": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2020/individual/Stefano%20Cremona%20-%20Explosions/DeepExplosion02.wav",
+    "bytes": 3121100
+  },
+  "tail": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2020/individual/Stefano%20Cremona%20-%20Explosions/BigExplosion02.wav",
+    "bytes": 8875154
+  },
+  "far": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2018/individual/Lukas%20Tvrdon%20-%20Distant%20Blast/Distant%20Blast%2038.wav",
+    "bytes": 4106288
+  },
+  "rubble": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2017/individual/Mechanical%20Wave%20-%20Rock%2CBrick%20and%20Dirt%20-%20Part%2002/Crumbling%20Rock%20Slide_RBDII%2007.wav",
+    "bytes": 2610424
+  },
+  "bricks": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2020/individual/PMSFX%20-%20Shattering%20Bricks/PM_SB_DESIGNED_IMPACT_116%20Impact%20brick%20rock%20dirt%20gravel%20designed%20multi%20LFE.wav",
+    "bytes": 3973522
+  },
+  "dust": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2020/individual/Bluezone%20-%20Tank%20-%20Explosion%20Sound%20Effects/Bluezone_BC0271_debris_falling_rock_dust_002.wav",
+    "bytes": 1423952
+  },
+  "quake": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2018/individual/Olivier%20Girardot%20-%20Guns%20%26%20Explosions/Earthquake%203%20-%20Big.wav",
+    "bytes": 13248244
+  },
+  "slam": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2016/individual/Game%20Audio%20Factory%20-%20GAFSFX01%20-%20Dark%20Materials/GAF%20SFX01%20-%20HORROR%20-%20Hammer%20Impact%2C%20huge.wav",
+    "bytes": 1805678
+  },
+  "dark": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2016/individual/3maze%20-%20High%20Impact/med_dark_001.wav",
+    "bytes": 2769146
+  },
+  "stress": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2019/individual/Rock%20The%20Speakerbox%20-%20Broken/BROKEN%20-%20DESIGNED%20-%20MINE%20SHAFT%20Wood%20Metal%20Stress%20Very%20Long%2006.wav",
+    "bytes": 14944590
+  },
+  "grind": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2018/individual/Gregor%20Quendel%20-%20Designed%20Rocks/Designed%20Rocks%20-%20EVO19%20-%20Texture%20-%20Filtered%204.wav",
+    "bytes": 7442926
+  },
+  "gusts": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2018/individual/Discover%20Oregon%20-%20Wind%20and%20Storms/Wind%20Gusts%202016%20Lookout%20Snow%20-%20Biggest%20Gusts%20Long.wav",
+    "bytes": 35288690
+  },
+  "whistle": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2020/individual/Coll%20Anderson%20-%20Gentle%20Wind/EFX%20SD%20Wind%20Soft%20Whistling%20Gusts%2004.wav",
+    "bytes": 69207840
+  },
+  "ice": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2016/individual/3maze%20-%20%20ICE%20BLOCK/debris_ice_001.wav",
+    "bytes": 438416
+  },
+  "stove": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2020/individual/Coll%20Anderson%20-%20Gentle%20Wind/EFX%20SD%20Fire%20in%20Metal%20Stove%2003.wav",
+    "bytes": 50416054
+  },
+  "iceburn": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2016/individual/3maze%20-%20%20ICE%20BLOCK/burn_ice_001.wav",
+    "bytes": 4173474
+  },
+  "ice2": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2018/individual/FLYSOUND%20%3F%20Ice%20Fury/IC0318%20KETTLEBELL%20SMASH%20DEBRIS%2002.wav",
+    "bytes": 1746004
+  },
+  "ice3": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2018/individual/FLYSOUND%20%3F%20Ice%20Fury/IC0151%20BIG%20CHISEL%20HIT%20DEBRIS%2006.wav",
+    "bytes": 857980
+  },
+  "ice4": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2018/individual/FLYSOUND%20%3F%20Ice%20Fury/IC0271%20CROWBAR%20HIT%20DEBRIS%2012.wav",
+    "bytes": 953958
+  },
+  "icescrape": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2018/individual/FLYSOUND%20%3F%20Ice%20Fury/IC0120%20CHISEL%20SCRAPE%20DEBRIS%2009.wav",
+    "bytes": 905974
+  },
+  "leaves": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2018/individual/Soundrangers%20-%20Foley%20Elements%20Foliage/leaves_pile_pick_up_04.wav",
+    "bytes": 1903346
+  },
+  "creaks": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2018/individual/Discover%20Oregon%20-%20Wind%20and%20Storms/Creaks%20and%20Snaps%202017.03.20%20-%20Gentle%20Tree%20Creaks.WAV",
+    "bytes": 46599234
+  },
+  "grassy": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2017/individual/Hzandbits%20-%20Wind%20In%20Trees/Wind%2CExt%2CBreeze%2CGrass%2CTall%2CRustle%2CBuffeting.wav",
+    "bytes": 63833686
+  },
+  "treetops": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2018/individual/Alexander%20Kopeikin%20-%20Quad%20ambience%20of%20Crimea%20in%20summer/28%20lake%2C%20high%20wind%20in%20tree%20tops%2C%20birds%2C%20daytime%20-%20QUAD%20XY%20LR.wav",
+    "bytes": 215412434
+  },
+  "birds": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2018/individual/Alexander%20Kopeikin%20-%20Quad%20ambience%20of%20Crimea%20in%20summer/09%20vineyard%20evening%20ambience%2C%20hill%2C%20very%20quiet%2C%20birds%2C%20crickets%2C%20take%202%2C%20ortf%20offset%205%20m%2C%20front%20-%20ORTF.wav",
+    "bytes": 131775414
+  },
+  "grassstep": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2017/individual/Tovusound%20-%20Edward%20%3F%20Foleyart%20Collection%20Add-On%20Extended%20Footsteps/169_Foley_Footsteps_Grass_Sneaker_Walk_Fast_Run_Jog_Close.wav",
+    "bytes": 7531584
+  },
+  "stonestep": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2017/individual/Tovusound%20-%20Edward%20%3F%20Foleyart%20Collection%20Add-On%20Extended%20Footsteps/015_Foley_Footsteps_Asphalt_Boot_Walk_Fast_Run_Jog_Close.wav",
+    "bytes": 7048630
+  },
+  "dirtstep": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2019/individual/PMSFX%20-%20STEPS%20Dirt%20%26%20Gravel/PM_SDNG_Stereo_Walk_Seamless_Loop_1.wav",
+    "bytes": 7871436
+  },
+  "snowstep": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2019/individual/Studio%2023%20-%20Ultimate%20Footstep%20Collection/S23_SFX_Footsteps_Snow_Singles_Sequence.wav",
+    "bytes": 8054210
+  },
+  "ashstep": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2018/individual/Sounds%20Visual%20-%20Footsteps%20on%20Leaves/FX3280%20Walking%20Faster%20Leaves%20Foley%20Foosteps.wav",
+    "bytes": 11654746
+  },
+  "landstep": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2017/individual/Tovusound%20-%20Edward%20%3F%20Foleyart%20Collection%20Add-On%20Extended%20Footsteps/289_Foley_Footsteps_Rocks_Sneaker_Jump_Land_On_Two_Feet_Close.wav",
+    "bytes": 3244786
+  },
+  "lake": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2019/individual/BlueZone%20-%20Lake%20Wave%20Sound%20Effects/Bluezone_BC0252_lake_wave_ambience_04.wav",
+    "bytes": 31723316
+  },
+  "wind": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2020/individual/Coll%20Anderson%20-%20Gentle%20Wind/EFX%20SD%20Design%20Wind%20Swells%2003.wav",
+    "bytes": 57098488
+  },
+  "fireball": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2018/individual/Gregor%20Quendel%20%3F%20Designed%20Fire/Designed%20Fire%20-%20Impacts%20-%20Large%2C%20ignition%2003.wav",
+    "bytes": 6955706
+  },
+  "swoosh": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2018/individual/Gregor%20Quendel%20%3F%20Designed%20Fire/Designed%20Fire%20-%20Swooshes%20-%20Burst%2C%20evolving%2034.wav",
+    "bytes": 5957634
+  },
+  "firetex": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2018/individual/Gregor%20Quendel%20%3F%20Designed%20Fire/Designed%20Fire%20-%20Textures%20-%20Rumbling%2C%20glitch.wav",
+    "bytes": 19596818
+  },
+  "firewind": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2018/individual/Gregor%20Quendel%20%3F%20Designed%20Fire/Designed%20Fire%20-%20Winds%20-%20Binaural%2C%20swoosh%2C%20waves%2002.wav",
+    "bytes": 9260154
+  },
+  "rush": {
+    "url": "https://ftpmirror.your.org/pub/misc/sonniss2018/individual/Discover%20Oregon%20%3F%20Ocean%20and%20Stream/Streams%202014%20McKenzie%201.wav",
+    "bytes": 8420870
+  }
+}
