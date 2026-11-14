@@ -22,6 +22,7 @@ import { createTwister } from './twister.js';
 import { createSpells, SPELLS } from './spells.js';
 import { createSound } from './sound.js';
 import { spellBar } from './hud.js';
+import { createZones } from './zones.js';
 
 const q = new URLSearchParams(location.search);
 const capture = q.has('capture'), testing = q.has('patch-test');
@@ -88,6 +89,7 @@ lap('ruin');
 const flames = createFlames(air);
 scene.add(flames.mesh);
 const fire = createFire({ world, air, fx, flames });
+const zones = createZones({ scene, world, walker, camera });
 const spellsBar = spellBar(document.getElementById('spells'), SPELLS);
 const beam = createBeam(air);
 scene.add(beam.mesh);
@@ -125,7 +127,15 @@ function tick(dt) {
   if (Math.abs(camera.fov - (world.fov + hole.fov)) > 0.01) { camera.fov = world.fov + hole.fov; camera.updateProjectionMatrix(); }
   air.uniforms.uNow.value += dt * pace;
   const inp = input.read(dt);
-  if (inp.cast !== null && spells) { if (inp.cast !== padCast) { padCast = inp.cast; if (padCast) spells.press(); else spells.release(); } if (inp.spell) spells.select(spells.selected + inp.spell); }
+  if (zones.blocksMagic) {
+    if (inp.cast && !padCast) zones.onCast();
+    padCast = !!inp.cast;
+    spells?.release();
+  } else if (spells) {
+    if (inp.cast !== null && inp.cast !== padCast) { padCast = inp.cast; if (padCast) spells.press(); else spells.release(); }
+    if (inp.spell) spells.select(spells.selected + inp.spell);
+  }
+  zones.update(dt);
   if (inp.any) sound?.wake();
   walker.update(dt, inp);
   if (free) { camera.position.copy(free.position); camera.lookAt(free.target); } else walker.look(camera);
@@ -155,7 +165,7 @@ function tick(dt) {
 // (the measuring tools were written for a figure seen from behind: these are the same handles on one seen from within)
 const head = new THREE.Vector3();
 const lab = window.lab = {
-  THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
+  THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
   player: walker,
   follow: { get yaw() { return walker.yaw; }, set yaw(v) { walker.yaw = v; }, get pitch() { return walker.pitch; }, set pitch(v) { walker.pitch = v; }, want: 0, distance: 0, pivot: new THREE.Vector3() },
   doll: { man: { bones: { Head: { getWorldPosition: (v) => v.copy(walker.feet).setY(walker.feet.y + 1.66) } } } },

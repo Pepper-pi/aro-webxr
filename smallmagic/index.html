@@ -58,6 +58,10 @@
       #cast { bottom: max(22px, env(safe-area-inset-bottom)); }
       #spell { bottom: calc(max(22px, env(safe-area-inset-bottom)) + 90px); }
       #cast:active, #spell:active { background: rgba(241, 217, 164, 0.35); }
+      #board { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); z-index: 8; width: min(280px, 86vw); padding: 18px 16px; border: 2px solid #f1d9a4; border-radius: 16px; background: rgba(20, 12, 28, 0.92); color: #f6ead0; text-align: center; font: 18px/1.3 Georgia, serif; touch-action: none; }
+      #board button, #back { touch-action: none; }
+      #board button { display: block; width: 100%; margin: 10px 0 0; padding: 12px; border-radius: 12px; border: 1px solid #f1d9a4; background: rgba(241, 217, 164, 0.14); color: #f6ead0; font: 16px Georgia, serif; }
+      #back { position: fixed; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 7; padding: 8px 16px; border-radius: 999px; border: 1px solid #f1d9a4; background: rgba(20, 12, 28, 0.72); color: #f6ead0; font: 14px Georgia, serif; }
       #aim { position: fixed; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px; border-radius: 50%; background: rgba(255, 255, 255, 0.8); box-shadow: 0 0 4px rgba(0, 20, 60, 0.6); pointer-events: none; }
 
       /* The spells: a row of medallions at the top left (src/hud.js draws them). Each is a dark disc with a fine gold
@@ -140,6 +144,8 @@
     <div id="aim"></div>
     <div id="spells"></div>
     <div id="hint">WASD move &middot; Shift sprint &middot; Space jump &middot; Left button casts, hold for more<br>1 to 7 or the wheel changes spell &middot; P pauses &middot; H hides this</div>
+    <div id="board" hidden><p>Where to</p><button type="button" data-go="meadow">Meadow</button><button type="button" data-go="lake">Long Lake</button></div>
+    <button id="back" type="button" hidden>Back</button>
     <div id="touch" hidden>
       <div id="stick"><div id="knob"></div></div>
       <button id="spell" type="button">Spell</button>

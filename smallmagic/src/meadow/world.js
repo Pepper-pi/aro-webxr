@@ -575,6 +575,7 @@ export async function createWorld({ air, scene, say, turn }) {
   }
 
   group.add(solids.build(), dabs.build());
+  group.name = 'meadow';
   scene.add(group);
 
   // ============================================================================================================ the light
@@ -595,7 +596,7 @@ export async function createWorld({ air, scene, say, turn }) {
 
   const [sx, sz] = WAY[0];
   return Object.assign(world_, {
-    ground, colliders, home: HOME, edge: EDGE, water: WATER, trees,
+    ground, colliders, home: HOME, edge: EDGE, water: WATER, trees, root: group,
     /** The ground as it is walked on: frozen water bears a walker. */
     walk(x, z) { let g = ground(x, z); if (g < WATER && state[(Math.floor((z - MAP.z0) / (MAP.size / STATE)) * STATE + Math.floor((x - MAP.x0) / (MAP.size / STATE))) * 4 + 1] > 110) g = WATER + 0.02; for (const f of floors) if (x > f.x0 && x < f.x1 && z > f.z0 && z < f.z1 && f.y > g) g = f.y; return g; },
     /** The parts trees are grown in. */
