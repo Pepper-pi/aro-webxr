@@ -16,7 +16,7 @@ Code MIT. The world and everything in it is made in code by Patch.
 
 - The sound of every spell, of fire, of footsteps and of the place is built in code (`src/sound.js`, MIT).
 - Footsteps on grass, `sfx/step1.ogg` to `step5.ogg`: Kenney's Impact Sounds (kenney.nl), CC0 1.0. Kept as a fallback.
-- The log village, the landing plot, Long Lake and the beasts are drawn in code on the meadow. No animal models were imported.
+- The log village, the landing plot, and Long Lake are drawn in code. The wolf is still a coded stand-in. The boar, the slime, and a test goblin use the Cartoon Monster Pack by Overaction Game Studio (`public/mobs/overaction/`, CC0 1.0, see `License.txt`). Credit: Overaction Game Studio, https://overactiongamestudio.com/ . A reskin may replace these before the game goes live. The Kawaii Slimes pack is not included.
 - The settings panel, the hit mark, and the Long Lake map are drawn in the page.
 - Hands mode uses AvatarSample_B by VRoid (`public/figure/AvatarSample_B.vrm`), the same walking character as the overworld. Redistribution and changes are allowed. It is not CC0, and the unmodified file is not for sale. https://hub.vroid.com/en/characters/7939147878897061040/models/2292219474373673889
 - The loader is `@pixiv/three-vrm` (MIT).
