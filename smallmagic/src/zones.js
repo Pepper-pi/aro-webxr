@@ -490,6 +490,7 @@ export function createZones({ scene, world, walker, camera, air }) {
     get rodOut() { return hold.visible; },
     get nearBeast() { return beasts.near(walker.feet.x, walker.feet.z); },
     beasts() { return beasts.probe(); },
+    holdBeasts(px, pz, min, max, dt) { beasts.hold(px, pz, min, max, dt); },
     get blocksMagic() { return name !== 'meadow'; },
     showBoard, enter,
     hurt(marks) {

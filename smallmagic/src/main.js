@@ -202,7 +202,7 @@ sword.scale.setScalar(1.35);
 sword.visible = false;
 sword.traverse((o) => { o.frustumCulled = false; });
 scene.add(sword);
-const blade = createBlade((damage) => zones.launchNearest(damage), { scene, camera, world, zones });
+const blade = createBlade((damage) => zones.launchNearest(damage), { scene, camera, world, zones, walker });
 const gun = createGunner(scene, camera, world, zones);
 camera.layers.enable(9);
 let padCast = false, forceDraw = false;
@@ -290,10 +290,10 @@ function tick(dt) {
   if (sword.visible) {
     sword.position.copy(camera.position);
     sword.quaternion.copy(camera.quaternion);
-    sword.translateX(0.18);
-    sword.translateY(-0.16);
-    sword.translateZ(-0.5);
-    sword.rotateZ(-0.45);
+    sword.translateX(-0.32);
+    sword.translateY(-0.2);
+    sword.translateZ(-0.58);
+    sword.rotateZ(0.62);
   }
   const hideStaff = !!(free || zones.name === 'hub' || settings.hands || zones.rodOut || klass === 'blade' || klass === 'gunner');
   if (!q.has('fast') || forceDraw) post.render(scene, camera, hideStaff ? null : staff, SUN);

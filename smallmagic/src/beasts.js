@@ -85,6 +85,34 @@ export function createBeasts(scene, ground) {
     probe() {
       return all.map((b) => ({ kind: b.kind, x: +b.g.position.x.toFixed(2), y: +b.g.position.y.toFixed(2), z: +b.g.position.z.toFixed(2), hp: +b.hp.toFixed(1), burn: +b.burn.toFixed(2), chill: +b.chill.toFixed(2), dead: b.dead, flame: !!b.g.getObjectByName('flame')?.visible }));
     },
+    hold(px, pz, min, max, dt) {
+      for (const b of all) {
+        if (b.dead || b.where !== 'meadow') continue;
+        const dx = b.g.position.x - px;
+        const dz = b.g.position.z - pz;
+        const d = Math.hypot(dx, dz);
+        if (d > 16 || d < 0.05) continue;
+        const nx = dx / d;
+        const nz = dz / d;
+        if (d < min) {
+          const goal = min + (max - min) * 0.35;
+          const step = Math.min(goal - d, 5.4 * dt);
+          b.g.position.x += nx * step;
+          b.g.position.z += nz * step;
+          b.tx = px + nx * goal;
+          b.tz = pz + nz * goal;
+          b.wait = Math.max(b.wait, 0.35);
+          continue;
+        }
+        const tdx = b.tx - px;
+        const tdz = b.tz - pz;
+        if (Math.hypot(tdx, tdz) < min) {
+          const stay = Math.min(max, d);
+          b.tx = px + nx * stay;
+          b.tz = pz + nz * stay;
+        }
+      }
+    },
     near(x, z) {
       let best = 99;
       for (const b of all) if (!b.dead && b.where === 'meadow') best = Math.min(best, Math.hypot(b.g.position.x - x, b.g.position.z - z));

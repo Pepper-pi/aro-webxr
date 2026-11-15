@@ -22,6 +22,12 @@ Free props added around Long Lake and the town. Each pack is used as shipped by 
 - https://github.com/KayKit-Game-Assets/KayKit-Medieval-Hexagon-Pack-1.0
 - License: CC0 1.0
 
+## Moon Rider
+- The small-magic blade adapts block approach, cut-angle scoring, and wall collision from Moon Rider by Supermedium.
+- https://github.com/supermedium/moonrider
+- Copyright © 2018 Supermedium. No songs, beatmaps, BeatSaver art, or BeatSaver audio are included.
+- License: MIT
+
 ## KayKit Dungeon Remastered
 - Chest and coin.
 - https://github.com/KayKit-Game-Assets/KayKit-Dungeon-Remastered-1.0

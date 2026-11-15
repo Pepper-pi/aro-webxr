@@ -15,6 +15,7 @@ export class Walker {
     this.pitch = 0.04; // + looks down
     this.speed = 0; this.stride = 0; this.air = 0; this.landed = 0; this.grounded = true; this.mode = 'move';
     this.turned = new THREE.Vector2(); // how far the eye turned this frame
+    this.crouch = 0;
   }
 
   update(dt, inp) {
@@ -56,7 +57,7 @@ export class Walker {
   look(camera) {
     const f = this.feet, s = Math.min(1, this.speed / WALK);
     const bob = Math.sin(this.stride * BOB) * 0.028 * s, sway = Math.cos(this.stride * BOB * 0.5) * 0.016 * s;
-    camera.position.set(f.x + Math.cos(this.yaw) * sway, f.y + EYE + bob - 0.09 * this.landed, f.z - Math.sin(this.yaw) * sway);
+    camera.position.set(f.x + Math.cos(this.yaw) * sway, f.y + EYE + bob - 0.09 * this.landed - 0.5 * this.crouch, f.z - Math.sin(this.yaw) * sway);
     camera.rotation.order = 'YXZ';
     camera.rotation.set(-this.pitch, this.yaw + Math.PI, 0);
   }
