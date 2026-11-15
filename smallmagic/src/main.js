@@ -118,7 +118,7 @@ if (sound && spells) spells.hear = (what, o) => sound.cue(what, o);
 
 // The one clock. Everything that moves is a function of it; `pace` is how fast it runs (1 as a rule).
 const clock = { pace: 1 };
-const settings = { hands: false, blade: false, gunner: false, gfx: 'high' };
+const settings = { hands: false, class: 'mage', blade: false, gunner: false, gfx: 'high' };
 const handsEl = document.getElementById('hands');
 const gear = document.getElementById('gear');
 const settingsEl = document.getElementById('settings');
@@ -131,20 +131,17 @@ settingsEl?.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('po
   e.preventDefault(); e.stopPropagation();
 }));
 function showClass() {
-  document.querySelectorAll('[data-class]').forEach((b) => {
-    const name = b.getAttribute('data-class');
-    const on = name === 'mage' ? !settings.blade && !settings.gunner : name === 'blade' ? settings.blade : settings.gunner;
-    b.classList.toggle('on', on);
-  });
+  document.querySelectorAll('[data-class]').forEach((b) => b.classList.toggle('on', b.getAttribute('data-class') === settings.class));
   const bladeBtn = document.getElementById('bladeToggle');
   const gunBtn = document.getElementById('gunnerToggle');
-  if (bladeBtn) { bladeBtn.textContent = settings.blade ? 'Blade: on' : 'Blade: off'; bladeBtn.classList.toggle('on', settings.blade); }
-  if (gunBtn) { gunBtn.textContent = settings.gunner ? 'Gunner: on' : 'Gunner: off'; gunBtn.classList.toggle('on', settings.gunner); }
+  if (bladeBtn) { bladeBtn.textContent = settings.class === 'blade' ? 'Blade: on' : 'Blade: off'; bladeBtn.classList.toggle('on', settings.class === 'blade'); }
+  if (gunBtn) { gunBtn.textContent = settings.class === 'gunner' ? 'Gunner: on' : 'Gunner: off'; gunBtn.classList.toggle('on', settings.class === 'gunner'); }
 }
 function pickClass(name) {
-  settings.blade = name === 'blade';
-  settings.gunner = name === 'gunner';
-  if (settings.blade || settings.gunner) arms.load();
+  settings.class = name === 'blade' || name === 'gunner' ? name : 'mage';
+  settings.blade = settings.class === 'blade';
+  settings.gunner = settings.class === 'gunner';
+  if (settings.class !== 'mage') arms.load();
   showClass();
 }
 document.querySelectorAll('[data-class]').forEach((b) => b.addEventListener('pointerup', (e) => {
@@ -172,19 +169,11 @@ settingsEl?.querySelectorAll('[data-gfx]').forEach((b) => b.addEventListener('po
   e.preventDefault(); e.stopPropagation();
 }));
 document.getElementById('bladeToggle')?.addEventListener('pointerup', (e) => {
-  settings.blade = !settings.blade;
-  e.currentTarget.textContent = settings.blade ? 'Blade: on' : 'Blade: off';
-  e.currentTarget.classList.toggle('on', settings.blade);
-  if (settings.blade) arms.load();
-  showClass();
+  pickClass(settings.class === 'blade' ? 'mage' : 'blade');
   e.preventDefault(); e.stopPropagation();
 });
 document.getElementById('gunnerToggle')?.addEventListener('pointerup', (e) => {
-  settings.gunner = !settings.gunner;
-  e.currentTarget.textContent = settings.gunner ? 'Gunner: on' : 'Gunner: off';
-  e.currentTarget.classList.toggle('on', settings.gunner);
-  if (settings.gunner) arms.load();
-  showClass();
+  pickClass(settings.class === 'gunner' ? 'mage' : 'gunner');
   e.preventDefault(); e.stopPropagation();
 });
 document.getElementById('gunFire')?.addEventListener('pointerup', (e) => { gun.fire(); e.preventDefault(); e.stopPropagation(); });
@@ -240,12 +229,13 @@ function tick(dt) {
   post.hole(camera, hole.centre, hole.radius, hole.power, hole.blur, hole.reach * 1.05);
   post.heat = Math.min(1, fire.glare * 0.85 + (spells?.glare ?? 0) * 0.6);
   if (handsEl) handsEl.classList.toggle('on', !!(settings.hands && (inp.cast || spells?.cast?.holding || spells?.cast?.pour)));
-  blade.update(dt, settings.blade && zones.name !== 'hub');
-  gun.update(dt, settings.gunner && zones.name !== 'hub');
-  const armsOn = (settings.hands || settings.blade || settings.gunner) && zones.name !== 'hub' && arms.loaded;
+  const klass = zones.name !== 'hub' ? settings.class : 'mage';
+  blade.update(dt, klass === 'blade');
+  gun.update(dt, klass === 'gunner');
+  const armsOn = (settings.hands || klass === 'blade' || klass === 'gunner') && zones.name !== 'hub' && arms.loaded;
   arms.rig.visible = !!armsOn;
   if (arms.rig.visible) {
-    const ready = !!(settings.blade || settings.gunner || inp.cast || spells?.cast?.holding || spells?.cast?.pour || zones.rodOut || zones.nearBeast < 7);
+    const ready = !!(klass === 'blade' || klass === 'gunner' || inp.cast || spells?.cast?.holding || spells?.cast?.pour || zones.rodOut || zones.nearBeast < 7);
     arms.update(dt, camera, { ready, speed: walker.speed, stride: walker.stride });
   }
   if (!q.has('fast') || forceDraw) post.render(scene, camera, free || zones.name === 'hub' || settings.hands || zones.rodOut ? null : staff, SUN);

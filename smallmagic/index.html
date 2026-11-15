@@ -78,6 +78,8 @@
       #settings .tabs button, #settings .row button { flex: 1; min-height: 48px; border-radius: 12px; border: 2px solid #f1d9a4; background: rgba(241, 217, 164, 0.12); color: #f6ead0; font: 15px Georgia, serif; }
       #settings .tabs button.on, #settings .row button.on { background: rgba(241, 217, 164, 0.4); }
       #settings .note, #atlas .note { font-size: 14px; opacity: 0.8; margin: 8px 0 0; }
+      #advanced { margin-top: 12px; text-align: left; }
+      #advanced summary { cursor: pointer; font: 16px Georgia, serif; padding: 8px 0; }
       #settings input[type="range"] { width: 80%; touch-action: pan-x; height: 36px; }
       #setX { position: absolute; top: 6px; right: 6px; width: 44px; height: 44px; border: 0; background: transparent; color: #f6ead0; font-size: 28px; }
       #hands { position: fixed; inset: auto 0 0 0; height: 30vh; z-index: 5; pointer-events: none; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 36vw 14vh 12vw; }
@@ -228,14 +230,16 @@
           <button type="button" data-class="blade">Blade</button>
           <button type="button" data-class="gunner">Gunner</button>
         </div>
-        <p class="note">One tap picks a class. Mage is the staff. The switches below still work on their own.</p>
+        <p class="note">One tap picks a class and turns the others off. Mage is the staff.</p>
         <p>Staff is the usual way to cast.</p>
         <div class="row"><button id="handsToggle" type="button">Hands mode: off</button></div>
         <p class="note">These are the walking character's arms. They hang while you move and come up to cast, fish, or stand near a beast. Camera tracking starts when this is on, if the camera is allowed. Cast still uses the Cast button.</p>
-        <div class="row"><button id="bladeToggle" type="button">Blade: off</button></div>
-        <p class="note">Blade is a separate sword. Swipe the small cues, step to another lane for a wall, and hold the big ones. Four in a row launches the nearest beast. The staff stays.</p>
-        <div class="row"><button id="gunnerToggle" type="button">Gunner: off</button></div>
-        <p class="note">Gunner is a blaster. Tap Fire. It leans a little toward the nearest beast you can see. Grenade throws one ball.</p>
+        <details id="advanced">
+          <summary>Advanced</summary>
+          <div class="row"><button id="bladeToggle" type="button">Blade: off</button></div>
+          <p class="note">These switches follow the class row. Turning one on turns the others off.</p>
+          <div class="row"><button id="gunnerToggle" type="button">Gunner: off</button></div>
+        </details>
       </div>
       <div data-pane="graphics" hidden>
         <div class="row"><button type="button" data-gfx="low">Low</button><button type="button" data-gfx="high" class="on">High</button></div>
