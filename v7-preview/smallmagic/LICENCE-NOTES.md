@@ -12,6 +12,8 @@ Code MIT (`LICENSE`). The world is drawn by code in `src/`: there are no models,
 | Five footsteps on grass | `public/sfx/step1.ogg` to `step5.ogg` | Kenney's Impact Sounds, CC0 1.0 (`public/LICENSES/CC0-1.0.txt`) |
 | Seven spell medallions | `public/ui/1.webp` to `7.webp` | Made for this game with an image model (Nano Banana 2.1), from Patch's direction and the game's cover; no other source |
 | Sound made in code | `src/sound.js` | Patch, MIT |
+| Hands, the walking character | `public/figure/AvatarSample_B.vrm` | VRoid AvatarSample_B. Share and change it. Not CC0. Do not sell the unmodified file. |
+| VRM loader | `@pixiv/three-vrm` | pixiv, MIT |
 | Recordings laid over it in the published game | not in the repo | Sonniss GDC Game Audio Bundles, their own licence; see `MISSING_ASSETS.md` |
 
 Nothing here has no stated source.
