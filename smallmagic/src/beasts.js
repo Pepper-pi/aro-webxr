@@ -91,7 +91,7 @@ export function createBeasts(scene, ground) {
         const dx = b.g.position.x - px;
         const dz = b.g.position.z - pz;
         const d = Math.hypot(dx, dz);
-        if (d > 16 || d < 0.05) continue;
+        if (b.busy || d > 16 || d < 0.05) continue;
         const nx = dx / d;
         const nz = dz / d;
         if (d < min) {
@@ -112,6 +112,47 @@ export function createBeasts(scene, ground) {
           b.tz = pz + nz * stay;
         }
       }
+    },
+    grab(x, z, reach = 8) {
+      let best = null;
+      let bestD = reach;
+      for (const b of all) {
+        if (b.dead || b.where !== 'meadow') continue;
+        const d = Math.hypot(b.g.position.x - x, b.g.position.z - z);
+        if (d < bestD) { best = b; bestD = d; }
+      }
+      if (!best) return null;
+      best.busy = true;
+      best.slide = null;
+      return {
+        get x() { return best.g.position.x; },
+        get z() { return best.g.position.z; },
+        put(nx, nz) {
+          best.g.position.x = nx;
+          best.g.position.z = nz;
+          best.tx = nx;
+          best.tz = nz;
+        },
+        flinch(n) { best.flinch = n; },
+        release() { best.busy = false; best.flinch = 0.2; },
+      };
+    },
+    shove(x, z, dx, dz, dist) {
+      let best = null;
+      let bestD = 4;
+      for (const b of all) {
+        if (b.dead || b.where !== 'meadow' || b.busy) continue;
+        const d = Math.hypot(b.g.position.x - x, b.g.position.z - z);
+        if (d < bestD) { best = b; bestD = d; }
+      }
+      if (!best) return false;
+      const len = Math.hypot(dx, dz) || 1;
+      best.flinch = 0.32;
+      best.slide = { sx: best.g.position.x, sz: best.g.position.z, x: best.g.position.x + (dx / len) * dist, z: best.g.position.z + (dz / len) * dist, t: 0, dur: 0.28 };
+      best.tx = best.slide.x;
+      best.tz = best.slide.z;
+      best.wait = Math.max(best.wait, 0.3);
+      return true;
     },
     near(x, z) {
       let best = 99;
@@ -190,7 +231,26 @@ export function createBeasts(scene, ground) {
           }
           continue;
         }
+        if (b.busy) {
+          b.g.position.y = ground(b.g.position.x, b.g.position.z);
+          if (b.flinch > 0) { b.flinch -= dt; b.g.rotation.z = Math.sin(b.flinch * 40) * 0.25; }
+          else b.g.rotation.z = 0;
+          continue;
+        }
+        if (b.slide) {
+          b.slide.t += dt;
+          const u = Math.min(1, b.slide.t / b.slide.dur);
+          const e = u * u * (3 - 2 * u);
+          b.g.position.x = b.slide.sx + (b.slide.x - b.slide.sx) * e;
+          b.g.position.z = b.slide.sz + (b.slide.z - b.slide.sz) * e;
+          b.g.rotation.z = (1 - u) * 0.35;
+          if (u >= 1) { b.slide = null; b.g.rotation.z = 0; }
+        }
         b.wait -= dt;
+        if (b.slide) {
+          b.g.position.y = ground(b.g.position.x, b.g.position.z);
+          continue;
+        }
         if (b.wait <= 0) {
           b.wait = 2 + Math.random() * 3;
           b.tx = b.homeX + (Math.random() - 0.5) * 3.2;
@@ -218,7 +278,8 @@ export function createBeasts(scene, ground) {
           b.flash -= dt;
           b.g.scale.y = 1.4 * 0.72;
           b.g.position.x += (Math.random() - 0.5) * 0.04;
-        } else b.g.scale.y = 1.4;
+        } else b.g.scale.y = 1.4 * (b.flinch > 0 ? 0.72 : 1);
+        if (b.flinch > 0) b.flinch -= dt;
         const blob = b.g.getObjectByName('blob');
         if (blob) blob.scale.y = 0.72 + Math.sin(performance.now() * 0.004 + b.homeX) * 0.08;
         b.bar.scale.x = 0.7 * Math.max(0.05, b.hp / b.max);

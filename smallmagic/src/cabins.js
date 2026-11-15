@@ -211,6 +211,26 @@ export function buildVillage(root, world, air) {
         rip(g, 3, (dx / len) * 6, 4.5, (dz / len) * 6);
       }
     },
+    /** A shock along the ground. Loose chunks are kicked outward. A standing cabin is not broken. */
+    pound(x, z, r) {
+      pushLoose(x, z, r, (p, dx, dz, dist) => {
+        const n = dist || 0.2;
+        p.v.x += (dx / n) * 7;
+        p.v.z += (dz / n) * 7;
+        p.v.y += 4.5;
+      });
+    },
+    takeBumps() {
+      const out = [];
+      for (const p of loose) {
+        if (p.v.lengthSq() < 8) continue;
+        const now = performance.now();
+        if (p.bumped && now - p.bumped < 450) continue;
+        p.bumped = now;
+        out.push({ x: p.m.position.x, z: p.m.position.z });
+      }
+      return out;
+    },
     tick(dt) {
       for (const p of loose) {
         const moving = p.v.lengthSq() > 0.04;

@@ -1,6 +1,7 @@
 // The ship, the meadow, and Long Lake. All of it is drawn in code. Nothing here is a picture or a recording.
 import * as THREE from 'three';
 import { createBeasts, PACKS } from './beasts.js';
+import { TUNE } from './rider.js';
 import { buildVillage } from './cabins.js';
 
 const mat = (color) => new THREE.MeshBasicMaterial({ color });
@@ -93,6 +94,7 @@ export function createZones({ scene, world, walker, camera, air }) {
   const hub = new THREE.Group();
   const village = buildVillage(world.root, world, air);
   world.blow = (x, z, dx, dz, r) => village.blow(x, z, dx, dz, r);
+  world.pound = (x, z, r) => village.pound(x, z, r);
   world.swirl = (x, z, r) => village.swirl(x, z, r);
   world.breakAt = (x, z, r, token) => village.breakAt(x, z, r, token);
   // Hook for a warrior ability that is not in the game yet. Tornado rips a few core tiles only
@@ -491,6 +493,8 @@ export function createZones({ scene, world, walker, camera, air }) {
     get nearBeast() { return beasts.near(walker.feet.x, walker.feet.z); },
     beasts() { return beasts.probe(); },
     holdBeasts(px, pz, min, max, dt) { beasts.hold(px, pz, min, max, dt); },
+    grabBeast(x, z) { return beasts.grab(x, z); },
+    shoveBeast(x, z, dx, dz, dist) { return beasts.shove(x, z, dx, dz, dist); },
     get blocksMagic() { return name !== 'meadow'; },
     showBoard, enter,
     hurt(marks) {
@@ -559,6 +563,14 @@ export function createZones({ scene, world, walker, camera, air }) {
         if (m.userData.life <= 0) { scene.remove(m); blasts.splice(i, 1); }
       }
       village.tick?.(dt);
+      const fell = world.stepFells?.(dt) || [];
+      const bumps = village.takeBumps?.() || [];
+      if (fell.length || bumps.length) {
+        const marks = [];
+        for (const h of fell) marks.push({ x: h.x, z: h.z, r: h.r, d: TUNE.debrisHit, k: 'arcane', exact: true });
+        for (const h of bumps) marks.push({ x: h.x, z: h.z, r: 1.15, d: TUNE.debrisHit, k: 'arcane', exact: true });
+        this.hurt(marks);
+      }
       beasts.update(dt, name);
       if (pin) {
         beam.visible = name === 'meadow';

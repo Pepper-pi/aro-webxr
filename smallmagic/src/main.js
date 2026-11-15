@@ -25,6 +25,7 @@ import { spellBar } from './hud.js';
 import { createZones } from './zones.js';
 import { createArms } from './arms.js';
 import { createBlade } from './blade.js';
+import { attachFells } from './fells.js';
 import { createGunner } from './gunner.js';
 
 const q = new URLSearchParams(location.search);
@@ -64,6 +65,7 @@ const scene = new THREE.Scene();
 lap('start');
 const air = createAir();
 const world = await createWorld({ air, renderer, scene, say, turn });
+attachFells(world, air);
 const camera = new THREE.PerspectiveCamera(world.fov, innerWidth / innerHeight, 0.12, world.far);
 fitting.push(() => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
 // ?marks: a burnt patch and a frozen one by the start, to see that the ground takes what magic will write to it
@@ -183,6 +185,10 @@ document.querySelectorAll('[data-hop]').forEach((b) => b.addEventListener('point
 }));
 document.getElementById('draw')?.addEventListener('pointerup', (e) => {
   blade.setDrawn(!blade.drawn);
+  e.preventDefault(); e.stopPropagation();
+});
+document.getElementById('pound')?.addEventListener('pointerup', (e) => {
+  blade.pound();
   e.preventDefault(); e.stopPropagation();
 });
 document.getElementById('gunFire')?.addEventListener('pointerup', (e) => { gun.fire(); e.preventDefault(); e.stopPropagation(); });

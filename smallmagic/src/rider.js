@@ -37,6 +37,21 @@ export const TUNE = {
   window: 0.34,
   anticipation: 1.1,
   dodgeDelay: 0.14,
+  hitStop: 0.08,
+  shake: 0.02,
+  clashIn: 0.62,
+  clashOut: 0.36,
+  clashGap: 1.15,
+  staggerGood: 0.34,
+  staggerPerfect: 0.55,
+  openTime: 3.2,
+  knock: 1.15,
+  chopReach: 3.4,
+  treeFall: 1.15,
+  debrisHit: 9,
+  poundReach: 7.2,
+  poundToss: 2.6,
+  poundHit: 6,
 };
 
 // Moon Rider beat.js. A swing within about 15° is a super cut. Past about 50° it misses.
