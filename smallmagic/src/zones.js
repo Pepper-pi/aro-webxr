@@ -523,6 +523,20 @@ export function createZones({ scene, world, walker, camera, air }) {
         if (mark) { mark.classList.add('on'); clearTimeout(mark._t); mark._t = setTimeout(() => mark.classList.remove('on'), 400); }
       });
     },
+    launchNearest() {
+      const here = walker.feet;
+      let best = null;
+      let bestD = 1e9;
+      for (const b of beasts.probe()) {
+        if (b.dead) continue;
+        const d = Math.hypot(b.x - here.x, b.z - here.z);
+        if (d < bestD) { best = b; bestD = d; }
+      }
+      if (!best) return false;
+      const dx = best.x - here.x, dz = best.z - here.z, len = Math.hypot(dx, dz) || 1;
+      this.hurt([{ x: best.x, z: best.z, r: 1.6, d: 12, k: 'arcane', kx: (dx / len) * 2.6, kz: (dz / len) * 2.6 }]);
+      return true;
+    },
     castHeld() {},
     update(dt) {
       for (const s of pool) {

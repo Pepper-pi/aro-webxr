@@ -85,6 +85,17 @@
       #hands .hand.r { transform: scaleX(-1); }
       #hands.on .hand { box-shadow: 0 0 28px 6px #ffb15a, inset 0 0 0 3px #ffe0a8; }
       #hands .note { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; color: #f6ead0; font: 13px Georgia, serif; letter-spacing: 0.06em; text-shadow: 0 1px 2px #000; }
+      #blade { position: fixed; left: 6vw; right: 22vw; bottom: 16vh; height: 42vh; z-index: 8; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; touch-action: none; }
+      #blade[hidden] { display: none; }
+      #blade .lane { position: relative; background: rgba(8, 6, 16, 0.42); border: 1px solid rgba(241, 217, 164, 0.4); border-radius: 14px; overflow: hidden; }
+      #blade .lane::after { content: ''; position: absolute; left: 6px; right: 6px; bottom: 10px; height: 3px; background: #f1d9a4; }
+      #blade .note { position: absolute; left: 6px; right: 6px; height: 48px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font: 700 13px Georgia, serif; letter-spacing: 0.04em; }
+      #blade .slice { background: #f1d9a4; color: #1a1008; }
+      #blade .wall { background: #e23b32; color: #fff6dc; height: 72px; }
+      #blade .big { background: #7eb6ff; color: #102033; }
+      #blade .hit { outline: 3px solid #fff; }
+      #blade .miss { opacity: 0.35; }
+      #bladeSay { position: absolute; left: 6vw; right: 22vw; bottom: calc(16vh + 42vh + 6px); z-index: 8; text-align: center; color: #fff6dc; font: 18px Georgia, serif; text-shadow: 0 1px 2px #000; pointer-events: none; }
       #aim { position: fixed; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px; border-radius: 50%; background: rgba(255, 255, 255, 0.8); box-shadow: 0 0 4px rgba(0, 20, 60, 0.6); pointer-events: none; z-index: 6; }
       #xmark { position: fixed; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px; pointer-events: none; z-index: 6; opacity: 0; color: #fff6dc; font: 900 46px/48px Georgia, serif; text-align: center; -webkit-text-stroke: 4px #1a1008; text-shadow: 0 0 10px #ffb043; }
       #xmark.on { opacity: 1; }
@@ -169,6 +180,12 @@
     <div id="aim"></div>
     <div id="xmark">X</div>
     <div id="hands" hidden></div>
+    <p id="bladeSay" hidden></p>
+    <div id="blade" hidden>
+      <div class="lane" data-lane="0"></div>
+      <div class="lane" data-lane="1"></div>
+      <div class="lane" data-lane="2"></div>
+    </div>
     <div id="spells"></div>
     <div id="hint">WASD move &middot; Shift sprint &middot; Space jump &middot; Left button casts, hold for more<br>1 to 7 or the wheel changes spell &middot; P pauses &middot; H hides this</div>
     <div id="board" hidden><button id="boardX" type="button">×</button><p>Where to</p><button type="button" data-go="meadow">Meadow</button><button type="button" data-go="lake">Long Lake</button></div>
@@ -188,6 +205,8 @@
         <p>Staff is the usual way to cast.</p>
         <div class="row"><button id="handsToggle" type="button">Hands mode: off</button></div>
         <p class="note">These are the walking character's arms. They hang while you move and come up to cast, fish, or stand near a beast. Camera tracking starts when this is on, if the camera is allowed. Cast still uses the Cast button.</p>
+        <div class="row"><button id="bladeToggle" type="button">Blade: off</button></div>
+        <p class="note">Blade is a separate sword. Swipe the small cues, step to another lane for a wall, and hold the big ones. Four in a row launches the nearest beast. The staff stays.</p>
       </div>
       <div data-pane="graphics" hidden>
         <div class="row"><button type="button" data-gfx="low">Low</button><button type="button" data-gfx="high" class="on">High</button></div>

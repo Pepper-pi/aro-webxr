@@ -151,7 +151,7 @@ export class Input {
     spell.addEventListener('pointerdown', (e) => { this.touchAt = performance.now(); e.preventDefault(); e.stopPropagation(); });
     spell.addEventListener('pointerup', (e) => { this.spellPulse = 1; e.preventDefault(); });
     let lid = null, lx = 0, ly = 0;
-    const lookBlocked = (e) => e.target.closest && e.target.closest('#cast, #spell, #stick, #fish, #reel, #board, #menu, #atlas, #back, #menubtn, #gear, #settings, #catch, #dusk');
+    const lookBlocked = (e) => e.target.closest && e.target.closest('#cast, #spell, #stick, #fish, #reel, #board, #menu, #atlas, #back, #menubtn, #gear, #settings, #catch, #dusk, #blade');
     addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse' || e.clientX < innerWidth * 0.42 || lookBlocked(e)) return;
       lid = e.pointerId; lx = e.clientX; ly = e.clientY;

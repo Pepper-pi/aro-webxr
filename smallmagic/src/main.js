@@ -24,6 +24,7 @@ import { createSound } from './sound.js';
 import { spellBar } from './hud.js';
 import { createZones } from './zones.js';
 import { createArms } from './arms.js';
+import { createBlade } from './blade.js';
 
 const q = new URLSearchParams(location.search);
 const capture = q.has('capture'), testing = q.has('patch-test');
@@ -116,7 +117,7 @@ if (sound && spells) spells.hear = (what, o) => sound.cue(what, o);
 
 // The one clock. Everything that moves is a function of it; `pace` is how fast it runs (1 as a rule).
 const clock = { pace: 1 };
-const settings = { hands: false, gfx: 'high' };
+const settings = { hands: false, blade: false, gfx: 'high' };
 const handsEl = document.getElementById('hands');
 const gear = document.getElementById('gear');
 const settingsEl = document.getElementById('settings');
@@ -148,8 +149,15 @@ settingsEl?.querySelectorAll('[data-gfx]').forEach((b) => b.addEventListener('po
   fitView();
   e.preventDefault(); e.stopPropagation();
 }));
+document.getElementById('bladeToggle')?.addEventListener('pointerup', (e) => {
+  settings.blade = !settings.blade;
+  e.currentTarget.textContent = settings.blade ? 'Blade: on' : 'Blade: off';
+  e.currentTarget.classList.toggle('on', settings.blade);
+  e.preventDefault(); e.stopPropagation();
+});
 document.getElementById('vol')?.addEventListener('input', (e) => { if (sound) sound.volume = Number(e.target.value) / 100; });
 const arms = createArms(scene);
+const blade = createBlade(() => zones.launchNearest());
 camera.layers.enable(9);
 let padCast = false, forceDraw = false;
 let free = null;
@@ -197,6 +205,7 @@ function tick(dt) {
   post.hole(camera, hole.centre, hole.radius, hole.power, hole.blur, hole.reach * 1.05);
   post.heat = Math.min(1, fire.glare * 0.85 + (spells?.glare ?? 0) * 0.6);
   if (handsEl) handsEl.classList.toggle('on', !!(settings.hands && (inp.cast || spells?.cast?.holding || spells?.cast?.pour)));
+  blade.update(dt, settings.blade && zones.name !== 'hub');
   arms.rig.visible = !!(settings.hands && zones.name !== 'hub' && arms.loaded);
   if (arms.rig.visible) {
     const ready = !!(inp.cast || spells?.cast?.holding || spells?.cast?.pour || zones.rodOut || zones.nearBeast < 7);
@@ -209,7 +218,7 @@ function tick(dt) {
 // (the measuring tools were written for a figure seen from behind: these are the same handles on one seen from within)
 const head = new THREE.Vector3();
 const lab = window.lab = {
-  THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, arms, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
+  THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, arms, blade, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
   player: walker,
   follow: { get yaw() { return walker.yaw; }, set yaw(v) { walker.yaw = v; }, get pitch() { return walker.pitch; }, set pitch(v) { walker.pitch = v; }, want: 0, distance: 0, pivot: new THREE.Vector3() },
   doll: { man: { bones: { Head: { getWorldPosition: (v) => v.copy(walker.feet).setY(walker.feet.y + 1.66) } } } },
