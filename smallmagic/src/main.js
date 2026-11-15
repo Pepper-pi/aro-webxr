@@ -185,6 +185,19 @@ document.getElementById('gunFire')?.addEventListener('pointerup', (e) => { gun.f
 document.getElementById('gunNade')?.addEventListener('pointerup', (e) => { gun.toss(); e.preventDefault(); e.stopPropagation(); });
 document.getElementById('vol')?.addEventListener('input', (e) => { if (sound) sound.volume = Number(e.target.value) / 100; });
 const arms = createArms(scene);
+const sword = new THREE.Group();
+const steel = new THREE.MeshBasicMaterial({ color: '#e7eef6' });
+const grip = new THREE.MeshBasicMaterial({ color: '#6b3a22' });
+const edge = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.78, 0.012), steel);
+edge.position.y = 0.46;
+const guard = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.035, 0.03), grip);
+const handle = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.18, 0.03), grip);
+handle.position.y = -0.12;
+sword.add(edge, guard, handle);
+sword.scale.setScalar(1.35);
+sword.visible = false;
+sword.traverse((o) => { o.frustumCulled = false; });
+scene.add(sword);
 const blade = createBlade((damage) => zones.launchNearest(damage), { scene, camera, world, zones });
 const gun = createGunner(scene, camera, world, zones);
 camera.layers.enable(9);
@@ -243,7 +256,17 @@ function tick(dt) {
     const ready = !!(klass === 'blade' || klass === 'gunner' || inp.cast || spells?.cast?.holding || spells?.cast?.pour || zones.rodOut || zones.nearBeast < 7);
     arms.update(dt, camera, { ready, speed: walker.speed, stride: walker.stride });
   }
-  if (!q.has('fast') || forceDraw) post.render(scene, camera, free || zones.name === 'hub' || settings.hands || zones.rodOut ? null : staff, SUN);
+  sword.visible = klass === 'blade' && blade.drawn;
+  if (sword.visible) {
+    sword.position.copy(camera.position);
+    sword.quaternion.copy(camera.quaternion);
+    sword.translateX(0.18);
+    sword.translateY(-0.16);
+    sword.translateZ(-0.5);
+    sword.rotateZ(-0.45);
+  }
+  const hideStaff = !!(free || zones.name === 'hub' || settings.hands || zones.rodOut || klass === 'blade' || klass === 'gunner');
+  if (!q.has('fast') || forceDraw) post.render(scene, camera, hideStaff ? null : staff, SUN);
   forceDraw = false;
 }
 
