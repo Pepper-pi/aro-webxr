@@ -130,6 +130,27 @@ settingsEl?.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('po
   settingsEl.querySelectorAll('[data-pane]').forEach((p) => { p.hidden = p.getAttribute('data-pane') !== tab; });
   e.preventDefault(); e.stopPropagation();
 }));
+function showClass() {
+  document.querySelectorAll('[data-class]').forEach((b) => {
+    const name = b.getAttribute('data-class');
+    const on = name === 'mage' ? !settings.blade && !settings.gunner : name === 'blade' ? settings.blade : settings.gunner;
+    b.classList.toggle('on', on);
+  });
+  const bladeBtn = document.getElementById('bladeToggle');
+  const gunBtn = document.getElementById('gunnerToggle');
+  if (bladeBtn) { bladeBtn.textContent = settings.blade ? 'Blade: on' : 'Blade: off'; bladeBtn.classList.toggle('on', settings.blade); }
+  if (gunBtn) { gunBtn.textContent = settings.gunner ? 'Gunner: on' : 'Gunner: off'; gunBtn.classList.toggle('on', settings.gunner); }
+}
+function pickClass(name) {
+  settings.blade = name === 'blade';
+  settings.gunner = name === 'gunner';
+  if (settings.blade || settings.gunner) arms.load();
+  showClass();
+}
+document.querySelectorAll('[data-class]').forEach((b) => b.addEventListener('pointerup', (e) => {
+  pickClass(b.getAttribute('data-class'));
+  e.preventDefault(); e.stopPropagation();
+}));
 document.getElementById('handsToggle')?.addEventListener('pointerup', (e) => {
   settings.hands = !settings.hands;
   e.currentTarget.textContent = settings.hands ? 'Hands mode: on' : 'Hands mode: off';
@@ -155,6 +176,7 @@ document.getElementById('bladeToggle')?.addEventListener('pointerup', (e) => {
   e.currentTarget.textContent = settings.blade ? 'Blade: on' : 'Blade: off';
   e.currentTarget.classList.toggle('on', settings.blade);
   if (settings.blade) arms.load();
+  showClass();
   e.preventDefault(); e.stopPropagation();
 });
 document.getElementById('gunnerToggle')?.addEventListener('pointerup', (e) => {
@@ -162,6 +184,7 @@ document.getElementById('gunnerToggle')?.addEventListener('pointerup', (e) => {
   e.currentTarget.textContent = settings.gunner ? 'Gunner: on' : 'Gunner: off';
   e.currentTarget.classList.toggle('on', settings.gunner);
   if (settings.gunner) arms.load();
+  showClass();
   e.preventDefault(); e.stopPropagation();
 });
 document.getElementById('gunFire')?.addEventListener('pointerup', (e) => { gun.fire(); e.preventDefault(); e.stopPropagation(); });
