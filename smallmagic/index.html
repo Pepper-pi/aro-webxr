@@ -96,6 +96,9 @@
       #blade .hit { outline: 3px solid #fff; }
       #blade .miss { opacity: 0.35; }
       #bladeSay { position: absolute; left: 6vw; right: 22vw; bottom: calc(16vh + 42vh + 6px); z-index: 8; text-align: center; color: #fff6dc; font: 18px Georgia, serif; text-shadow: 0 1px 2px #000; pointer-events: none; }
+      #gun { position: fixed; right: max(12px, env(safe-area-inset-right)); bottom: calc(max(22px, env(safe-area-inset-bottom)) + 120px); z-index: 8; display: flex; flex-direction: column; gap: 8px; }
+      #gun[hidden] { display: none; }
+      #gun button { width: 92px; height: 56px; border-radius: 14px; border: 2px solid #9ee7ff; background: rgba(12, 28, 36, 0.88); color: #e8fbff; font: 15px Georgia, serif; }
       #aim { position: fixed; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px; border-radius: 50%; background: rgba(255, 255, 255, 0.8); box-shadow: 0 0 4px rgba(0, 20, 60, 0.6); pointer-events: none; z-index: 6; }
       #xmark { position: fixed; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px; pointer-events: none; z-index: 6; opacity: 0; color: #fff6dc; font: 900 46px/48px Georgia, serif; text-align: center; -webkit-text-stroke: 4px #1a1008; text-shadow: 0 0 10px #ffb043; }
       #xmark.on { opacity: 1; }
@@ -181,6 +184,7 @@
     <div id="xmark">X</div>
     <div id="hands" hidden></div>
     <p id="bladeSay" hidden></p>
+    <div id="gun" hidden><button id="gunFire" type="button">Fire</button><button id="gunNade" type="button">Grenade</button></div>
     <div id="blade" hidden>
       <div class="lane" data-lane="0"></div>
       <div class="lane" data-lane="1"></div>
@@ -207,6 +211,8 @@
         <p class="note">These are the walking character's arms. They hang while you move and come up to cast, fish, or stand near a beast. Camera tracking starts when this is on, if the camera is allowed. Cast still uses the Cast button.</p>
         <div class="row"><button id="bladeToggle" type="button">Blade: off</button></div>
         <p class="note">Blade is a separate sword. Swipe the small cues, step to another lane for a wall, and hold the big ones. Four in a row launches the nearest beast. The staff stays.</p>
+        <div class="row"><button id="gunnerToggle" type="button">Gunner: off</button></div>
+        <p class="note">Gunner is a blaster. Tap Fire. It leans a little toward the nearest beast you can see. Grenade throws one ball.</p>
       </div>
       <div data-pane="graphics" hidden>
         <div class="row"><button type="button" data-gfx="low">Low</button><button type="button" data-gfx="high" class="on">High</button></div>

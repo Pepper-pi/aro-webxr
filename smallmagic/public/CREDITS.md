@@ -21,6 +21,7 @@ Code MIT. The world and everything in it is made in code by Patch.
 - Hands mode uses AvatarSample_B by VRoid (`public/figure/AvatarSample_B.vrm`), the same walking character as the overworld. Redistribution and changes are allowed. It is not CC0, and the unmodified file is not for sale. https://hub.vroid.com/en/characters/7939147878897061040/models/2292219474373673889
 - The loader is `@pixiv/three-vrm` (MIT).
 - Blade borrows the lane, the cut, and the wall from Moon Rider by Supermedium (MIT, https://github.com/supermedium/moonrider). The pattern in this page is original. No BeatSaver song or map is included.
+- The grenade is thrown the way the ball is thrown in three.js `examples/games_fps.html` (MIT): speed along the look, gravity, and a bounce off the ground.
 - Hands mode can ask the camera for a prototype tracker. That code is `@mediapipe/tasks-vision` (Apache-2.0), loaded from the network only after the toggle is turned on. It is not stored in this repo. If the camera is refused, the drawn arms stay.
 - Softer meadow steps, `sfx/grass1.ogg` to `grass4.ogg`: Kenney RPG Audio (kenney.nl), CC0 1.0.
 - Water steps, `sfx/wade1.ogg` to `wade3.ogg`: rubberduck, "40 CC0 water / splash / slime SFX" (OpenGameArt), CC0 1.0. Shortened.
