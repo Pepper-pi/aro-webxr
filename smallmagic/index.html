@@ -129,7 +129,13 @@
       #pound.up { background: #c4a574; color: #2a1c08; }
       #spin { position: fixed; left: 108px; bottom: calc(max(18px, env(safe-area-inset-bottom)) + 168px); z-index: 10; width: 72px; height: 72px; border-radius: 50%; border: 3px solid #c4a574; background: rgba(28, 22, 14, 0.92); color: #fff6dc; font: 700 14px Georgia, serif; }
       #spin[hidden] { display: none; }
-      body.blade-drawn #stick { visibility: hidden; }
+      body.blade-pad #stick { visibility: hidden; }
+      #dodgePad { pointer-events: auto; position: fixed; left: max(16px, env(safe-area-inset-left)); bottom: max(22px, env(safe-area-inset-bottom)); width: 118px; height: 118px; border-radius: 50%; background: rgba(62, 224, 255, 0.16); border: 2px solid rgba(62, 224, 255, 0.7); z-index: 11; touch-action: none; }
+      #dodgePad[hidden] { display: none; }
+      #dodgePad .nub { position: absolute; left: 43px; top: 43px; width: 32px; height: 32px; border-radius: 50%; background: #e7fbff; box-shadow: 0 0 12px #3ee0ff; }
+      #runTab { position: absolute; left: 50%; top: -28px; transform: translateX(-50%); height: 26px; padding: 0 10px; border-radius: 999px; border: 2px solid #f1d9a4; background: rgba(20, 12, 28, 0.92); color: #fff6dc; font: 700 12px Georgia, serif; }
+      #repad { position: fixed; left: max(16px, env(safe-area-inset-left)); bottom: calc(max(22px, env(safe-area-inset-bottom)) + 126px); z-index: 11; height: 36px; padding: 0 14px; border-radius: 999px; border: 2px solid #3ee0ff; background: rgba(8, 24, 32, 0.92); color: #e7fbff; font: 700 14px Georgia, serif; }
+      #repad[hidden] { display: none; }
       @media (orientation: landscape) {
         #blade { top: 18vh; bottom: auto; height: 58vh; left: 6vw; right: 16vw; }
         #blade .note { height: 64px; font-size: 18px; }
@@ -227,6 +233,11 @@
     <p id="bladeSay" hidden></p>
     <div id="stagger" hidden><span></span></div>
     <div id="dodge" hidden>dodge</div>
+    <div id="dodgePad" hidden>
+      <button id="runTab" type="button">Run</button>
+      <div class="nub"></div>
+    </div>
+    <button id="repad" type="button" hidden>Dodge</button>
     <button id="pound" type="button" hidden>Pound</button>
     <button id="spin" type="button" hidden>Spin</button>
     <div id="hops" hidden>

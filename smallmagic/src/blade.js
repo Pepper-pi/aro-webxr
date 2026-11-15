@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { shadowed } from './air.js';
+import { holoMaterial, railMaterial, tickHolo } from './holo.js';
 import { ANGLE_DOT_MIN, ANGLE_DOT_SUPER, LANE, SWORD_OFFSET, TUNE, angleDot, bladePoints, flightU, wallBlocks } from './rider.js';
 
 // A phone sword rhythm. Approach, cut angle, and wall hits are adapted from Moon Rider
@@ -26,6 +27,7 @@ const MAX_BOUNCE = 5;
 
 export function createBlade(onLaunch, bits = {}) {
   let drawn = false;
+  let padOn = true;
   let wasEngaged = false;
   let song = 0;
   let combo = 0;
@@ -106,7 +108,7 @@ export function createBlade(onLaunch, bits = {}) {
       m.position.set(eye.x + frame.fx * mid + frame.rx * side, world.ground(eye.x, eye.z) + 0.28, eye.z + frame.fz * mid + frame.rz * side);
       m.rotation.y = Math.atan2(frame.fx, frame.fz);
       m.material.color.set(hot ? '#fff2b0' : '#7ec8ff');
-      m.material.opacity = hot ? 0.7 : 0.34;
+      m.material.opacity = hot ? 0.32 : 0.14;
       m.position.y = world.ground(eye.x, eye.z) + 0.28;
     });
   }
@@ -130,32 +132,97 @@ export function createBlade(onLaunch, bits = {}) {
     return [head];
   }
 
+  const holos = [];
+  const shards = [];
+  const holoHex = (kind) => (kind === 'wall' ? '#ff4a42' : kind === 'big' ? '#ffd36a' : '#3ee0ff');
+
+  function track(mat) {
+    if (mat?.uniforms?.uTime) holos.push(mat);
+    return mat;
+  }
+
+  function chevron() {
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0.16);
+    shape.lineTo(0.13, -0.08);
+    shape.lineTo(0.045, -0.08);
+    shape.lineTo(0, 0.01);
+    shape.lineTo(-0.045, -0.08);
+    shape.lineTo(-0.13, -0.08);
+    shape.closePath();
+    return new THREE.ShapeGeometry(shape);
+  }
+  const chevronGeo = chevron();
+
   function makeAttack(kind, dir, part) {
     const g = new THREE.Group();
-    const color = kind === 'wall' ? '#e23b32' : kind === 'big' ? '#f1c453' : kind === 'orb' ? '#e8f6ff' : '#3ee0ff';
+    const color = kind === 'wall' ? '#ff4a42' : kind === 'big' ? '#ffd36a' : kind === 'orb' ? '#e8f6ff' : '#3ee0ff';
     let body;
     if (kind === 'orb') {
       body = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 12), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.28, depthWrite: false }));
       g.add(body, ...partIcon(part || 'head'));
-    } else if (kind === 'wall' && part === 'ceiling') {
-      body = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.16, 0.16), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 }));
-      g.add(body);
     } else {
-      body = new THREE.Mesh(kind === 'wall' ? new THREE.BoxGeometry(0.42, 0.9, 0.16) : new THREE.BoxGeometry(0.34, 0.34, 0.16), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 }));
+      const mat = track(holoMaterial(color));
+      const geo = kind === 'wall'
+        ? (part === 'ceiling' ? new THREE.BoxGeometry(0.5, 0.16, 0.18) : new THREE.BoxGeometry(0.42, 0.9, 0.16))
+        : new THREE.BoxGeometry(0.36, 0.36, 0.16);
+      body = new THREE.Mesh(geo, mat);
       g.add(body);
+      if (kind === 'slice') {
+        const arrow = new THREE.Mesh(chevronGeo, track(holoMaterial('#e8fbff')));
+        const spin = { right: -Math.PI / 2, left: Math.PI / 2, up: 0, down: Math.PI }[dir] ?? 0;
+        arrow.rotation.z = spin;
+        arrow.position.z = 0.1;
+        g.add(arrow);
+      }
     }
     const glow = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false }));
     glow.position.z = 0.05;
     g.add(glow);
-    if (kind === 'slice') {
-      const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.3, 4), new THREE.MeshBasicMaterial({ color: '#102028' }));
-      const spin = { right: -Math.PI / 2, left: Math.PI / 2, up: 0, down: Math.PI }[dir] ?? 0;
-      arrow.rotation.z = spin;
-      arrow.position.z = -0.18;
-      g.add(arrow);
-    }
     g.traverse((o) => { o.frustumCulled = false; });
     return { group: g, body, glow };
+  }
+
+  function makeRail(kind) {
+    const mat = track(railMaterial(holoHex(kind)));
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.02, 1), mat);
+    mesh.frustumCulled = false;
+    scene?.add(mesh);
+    return mesh;
+  }
+
+  function layRail(note) {
+    if (!note.rail) return;
+    const a = note.from;
+    const b = note.to;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const dz = b.z - a.z;
+    const len = Math.hypot(dx, dy, dz) || 1;
+    note.rail.position.set((a.x + b.x) / 2, (a.y + b.y) / 2 - 0.12, (a.z + b.z) / 2);
+    note.rail.lookAt(b.x, note.rail.position.y, b.z);
+    note.rail.scale.z = len;
+    if (note.rail.material.uniforms?.uRepeat) note.rail.material.uniforms.uRepeat.value = Math.max(4, len / 0.35);
+  }
+
+  function shatter(note) {
+    if (!scene || note.kind === 'orb' || note.orbit) return;
+    const color = holoHex(note.kind);
+    const origin = note.group.position.clone();
+    note.group.visible = false;
+    for (let i = 0; i < 8; i++) {
+      const mat = track(holoMaterial(color));
+      const s = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.06, 0.03), mat);
+      s.position.copy(origin);
+      s.frustumCulled = false;
+      scene.add(s);
+      const a = (i / 8) * Math.PI * 2;
+      shards.push({
+        m: s,
+        v: new THREE.Vector3(Math.cos(a) * 1.4, (i % 2 ? 0.8 : -0.2), Math.sin(a) * 1.4),
+        life: 0.42,
+      });
+    }
   }
 
   function spawn(spec) {
@@ -171,6 +238,7 @@ export function createBlade(onLaunch, bits = {}) {
     made.group.position.copy(from);
     made.group.lookAt(to.x, from.y, to.z);
     scene.add(made.group);
+    const rail = spec.kind === 'orb' ? null : makeRail(spec.kind);
     const flight = Math.max(0.4, from.distanceTo(to) / Math.max(0.5, TUNE.travelSpeed));
     let due = spec.due;
     let release = due - flight;
@@ -178,7 +246,9 @@ export function createBlade(onLaunch, bits = {}) {
       release = song + TUNE.windup;
       due = release + flight;
     }
-    notes.push({ ...spec, due, ceiling, group: made.group, body: made.body, glow: made.glow, from, to, flight, release, resolved: false, bx: frame.beast.x, bz: frame.beast.z });
+    const note = { ...spec, due, ceiling, group: made.group, body: made.body, glow: made.glow, rail, from, to, flight, release, resolved: false, bx: frame.beast.x, bz: frame.beast.z };
+    if (rail) layRail(note);
+    notes.push(note);
   }
 
   function flash() {
@@ -290,6 +360,7 @@ export function createBlade(onLaunch, bits = {}) {
     const word = grade === 'perfect' ? 'Perfect' : grade === 'good' ? 'Good' : grade === 'open' ? (note.part || 'Open') : 'Chip';
     if (screen) floatScore(score, screen.x, screen.y, word);
     say(`${word} ${score}`);
+    shatter(note);
     if (note.orbit) slamPiece(note, score);
     else {
       if (zones) zones.hurt([{ x: note.bx, z: note.bz, r: 1.6, d: dmg, k: 'arcane' }]);
@@ -822,7 +893,7 @@ export function createBlade(onLaunch, bits = {}) {
   }
 
   function onDown(e) {
-    if (e.target.closest && e.target.closest('#draw, #hops, #block, #pound, #spin, #settings, #gear, #menu, #rush, #cast, #spell, #stick, #fish, #reel')) return;
+    if (e.target.closest && e.target.closest('#draw, #hops, #block, #pound, #spin, #dodgePad, #repad, #settings, #gear, #menu, #rush, #cast, #spell, #stick, #fish, #reel')) return;
     const two = hold.size >= 1;
     hold.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now(), held: false, dx: 0, dy: 0, two });
   }
@@ -843,12 +914,6 @@ export function createBlade(onLaunch, bits = {}) {
     const swipe = dirOf(h.dx || 0, h.dy || 0);
     if (swipe) trail(h.x, h.y, h.x + (h.dx || 0), h.y + (h.dy || 0));
     if (tryLock(h)) return;
-    const zone = h.y > innerHeight * 0.78 || h.x < 36 || h.x > innerWidth - 36 || h.two;
-    const push = Math.min(1, Math.max(0, (Math.hypot(h.dx || 0, h.dy || 0) - 36) / 160) * 0.65 + Math.min(1, Math.max(0, (performance.now() - h.t) / 1000 - TUNE.dodgeDelay) / 0.4) * 0.35);
-    if (zone && (swipe === 'left' || swipe === 'right' || swipe === 'down') && Math.hypot(h.dx || 0, h.dy || 0) > 28) {
-      beginDodge(swipe, push);
-      return;
-    }
     if (h.held && swipe) airSlice(h.dx || 0, h.dy || 0);
     for (const note of notes) {
       if (!live(note) || note.kind === 'wall') continue;
@@ -857,6 +922,71 @@ export function createBlade(onLaunch, bits = {}) {
     }
   }
 
+  let padWired = false;
+  function wirePad() {
+    const pad = document.getElementById('dodgePad');
+    if (!pad || padWired) return;
+    padWired = true;
+    const nub = pad.querySelector('.nub');
+    let pid = null;
+    let x0 = 0;
+    let y0 = 0;
+    let x = 0;
+    let y = 0;
+    let t0 = 0;
+    pad.addEventListener('pointerdown', (e) => {
+      if (e.target.id === 'runTab') return;
+      pid = e.pointerId;
+      x0 = x = e.clientX;
+      y0 = y = e.clientY;
+      t0 = performance.now();
+      try { pad.setPointerCapture?.(e.pointerId); } catch { /* a synthetic press has no live pointer */ }
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    pad.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== pid) return;
+      x = e.clientX;
+      y = e.clientY;
+      const dx = x - x0;
+      const dy = y - y0;
+      const len = Math.hypot(dx, dy) || 1;
+      const k = Math.min(26, len) / len;
+      if (nub) nub.style.transform = `translate(${dx * k}px, ${dy * k}px)`;
+      e.preventDefault();
+    });
+    const up = (e) => {
+      if (e.pointerId !== pid) return;
+      pid = null;
+      if (nub) nub.style.transform = '';
+      const dx = x - x0;
+      const dy = y - y0;
+      const len = Math.hypot(dx, dy);
+      const held = (performance.now() - t0) / 1000;
+      if (len < 14) return;
+      const push = Math.min(1, (len / 72) * 0.62 + Math.min(1, held / 0.45) * 0.38);
+      const upFlick = dy < -16 && Math.abs(dy) > Math.abs(dx) * 1.15 && held < 0.28;
+      if (upFlick) { disengage(); return; }
+      const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'back');
+      beginDodge(dir, push);
+    };
+    pad.addEventListener('pointerup', up);
+    pad.addEventListener('pointercancel', up);
+    document.getElementById('runTab')?.addEventListener('pointerup', (e) => {
+      disengage();
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    document.getElementById('repad')?.addEventListener('pointerup', (e) => {
+      engagePad();
+      e.preventDefault();
+      e.stopPropagation();
+    });
+  }
+
+  function disengage() { padOn = false; say('Run'); }
+  function engagePad() { if (drawn) { padOn = true; say('Dodge'); } }
+
   function beginDodge(dir, push) {
     if (!walker) return;
     const delay = TUNE.dodgeDelay;
@@ -864,6 +994,15 @@ export function createBlade(onLaunch, bits = {}) {
     if (dir === 'down') {
       slide = { kind: 'crouch', t: -delay, dur, hold: 0.75 };
       say('Crouch');
+      return;
+    }
+    if (dir === 'back') {
+      const frame = laneFrame();
+      const fx = frame ? frame.fx : Math.sin(walker.yaw);
+      const fz = frame ? frame.fz : Math.cos(walker.yaw);
+      const dist = 0.8 + 0.9 * push;
+      slide = { kind: 'side', t: -delay, dur, sx: walker.feet.x, sz: walker.feet.z, x: walker.feet.x - fx * dist, z: walker.feet.z - fz * dist };
+      say('Back');
       return;
     }
     const frame = laneFrame();
@@ -1138,7 +1277,7 @@ export function createBlade(onLaunch, bits = {}) {
   }
 
   function clearNotes() {
-    for (const note of notes) scene?.remove(note.group);
+    for (const note of notes) { scene?.remove(note.group); if (note.rail) scene.remove(note.rail); }
     notes.length = 0;
     glows.forEach((m) => { m.visible = false; });
     if (rush) { rush.board.remove(); rush = null; }
@@ -1158,13 +1297,19 @@ export function createBlade(onLaunch, bits = {}) {
       drawBtn.textContent = drawn ? 'Sheathe' : 'Draw';
     }
     const hops = document.getElementById('hops');
-    if (hops) hops.hidden = !(classOn && drawn);
+    if (hops) hops.hidden = true;
     document.body.classList.toggle('blade-drawn', !!(classOn && drawn));
+    document.body.classList.toggle('blade-pad', !!(classOn && drawn && padOn));
     const engaged = !!(classOn && drawn && inRange);
     if (board) board.hidden = true;
     if (label) label.hidden = !engaged;
     const dodge = document.getElementById('dodge');
-    if (dodge) dodge.hidden = !(classOn && drawn);
+    if (dodge) dodge.hidden = true;
+    const dodgePad = document.getElementById('dodgePad');
+    if (dodgePad) dodgePad.hidden = !(classOn && drawn && padOn);
+    const repad = document.getElementById('repad');
+    if (repad) repad.hidden = !(classOn && drawn && !padOn);
+    wirePad();
     const poundBtn = document.getElementById('pound');
     if (poundBtn) poundBtn.hidden = !(classOn && drawn);
     const spinBtn = document.getElementById('spin');
@@ -1174,6 +1319,14 @@ export function createBlade(onLaunch, bits = {}) {
     paintMeter();
     poundTick(dt);
     orbitTick(dt);
+    tickHolo(holos, song);
+    for (let i = shards.length - 1; i >= 0; i--) {
+      const bit = shards[i];
+      bit.life -= dt;
+      bit.m.position.addScaledVector(bit.v, dt);
+      bit.m.scale.setScalar(Math.max(0.05, bit.life / 0.42));
+      if (bit.life <= 0) { scene?.remove(bit.m); shards.splice(i, 1); }
+    }
     if (classOn && drawn && zones && walker && !clash) zones.holdBeasts(walker.feet.x, walker.feet.z, TUNE.holdMin, TUNE.holdMax, dt);
     if (!clash) easeDodge(dt);
     layGlows(engaged ? laneFrame() : null);
@@ -1237,6 +1390,7 @@ export function createBlade(onLaunch, bits = {}) {
         note.group.children.forEach((child) => { child.visible = child !== note.glow; });
         note.group.position.lerpVectors(note.from, note.to, flightU(song, note.due, note.flight));
       }
+      layRail(note);
       if (note.kind === 'wall' && !note.resolved && song >= note.due) {
         note.resolved = true;
         const feet = walker ? walker.feet : camera.position;
@@ -1251,6 +1405,7 @@ export function createBlade(onLaunch, bits = {}) {
       } else if (!note.resolved && song > note.due + TUNE.window) fail(note);
       if (note.resolved && song > note.due + 0.35) {
         if (!note.orbit) scene?.remove(note.group);
+        if (note.rail) scene?.remove(note.rail);
         notes.splice(i, 1);
       }
     }
@@ -1261,7 +1416,10 @@ export function createBlade(onLaunch, bits = {}) {
     get combo() { return combo; },
     get song() { return song; },
     setBlock,
-    setDrawn(on) { drawn = !!on; if (!drawn) { song = 0; cursor = 0; clearNotes(); poundCancel(); dropOrbit(); } },
+    setDrawn(on) { drawn = !!on; padOn = true; if (!drawn) { song = 0; cursor = 0; clearNotes(); poundCancel(); dropOrbit(); } },
+    disengage() { padOn = false; say('Run'); },
+    engagePad() { if (drawn) { padOn = true; say('Dodge'); } },
+    get pad() { return !!(drawn && padOn); },
     spin,
     get drawn() { return drawn; },
     get score() { return scoreTotal; },

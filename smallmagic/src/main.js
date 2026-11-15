@@ -261,7 +261,7 @@ function tick(dt) {
   if (Math.abs(camera.fov - (world.fov + hole.fov)) > 0.01) { camera.fov = world.fov + hole.fov; camera.updateProjectionMatrix(); }
   air.uniforms.uNow.value += dt * pace;
   const inp = input.read(dt);
-  const planted = zones.name !== 'hub' && settings.class === 'blade' && blade.drawn;
+  const planted = zones.name !== 'hub' && settings.class === 'blade' && blade.pad;
   if (zones.blocksMagic) {
     zones.castHeld(!!inp.cast, !padCast && !!inp.cast, padCast && !inp.cast);
     padCast = !!inp.cast;
