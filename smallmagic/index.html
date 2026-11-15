@@ -103,9 +103,13 @@
       #rush button { position: absolute; width: 74px; height: 74px; margin: -37px; border-radius: 50%; border: 3px solid #fff6dc; background: rgba(20, 16, 32, 0.2); color: #fff6dc; font: 800 22px Georgia, serif; pointer-events: auto; }
       #rush button.on { background: #3ee0ff; color: #062028; transform: scale(1.08); }
       #rush button.dive { width: 92px; height: 92px; margin: -46px; background: #f1c453; color: #2a1c08; }
-      #gun { position: fixed; right: max(12px, env(safe-area-inset-right)); bottom: calc(max(22px, env(safe-area-inset-bottom)) + 120px); z-index: 8; display: flex; flex-direction: column; gap: 8px; }
+      #gun { position: fixed; inset: 0; z-index: 8; pointer-events: none; }
       #gun[hidden] { display: none; }
-      #gun button { width: 92px; height: 56px; border-radius: 14px; border: 2px solid #9ee7ff; background: rgba(12, 28, 36, 0.88); color: #e8fbff; font: 15px Georgia, serif; }
+      #gun button { pointer-events: auto; position: fixed; width: 104px; height: 104px; border-radius: 50%; border: 3px solid #9ee7ff; background: rgba(12, 28, 36, 0.9); color: #e8fbff; font: 700 18px Georgia, serif; }
+      #gunFire { right: max(14px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); }
+      #gunNade { left: max(14px, env(safe-area-inset-left)); bottom: max(18px, env(safe-area-inset-bottom)); }
+      #cross { position: fixed; left: 50%; top: 46%; width: 16px; height: 16px; margin: -8px; border: 2px solid #e8fbff; border-radius: 50%; box-shadow: 0 0 0 1px #062028; pointer-events: none; z-index: 7; }
+      #cross[hidden] { display: none; }
       #aim { position: fixed; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px; border-radius: 50%; background: rgba(255, 255, 255, 0.8); box-shadow: 0 0 4px rgba(0, 20, 60, 0.6); pointer-events: none; z-index: 6; }
       #xmark { position: fixed; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px; pointer-events: none; z-index: 6; opacity: 0; color: #fff6dc; font: 900 46px/48px Georgia, serif; text-align: center; -webkit-text-stroke: 4px #1a1008; text-shadow: 0 0 10px #ffb043; }
       #xmark.on { opacity: 1; }
@@ -191,7 +195,8 @@
     <div id="xmark">X</div>
     <div id="hands" hidden></div>
     <p id="bladeSay" hidden></p>
-    <div id="gun" hidden><button id="gunFire" type="button">Fire</button><button id="gunNade" type="button">Grenade</button></div>
+    <div id="cross" hidden></div>
+    <div id="gun" hidden><button id="gunNade" type="button">Grenade</button><button id="gunFire" type="button">Fire</button></div>
     <div id="blade" hidden>
       <div class="lane" data-lane="0"></div>
       <div class="lane" data-lane="1"></div>
