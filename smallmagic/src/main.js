@@ -23,6 +23,7 @@ import { createSpells, SPELLS } from './spells.js';
 import { createSound } from './sound.js';
 import { spellBar } from './hud.js';
 import { createZones } from './zones.js';
+import { createArms } from './arms.js';
 
 const q = new URLSearchParams(location.search);
 const capture = q.has('capture'), testing = q.has('patch-test');
@@ -132,15 +133,10 @@ document.getElementById('handsToggle')?.addEventListener('pointerup', (e) => {
   e.currentTarget.textContent = settings.hands ? 'Hands mode: on' : 'Hands mode: off';
   e.currentTarget.classList.toggle('on', settings.hands);
   if (handsEl) handsEl.hidden = !settings.hands;
-  if (settings.hands) import('./handtrack.js').then((m) => m.startHandTrack((hands) => {
-    for (const lm of hands) {
-      const wrist = lm[0];
-      const arm = arms.children[wrist.x < 0.5 ? 0 : 1];
-      if (!arm) continue;
-      const tx = (0.5 - wrist.x) * 0.35;
-      arm.position.x += (tx - arm.position.x) * 0.15;
-    }
-  })).catch(() => {});
+  if (settings.hands) {
+    arms.load();
+    import('./handtrack.js').then((m) => m.startHandTrack(() => {})).catch(() => {});
+  }
   e.preventDefault(); e.stopPropagation();
 });
 settingsEl?.querySelectorAll('[data-gfx]').forEach((b) => b.addEventListener('pointerup', (e) => {
@@ -153,35 +149,8 @@ settingsEl?.querySelectorAll('[data-gfx]').forEach((b) => b.addEventListener('po
   e.preventDefault(); e.stopPropagation();
 }));
 document.getElementById('vol')?.addEventListener('input', (e) => { if (sound) sound.volume = Number(e.target.value) / 100; });
-function makeArm(side) {
-  const g = new THREE.Group();
-  const skin = new THREE.MeshBasicMaterial({ color: '#f0c2a0' });
-  const cloth = new THREE.MeshBasicMaterial({ color: '#6b3a22' });
-  const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.055, 0.36, 8), cloth);
-  fore.position.set(side * 0.2, -0.18, -0.38);
-  fore.rotation.z = side * 0.7;
-  fore.rotation.x = 1.05;
-  const wrist = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), skin);
-  wrist.position.set(side * 0.13, -0.14, -0.52);
-  const palm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 0.028), skin);
-  palm.position.set(side * 0.1, -0.12, -0.58);
-  g.add(fore, wrist, palm);
-  for (let i = 0; i < 4; i++) {
-    const finger = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.08, 0.016), skin);
-    finger.position.set(side * 0.08 + (i - 1.5) * 0.022, -0.1, -0.66);
-    g.add(finger);
-  }
-  const thumb = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.055, 0.016), skin);
-  thumb.position.set(side * 0.16, -0.1, -0.56);
-  thumb.rotation.z = -side * 0.9;
-  g.add(thumb);
-  return g;
-}
-const arms = new THREE.Group();
-arms.add(makeArm(-1), makeArm(1));
-arms.visible = false;
-arms.traverse((o) => { o.frustumCulled = false; });
-scene.add(arms);
+const arms = createArms(scene);
+camera.layers.enable(9);
 let padCast = false, forceDraw = false;
 let free = null;
 let shaking = 0;
@@ -228,15 +197,10 @@ function tick(dt) {
   post.hole(camera, hole.centre, hole.radius, hole.power, hole.blur, hole.reach * 1.05);
   post.heat = Math.min(1, fire.glare * 0.85 + (spells?.glare ?? 0) * 0.6);
   if (handsEl) handsEl.classList.toggle('on', !!(settings.hands && (inp.cast || spells?.cast?.holding || spells?.cast?.pour)));
-  arms.visible = !!(settings.hands && zones.name !== 'hub');
-  if (arms.visible) {
-    arms.position.copy(camera.position);
-    arms.quaternion.copy(camera.quaternion);
+  arms.rig.visible = !!(settings.hands && zones.name !== 'hub' && arms.loaded);
+  if (arms.rig.visible) {
     const ready = !!(inp.cast || spells?.cast?.holding || spells?.cast?.pour || zones.rodOut || zones.nearBeast < 7);
-    const drop = ready ? 0 : (walker.speed > 5 ? 0.1 : walker.speed > 0.4 ? 0.06 : 0.02);
-    const swing = Math.sin(walker.stride * (walker.speed > 5 ? 6.2 : 3.4)) * (walker.speed > 0.4 ? (walker.speed > 5 ? 0.14 : 0.05) : 0);
-    if (!arms.userData.rest) arms.userData.rest = arms.children.map((c) => c.position.y);
-    arms.children.forEach((c, i) => { c.position.y = arms.userData.rest[i] - drop + (i ? -swing : swing); });
+    arms.update(dt, camera, { ready, speed: walker.speed, stride: walker.stride });
   }
   if (!q.has('fast') || forceDraw) post.render(scene, camera, free || zones.name === 'hub' || settings.hands || zones.rodOut ? null : staff, SUN);
   forceDraw = false;
@@ -245,7 +209,7 @@ function tick(dt) {
 // (the measuring tools were written for a figure seen from behind: these are the same handles on one seen from within)
 const head = new THREE.Vector3();
 const lab = window.lab = {
-  THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
+  THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, arms, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
   player: walker,
   follow: { get yaw() { return walker.yaw; }, set yaw(v) { walker.yaw = v; }, get pitch() { return walker.pitch; }, set pitch(v) { walker.pitch = v; }, want: 0, distance: 0, pivot: new THREE.Vector3() },
   doll: { man: { bones: { Head: { getWorldPosition: (v) => v.copy(walker.feet).setY(walker.feet.y + 1.66) } } } },

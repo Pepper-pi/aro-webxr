@@ -6,7 +6,13 @@
     "build": "node build.mjs",
     "serve": "node tools/serve.mjs dist 5495"
   },
-  "dependencies": { "three": "0.186.1" },
-  "devDependencies": { "vite": "8.3.5", "playwright-core": "^1.64.1" },
+  "dependencies": {
+    "@pixiv/three-vrm": "3.5.5",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.64.1",
+    "vite": "8.3.5"
+  },
   "license": "MIT"
 }
