@@ -523,7 +523,7 @@ export function createZones({ scene, world, walker, camera, air }) {
         if (mark) { mark.classList.add('on'); clearTimeout(mark._t); mark._t = setTimeout(() => mark.classList.remove('on'), 400); }
       });
     },
-    launchNearest() {
+    launchNearest(damage = 12) {
       const here = walker.feet;
       let best = null;
       let bestD = 1e9;
@@ -534,7 +534,7 @@ export function createZones({ scene, world, walker, camera, air }) {
       }
       if (!best) return false;
       const dx = best.x - here.x, dz = best.z - here.z, len = Math.hypot(dx, dz) || 1;
-      this.hurt([{ x: best.x, z: best.z, r: 1.6, d: 12, k: 'arcane', kx: (dx / len) * 2.6, kz: (dz / len) * 2.6 }]);
+      this.hurt([{ x: best.x, z: best.z, r: 1.6, d: damage, k: 'arcane', kx: (dx / len) * 2.6, kz: (dz / len) * 2.6 }]);
       return true;
     },
     castHeld() {},

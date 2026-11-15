@@ -168,7 +168,7 @@ document.getElementById('gunFire')?.addEventListener('pointerup', (e) => { gun.f
 document.getElementById('gunNade')?.addEventListener('pointerup', (e) => { gun.toss(); e.preventDefault(); e.stopPropagation(); });
 document.getElementById('vol')?.addEventListener('input', (e) => { if (sound) sound.volume = Number(e.target.value) / 100; });
 const arms = createArms(scene);
-const blade = createBlade(() => zones.launchNearest());
+const blade = createBlade((damage) => zones.launchNearest(damage));
 const gun = createGunner(scene, camera, world, zones);
 camera.layers.enable(9);
 let padCast = false, forceDraw = false;

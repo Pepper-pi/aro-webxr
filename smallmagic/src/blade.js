@@ -20,8 +20,11 @@ export function createBlade(onLaunch) {
   let song = 0;
   let combo = 0;
   let cursor = 0;
+  let freeze = 0;
+  let rush = null;
   const notes = [];
   const hold = new Map();
+  const ARC = [[18, 68], [34, 56], [50, 46], [66, 56], [82, 64]];
 
   function say(text) {
     const el = document.getElementById('bladeSay');
@@ -34,21 +37,83 @@ export function createBlade(onLaunch) {
     if (!lane) return;
     const el = document.createElement('div');
     el.className = `note ${spec.kind}`;
-    el.textContent = spec.kind === 'wall' ? 'WALL' : spec.kind === 'big' ? 'HOLD' : spec.dir.toUpperCase();
+    el.textContent = spec.kind === 'wall' ? 'WALL' : spec.kind === 'big' ? 'HOLD' : 'SWIPE';
     lane.appendChild(el);
     notes.push({ ...spec, el, resolved: false });
+  }
+
+  function flash() {
+    let el = document.getElementById('hitflash');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'hitflash';
+      document.body.appendChild(el);
+    }
+    el.classList.add('on');
+    setTimeout(() => el.classList.remove('on'), 90);
+  }
+
+  function trail(x0, y0, x1, y1) {
+    const len = Math.hypot(x1 - x0, y1 - y0);
+    if (len < 12) return;
+    const el = document.createElement('div');
+    el.style.cssText = `position:fixed;left:${x0}px;top:${y0}px;width:${len}px;height:10px;margin-top:-5px;border-radius:6px;background:linear-gradient(90deg,#fff,#3ee0ff);transform-origin:0 50%;transform:rotate(${Math.atan2(y1 - y0, x1 - x0)}rad);z-index:12;pointer-events:none;`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 160);
+  }
+
+  function endRush() {
+    const hits = rush?.hits ?? 0;
+    rush?.board?.remove();
+    rush = null;
+    const damage = 6 + hits * 4;
+    say(hits >= 5 ? 'Sky Rush' : `Sky Rush ${hits}/5`);
+    onLaunch?.(damage);
+  }
+
+  function advanceRush(hit) {
+    if (!rush) return;
+    if (hit) rush.hits += 1;
+    rush.i += 1;
+    rush.t = 0;
+    rush.board.querySelectorAll('button').forEach((b, n) => b.classList.toggle('on', n === rush.i));
+    if (rush.i >= 5) endRush();
+  }
+
+  function startRush() {
+    combo = 0;
+    const board = document.createElement('div');
+    board.id = 'rush';
+    ARC.forEach((spot, n) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = n === 4 ? 'DIVE' : String(n + 1);
+      b.style.left = `${spot[0]}%`;
+      b.style.top = `${spot[1]}%`;
+      if (n === 0) b.classList.add('on');
+      if (n === 4) b.classList.add('dive');
+      b.addEventListener('pointerup', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!rush || n !== rush.i) { if (rush && n !== rush.i) advanceRush(false); return; }
+        advanceRush(true);
+      });
+      board.appendChild(b);
+    });
+    document.body.appendChild(board);
+    rush = { i: 0, hits: 0, t: 0, board };
+    say('Sky Rush');
   }
 
   function succeed(note) {
     if (note.resolved) return;
     note.resolved = true;
     note.el.classList.add('hit');
+    flash();
+    freeze = 0.08;
     combo += 1;
-    say(combo >= 4 ? 'Launch' : `Combo ${combo}`);
-    if (combo >= 4) {
-      combo = 0;
-      onLaunch?.();
-    }
+    say(combo >= 4 ? 'Sky Rush' : `Combo ${combo}`);
+    if (combo >= 4) startRush();
   }
 
   function fail(note) {
@@ -88,6 +153,7 @@ export function createBlade(onLaunch) {
     if (!h) return;
     if (performance.now() - h.t > 220) h.held = true;
     const swipe = dirOf(h.dx || 0, h.dy || 0);
+    if (swipe) trail(h.x, h.y, h.x + (h.dx || 0), h.y + (h.dy || 0));
     for (const note of notes) {
       if (!live(note) || note.lane !== h.lane) continue;
       if (note.kind === 'slice' && swipe === note.dir) succeed(note);
@@ -120,7 +186,14 @@ export function createBlade(onLaunch) {
     if (label) label.hidden = !active;
     if (!active) return;
     wire();
-    song += dt;
+    if (rush) {
+      rush.t += dt;
+      if (rush.t > 1.15) advanceRush(false);
+      if (song > 0 && rush.t > 8) endRush();
+      return;
+    }
+    if (freeze > 0) freeze -= dt;
+    else song += dt;
     while (cursor < 400) {
       const spec = PATTERN[cursor % PATTERN.length];
       const due = spec.t + Math.floor(cursor / PATTERN.length) * LOOP;

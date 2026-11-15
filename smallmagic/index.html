@@ -85,17 +85,24 @@
       #hands .hand.r { transform: scaleX(-1); }
       #hands.on .hand { box-shadow: 0 0 28px 6px #ffb15a, inset 0 0 0 3px #ffe0a8; }
       #hands .note { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; color: #f6ead0; font: 13px Georgia, serif; letter-spacing: 0.06em; text-shadow: 0 1px 2px #000; }
-      #blade { position: fixed; left: 6vw; right: 22vw; bottom: 16vh; height: 42vh; z-index: 8; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; touch-action: none; }
+      #blade { position: fixed; left: 4vw; right: 4vw; bottom: 22vh; height: 46vh; z-index: 8; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; touch-action: none; }
       #blade[hidden] { display: none; }
-      #blade .lane { position: relative; background: rgba(8, 6, 16, 0.42); border: 1px solid rgba(241, 217, 164, 0.4); border-radius: 14px; overflow: hidden; }
-      #blade .lane::after { content: ''; position: absolute; left: 6px; right: 6px; bottom: 10px; height: 3px; background: #f1d9a4; }
-      #blade .note { position: absolute; left: 6px; right: 6px; height: 48px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font: 700 13px Georgia, serif; letter-spacing: 0.04em; }
-      #blade .slice { background: #f1d9a4; color: #1a1008; }
-      #blade .wall { background: #e23b32; color: #fff6dc; height: 72px; }
-      #blade .big { background: #7eb6ff; color: #102033; }
-      #blade .hit { outline: 3px solid #fff; }
+      #blade .lane { position: relative; background: rgba(8, 6, 16, 0.55); border: 2px solid rgba(241, 217, 164, 0.55); border-radius: 16px; overflow: hidden; }
+      #blade .lane::after { content: ''; position: absolute; left: 8px; right: 8px; bottom: 12px; height: 4px; background: #fff6dc; border-radius: 2px; }
+      #blade .note { position: absolute; left: 8px; right: 8px; height: 86px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font: 800 22px Georgia, serif; letter-spacing: 0.04em; box-shadow: 0 6px 0 rgba(0, 0, 0, 0.35); }
+      #blade .slice { background: #3ee0ff; color: #062028; }
+      #blade .wall { background: #e23b32; color: #fff6dc; height: 110px; }
+      #blade .big { background: #f1c453; color: #2a1c08; }
+      #blade .hit { outline: 4px solid #fff; }
       #blade .miss { opacity: 0.35; }
-      #bladeSay { position: absolute; left: 6vw; right: 22vw; bottom: calc(16vh + 42vh + 6px); z-index: 8; text-align: center; color: #fff6dc; font: 18px Georgia, serif; text-shadow: 0 1px 2px #000; pointer-events: none; }
+      #bladeSay { position: fixed; left: 4vw; right: 4vw; bottom: calc(22vh + 46vh + 8px); z-index: 8; text-align: center; color: #fff6dc; font: 22px Georgia, serif; text-shadow: 0 1px 2px #000; pointer-events: none; }
+      #hitflash { position: fixed; inset: 0; z-index: 11; background: rgba(255, 255, 255, 0.0); pointer-events: none; transition: background 0.05s; }
+      #hitflash.on { background: rgba(255, 255, 255, 0.55); }
+      #rush { position: fixed; inset: 0; z-index: 9; pointer-events: none; }
+      #rush[hidden] { display: none; }
+      #rush button { position: absolute; width: 74px; height: 74px; margin: -37px; border-radius: 50%; border: 3px solid #fff6dc; background: rgba(20, 16, 32, 0.2); color: #fff6dc; font: 800 22px Georgia, serif; pointer-events: auto; }
+      #rush button.on { background: #3ee0ff; color: #062028; transform: scale(1.08); }
+      #rush button.dive { width: 92px; height: 92px; margin: -46px; background: #f1c453; color: #2a1c08; }
       #gun { position: fixed; right: max(12px, env(safe-area-inset-right)); bottom: calc(max(22px, env(safe-area-inset-bottom)) + 120px); z-index: 8; display: flex; flex-direction: column; gap: 8px; }
       #gun[hidden] { display: none; }
       #gun button { width: 92px; height: 56px; border-radius: 14px; border: 2px solid #9ee7ff; background: rgba(12, 28, 36, 0.88); color: #e8fbff; font: 15px Georgia, serif; }
