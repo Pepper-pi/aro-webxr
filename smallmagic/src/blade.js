@@ -35,6 +35,9 @@ export function createBlade(onLaunch, bits = {}) {
   let blocking = false;
   let blockHeld = 99;
   let lobCool = 1.4;
+  let boarCool = 2;
+  let slimeCool = 2.6;
+  const threats = [];
   let wiredBlock = false;
   const look = new THREE.Vector3();
   const lobGeo = new THREE.SphereGeometry(0.18, 8, 6);
@@ -268,6 +271,85 @@ export function createBlade(onLaunch, bits = {}) {
     if (perfect) showTaunt();
   }
 
+  function nearest(kind, max) {
+    const eye = camera.position;
+    let best = null;
+    let bestD = max;
+    for (const b of zones.beasts()) {
+      if (b.dead || b.kind !== kind) continue;
+      const d = Math.hypot(b.x - eye.x, b.z - eye.z);
+      if (d < bestD) { best = b; bestD = d; }
+    }
+    return best;
+  }
+
+  function meet(blockingNow) {
+    if (!blockingNow) { say('Hit'); return; }
+    const perfect = blocking && blockHeld <= 0.2;
+    say(perfect ? 'Taunt' : 'Blocked');
+    if (perfect) showTaunt();
+  }
+
+  function spawnBoar() {
+    const boar = nearest('boar', 11);
+    if (!boar) return;
+    const eye = camera.position;
+    const dx = eye.x - boar.x;
+    const dz = eye.z - boar.z;
+    const len = Math.hypot(dx, dz) || 1;
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.08, 1.4), new THREE.MeshBasicMaterial({ color: '#e23b32', transparent: true, opacity: 0.8 }));
+    const y = world.ground(boar.x, boar.z) + 0.12;
+    mesh.position.set(boar.x, y, boar.z);
+    mesh.lookAt(boar.x + dx, y, boar.z + dz);
+    scene.add(mesh);
+    threats.push({ kind: 'charge', t: 0, wind: 0.6, rush: 0.38, mesh, x: boar.x, z: boar.z, dx: dx / len, dz: dz / len, dist: Math.min(len, 6.5), resolved: false });
+    boarCool = 4.6;
+  }
+
+  function spawnSlime() {
+    const slime = nearest('slime', 10);
+    if (!slime) return;
+    const eye = camera.position;
+    const mesh = new THREE.Mesh(new THREE.RingGeometry(0.85, 1.25, 20), new THREE.MeshBasicMaterial({ color: '#7dff5a', side: THREE.DoubleSide, transparent: true, opacity: 0.75 }));
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(eye.x, world.ground(eye.x, eye.z) + 0.08, eye.z);
+    scene.add(mesh);
+    threats.push({ kind: 'slam', t: 0, wind: 0.7, mesh, x: eye.x, z: eye.z, resolved: false });
+    slimeCool = 4.8;
+  }
+
+  function threatsUpdate(dt) {
+    boarCool -= dt;
+    slimeCool -= dt;
+    if (boarCool <= 0) spawnBoar();
+    if (slimeCool <= 0) spawnSlime();
+    const eye = camera.position;
+    for (let i = threats.length - 1; i >= 0; i--) {
+      const threat = threats[i];
+      threat.t += dt;
+      if (threat.kind === 'charge') {
+        const u = threat.t < threat.wind ? 0 : Math.min(1, (threat.t - threat.wind) / threat.rush);
+        const x = threat.x + threat.dx * threat.dist * u;
+        const z = threat.z + threat.dz * threat.dist * u;
+        threat.mesh.position.set(x, world.ground(x, z) + 0.12, z);
+        threat.mesh.material.opacity = threat.t < threat.wind ? 0.35 + 0.4 * Math.sin(threat.t * 24) : 0.9;
+        if (!threat.resolved && u > 0.8 && Math.hypot(eye.x - x, eye.z - z) < 1.25) {
+          threat.resolved = true;
+          meet(blocking);
+        }
+        if (u >= 1) { scene.remove(threat.mesh); threats.splice(i, 1); }
+      } else {
+        if (!threat.resolved && threat.t >= threat.wind) {
+          threat.resolved = true;
+          if (Math.hypot(eye.x - threat.x, eye.z - threat.z) < 1.3) meet(blocking);
+          else say('Dodge');
+          scene.remove(threat.mesh);
+          threats.splice(i, 1);
+        }
+      }
+    }
+  }
+
   function defense(dt, active) {
     const btn = document.getElementById('block');
     if (btn) btn.hidden = !active;
@@ -279,8 +361,15 @@ export function createBlade(onLaunch, bits = {}) {
       shield.quaternion.copy(camera.quaternion);
     }
     if (blocking) blockHeld += dt;
-    if (!active) { blocking = false; blockHeld = 99; return; }
+    if (!active) {
+      blocking = false;
+      blockHeld = 99;
+      for (const threat of threats) scene.remove(threat.mesh);
+      threats.length = 0;
+      return;
+    }
     wireBlock();
+    threatsUpdate(dt);
     lobCool -= dt;
     if (lobCool <= 0) spawnLob();
     const eye = camera.position;
