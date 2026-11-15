@@ -23,6 +23,8 @@ const GRAV = 14;
 const MAX_BOUNCE = 5;
 
 export function createBlade(onLaunch, bits = {}) {
+  let drawn = false;
+  let wasEngaged = false;
   let song = 0;
   let combo = 0;
   let cursor = 0;
@@ -427,14 +429,32 @@ export function createBlade(onLaunch, bits = {}) {
     }
   }
 
-  function update(dt, active) {
+  function clearNotes() {
+    for (const note of notes) note.el.remove();
+    notes.length = 0;
+    if (rush) { rush.board.remove(); rush = null; }
+  }
+
+  function update(dt, classOn, inRange) {
     const board = root();
     const label = document.getElementById('bladeSay');
+    const drawBtn = document.getElementById('draw');
+    if (drawBtn) {
+      drawBtn.hidden = !classOn;
+      drawBtn.textContent = drawn ? 'Sheathe' : 'Draw';
+    }
     if (!board) return;
-    board.hidden = !active;
-    if (label) label.hidden = !active;
-    defense(dt, active);
-    if (!active) return;
+    const engaged = !!(classOn && drawn && inRange);
+    board.hidden = !engaged;
+    if (label) label.hidden = !engaged;
+    defense(dt, engaged);
+    if (!engaged) {
+      if (wasEngaged) { song = 0; cursor = 0; clearNotes(); }
+      wasEngaged = false;
+      return;
+    }
+    if (!wasEngaged) { song = 0; cursor = 0; }
+    wasEngaged = true;
     wire();
     if (rush) {
       rush.t += dt;
@@ -468,6 +488,8 @@ export function createBlade(onLaunch, bits = {}) {
     get combo() { return combo; },
     get song() { return song; },
     setBlock,
+    setDrawn(on) { drawn = !!on; if (!drawn) { song = 0; cursor = 0; clearNotes(); } },
+    get drawn() { return drawn; },
     get incoming() { return shots.filter((s) => s.kind === 'lob' && s.life > 0).length; },
     get bounced() { return shots.filter((s) => s.kind === 'bounce' && s.life > 0).length; },
     get close() {

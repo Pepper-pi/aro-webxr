@@ -142,6 +142,7 @@ function pickClass(name) {
   settings.blade = settings.class === 'blade';
   settings.gunner = settings.class === 'gunner';
   if (settings.class !== 'mage') arms.load();
+  if (settings.class !== 'blade') blade.setDrawn(false);
   showClass();
 }
 document.querySelectorAll('[data-class]').forEach((b) => b.addEventListener('pointerup', (e) => {
@@ -174,6 +175,10 @@ document.getElementById('bladeToggle')?.addEventListener('pointerup', (e) => {
 });
 document.getElementById('gunnerToggle')?.addEventListener('pointerup', (e) => {
   pickClass(settings.class === 'gunner' ? 'mage' : 'gunner');
+  e.preventDefault(); e.stopPropagation();
+});
+document.getElementById('draw')?.addEventListener('pointerup', (e) => {
+  blade.setDrawn(!blade.drawn);
   e.preventDefault(); e.stopPropagation();
 });
 document.getElementById('gunFire')?.addEventListener('pointerup', (e) => { gun.fire(); e.preventDefault(); e.stopPropagation(); });
@@ -230,7 +235,7 @@ function tick(dt) {
   post.heat = Math.min(1, fire.glare * 0.85 + (spells?.glare ?? 0) * 0.6);
   if (handsEl) handsEl.classList.toggle('on', !!(settings.hands && (inp.cast || spells?.cast?.holding || spells?.cast?.pour)));
   const klass = zones.name !== 'hub' ? settings.class : 'mage';
-  blade.update(dt, klass === 'blade');
+  blade.update(dt, klass === 'blade', zones.nearBeast < 14);
   gun.update(dt, klass === 'gunner');
   const armsOn = (settings.hands || klass === 'blade' || klass === 'gunner') && zones.name !== 'hub' && arms.loaded;
   arms.rig.visible = !!armsOn;
