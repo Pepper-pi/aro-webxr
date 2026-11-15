@@ -42,9 +42,13 @@ function one(kind, x, z) {
   const bar = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xe23b32 }));
   bar.position.y = kind === 'slime' ? 0.85 : 1.15;
   bar.scale.set(0.7, 0.07, 1);
-  g.add(bar);
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.42, 6), new THREE.MeshBasicMaterial({ color: '#ff7a1c' }));
+  flame.position.y = kind === 'slime' ? 0.7 : 1.05;
+  flame.name = 'flame';
+  flame.visible = false;
+  g.add(bar, flame);
   g.position.set(x, 0, z);
-  return { kind, g, bar, homeX: x, homeZ: z, x, z, hp: HP[kind], max: HP[kind], flash: 0, dead: false, back: 0, tx: x, tz: z, wait: 1 };
+  return { kind, g, bar, homeX: x, homeZ: z, x, z, hp: HP[kind], max: HP[kind], flash: 0, dead: false, back: 0, tx: x, tz: z, wait: 1, burn: 0, chill: 0 };
 }
 
 export const PACKS = [
@@ -78,28 +82,51 @@ export function createBeasts(scene, ground) {
   const cube = new THREE.BoxGeometry(0.16, 0.16, 0.16);
   return {
     meadow, lake,
+    probe() {
+      return all.map((b) => ({ kind: b.kind, x: +b.g.position.x.toFixed(2), y: +b.g.position.y.toFixed(2), z: +b.g.position.z.toFixed(2), hp: +b.hp.toFixed(1), burn: +b.burn.toFixed(2), chill: +b.chill.toFixed(2), dead: b.dead, flame: !!b.g.getObjectByName('flame')?.visible }));
+    },
+    near(x, z) {
+      let best = 99;
+      for (const b of all) if (!b.dead && b.where === 'meadow') best = Math.min(best, Math.hypot(b.g.position.x - x, b.g.position.z - z));
+      return best;
+    },
     hurt(marks, zone, onHit) {
       if (!marks || !marks.length) return;
       for (const b of all) {
         if (b.dead || b.where !== zone) continue;
         let shown = 0;
         for (const m of marks) {
-          if (Math.hypot(b.g.position.x - m.x, b.g.position.z - m.z) > m.r + 0.6) continue;
+          const dist = Math.hypot(b.g.position.x - m.x, b.g.position.z - m.z);
+          if (dist > m.r + (m.exact ? 0 : 0.6)) continue;
+          const fall = m.falloff ? Math.max(0.22, 1 - dist / Math.max(m.r, 0.01)) : 1;
+          const same = m.once != null && b.seen === m.once;
+          const addFall = same ? Math.max(0, fall - (b.blastFall || 0)) : fall;
+          if (same && addFall < 0.03) continue;
           const now = performance.now();
-          const again = b.hitAt && now - b.hitAt < 650;
-          if (b.hitAt && now - b.hitAt < 180) continue;
+          const again = !same && b.hitAt && now - b.hitAt < 650;
+          if (!same && b.hitAt && now - b.hitAt < 180) continue;
           b.hitAt = now;
-          const dealt = again ? m.d * 0.4 : m.d;
+          if (m.once != null) { b.seen = m.once; b.blastFall = fall; }
+          const dealt = (again ? m.d * 0.4 : m.d) * addFall;
           b.hp -= dealt;
           b.flash = 0.28;
-          if (m.kx || m.kz) { b.g.position.x += m.kx; b.g.position.z += m.kz; b.tx += m.kx; b.tz += m.kz; }
-          if (shown < 3) {
+          if (m.k === 'fire') b.burn = Math.max(b.burn, 3.4);
+          if (m.status === 'chill') b.chill = Math.max(b.chill, 3.4);
+          if (m.radial) {
+            let ox = b.g.position.x - m.x, oz = b.g.position.z - m.z;
+            const len = Math.hypot(ox, oz) || 0.4;
+            const push = m.radial * addFall;
+            ox /= len; oz /= len;
+            b.g.position.x += ox * push; b.g.position.z += oz * push;
+            b.tx += ox * push; b.tz += oz * push;
+          } else if (!same && (m.kx || m.kz)) { b.g.position.x += m.kx; b.g.position.z += m.kz; b.tx += m.kx; b.tz += m.kz; }
+          if (!same && shown < 3) {
             shown++;
             b.stack = (b.stack || 0) + 1;
-            onHit?.({ x: b.g.position.x, y: b.g.position.y + 1.2, z: b.g.position.z, n: Math.round(dealt), k: m.k || 'fire', through: again });
+            onHit?.({ x: b.g.position.x, y: b.g.position.y + 1.2, z: b.g.position.z, n: Math.round(dealt), k: m.k || 'fire', through: again, blast: !!m.blast });
           }
           if (b.hp <= 0) {
-            b.dead = true; b.g.visible = false; b.back = 12; b.stack = 0;
+            b.dead = true; b.g.visible = false; b.back = 12; b.stack = 0; b.burn = 0; b.chill = 0;
             const tint = b.kind === 'slime' ? '#3dba6a' : b.kind === 'boar' ? '#8a5a3a' : '#6a6158';
             for (let i = 0; i < 7; i++) {
               const bit = new THREE.Mesh(cube, new THREE.MeshBasicMaterial({ color: tint }));
@@ -135,12 +162,23 @@ export function createBeasts(scene, ground) {
           b.tx = b.homeX + (Math.random() - 0.5) * 3.2;
           b.tz = b.homeZ + (Math.random() - 0.5) * 3.2;
         }
+        const slow = b.chill > 0 ? 0.32 : 1;
         const dx = b.tx - b.g.position.x, dz = b.tz - b.g.position.z, dist = Math.hypot(dx, dz);
         if (dist > 0.15) {
-          b.g.position.x += (dx / dist) * 0.55 * dt;
-          b.g.position.z += (dz / dist) * 0.55 * dt;
+          b.g.position.x += (dx / dist) * 0.55 * slow * dt;
+          b.g.position.z += (dz / dist) * 0.55 * slow * dt;
           b.g.rotation.y = Math.atan2(dx, dz);
         }
+        if (b.burn > 0) { b.burn -= dt; b.hp -= 7 * dt; if (b.hp <= 0) { b.dead = true; b.g.visible = false; b.back = 12; b.burn = 0; } }
+        else b.burn = 0;
+        if (b.chill > 0) b.chill -= dt; else b.chill = 0;
+        const flame = b.g.getObjectByName('flame');
+        if (flame) { flame.visible = b.burn > 0; flame.scale.y = 0.7 + Math.sin(performance.now() * 0.02) * 0.35; }
+        b.g.traverse((o) => {
+          if (!o.isMesh || !o.material?.color || o.name === 'flame') return;
+          if (!o.userData.base) o.userData.base = o.material.color.getHex();
+          o.material.color.setHex(b.chill > 0 ? 0x8ecbff : o.userData.base);
+        });
         b.g.position.y = ground(b.g.position.x, b.g.position.z);
         if (b.flash > 0) {
           b.flash -= dt;

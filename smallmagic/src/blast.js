@@ -20,6 +20,13 @@ const RADII = [9, 4.8, 7.2, 3.8, 11.5, 3], SIDES = [3, 4, 6, 5, 8, 3], TOP = HEI
 /** Seconds it is gathered for. */
 export const WINDUP = 2.8;
 export const FALL = 0.25;
+/** Ground radius of the fireball. This is the shader's Rb: damage must use this and nothing else. */
+export function fireballRadius(age) {
+  const R = 2 + 12 * (1 - Math.exp(-age * 3.5)) + 0.9 * age;
+  const H = R * 0.45 + 3.6 * Math.max(age - 0.35, 0) ** 1.15;
+  const top = H + R * 1.25;
+  return Math.max(R * 1.75, top * 0.5 + 0.5);
+}
 const hash = (n) => { const s = Math.sin(n * 12.9898) * 43758.5453; return s - Math.floor(s); };
 
 export function createBlast({ air, world, fx, fire, ruin, scene }) {
@@ -147,7 +154,7 @@ export function createBlast({ air, world, fx, fire, ruin, scene }) {
 
   const C = new THREE.Vector3(), top = new THREE.Vector3(), at = new THREE.Vector3();
   const pending = [], light = { x: 0, y: -999, z: 0, r: 1, c: [1, 1, 1], power: 0 };
-  let phase = 'idle', charge = 0, since = 0, real = 0, age = 0, dark = 0, white = 0, ink = 0, shake = 0, pace = 1, shockR = 0, shockP = 0, warm = 0, blaze = 0;
+  let phase = 'idle', charge = 0, since = 0, real = 0, age = 0, dark = 0, white = 0, ink = 0, shake = 0, pace = 1, shockR = 0, shockP = 0, warm = 0, blaze = 0, reach = 0;
 
   function leaves(tree, n, hot) {
     if (!tree.clumps.length) return;
@@ -192,6 +199,9 @@ export function createBlast({ air, world, fx, fire, ruin, scene }) {
     /** How much of its light is on everything in sight (0 to 1). */
     get blaze() { return blaze; },
     get shockR() { return shockR; }, get shockP() { return phase === 'boom' ? shockP : 0; },
+    /** How far the fireball reaches on the ground right now. Beasts and props use this same number. */
+    get reach() { return phase === 'boom' ? reach : 0; },
+    get age() { return age; },
     /** The circle left branded on the burnt ground, fading (0 to 1). */
     get brand() { return phase === 'boom' && age > 0.3 && age < 8 ? 1 - age / 8 : 0; },
     /** How much the eye is shaken (0 to 1 and over), and how fast time runs (1 as a rule). */
@@ -280,6 +290,10 @@ export function createBlast({ air, world, fx, fire, ruin, scene }) {
         if (real < 0.14) { pace = 0.04; ink = real < 0.07 ? 1 : -1; white = 1; } else { pace = 1 - 0.96 * Math.exp(-(real - 0.14) * 5); white = Math.exp(-(real - 0.14) * 7); }
         const R = 2 + 12 * (1 - Math.exp(-age * 3.5)) + 0.9 * age, H = R * 0.45 + 3.6 * Math.max(age - 0.35, 0) ** 1.15;
         ballU.uC.value.copy(C); ballU.uBall.value.set(R, H, age, age < 6 ? 1 : Math.max(0, 1 - (age - 6) / 4));
+        const u = ballU.uBall.value, top = u.y + u.x * 1.25;
+        const visual = Math.max(u.x * 1.75, top * 0.5 + 0.5);
+        reach = visual;
+        if (Math.abs(reach - fireballRadius(age)) > 1e-3) console.warn('explosion damage radius does not match the visible blast', { damage: fireballRadius(age), visual });
         ballU.uNear.value = Math.max(0, Math.min(R * 0.9, Math.hypot(C.x - eye.x, C.z - eye.z) - 3));
         ball.visible = age < 10;
         discs.forEach((m) => (m.visible = false)); wall.visible = false;

@@ -11,6 +11,7 @@
 //   Explosion  gathered: held for some seconds until it goes by itself (blast.js). Let go sooner and it comes to nothing.
 // Every spell is a light, and where a poured one works it draws its seal on the ground.
 import * as THREE from 'three';
+import { fireballRadius } from './blast.js';
 
 export const SPELLS = [
   { key: 'fire', name: 'Fire', colour: '#ff7a1c', pour: false, sides: 3 },
@@ -95,7 +96,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
   }
 
   const marks = [];
-  let pourMark = 0, boomMark = false, windMark = 0, stormMark = 0;
+  let pourMark = 0, boomPhase = '', boomId = 0, windMark = 0, stormMark = 0;
   const api = {
     get selected() { return selected; }, select,
     get cast() { return cast; }, set hear(fn) { heard = fn; },
@@ -266,7 +267,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
         pourMark -= dt;
         if (pourMark <= 0) {
           pourMark = 0.28;
-          marks.push({ x: target.x, z: target.z, r: Math.max(1.4, cast.spread * 0.45), d: cast.pour === 'growth' ? 8 : 14, k: 'arcane', kx: (Math.random() - 0.5) * 0.6, kz: (Math.random() - 0.5) * 0.6 });
+          marks.push({ x: target.x, z: target.z, r: Math.max(1.4, cast.spread * 0.45), d: cast.pour === 'growth' ? 8 : 14, k: 'arcane', status: cast.pour === 'frost' ? 'chill' : null, kx: (Math.random() - 0.5) * 0.6, kz: (Math.random() - 0.5) * 0.6 });
         }
       } else pourMark = 0;
 
@@ -310,6 +311,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
         fire.fan(g.x, g.z, g.dx, g.dz, g.wide);
         windMark -= dt;
         if (windMark <= 0) { windMark = 0.26; marks.push({ x: g.x, z: g.z, r: g.wide * 0.5, d: 12, k: 'arcane', kx: g.dx * 1.4, kz: g.dz * 1.4 }); }
+        world.blow?.(g.x, g.z, g.dx, g.dz, g.wide, dt);
         ruin?.push(g.x, g.z, g.dx, g.dz, g.wide, 20 * fade, dt);
         ruin?.gust(g.x, g.z, g.dx, g.dz, g.wide, (g.wide - 4.5) / 4.5);
         blowing = { g, fade };
@@ -329,14 +331,20 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
       blast.update(dt, realDt, camera.position);
       hole.update(dt, realDt, camera.position);
       twister.update(dt, realDt, camera.position);
-      if (blast.shockP > 0.85 && !boomMark) { boomMark = true; marks.push({ x: blast.centre.x, z: blast.centre.z, r: 12, d: 70, k: 'fire' }); }
-      if (blast.shockP < 0.2) boomMark = false;
+      if (blast.phase === 'boom' && blast.reach > 0) {
+        const visual = blast.reach, damage = fireballRadius(blast.age);
+        if (Math.abs(damage - visual) > 1e-3) console.warn('explosion damage radius does not match the visible blast', { damage, visual });
+        if (boomPhase !== 'boom') { boomPhase = 'boom'; boomId++; }
+        marks.push({ x: blast.centre.x, z: blast.centre.z, r: visual, d: 70, k: 'fire', radial: 5, exact: true, falloff: true, once: boomId });
+        world.breakAt?.(blast.centre.x, blast.centre.z, visual, boomId);
+      } else boomPhase = '';
       stormMark -= dt;
       if (stormMark <= 0 && (twister.phase === 'live' || twister.phase === 'gather')) {
         stormMark = 0.3;
         const away = Math.random() * 6.283;
         marks.push({ x: twister.base.x, z: twister.base.z, r: 6, d: 16, k: 'arcane', kx: Math.cos(away) * 1.6, kz: Math.sin(away) * 1.6 });
       }
+      if (twister.phase === 'live' || twister.phase === 'gather') world.swirl?.(twister.base.x, twister.base.z, 10, dt);
       if (stormMark <= 0 && hole.phase !== 'idle') {
         stormMark = 0.3;
         const hx = hole.ground?.x ?? hole.centre.x, hz = hole.ground?.z ?? hole.centre.z;

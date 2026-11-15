@@ -92,6 +92,12 @@ export function createZones({ scene, world, walker, camera, air }) {
   meadowRing.position.set(PLOT[0], world.ground(PLOT[0], PLOT[1]) + 0.2, PLOT[1] - 2.4);
   const hub = new THREE.Group();
   const village = buildVillage(world.root, world, air);
+  world.blow = (x, z, dx, dz, r) => village.blow(x, z, dx, dz, r);
+  world.swirl = (x, z, r) => village.swirl(x, z, r);
+  world.breakAt = (x, z, r, token) => village.breakAt(x, z, r, token);
+  // Hook for a warrior ability that is not in the game yet. Tornado rips a few core tiles only
+  // while this returns true. It stays off, so a normal tornado only swirls loose debris.
+  world.warriorTornado = () => false;
   const priorBlock = world.blockers;
   const blockFeet = (f) => { priorBlock?.(f); village.block(f); };
   hub.add(sky('#3a2a1c', '#c4a07a'));
@@ -202,6 +208,7 @@ export function createZones({ scene, world, walker, camera, air }) {
   function hideBoard() { if (panel) panel.hidden = true; }
   function resetFish() {
     phase = 'idle';
+    reelProg = 0;
     bobber.visible = false;
     line.visible = false;
     target.visible = false;
@@ -401,12 +408,21 @@ export function createZones({ scene, world, walker, camera, air }) {
   }
   let fishDown = false;
   let reelHold = 0;
+  let reelProg = 0;
   reelBtn?.addEventListener('pointerdown', (e) => {
     if (phase === 'bite') reelHold = 0.001;
     e.preventDefault();
     e.stopPropagation();
   });
-  const endReel = (e) => { reelHold = 0; e.preventDefault(); };
+  const endReel = (e) => {
+    if (phase === 'bite' && reelHold > 0 && reelHold < 0.45) {
+      reelProg += 0.34;
+      reel.rotation.x += 1.5;
+      if (reelProg >= 1) { phase = 'reel'; reelT = 0; reelProg = 0; if (reelBtn) reelBtn.hidden = true; }
+    }
+    reelHold = 0;
+    e.preventDefault();
+  };
   reelBtn?.addEventListener('pointerup', (e) => { endReel(e); e.stopPropagation(); });
   reelBtn?.addEventListener('pointercancel', endReel);
   fishBtn?.addEventListener('pointerdown', (e) => {
@@ -472,6 +488,8 @@ export function createZones({ scene, world, walker, camera, air }) {
   return {
     get name() { return name; },
     get rodOut() { return hold.visible; },
+    get nearBeast() { return beasts.near(walker.feet.x, walker.feet.z); },
+    beasts() { return beasts.probe(); },
     get blocksMagic() { return name !== 'meadow'; },
     showBoard, enter,
     hurt(marks) {
@@ -525,6 +543,7 @@ export function createZones({ scene, world, walker, camera, air }) {
         m.material.opacity = Math.max(0, m.userData.life / m.userData.max);
         if (m.userData.life <= 0) { scene.remove(m); blasts.splice(i, 1); }
       }
+      village.tick?.(dt);
       beasts.update(dt, name);
       if (pin) {
         beam.visible = name === 'meadow';
@@ -557,8 +576,9 @@ export function createZones({ scene, world, walker, camera, air }) {
         if (phase === 'bite') {
           if (reelHold > 0) {
             reelHold += dt;
+            reelProg += dt * 1.15;
             reel.rotation.x += dt * (8 + reelHold * 10);
-            if (reelHold > 0.65) { phase = 'reel'; reelT = 0; reelHold = 0; if (reelBtn) reelBtn.hidden = true; }
+            if (reelProg >= 1) { phase = 'reel'; reelT = 0; reelHold = 0; reelProg = 0; if (reelBtn) reelBtn.hidden = true; }
           }
           bobber.position.y = world.water + Math.sin(performance.now() * 0.02) * 0.08;
           splash.visible = true;

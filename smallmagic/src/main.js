@@ -38,7 +38,7 @@ let shown = true, loaded = false, told = 0.02, begun = capture, paused = false;
 const say = (text) => { told = Math.min(0.95, told + 0.1); if (loading) loading.textContent = text; bar?.style.setProperty('--p', told); };
 const turn = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: capture });
 const phone = matchMedia('(pointer: coarse)').matches || innerWidth < 820;
 renderer.setPixelRatio(capture ? 1 : Math.min(devicePixelRatio, phone ? 1.5 : 2));
 renderer.setSize(innerWidth, innerHeight);
@@ -132,6 +132,15 @@ document.getElementById('handsToggle')?.addEventListener('pointerup', (e) => {
   e.currentTarget.textContent = settings.hands ? 'Hands mode: on' : 'Hands mode: off';
   e.currentTarget.classList.toggle('on', settings.hands);
   if (handsEl) handsEl.hidden = !settings.hands;
+  if (settings.hands) import('./handtrack.js').then((m) => m.startHandTrack((hands) => {
+    for (const lm of hands) {
+      const wrist = lm[0];
+      const arm = arms.children[wrist.x < 0.5 ? 0 : 1];
+      if (!arm) continue;
+      const tx = (0.5 - wrist.x) * 0.35;
+      arm.position.x += (tx - arm.position.x) * 0.15;
+    }
+  })).catch(() => {});
   e.preventDefault(); e.stopPropagation();
 });
 settingsEl?.querySelectorAll('[data-gfx]').forEach((b) => b.addEventListener('pointerup', (e) => {
@@ -148,23 +157,23 @@ function makeArm(side) {
   const g = new THREE.Group();
   const skin = new THREE.MeshBasicMaterial({ color: '#f0c2a0' });
   const cloth = new THREE.MeshBasicMaterial({ color: '#6b3a22' });
-  const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.04, 0.32, 8), cloth);
-  fore.position.set(side * 0.28, -0.02, -0.85);
-  fore.rotation.z = side * 0.35;
-  fore.rotation.x = 0.35;
-  const wrist = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 6), skin);
-  wrist.position.set(side * 0.36, -0.08, -0.7);
-  const palm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.022), skin);
-  palm.position.set(side * 0.4, -0.14, -0.62);
+  const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.055, 0.36, 8), cloth);
+  fore.position.set(side * 0.2, -0.18, -0.38);
+  fore.rotation.z = side * 0.7;
+  fore.rotation.x = 1.05;
+  const wrist = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), skin);
+  wrist.position.set(side * 0.13, -0.14, -0.52);
+  const palm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 0.028), skin);
+  palm.position.set(side * 0.1, -0.12, -0.58);
   g.add(fore, wrist, palm);
   for (let i = 0; i < 4; i++) {
-    const finger = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.07, 0.013), skin);
-    finger.position.set(side * 0.37 + (i - 1.5) * 0.018, -0.2, -0.58);
+    const finger = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.08, 0.016), skin);
+    finger.position.set(side * 0.08 + (i - 1.5) * 0.022, -0.1, -0.66);
     g.add(finger);
   }
-  const thumb = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.048, 0.013), skin);
-  thumb.position.set(side * 0.46, -0.1, -0.6);
-  thumb.rotation.z = -side * 0.8;
+  const thumb = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.055, 0.016), skin);
+  thumb.position.set(side * 0.16, -0.1, -0.56);
+  thumb.rotation.z = -side * 0.9;
   g.add(thumb);
   return g;
 }
@@ -173,7 +182,7 @@ arms.add(makeArm(-1), makeArm(1));
 arms.visible = false;
 arms.traverse((o) => { o.frustumCulled = false; });
 scene.add(arms);
-let padCast = false;
+let padCast = false, forceDraw = false;
 let free = null;
 let shaking = 0;
 const blastAt = new THREE.Vector3();
@@ -220,9 +229,17 @@ function tick(dt) {
   post.heat = Math.min(1, fire.glare * 0.85 + (spells?.glare ?? 0) * 0.6);
   if (handsEl) handsEl.classList.toggle('on', !!(settings.hands && (inp.cast || spells?.cast?.holding || spells?.cast?.pour)));
   arms.visible = !!(settings.hands && zones.name !== 'hub');
-  if (arms.visible) { arms.position.copy(camera.position); arms.quaternion.copy(camera.quaternion); }
-  arms.children[1].rotation.x = arms.visible && (inp.cast || spells?.cast?.holding || spells?.cast?.pour) ? -0.4 : 0;
-  post.render(scene, camera, free || zones.name === 'hub' || settings.hands || zones.rodOut ? null : staff, SUN);
+  if (arms.visible) {
+    arms.position.copy(camera.position);
+    arms.quaternion.copy(camera.quaternion);
+    const ready = !!(inp.cast || spells?.cast?.holding || spells?.cast?.pour || zones.rodOut || zones.nearBeast < 7);
+    const drop = ready ? 0 : (walker.speed > 5 ? 0.1 : walker.speed > 0.4 ? 0.06 : 0.02);
+    const swing = Math.sin(walker.stride * (walker.speed > 5 ? 6.2 : 3.4)) * (walker.speed > 0.4 ? (walker.speed > 5 ? 0.14 : 0.05) : 0);
+    if (!arms.userData.rest) arms.userData.rest = arms.children.map((c) => c.position.y);
+    arms.children.forEach((c, i) => { c.position.y = arms.userData.rest[i] - drop + (i ? -swing : swing); });
+  }
+  if (!q.has('fast') || forceDraw) post.render(scene, camera, free || zones.name === 'hub' || settings.hands || zones.rodOut ? null : staff, SUN);
+  forceDraw = false;
 }
 
 // (the measuring tools were written for a figure seen from behind: these are the same handles on one seen from within)
@@ -233,6 +250,7 @@ const lab = window.lab = {
   follow: { get yaw() { return walker.yaw; }, set yaw(v) { walker.yaw = v; }, get pitch() { return walker.pitch; }, set pitch(v) { walker.pitch = v; }, want: 0, distance: 0, pivot: new THREE.Vector3() },
   doll: { man: { bones: { Head: { getWorldPosition: (v) => v.copy(walker.feet).setY(walker.feet.y + 1.66) } } } },
   step(dt = 1 / 60, n = 1) { for (let i = 0; i < n; i++) tick(dt); },
+  draw() { forceDraw = true; },
   sound,
   /** One frame, and the sound of it worked out before the next (films with sound). */
   async stepSound(dt = 1 / 60) { tick(dt); await sound.advance(dt); },
@@ -304,6 +322,7 @@ loaded = true;
 run();
 const hint = document.getElementById('hint');
 if (capture) hint?.remove();
+if (phone) hint?.classList.add('off');
 if (sound && capture) await sound.ready;
 if (!capture) {
   // Stopped: when the window is left, when the mouse is let go (Esc is Patch's, and lets it go), on P, or on a pad's
