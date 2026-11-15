@@ -57,16 +57,18 @@ export function createArms(scene) {
     const lift = state.ready ? 1 : 0;
     const run = state.speed > 5;
     const moving = state.speed > 0.4;
-    const swing = Math.sin(state.stride * (run ? 7.2 : 3.5)) * (moving ? (run ? 0.22 : 0.12) : 0);
-    const yaw = 1.48 + lift * 0.1;
-    const drop = -0.02 - lift * 0.16 + swing;
+    const swing = Math.sin(state.stride * (run ? 7.2 : 3.5)) * (moving ? (run ? 0.16 : 0.08) : 0);
+    // Ready only tips the hands in from the lower corners. It does not lift them into the middle.
+    const yaw = 1.34 + lift * 0.03;
+    const drop = -0.02 + swing;
     bend('leftUpperArm', 0, yaw, drop);
     bend('rightUpperArm', 0, -yaw, -drop);
-    bend('leftLowerArm', 0, 0.15, 0);
-    bend('rightLowerArm', 0, -0.15, 0);
+    bend('leftLowerArm', 0, 0.28, 0.1);
+    bend('rightLowerArm', 0, -0.28, -0.1);
     vrm.update(dt);
     if (!aligned) {
       vrm.scene.rotation.y = Math.PI;
+      vrm.scene.scale.setScalar(0.82);
       const head = vrm.humanoid.getNormalizedBoneNode('head');
       if (head) {
         vrm.scene.updateWorldMatrix(true, true);

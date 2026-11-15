@@ -154,12 +154,14 @@ document.getElementById('bladeToggle')?.addEventListener('pointerup', (e) => {
   settings.blade = !settings.blade;
   e.currentTarget.textContent = settings.blade ? 'Blade: on' : 'Blade: off';
   e.currentTarget.classList.toggle('on', settings.blade);
+  if (settings.blade) arms.load();
   e.preventDefault(); e.stopPropagation();
 });
 document.getElementById('gunnerToggle')?.addEventListener('pointerup', (e) => {
   settings.gunner = !settings.gunner;
   e.currentTarget.textContent = settings.gunner ? 'Gunner: on' : 'Gunner: off';
   e.currentTarget.classList.toggle('on', settings.gunner);
+  if (settings.gunner) arms.load();
   e.preventDefault(); e.stopPropagation();
 });
 document.getElementById('gunFire')?.addEventListener('pointerup', (e) => { gun.fire(); e.preventDefault(); e.stopPropagation(); });
@@ -217,9 +219,10 @@ function tick(dt) {
   if (handsEl) handsEl.classList.toggle('on', !!(settings.hands && (inp.cast || spells?.cast?.holding || spells?.cast?.pour)));
   blade.update(dt, settings.blade && zones.name !== 'hub');
   gun.update(dt, settings.gunner && zones.name !== 'hub');
-  arms.rig.visible = !!(settings.hands && zones.name !== 'hub' && arms.loaded);
+  const armsOn = (settings.hands || settings.blade || settings.gunner) && zones.name !== 'hub' && arms.loaded;
+  arms.rig.visible = !!armsOn;
   if (arms.rig.visible) {
-    const ready = !!(inp.cast || spells?.cast?.holding || spells?.cast?.pour || zones.rodOut || zones.nearBeast < 7);
+    const ready = !!(settings.blade || settings.gunner || inp.cast || spells?.cast?.holding || spells?.cast?.pour || zones.rodOut || zones.nearBeast < 7);
     arms.update(dt, camera, { ready, speed: walker.speed, stride: walker.stride });
   }
   if (!q.has('fast') || forceDraw) post.render(scene, camera, free || zones.name === 'hub' || settings.hands || zones.rodOut ? null : staff, SUN);
