@@ -20,7 +20,7 @@ Code MIT. The world and everything in it is made in code by Patch.
 - The settings panel, the hit mark, and the Long Lake map are drawn in the page.
 - Hands mode uses AvatarSample_B by VRoid (`public/figure/AvatarSample_B.vrm`), the same walking character as the overworld. Redistribution and changes are allowed. It is not CC0, and the unmodified file is not for sale. https://hub.vroid.com/en/characters/7939147878897061040/models/2292219474373673889
 - The loader is `@pixiv/three-vrm` (MIT).
-- Blade borrows the lane, the cut, and the wall from Moon Rider by Supermedium (MIT, https://github.com/supermedium/moonrider). The pattern in this page is original. No BeatSaver song or map is included.
+- Blade adapts the block approach, the cut-angle score, and the wall hit from Moon Rider by Supermedium (MIT, Copyright © 2018, https://github.com/supermedium/moonrider), in `src/rider.js`. The pattern on this page is original. No song, beatmap, BeatSaver art, or BeatSaver audio is included.
 - The grenade is thrown the way the ball is thrown in three.js `examples/games_fps.html` (MIT): speed along the look, gravity, and a bounce off the ground.
 - Hands mode can ask the camera for a prototype tracker. That code is `@mediapipe/tasks-vision` (Apache-2.0), loaded from the network only after the toggle is turned on. It is not stored in this repo. If the camera is refused, the drawn arms stay.
 - Softer meadow steps, `sfx/grass1.ogg` to `grass4.ogg`: Kenney RPG Audio (kenney.nl), CC0 1.0.
