@@ -37,6 +37,13 @@ const EMBLEMS = {
   ],
   // a funnel: bands of it, narrowing and leaning as they go down
   tornado: [{ d: 'M-9 -8 Q0 -5.4 9 -8 M-7 -4.2 Q0.4 -1.8 7.4 -4.4 M-4.6 -0.4 Q0.8 1.6 5.6 -0.6 M-2.4 3.4 Q1 5 4 3.2 M-0.4 7 Q1.2 8.2 2.6 7' }],
+  pound: [{ d: 'M0 9 V-1 M-6 3 H6 M-3.5 -3 H3.5' }],
+  spin: [{ d: 'M-7 3 A8 8 0 1 1 6 4' }],
+  rush: [{ d: 'M-8 6 L0 -8 L8 6 M-4 2 H4' }],
+  block: [{ d: 'M-7 -6 H7 V7 H-7 Z' }],
+  slice: [{ d: 'M-8 7 L8 -7' }],
+  bolt: [{ d: 'M3 -9 L-5 1 H1 L-3 9 L6 -1 H1 Z' }],
+  nade: [{ d: 'M0 -8 V-3 M-5 0 A5 5 0 1 0 5 0' }],
 };
 
 const el = (tag, at, to) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); to?.appendChild(e); return e; };

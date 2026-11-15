@@ -69,6 +69,39 @@ export const TUNE = {
   hackHit: 5,
   stoneRate: 0.08,
   stoneHit: 4,
+  bendMax: Math.PI / 4,
+  straighten: 2.7,
+  reaim: 3.4,
+  threadSag: 0.22,
+  lightStagger: 0.16,
+  heavyStop: 0.16,
+  heavyStagger: 0.7,
+  heavyHold: 0.3,
+  heavyHit: 8,
+  ringLift: 0.32,
+  wideScale: 1.75,
+  wideReach: 168,
+  deepTime: 0.42,
+  deepRate: 55,
+  deepEdge: 0.35,
+  deepZone: 120,
+  deepStrength: 200,
+  deepPush: 0.55,
+  wallHp: 200,
+  powerScale: 2.5,
+  marginPush: 24,
+  marginBurst: 55,
+  marginRain: 110,
+  crumbleHit: 4,
+  marginPushDist: 1.4,
+  marginStagger: 0.22,
+  rainRadius: 4.5,
+  rainHit: 6,
+  comboBonus: 12,
+  rearArc: 120,
+  backBonus: 8,
+  backStagger: 0.45,
+  cone: 0.62,
 };
 
 // Moon Rider beat.js. A swing within about 15° is a super cut. Past about 50° it misses.
@@ -112,6 +145,22 @@ export function bladePoints(dot, center, timing, dotNote) {
 /** 0 at the windup's end, 1 when the block reaches the sword. */
 export function flightU(song, due, flight) {
   return Math.max(0, Math.min(1, 1 - (due - song) / Math.max(flight, 0.05)));
+}
+
+/**
+ * One margin for a wall, a block, and a parry.
+ * power 205 against strength 200 is a win of 5, a light crumble.
+ * A wide gap climbs through push, a rock burst, and a rubble rain.
+ */
+export function clashMargin(power, strength) {
+  const margin = power - strength;
+  const tier = margin < 0 ? 'chip'
+    : margin >= TUNE.marginRain ? 'rain'
+    : margin >= TUNE.marginBurst ? 'burst'
+    : margin >= TUNE.marginPush ? 'push'
+    : 'crumble';
+  const scale = Math.max(0, Math.min(1.6, margin / Math.max(1, TUNE.marginRain)));
+  return { margin, tier, scale };
 }
 
 /** A standing wall fills the lane. A ceiling wall misses a crouched body. */

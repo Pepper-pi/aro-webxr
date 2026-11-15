@@ -24,6 +24,7 @@ import { createSound } from './sound.js';
 import { spellBar } from './hud.js';
 import { createZones } from './zones.js';
 import { createArms } from './arms.js';
+import { TUNE } from './rider.js';
 import { createBlade } from './blade.js';
 import { attachFells } from './fells.js';
 import { createGunner } from './gunner.js';
@@ -95,7 +96,54 @@ const flames = createFlames(air);
 scene.add(flames.mesh);
 const fire = createFire({ world, air, fx, flames });
 const zones = createZones({ scene, world, walker, camera, air });
+const BLADE_ATK = [
+  { key: 'pound', name: 'Pound', colour: '#c4a574', sides: 4 },
+  { key: 'spin', name: 'Spin', colour: '#7ec8ff', sides: 6 },
+  { key: 'rush', name: 'Sky Rush', colour: '#3ee0ff', sides: 5 },
+  { key: 'block', name: 'Block', colour: '#9fd4ff', sides: 4 },
+  { key: 'slice', name: 'Slice', colour: '#3ee0ff', sides: 3 },
+];
+const GUN_ATK = [
+  { key: 'bolt', name: 'Fire', colour: '#ffb043', sides: 4 },
+  { key: 'nade', name: 'Grenade', colour: '#9ee7ff', sides: 5 },
+];
 const spellsBar = spellBar(document.getElementById('spells'), SPELLS);
+let kitBar = spellsBar;
+let kit = 'mage';
+let atk = 0;
+function applyKit(next) {
+  const want = next === 'blade' || next === 'gunner' ? next : 'mage';
+  if (want === kit) return;
+  kit = want;
+  atk = 0;
+  const box = document.getElementById('spells');
+  const spellBtn = document.getElementById('spell');
+  const castBtn = document.getElementById('cast');
+  if (want === 'mage') {
+    kitBar = spellBar(box, SPELLS);
+    kitBar.select(spells?.selected ?? 0);
+    if (spellBtn) spellBtn.textContent = 'Spell';
+    if (castBtn) castBtn.textContent = 'Cast';
+    return;
+  }
+  kitBar = spellBar(box, want === 'blade' ? BLADE_ATK : GUN_ATK);
+  kitBar.select(0);
+  if (spellBtn) spellBtn.textContent = 'Attacks';
+  if (castBtn) castBtn.textContent = 'Use';
+}
+function useAttack(which, index, down) {
+  if (which === 'gunner') {
+    if (!down) return;
+    if (index === 1) gun.toss(); else gun.fire();
+    return;
+  }
+  const key = BLADE_ATK[index]?.key;
+  if (key === 'pound') { if (down) blade.poundStart(); else blade.poundRelease(); }
+  else if (down && key === 'spin') blade.spin();
+  else if (down && key === 'rush') blade.tryRush();
+  else if (key === 'block') blade.setBlock(down);
+  else if (down && key === 'slice') blade.cut();
+}
 const beam = createBeam(air);
 scene.add(beam.mesh);
 const blast = createBlast({ air, world, fx, fire, ruin, scene });
@@ -262,10 +310,17 @@ function tick(dt) {
   air.uniforms.uNow.value += dt * pace;
   const inp = input.read(dt);
   const planted = zones.name !== 'hub' && settings.class === 'blade' && blade.pad;
+  const melee = zones.name !== 'hub' && (settings.class === 'blade' || settings.class === 'gunner');
+  applyKit(melee ? settings.class : 'mage');
   if (zones.blocksMagic) {
     zones.castHeld(!!inp.cast, !padCast && !!inp.cast, padCast && !inp.cast);
     padCast = !!inp.cast;
     spells?.release();
+  } else if (melee) {
+    spells?.release();
+    const list = settings.class === 'blade' ? BLADE_ATK : GUN_ATK;
+    if (inp.spell) { atk = (atk + inp.spell + list.length) % list.length; kitBar.select(atk); }
+    if (inp.cast !== null && inp.cast !== padCast) { const down = !!inp.cast; padCast = !!inp.cast; useAttack(settings.class, atk, down); }
   } else if (spells) {
     if (inp.cast !== null && inp.cast !== padCast) { padCast = inp.cast; if (padCast) spells.press(); else spells.release(); }
     if (inp.spell) spells.select(spells.selected + inp.spell);
@@ -322,7 +377,7 @@ function tick(dt) {
 // (the measuring tools were written for a figure seen from behind: these are the same handles on one seen from within)
 const head = new THREE.Vector3();
 const lab = window.lab = {
-  THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, arms, blade, gun, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
+  THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, arms, blade, gun, tune: TUNE, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
   player: walker,
   follow: { get yaw() { return walker.yaw; }, set yaw(v) { walker.yaw = v; }, get pitch() { return walker.pitch; }, set pitch(v) { walker.pitch = v; }, want: 0, distance: 0, pivot: new THREE.Vector3() },
   doll: { man: { bones: { Head: { getWorldPosition: (v) => v.copy(walker.feet).setY(walker.feet.y + 1.66) } } } },

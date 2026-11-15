@@ -17,6 +17,8 @@ const blockVert = /* glsl */ `
 const blockFrag = /* glsl */ `
   uniform vec3 uColor;
   uniform float uTime;
+  uniform float uFill;
+  uniform float uEdge;
   varying vec3 vN;
   varying vec3 vW;
   varying vec3 vL;
@@ -30,7 +32,7 @@ const blockFrag = /* glsl */ `
     float scan = 0.72 + 0.28 * sin(vL.y * 48.0 + uTime * 7.0);
     float flick = 0.86 + 0.14 * sin(uTime * 19.0 + vL.x * 11.0);
     float edge = fres * 0.9 + grid * 0.45;
-    float alpha = (0.08 + edge) * scan * flick;
+    float alpha = (uFill + edge * uEdge) * scan * flick;
     vec3 col = uColor * (0.45 + fres * 1.4 + grid * 0.6);
     gl_FragColor = vec4(col, alpha);
   }
@@ -44,26 +46,37 @@ const railVert = /* glsl */ `
   }
 `;
 
+// The same language as the fishing line: a soft glow, a pale core, and a few lights traveling the thread.
 const railFrag = /* glsl */ `
   uniform vec3 uColor;
   uniform float uTime;
-  uniform float uRepeat;
   varying vec2 vUv;
   void main() {
-    float along = fract(vUv.y * uRepeat - uTime * 1.6);
-    float dash = smoothstep(0.42, 0.55, along) * smoothstep(0.98, 0.8, along);
-    float side = smoothstep(0.5, 0.12, abs(vUv.x - 0.5));
-    float alpha = (0.12 + 0.8 * dash) * side;
-    gl_FragColor = vec4(uColor * (0.7 + dash), alpha);
+    float d = abs(vUv.x - 0.5);
+    float glow = smoothstep(0.5, 0.05, d);
+    float core = smoothstep(0.14, 0.0, d);
+    float flow = fract(vUv.y * 3.0 - uTime * 0.45);
+    float mote = smoothstep(0.09, 0.0, abs(flow - 0.5)) * smoothstep(0.2, 0.0, d);
+    vec3 col = mix(uColor, vec3(1.0, 0.98, 0.93), clamp(core * 0.9 + mote, 0.0, 1.0));
+    float alpha = glow * 0.42 + core * 0.95 + mote * 0.8;
+    gl_FragColor = vec4(col, alpha);
   }
 `;
 
-export function holoMaterial(hex) {
+const BODY = { light: [0.04, 0.42], medium: [0.28, 1], heavy: [0.62, 1.7], ring: [0.18, 1.05] };
+
+export function holoMaterial(hex, weight = 'medium') {
+  const pair = BODY[weight] || BODY.medium;
   return new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
-    uniforms: { uColor: { value: new THREE.Color(hex) }, uTime: { value: 0 } },
+    uniforms: {
+      uColor: { value: new THREE.Color(hex) },
+      uTime: { value: 0 },
+      uFill: { value: pair[0] },
+      uEdge: { value: pair[1] },
+    },
     vertexShader: blockVert,
     fragmentShader: blockFrag,
   });
@@ -78,7 +91,6 @@ export function railMaterial(hex) {
     uniforms: {
       uColor: { value: new THREE.Color(hex) },
       uTime: { value: 0 },
-      uRepeat: { value: 8 },
     },
     vertexShader: railVert,
     fragmentShader: railFrag,

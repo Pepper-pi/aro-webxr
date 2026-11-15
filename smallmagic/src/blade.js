@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { shadowed } from './air.js';
 import { holoMaterial, railMaterial, tickHolo } from './holo.js';
-import { ANGLE_DOT_MIN, ANGLE_DOT_SUPER, LANE, SWORD_OFFSET, TUNE, angleDot, bladePoints, flightU, wallBlocks } from './rider.js';
+import { ANGLE_DOT_MIN, ANGLE_DOT_SUPER, LANE, SWORD_OFFSET, TUNE, WALL_HALF, angleDot, bladePoints, clashMargin, flightU, wallBlocks } from './rider.js';
 
 // A phone sword rhythm. Approach, cut angle, and wall hits are adapted from Moon Rider
 // (Supermedium, MIT) in rider.js. The pattern is original. No song and no BeatSaver map.
@@ -11,14 +11,15 @@ import { ANGLE_DOT_MIN, ANGLE_DOT_SUPER, LANE, SWORD_OFFSET, TUNE, angleDot, bla
 // Block, held, raises a shield. A wolf's slow lob that meets it bounces back.
 // A block pressed in the last moment shows Taunt. At most five bounced pieces live.
 
-const LOOP = 5.1;
+const LOOP = 5.9;
 const PATTERN = [
-  { t: 0.7, lane: 0, kind: 'slice', dir: 'right' },
-  { t: 1.35, lane: 2, kind: 'slice', dir: 'left' },
-  { t: 2.05, lane: 1, kind: 'wall' },
-  { t: 2.8, lane: 1, kind: 'big' },
-  { t: 3.55, lane: 0, kind: 'slice', dir: 'up' },
-  { t: 4.25, lane: 1, kind: 'wall', ceiling: true },
+  { t: 0.7, lane: 0, kind: 'slice', dir: 'right', weight: 'light' },
+  { t: 1.35, lane: 2, kind: 'slice', dir: 'left', weight: 'medium', shape: 'wide' },
+  { t: 2.05, lane: 1, kind: 'wall', shape: 'deep' },
+  { t: 2.8, lane: 1, kind: 'big', weight: 'heavy' },
+  { t: 3.55, lane: 0, kind: 'slice', dir: 'up', weight: 'light' },
+  { t: 4.25, lane: 1, kind: 'wall', ceiling: true, shape: 'wide' },
+  { t: 5.0, lane: 1, kind: 'ring', dir: 'up', weight: 'ring' },
 ];
 
 const root = () => document.getElementById('blade');
@@ -79,18 +80,204 @@ export function createBlade(onLaunch, bits = {}) {
   burst.visible = false;
   scene?.add(burst);
 
+  let lockN = null;
+  let decoy = null;
+  const aimRing = new THREE.Mesh(new THREE.RingGeometry(0.72, 0.92, 28), new THREE.MeshBasicMaterial({ color: '#f1c453', side: THREE.DoubleSide, transparent: true, opacity: 0.9, depthWrite: false }));
+  aimRing.rotation.x = -Math.PI / 2;
+  aimRing.visible = false;
+  scene?.add(aimRing);
+  const decoyPost = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 1.3, 6), new THREE.MeshBasicMaterial({ color: '#f1c453' }));
+  decoyPost.visible = false;
+  scene?.add(decoyPost);
+  const MAXHP = { wolf: 36, boar: 48, slime: 22, goblin: 30 };
+
+  function focusBeast() {
+    if (!camera || !zones) return null;
+    const list = zones.beasts().filter((b) => !b.dead);
+    if (lockN != null) {
+      const held = list.find((b) => b.n === lockN);
+      if (held) return held;
+      lockN = null;
+    }
+    const eye = camera.position;
+    camera.getWorldDirection(look);
+    let best = null;
+    let bestD = 16;
+    for (const b of list) {
+      const dx = b.x - eye.x;
+      const dz = b.z - eye.z;
+      const d = Math.hypot(dx, dz);
+      if (d > bestD || d < 0.3) continue;
+      if ((dx / d) * look.x + (dz / d) * look.z < TUNE.cone) continue;
+      best = b;
+      bestD = d;
+    }
+    if (best) return best;
+    let near = null;
+    let nearD = 16;
+    for (const b of list) {
+      const d = Math.hypot(b.x - eye.x, b.z - eye.z);
+      if (d < nearD) { near = b; nearD = d; }
+    }
+    return near;
+  }
+
   function laneFrame() {
     if (!camera || !zones || !world) return null;
+    const best = focusBeast();
+    if (!best) return null;
     const eye = camera.position;
+    const bestD = Math.hypot(best.x - eye.x, best.z - eye.z) || 1;
+    return { beast: best, dist: bestD, fx: (best.x - eye.x) / bestD, fz: (best.z - eye.z) / bestD, rx: (best.z - eye.z) / bestD, rz: -(best.x - eye.x) / bestD };
+  }
+
+  function backOpen() {
+    if (!decoy || !camera) return false;
+    const beast = focusBeast();
+    if (!beast) return false;
+    const fx = decoy.x - beast.x;
+    const fz = decoy.z - beast.z;
+    const fl = Math.hypot(fx, fz) || 1;
+    const px = camera.position.x - beast.x;
+    const pz = camera.position.z - beast.z;
+    const pl = Math.hypot(px, pz) || 1;
+    const dot = (px / pl) * (-fx / fl) + (pz / pl) * (-fz / fl);
+    return dot > Math.cos((TUNE.rearArc * Math.PI / 180) / 2);
+  }
+
+  let backNext = 0;
+  let backFlip = false;
+
+  function bendNote(note, dt) {
+    if (!camera) return;
+    camera.getWorldDirection(look);
+    const eye = camera.position;
+    const sx = eye.x + look.x * SWORD_OFFSET;
+    const sz = eye.z + look.z * SWORD_OFFSET;
+    const fx = note.launch.x;
+    const fz = note.launch.z;
+    let dx = sx - note.from.x;
+    let dz = sz - note.from.z;
+    const len = Math.hypot(dx, dz) || 1;
+    dx /= len;
+    dz /= len;
+    let ang = Math.atan2(dx * fz - dz * fx, dx * fx + dz * fz);
+    ang = Math.max(-TUNE.bendMax, Math.min(TUNE.bendMax, ang));
+    const c = Math.cos(ang);
+    const s = Math.sin(ang);
+    let tx = note.from.x + (fx * c - fz * s) * len;
+    let tz = note.from.z + (fx * s + fz * c) * len;
+    const remain = Math.hypot(note.to.x - note.group.position.x, note.to.z - note.group.position.z);
+    let snap = 1 - Math.exp(-TUNE.reaim * dt);
+    if (remain < TUNE.straighten) {
+      const k = 1 - remain / TUNE.straighten;
+      const straightX = note.from.x + fx * len;
+      const straightZ = note.from.z + fz * len;
+      tx += (straightX - tx) * k;
+      tz += (straightZ - tz) * k;
+      snap = Math.max(snap, 1 - Math.exp(-12 * dt));
+    }
+    note.to.x += (tx - note.to.x) * snap;
+    note.to.z += (tz - note.to.z) * snap;
+  }
+
+  function lockChime() {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = lockChime.ctx || (lockChime.ctx = new Ctx());
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = 740;
+      g.gain.setValueAtTime(0.07, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.16);
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.start();
+      o.stop(ctx.currentTime + 0.18);
+    } catch { /* the page may refuse audio */ }
+  }
+
+  function tryTarget(h) {
+    if (!zones || Math.hypot(h.dx || 0, h.dy || 0) > 18) return false;
     let best = null;
-    let bestD = 14;
+    let bestD = 76;
     for (const b of zones.beasts()) {
       if (b.dead) continue;
-      const d = Math.hypot(b.x - eye.x, b.z - eye.z);
+      const s = project(new THREE.Vector3(b.x, (world?.ground(b.x, b.z) || 0) + 1.1, b.z));
+      if (!s) continue;
+      const d = Math.hypot(s.x - h.x, s.y - h.y);
       if (d < bestD) { best = b; bestD = d; }
     }
-    if (!best) return null;
-    return { beast: best, dist: bestD, fx: (best.x - eye.x) / bestD, fz: (best.z - eye.z) / bestD, rx: bestD && (best.z - eye.z) / bestD, rz: -(best.x - eye.x) / bestD };
+    if (best) {
+      if (lockN === best.n) { lockN = null; say('Clear'); }
+      else { lockN = best.n; lockChime(); flash(); say(best.kind); }
+      return true;
+    }
+    const onNote = notes.some((n) => {
+      if (n.resolved) return false;
+      const s = project(n.group.position);
+      return s && Math.hypot(s.x - h.x, s.y - h.y) < 80;
+    });
+    if (!onNote) lockN = null;
+    return false;
+  }
+
+  function paintTarget() {
+    const card = document.getElementById('targetCard');
+    const beast = drawn ? focusBeast() : null;
+    if (decoy && decoyPost && world) {
+      decoyPost.visible = true;
+      decoyPost.position.set(decoy.x, world.ground(decoy.x, decoy.z) + 0.65, decoy.z);
+    } else if (decoyPost) decoyPost.visible = false;
+    if (!card || !beast || !drawn) {
+      if (card) card.hidden = true;
+      aimRing.visible = false;
+      const edge = document.getElementById('edgeGlow');
+      if (edge) edge.hidden = true;
+      return;
+    }
+    card.hidden = false;
+    card.dataset.kind = beast.kind;
+    const name = document.getElementById('targetName');
+    if (name) name.textContent = beast.kind[0].toUpperCase() + beast.kind.slice(1);
+    const hp = card.querySelector('.hp span');
+    const stag = card.querySelector('.stag span');
+    const max = MAXHP[beast.kind] || 36;
+    if (hp) hp.style.width = `${Math.max(0, Math.min(100, (beast.hp / max) * 100))}%`;
+    if (stag) stag.style.width = `${Math.round((openFor > 0 ? 1 : stagger) * 100)}%`;
+    const gy = world.ground(beast.x, beast.z);
+    aimRing.visible = true;
+    aimRing.position.set(beast.x, gy + 0.08, beast.z);
+    const edge = document.getElementById('edgeGlow');
+    const s = project(new THREE.Vector3(beast.x, gy + 1.1, beast.z));
+    if (!edge) return;
+    if (!s) { edge.hidden = false; edge.style.boxShadow = 'inset 0 0 56px #ff5a4a'; return; }
+    const pad = 28;
+    const left = s.x < pad;
+    const right = s.x > innerWidth - pad;
+    const top = s.y < pad;
+    const bot = s.y > innerHeight - pad;
+    if (!left && !right && !top && !bot) { edge.hidden = true; return; }
+    edge.hidden = false;
+    const ix = left ? 18 : right ? -18 : 0;
+    const iy = top ? 18 : bot ? -18 : 0;
+    edge.style.boxShadow = `inset ${ix}px ${iy}px 64px #ff5a4a`;
+  }
+
+  function setDecoy(on) {
+    const btn = document.getElementById('decoy');
+    if (!on) { decoy = null; if (btn) btn.classList.remove('on'); say('Aggro'); return; }
+    const frame = laneFrame();
+    if (!frame || !camera) return;
+    const eye = camera.position;
+    const dx = frame.beast.x - eye.x;
+    const dz = frame.beast.z - eye.z;
+    const d = Math.hypot(dx, dz) || 1;
+    decoy = { x: frame.beast.x + (dx / d) * 3.4, z: frame.beast.z + (dz / d) * 3.4 };
+    if (btn) btn.classList.add('on');
+    say('Decoy');
   }
 
   function layGlows(frame) {
@@ -134,7 +321,7 @@ export function createBlade(onLaunch, bits = {}) {
 
   const holos = [];
   const shards = [];
-  const holoHex = (kind) => (kind === 'wall' ? '#ff4a42' : kind === 'big' ? '#ffd36a' : '#3ee0ff');
+  const holoHex = (kind) => (kind === 'wall' ? '#ff4a42' : kind === 'big' || kind === 'back' ? '#ffd36a' : '#3ee0ff');
 
   function track(mat) {
     if (mat?.uniforms?.uTime) holos.push(mat);
@@ -154,59 +341,127 @@ export function createBlade(onLaunch, bits = {}) {
   }
   const chevronGeo = chevron();
 
-  function makeAttack(kind, dir, part) {
+  function makeAttack(kind, dir, part, weight = 'medium', shape = '') {
     const g = new THREE.Group();
-    const color = kind === 'wall' ? '#ff4a42' : kind === 'big' ? '#ffd36a' : kind === 'orb' ? '#e8f6ff' : '#3ee0ff';
+    const color = kind === 'wall' ? '#ff4a42' : kind === 'big' || kind === 'back' || weight === 'heavy' ? '#ffd36a' : kind === 'ring' ? '#9ad7ff' : kind === 'orb' ? '#e8f6ff' : '#3ee0ff';
     let body;
     if (kind === 'orb') {
       body = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 12), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.28, depthWrite: false }));
       g.add(body, ...partIcon(part || 'head'));
+    } else if (kind === 'ring') {
+      body = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.055, 8, 22), track(holoMaterial(color, 'ring')));
+      body.rotation.x = Math.PI / 2;
+      const seam = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.035, 0.045), new THREE.MeshBasicMaterial({ color: '#fff6d0', transparent: true, opacity: 0.95 }));
+      g.add(body, seam);
     } else {
-      const mat = track(holoMaterial(color));
+      const mat = track(holoMaterial(color, weight));
       const geo = kind === 'wall'
         ? (part === 'ceiling' ? new THREE.BoxGeometry(0.5, 0.16, 0.18) : new THREE.BoxGeometry(0.42, 0.9, 0.16))
         : new THREE.BoxGeometry(0.36, 0.36, 0.16);
       body = new THREE.Mesh(geo, mat);
+      if (shape === 'wide') body.scale.x = TUNE.wideScale;
+      if (shape === 'deep') body.scale.z = 2.1;
       g.add(body);
+      if (weight === 'heavy') {
+        const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: '#fff4d2' }));
+        edge.scale.setScalar(1.16);
+        g.add(edge);
+      }
       if (kind === 'slice') {
-        const arrow = new THREE.Mesh(chevronGeo, track(holoMaterial('#e8fbff')));
+        const arrow = new THREE.Mesh(chevronGeo, track(holoMaterial('#e8fbff', weight)));
         const spin = { right: -Math.PI / 2, left: Math.PI / 2, up: 0, down: Math.PI }[dir] ?? 0;
         arrow.rotation.z = spin;
         arrow.position.z = 0.1;
         g.add(arrow);
       }
+      if (shape === 'deep') {
+        const meter = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.05, 0.03), new THREE.MeshBasicMaterial({ color: '#f1c453', transparent: true, opacity: 0.95 }));
+        meter.position.set(0, kind === 'wall' ? 0.58 : 0.3, 0.14);
+        meter.scale.x = 0.02;
+        meter.visible = false;
+        meter.name = 'meter';
+        g.add(meter);
+      }
     }
-    const glow = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false }));
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: weight === 'light' ? 0.35 : 0.9, depthWrite: false }));
     glow.position.z = 0.05;
     g.add(glow);
     g.traverse((o) => { o.frustumCulled = false; });
     return { group: g, body, glow };
   }
 
+  const threadOut = new THREE.Vector3();
+
+  function threadCalm(note) {
+    const remain = Math.hypot(note.to.x - note.group.position.x, note.to.z - note.group.position.z);
+    return remain >= TUNE.straighten ? 1 : remain / TUNE.straighten;
+  }
+
+  function threadPoint(note, t, time, out) {
+    const a = note.from;
+    const b = note.to;
+    const u = 1 - t;
+    const calm = threadCalm(note);
+    const sag = Math.sin(t * Math.PI) * TUNE.threadSag * calm;
+    const x = u * u * a.x + 2 * u * t * ((a.x + b.x) / 2) + t * t * b.x;
+    const y = u * u * a.y + 2 * u * t * ((a.y + b.y) / 2 - sag) + t * t * b.y;
+    const z = u * u * a.z + 2 * u * t * ((a.z + b.z) / 2) + t * t * b.z;
+    return out.set(x, y, z);
+  }
+
   function makeRail(kind) {
-    const mat = track(railMaterial(holoHex(kind)));
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.02, 1), mat);
+    const N = 20;
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(N * 2 * 3);
+    const uv = new Float32Array(N * 2 * 2);
+    const idx = [];
+    for (let i = 0; i < N; i++) {
+      uv[i * 4] = 0;
+      uv[i * 4 + 1] = i / (N - 1);
+      uv[i * 4 + 2] = 1;
+      uv[i * 4 + 3] = i / (N - 1);
+      if (i < N - 1) {
+        const a = i * 2;
+        idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+      }
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    geo.setIndex(idx);
+    const mesh = new THREE.Mesh(geo, track(railMaterial(holoHex(kind))));
     mesh.frustumCulled = false;
-    scene?.add(mesh);
-    return mesh;
+    const group = new THREE.Group();
+    group.add(mesh);
+    group.userData.N = N;
+    scene?.add(group);
+    return group;
   }
 
   function layRail(note) {
-    if (!note.rail) return;
-    const a = note.from;
-    const b = note.to;
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const dz = b.z - a.z;
-    const len = Math.hypot(dx, dy, dz) || 1;
-    note.rail.position.set((a.x + b.x) / 2, (a.y + b.y) / 2 - 0.12, (a.z + b.z) / 2);
-    note.rail.lookAt(b.x, note.rail.position.y, b.z);
-    note.rail.scale.z = len;
-    if (note.rail.material.uniforms?.uRepeat) note.rail.material.uniforms.uRepeat.value = Math.max(4, len / 0.35);
+    const rail = note.rail;
+    if (!rail) return;
+    const N = rail.userData.N;
+    const attr = rail.children[0].geometry.attributes.position;
+    const pts = [];
+    for (let i = 0; i < N; i++) pts.push(threadPoint(note, i / (N - 1), song, new THREE.Vector3()));
+    for (let i = 0; i < N; i++) {
+      const p = pts[i];
+      const nxt = pts[Math.min(N - 1, i + 1)];
+      const prv = pts[Math.max(0, i - 1)];
+      const tx = nxt.x - prv.x;
+      const tz = nxt.z - prv.z;
+      const len = Math.hypot(tx, tz) || 1;
+      const w = 0.055;
+      const o = i * 2;
+      attr.setXYZ(o, p.x + (-tz / len) * w, p.y, p.z + (tx / len) * w);
+      attr.setXYZ(o + 1, p.x - (-tz / len) * w, p.y, p.z - (tx / len) * w);
+    }
+    attr.needsUpdate = true;
   }
 
   function shatter(note) {
     if (!scene || note.kind === 'orb' || note.orbit) return;
+    if (note.weight === 'light') { splitHalves(note); return; }
     const color = holoHex(note.kind);
     const origin = note.group.position.clone();
     note.group.visible = false;
@@ -225,16 +480,45 @@ export function createBlade(onLaunch, bits = {}) {
     }
   }
 
+  function splitHalves(note) {
+    if (!scene || !camera) { note.group.visible = false; return; }
+    camera.getWorldDirection(look);
+    const right = new THREE.Vector3().crossVectors(look, new THREE.Vector3(0, 1, 0));
+    if (right.lengthSq() < 1e-6) right.set(1, 0, 0);
+    right.normalize();
+    const color = holoHex(note.kind);
+    note.group.visible = false;
+    for (const sign of [-1, 1]) {
+      const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7, depthWrite: false });
+      const s = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.32, 0.1), mat);
+      s.position.copy(note.group.position);
+      s.frustumCulled = false;
+      scene.add(s);
+      shards.push({ m: s, v: right.clone().multiplyScalar(sign * 2.2), life: 0.5, span: 0.5 });
+    }
+  }
+
   function spawn(spec) {
     const frame = laneFrame();
     if (!frame || !scene) return;
     const eye = camera.position;
     const side = (spec.lane - 1) * LANE;
     const ceiling = !!spec.ceiling;
-    const lift = spec.kind === 'wall' ? (ceiling ? 1.55 : 0.9) : spec.kind === 'orb' ? 1.35 : 1.15;
+    const ring = spec.kind === 'ring' || spec.weight === 'ring';
+    const lift = ring ? TUNE.ringLift : spec.kind === 'wall' ? (ceiling ? 1.55 : 0.9) : spec.kind === 'orb' ? 1.35 : 1.15;
     const from = new THREE.Vector3(frame.beast.x + frame.rx * side * 0.35, world.ground(frame.beast.x, frame.beast.z) + lift, frame.beast.z + frame.rz * side * 0.35);
     const to = new THREE.Vector3(eye.x + frame.fx * SWORD_OFFSET + frame.rx * side, world.ground(eye.x, eye.z) + lift, eye.z + frame.fz * SWORD_OFFSET + frame.rz * side);
-    const made = makeAttack(spec.kind, spec.dir, ceiling ? 'ceiling' : spec.part);
+    if (ring) to.set(eye.x, world.ground(eye.x, eye.z) + TUNE.ringLift, eye.z);
+    if (spec.kind === 'back') {
+      const px = eye.x - frame.beast.x;
+      const pz = eye.z - frame.beast.z;
+      const pl = Math.hypot(px, pz) || 1;
+      from.set(frame.beast.x + (px / pl) * 0.7, world.ground(frame.beast.x, frame.beast.z) + 1.2, frame.beast.z + (pz / pl) * 0.7);
+      to.set(from.x + (px / pl) * 1.3, from.y, from.z + (pz / pl) * 1.3);
+    }
+    const weight = spec.weight || (ring ? 'ring' : 'medium');
+    const shape = spec.shape || '';
+    const made = makeAttack(spec.kind, spec.dir, ceiling ? 'ceiling' : spec.part, weight, shape);
     made.group.position.copy(from);
     made.group.lookAt(to.x, from.y, to.z);
     scene.add(made.group);
@@ -246,7 +530,9 @@ export function createBlade(onLaunch, bits = {}) {
       release = song + TUNE.windup;
       due = release + flight;
     }
-    const note = { ...spec, due, ceiling, group: made.group, body: made.body, glow: made.glow, rail, from, to, flight, release, resolved: false, bx: frame.beast.x, bz: frame.beast.z };
+    const launch = new THREE.Vector3(to.x - from.x, 0, to.z - from.z);
+    if (launch.lengthSq() > 1e-6) launch.normalize(); else launch.set(frame.fx, 0, frame.fz);
+    const note = { ...spec, weight, shape, due, ceiling, group: made.group, body: made.body, glow: made.glow, rail, from, to, launch, flight, release, resolved: false, bx: frame.beast.x, bz: frame.beast.z, power: 0, depth: 0, strength: spec.shape === 'deep' ? TUNE.deepStrength : TUNE.wallHp, bonus: spec.bonus || 0 };
     if (rail) layRail(note);
     notes.push(note);
   }
@@ -332,12 +618,136 @@ export function createBlade(onLaunch, bits = {}) {
     spawn({ lane: 1, kind: 'orb', part, due: song + TUNE.windup + gap });
   }
 
-  function gradeHit(note, h) {
+  let lastClash = null;
+
+  function rubbleAt(note, count, scale) {
+    if (!world?.addLoose) return;
+    const origin = note.group.position;
+    for (let i = 0; i < count; i++) {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.14, 0.26), new THREE.MeshBasicMaterial({ color: i % 2 ? '#c4a06a' : '#8a6844' }));
+      mesh.position.set(origin.x, origin.y, origin.z);
+      mesh.castShadow = true;
+      const a = (i / count) * Math.PI * 2;
+      const speed = 1.6 + scale * 3.2;
+      world.addLoose(mesh, new THREE.Vector3(Math.cos(a) * speed, 1.8 + scale * 2.4, Math.sin(a) * speed), 2.4);
+    }
+  }
+
+  function rainAt(note, scale) {
+    if (!zones) return;
+    for (const b of zones.beasts()) {
+      if (b.dead) continue;
+      if (Math.hypot(b.x - note.bx, b.z - note.bz) > TUNE.rainRadius) continue;
+      zones.hurt([{ x: b.x, z: b.z, r: 1.4, d: TUNE.rainHit * (0.45 + scale), k: 'arcane' }]);
+    }
+  }
+
+  function spawnComboBox(note, scale) {
+    spawn({
+      lane: 1,
+      kind: 'slice',
+      dir: 'right',
+      weight: 'light',
+      comboBox: true,
+      bonus: Math.round(TUNE.comboBonus * (0.6 + scale)),
+      due: song + TUNE.windup + 0.8,
+    });
+  }
+
+  function blockPower(strength) {
+    const t = Math.max(0, Math.min(1, (blockHeld || 0) / Math.max(0.05, TUNE.heavyHold)));
+    return strength + (1 - t) * TUNE.marginRain + 5;
+  }
+
+  function payClash(note, result, mode) {
     if (note.resolved) return;
+    const { tier, scale, margin } = result;
+    note.resolved = true;
+    note.tier = tier;
+    lastClash = { tier, margin, scale, mode, strength: note.strength, power: note.strength + margin };
+    if (tier === 'chip') {
+      say('Chip');
+      if (walker && note.launch) walker.place(walker.feet.x - note.launch.x * TUNE.deepPush, walker.feet.z - note.launch.z * TUNE.deepPush, walker.yaw);
+      return;
+    }
+    shatter(note);
+    if (mode === 'parry') {
+      if (tier === 'crumble') { say('Block'); return; }
+      say('Parry');
+      spawnComboBox(note, scale);
+      return;
+    }
+    const word = { crumble: 'Crumble', push: 'Push', burst: 'Burst', rain: 'Rain' }[tier] || 'Crumble';
+    say(word);
+    const dmg = TUNE.crumbleHit * (1 + scale * 3);
+    zones?.hurt([{ x: note.bx, z: note.bz, r: 1.6, d: dmg, k: 'arcane' }]);
+    if (tier === 'crumble') addStagger(TUNE.lightStagger);
+    if (tier === 'push' || tier === 'burst' || tier === 'rain') {
+      if (walker) zones?.shoveBeast(note.bx, note.bz, note.bx - walker.feet.x, note.bz - walker.feet.z, TUNE.marginPushDist * (0.35 + scale));
+      addStagger(TUNE.marginStagger * (0.5 + scale));
+    }
+    if (tier === 'burst' || tier === 'rain') rubbleAt(note, tier === 'rain' ? 7 : 4, scale);
+    if (tier === 'rain') rainAt(note, scale);
+    if (tier === 'burst' || tier === 'rain') { freeze = TUNE.heavyStop; hitShake = Math.max(hitShake, 0.8 + scale); }
+  }
+
+  function finishDeep(note) {
+    if (note.resolved) return;
+    const power = note.depth >= 1 ? note.power : Math.min(note.power, (note.strength || TUNE.wallHp) - 1);
+    payClash(note, clashMargin(power, note.strength || TUNE.wallHp), 'cut');
+  }
+
+  function breakHeavy(note, how) {
+    if (note.resolved) return;
+    const strength = note.strength || TUNE.wallHp;
+    const power = how === 'Pound'
+      ? strength + TUNE.marginRain * (0.35 + 0.65 * (poundWave?.charge || 0.5))
+      : blockPower(strength);
+    payClash(note, clashMargin(power, strength), how === 'Pound' ? 'cut' : 'parry');
+  }
+
+  function tickDeep(dt) {
+    for (const note of notes) {
+      if (note.resolved || note.shape !== 'deep' || song < note.release) continue;
+      let best = 0;
+      let moving = false;
+      for (const h of hold.values()) {
+        const screen = project(note.group.position);
+        if (!screen) continue;
+        const px = h.x + (h.dx || 0);
+        const py = h.y + (h.dy || 0);
+        const dist = Math.hypot(px - screen.x, py - screen.y);
+        if (dist > TUNE.deepZone) continue;
+        const lastX = h.markX ?? px;
+        const lastY = h.markY ?? py;
+        if (Math.hypot(px - lastX, py - lastY) > 0.8) moving = true;
+        h.markX = px;
+        h.markY = py;
+        best = Math.max(best, 1 - dist / TUNE.deepZone);
+      }
+      const meter = note.group.getObjectByName?.('meter');
+      if (best > 0 && moving) {
+        const closeness = TUNE.deepEdge + (1 - TUNE.deepEdge) * best;
+        note.depth = Math.min(1, note.depth + dt / TUNE.deepTime);
+        note.power += dt * TUNE.deepRate * closeness;
+        if (meter) { meter.visible = true; meter.scale.x = Math.max(0.04, note.depth); }
+        if (note.depth >= 1) finishDeep(note);
+      } else if (meter && note.depth > 0) meter.visible = true;
+    }
+  }
+
+  function gradeHit(note, h) {
+    if (note.resolved || note.shape === 'deep') return;
+    const swipeNow = dirOf(h.dx || 0, h.dy || 0);
+    if (note.weight === 'heavy') {
+      const heldFor = (performance.now() - (h.t || performance.now())) / 1000;
+      if (!(heldFor >= TUNE.heavyHold && swipeNow)) { say('Heavy'); return; }
+    }
+    if (note.weight === 'ring' && swipeNow !== 'up' && swipeNow !== 'down') return;
     const screen = project(note.group.position);
     const swipe = dirOf(h.dx || 0, h.dy || 0);
     const dist = screen ? strokeDist(h, screen.x, screen.y) : 999;
-    const reach = 120;
+    const reach = note.shape === 'wide' ? TUNE.wideReach : 120;
     if (dist > reach) return;
     const center = Math.max(0, 1 - dist / reach);
     const time = Math.max(0, 1 - Math.abs(song - note.due) / TUNE.window);
@@ -352,19 +762,33 @@ export function createBlade(onLaunch, bits = {}) {
     const grade = note.kind === 'orb' ? 'open' : score >= 90 && aligned ? 'perfect' : score >= 50 ? 'good' : 'chip';
     note.resolved = true;
     scoreTotal += score;
-    const dmg = note.kind === 'orb' ? Math.max(10, Math.round(score / 6)) : Math.max(3, Math.round(score / 9));
+    const marginCut = !note.comboBox && note.weight !== 'light' && note.weight !== 'ring' && note.kind !== 'orb' && note.kind !== 'back';
+    if (marginCut) {
+      const heldFor = (performance.now() - (h.t || performance.now())) / 1000;
+      let power = score * TUNE.powerScale;
+      if (note.weight === 'heavy') power += Math.max(0, heldFor - TUNE.heavyHold) / 0.45 * TUNE.marginRain;
+      payClash(note, clashMargin(power, note.strength || TUNE.wallHp), 'cut');
+      if (note.tier && note.tier !== 'chip') combo += 1;
+      if (combo >= 4 && !clash) startRush();
+      return;
+    }
+    const dmg = (note.kind === 'orb' ? Math.max(10, Math.round(score / 6)) : Math.max(3, Math.round(score / 9))) + (note.kind === 'back' ? TUNE.backBonus : 0) + (note.comboBox ? (note.bonus || TUNE.comboBonus) : 0);
     const clean = grade === 'perfect' || grade === 'open';
+    const heavy = note.weight === 'heavy';
     flash();
-    freeze = clean ? TUNE.hitStop : grade === 'good' ? TUNE.hitStop * 0.55 : TUNE.hitStop * 0.28;
-    hitShake = Math.max(hitShake, clean ? 1 : grade === 'good' ? 0.4 : 0.15);
-    const word = grade === 'perfect' ? 'Perfect' : grade === 'good' ? 'Good' : grade === 'open' ? (note.part || 'Open') : 'Chip';
+    freeze = heavy ? TUNE.heavyStop : clean ? TUNE.hitStop : grade === 'good' ? TUNE.hitStop * 0.55 : TUNE.hitStop * 0.28;
+    hitShake = Math.max(hitShake, heavy ? 1 : clean ? 1 : grade === 'good' ? 0.4 : 0.15);
+    const word = note.comboBox ? 'Combo' : note.weight === 'ring' ? 'Split' : note.kind === 'back' ? (note.part === 'weak' ? 'Weak' : 'Backstab') : grade === 'perfect' ? 'Perfect' : grade === 'good' ? 'Good' : grade === 'open' ? (note.part || 'Open') : 'Chip';
     if (screen) floatScore(score, screen.x, screen.y, word);
     say(`${word} ${score}`);
     shatter(note);
     if (note.orbit) slamPiece(note, score);
     else {
       if (zones) zones.hurt([{ x: note.bx, z: note.bz, r: 1.6, d: dmg, k: 'arcane' }]);
-      if (grade === 'good' || grade === 'perfect') addStagger(grade === 'perfect' ? TUNE.staggerPerfect : TUNE.staggerGood);
+      if (note.kind === 'back') addStagger(TUNE.backStagger);
+      else if (note.weight === 'light') addStagger(TUNE.lightStagger);
+      else if (heavy) addStagger(TUNE.heavyStagger);
+      else if (grade === 'good' || grade === 'perfect') addStagger(grade === 'perfect' ? TUNE.staggerPerfect : TUNE.staggerGood);
       if (clean) beginClash();
       else if (walker) zones?.shoveBeast(note.bx, note.bz, note.bx - walker.feet.x, note.bz - walker.feet.z, TUNE.knock * (grade === 'good' ? 1 : 0.55));
       if (note.kind === 'slice') chopNear();
@@ -644,6 +1068,11 @@ export function createBlade(onLaunch, bits = {}) {
       zones.hurt([{ x: b.x, z: b.z, r: radius, d: dmg, k: 'arcane', exact: true, once: poundWave.id }]);
       zones.shoveBeast(b.x, b.z, b.x - poundWave.x, b.z - poundWave.z, toss);
     }
+    for (const note of notes) {
+      if (note.resolved || note.weight !== 'heavy') continue;
+      if (Math.hypot(note.group.position.x - poundWave.x, note.group.position.z - poundWave.z) > radius + 0.4) continue;
+      breakHeavy(note, 'Pound');
+    }
     if (u >= 1) {
       shockRing.visible = false;
       dustRing.visible = false;
@@ -913,12 +1342,17 @@ export function createBlade(onLaunch, bits = {}) {
     if (performance.now() - h.t > 220) h.held = true;
     const swipe = dirOf(h.dx || 0, h.dy || 0);
     if (swipe) trail(h.x, h.y, h.x + (h.dx || 0), h.y + (h.dy || 0));
+    if (tryTarget(h)) return;
     if (tryLock(h)) return;
     if (h.held && swipe) airSlice(h.dx || 0, h.dy || 0);
     for (const note of notes) {
-      if (!live(note) || note.kind === 'wall') continue;
+      if (!live(note)) continue;
+      if (note.kind === 'wall' && note.shape !== 'wide') continue;
       if (note.orbit && song < note.due - 0.22) continue;
       gradeHit(note, h);
+    }
+    for (const note of notes) {
+      if (note.shape === 'deep' && !note.resolved && note.depth > 0) finishDeep(note);
     }
   }
 
@@ -1317,14 +1751,25 @@ export function createBlade(onLaunch, bits = {}) {
     const meter = document.getElementById('stagger');
     if (meter) meter.hidden = !(classOn && drawn);
     paintMeter();
+    paintTarget();
+    const decoyBtn = document.getElementById('decoy');
+    if (decoyBtn) {
+      decoyBtn.hidden = !(classOn && drawn);
+      if (!decoyBtn.dataset.wired) {
+        decoyBtn.dataset.wired = '1';
+        decoyBtn.addEventListener('pointerup', (e) => { setDecoy(!decoy); e.preventDefault(); e.stopPropagation(); });
+      }
+    }
     poundTick(dt);
     orbitTick(dt);
     tickHolo(holos, song);
+    if (engaged) tickDeep(dt);
     for (let i = shards.length - 1; i >= 0; i--) {
       const bit = shards[i];
       bit.life -= dt;
       bit.m.position.addScaledVector(bit.v, dt);
-      bit.m.scale.setScalar(Math.max(0.05, bit.life / 0.42));
+      bit.m.scale.setScalar(Math.max(0.05, bit.life / (bit.span || 0.42)));
+      if (bit.span && bit.m.material) bit.m.material.opacity = Math.max(0, bit.life / bit.span);
       if (bit.life <= 0) { scene?.remove(bit.m); shards.splice(i, 1); }
     }
     if (classOn && drawn && zones && walker && !clash) zones.holdBeasts(walker.feet.x, walker.feet.z, TUNE.holdMin, TUNE.holdMax, dt);
@@ -1369,15 +1814,25 @@ export function createBlade(onLaunch, bits = {}) {
     const loop = LOOP / rate;
     const pad = TUNE.windup + TUNE.anticipation;
     const flightGuess = Math.max(0.45, (TUNE.holdMin - 1) / Math.max(0.5, TUNE.travelSpeed));
-    while (cursor < 400) {
-      const spec = PATTERN[cursor % PATTERN.length];
-      const due = pad + spec.t / rate + Math.floor(cursor / PATTERN.length) * loop;
-      if (due - flightGuess - TUNE.windup > song + 0.08) break;
-      spawn({ ...spec, due });
-      cursor += 1;
+    if (backOpen()) {
+      if (song > backNext) {
+        const part = backFlip ? 'weak' : 'backstab';
+        backFlip = !backFlip;
+        spawn({ lane: 1, kind: 'back', dir: 'right', part, due: song + TUNE.windup + 0.7 });
+        backNext = song + 1.35;
+      }
+    } else {
+      while (cursor < 400) {
+        const spec = PATTERN[cursor % PATTERN.length];
+        const due = pad + spec.t / rate + Math.floor(cursor / PATTERN.length) * loop;
+        if (due - flightGuess - TUNE.windup > song + 0.08) break;
+        spawn({ ...spec, due });
+        cursor += 1;
+      }
     }
     for (let i = notes.length - 1; i >= 0; i--) {
       const note = notes[i];
+      if (!note.orbit && note.launch) bendNote(note, dt);
       const winding = song < note.release;
       if (winding) {
         note.group.position.copy(note.from);
@@ -1388,20 +1843,37 @@ export function createBlade(onLaunch, bits = {}) {
         note.glow.scale.setScalar(1 + pulse * 0.35);
       } else {
         note.group.children.forEach((child) => { child.visible = child !== note.glow; });
-        note.group.position.lerpVectors(note.from, note.to, flightU(song, note.due, note.flight));
+        const u = flightU(song, note.due, note.flight);
+        if (note.rail) {
+          threadPoint(note, u, song, note.group.position);
+          if (u < 0.98 && note.kind !== 'ring') {
+            threadPoint(note, u + 0.05, song, threadOut);
+            note.group.lookAt(threadOut.x, note.group.position.y, threadOut.z);
+          }
+        } else note.group.position.lerpVectors(note.from, note.to, u);
       }
       layRail(note);
-      if (note.kind === 'wall' && !note.resolved && song >= note.due) {
-        note.resolved = true;
+      if (!note.resolved && note.shape === 'deep' && song >= note.due) {
         const feet = walker ? walker.feet : camera.position;
-        const lateral = distPointSeg(feet.x, feet.z, note.from.x, note.from.z, note.to.x, note.to.z);
+        const lateral = Math.hypot(feet.x - note.group.position.x, feet.z - note.group.position.z);
+        if (lateral > WALL_HALF * 2.4 || slide) { note.resolved = true; say('Dodge'); }
+        else if (blocking && note.depth < 1) breakHeavy(note, 'Block');
+        else finishDeep(note);
+      } else if (!note.resolved && note.weight === 'heavy' && song >= note.due) {
+        if (blocking) breakHeavy(note, 'Block');
+        else { note.resolved = true; combo = 0; say('Hit'); flash(); }
+      } else if (!note.resolved && note.weight === 'ring' && song >= note.due) {
+        const crouched = (walker?.crouch || 0) > 0.45 || slide?.kind === 'crouch';
+        note.resolved = true;
+        if (crouched || slide) say(crouched ? 'Crouch' : 'Dodge');
+        else { combo = 0; say('Hit'); flash(); }
+      } else if (note.kind === 'wall' && note.shape !== 'deep' && !note.resolved && song >= note.due) {
+        const feet = walker ? walker.feet : camera.position;
+        const lateral = Math.hypot(feet.x - note.group.position.x, feet.z - note.group.position.z);
         const crouched = (walker?.crouch || 0) > 0.6;
-        if (!wallBlocks(lateral, crouched, note.ceiling)) say(note.ceiling && crouched ? 'Crouch' : 'Dodge');
-        else if (blocking) {
-          const perfect = blockHeld <= 0.2;
-          say(perfect ? 'Taunt' : 'Blocked');
-          if (perfect) showTaunt();
-        } else { combo = 0; say('Hit'); flash(); maybeOpen(); }
+        if (!wallBlocks(lateral, crouched, note.ceiling)) { note.resolved = true; say(note.ceiling && crouched ? 'Crouch' : 'Dodge'); }
+        else if (blocking) breakHeavy(note, 'Block');
+        else { note.resolved = true; combo = 0; say('Hit'); flash(); maybeOpen(); }
       } else if (!note.resolved && song > note.due + TUNE.window) fail(note);
       if (note.resolved && song > note.due + 0.35) {
         if (!note.orbit) scene?.remove(note.group);
@@ -1420,15 +1892,51 @@ export function createBlade(onLaunch, bits = {}) {
     disengage() { padOn = false; say('Run'); },
     engagePad() { if (drawn) { padOn = true; say('Dodge'); } },
     get pad() { return !!(drawn && padOn); },
+    setDecoy,
+    clash(power, strength) { return clashMargin(power, strength); },
+    get clashLast() { return lastClash; },
+    cut() { airSlice(0, -90); },
+    tryRush() { if (combo >= 4) startRush(); else say('Sky Rush'); },
+    get bend() {
+      const note = notes.find((n) => !n.resolved && n.launch && n.kind !== 'back');
+      if (!note) return 0;
+      const dx = note.to.x - note.from.x;
+      const dz = note.to.z - note.from.z;
+      const len = Math.hypot(dx, dz) || 1;
+      const ang = Math.atan2((dx / len) * note.launch.z - (dz / len) * note.launch.x, (dx / len) * note.launch.x + (dz / len) * note.launch.z);
+      return +((ang * 180) / Math.PI).toFixed(1);
+    },
+    get locked() { return lockN; },
+    get thread() {
+      const note = notes.find((n) => !n.resolved && n.rail && n.launch);
+      if (!note) return null;
+      let sag = 0;
+      let side = 0;
+      for (let i = 1; i < 8; i++) {
+        const t = i / 8;
+        const p = threadPoint(note, t, song, threadOut);
+        const straight = note.from.clone().lerp(note.to, t);
+        sag = Math.max(sag, straight.y - p.y);
+        side = Math.max(side, Math.hypot(p.x - straight.x, p.z - straight.z));
+      }
+      return { sag: +sag.toFixed(3), side: +side.toFixed(3) };
+    },
+    get back() { return backOpen(); },
     spin,
     get drawn() { return drawn; },
     get score() { return scoreTotal; },
     get flyers() { return notes.filter((n) => !n.resolved).length; },
+    get live() {
+      return notes.filter((n) => !n.resolved).map((n) => {
+        const s = project(n.group.position);
+        return { kind: n.kind, shape: n.shape || '', weight: n.weight || '', phase: song < n.release ? 'wind' : 'fly', x: s ? Math.round(s.x) : 0, y: s ? Math.round(s.y) : 0, depth: +((n.depth || 0).toFixed(2)), power: Math.round(n.power || 0) };
+      });
+    },
     get cue() {
       const note = notes.find((n) => !n.resolved);
       if (!note) return null;
       const s = project(note.group.position);
-      return { kind: note.kind, dir: note.dir, part: note.part || '', ceiling: !!note.ceiling, phase: song < note.release ? 'wind' : 'fly', dt: +(note.due - song).toFixed(2), x: s ? Math.round(s.x) : 0, y: s ? Math.round(s.y) : 0 };
+      return { kind: note.kind, dir: note.dir, part: note.part || '', weight: note.weight || '', shape: note.shape || '', ceiling: !!note.ceiling, phase: song < note.release ? 'wind' : 'fly', dt: +(note.due - song).toFixed(2), x: s ? Math.round(s.x) : 0, y: s ? Math.round(s.y) : 0, depth: +(note.depth || 0).toFixed(2), power: Math.round(note.power || 0) };
     },
     tune: TUNE,
     pound: poundRelease,
