@@ -62,19 +62,51 @@ export function createGunner(scene, camera, world, zones) {
     ball.position.copy(n.mesh.position);
     scene.add(ball);
     flashes.push({ mesh: ball, life: 0.35, max: 0.35 });
+    n.life = Math.min(n.life, 0.2);
     zones.hurt([{ x: n.mesh.position.x, z: n.mesh.position.z, r: damage, d: 16, k: 'fire', radial: 1.8, falloff: true, exact: true }]);
+  }
+
+  function underCrosshair() {
+    camera.getWorldDirection(dir);
+    let best = null;
+    let bestDot = 0.82;
+    const eye = camera.position;
+    for (const b of zones.beasts()) {
+      if (b.dead) continue;
+      to.set(b.x - eye.x, b.y + 0.5 - eye.y, b.z - eye.z);
+      const len = to.length() || 1;
+      const dot = to.dot(dir) / len;
+      if (dot > bestDot) { bestDot = dot; best = b; }
+    }
+    return best;
   }
 
   function toss() {
     if (nades.some((n) => n.life > 0)) return;
     const mesh = new THREE.Mesh(nadeGeo, nadeMat);
     camera.getWorldDirection(dir);
-    const velocity = dir.clone().multiplyScalar(9);
-    velocity.y += 4.5;
     mesh.position.copy(camera.position).addScaledVector(dir, 0.8);
     mesh.position.y += 0.1;
+    const beast = underCrosshair();
+    let velocity;
+    if (!beast) {
+      velocity = dir.clone().multiplyScalar(9);
+      velocity.y += 4.5;
+    } else {
+      const cap = 12;
+      let tx = beast.x;
+      let tz = beast.z;
+      const dx = tx - mesh.position.x;
+      const dz = tz - mesh.position.z;
+      const horiz = Math.hypot(dx, dz) || 1;
+      if (horiz > cap) { tx = mesh.position.x + dx / horiz * cap; tz = mesh.position.z + dz / horiz * cap; }
+      const ty = world.ground(tx, tz) + 0.3;
+      const span = Math.hypot(tx - mesh.position.x, tz - mesh.position.z);
+      const flight = Math.min(1.15, Math.max(0.5, span / 8));
+      velocity = new THREE.Vector3((tx - mesh.position.x) / flight, (ty - mesh.position.y + 0.5 * GRAVITY * flight * flight) / flight, (tz - mesh.position.z) / flight);
+    }
     scene.add(mesh);
-    nades.push({ mesh, velocity, life: 1.35, age: 0, boom: false });
+    nades.push({ mesh, velocity, life: 2.4, age: 0, boom: false });
   }
 
   function update(dt, active) {
