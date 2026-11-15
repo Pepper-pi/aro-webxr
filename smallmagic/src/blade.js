@@ -33,7 +33,7 @@ export function createBlade(onLaunch, bits = {}) {
   const { scene, camera, world, zones } = bits;
   const shots = [];
   let blocking = false;
-  let blockAt = 0;
+  let blockHeld = 99;
   let lobCool = 1.4;
   let wiredBlock = false;
   const look = new THREE.Vector3();
@@ -213,7 +213,7 @@ export function createBlade(onLaunch, bits = {}) {
 
   function setBlock(on) {
     blocking = on;
-    if (on) blockAt = performance.now();
+    blockHeld = on ? 0 : 99;
     document.getElementById('block')?.classList.toggle('up', on);
   }
 
@@ -252,7 +252,7 @@ export function createBlade(onLaunch, bits = {}) {
   }
 
   function reflect(shot) {
-    const perfect = performance.now() - blockAt < 220;
+    const perfect = blocking && blockHeld <= 0.2;
     const bounced = shots.filter((s) => s.kind === 'bounce' && s.life > 0).length;
     if (bounced >= MAX_BOUNCE) {
       scene.remove(shot.mesh);
@@ -278,7 +278,8 @@ export function createBlade(onLaunch, bits = {}) {
       shield.position.copy(camera.position).addScaledVector(look, 0.9);
       shield.quaternion.copy(camera.quaternion);
     }
-    if (!active) { blocking = false; return; }
+    if (blocking) blockHeld += dt;
+    if (!active) { blocking = false; blockHeld = 99; return; }
     wireBlock();
     lobCool -= dt;
     if (lobCool <= 0) spawnLob();
@@ -350,7 +351,7 @@ export function createBlade(onLaunch, bits = {}) {
     get bounced() { return shots.filter((s) => s.kind === 'bounce' && s.life > 0).length; },
     get close() {
       if (!camera) return false;
-      return shots.some((s) => s.kind === 'lob' && s.life > 0 && Math.hypot(s.mesh.position.x - camera.position.x, s.mesh.position.z - camera.position.z) < 2.4);
+      return shots.some((s) => s.kind === 'lob' && s.life > 0 && Math.hypot(s.mesh.position.x - camera.position.x, s.mesh.position.z - camera.position.z) < 1.6);
     },
   };
 }
