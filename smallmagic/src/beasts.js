@@ -115,13 +115,69 @@ function snapFace(model, kind) {
   } catch { /* the colour chip stays if a snapshot cannot be taken */ }
 }
 
+function skinnedMinY(model) {
+  let minY = Infinity;
+  const v = new THREE.Vector3();
+  model.updateWorldMatrix(true, true);
+  model.traverse((o) => {
+    if (!o.isSkinnedMesh || !o.geometry?.attributes?.position) return;
+    o.frustumCulled = false;
+    o.updateMatrixWorld(true);
+    o.skeleton?.update();
+    const pos = o.geometry.attributes.position;
+    const step = Math.max(1, Math.floor(pos.count / 720));
+    for (let i = 0; i < pos.count; i += step) {
+      v.fromBufferAttribute(pos, i);
+      o.applyBoneTransform(i, v);
+      v.applyMatrix4(o.matrixWorld);
+      if (v.y < minY) minY = v.y;
+    }
+  });
+  return minY;
+}
+
+function plantFeet(b) {
+  const model = b.model;
+  if (!model) return;
+  if (b.per == null) {
+    const y = model.position.y;
+    b.g.updateWorldMatrix(true, true);
+    const a = skinnedMinY(model);
+    model.position.y = y + 1;
+    b.g.updateWorldMatrix(true, true);
+    const c = skinnedMinY(model);
+    model.position.y = y;
+    b.per = (c - a) || 1;
+  }
+  b.g.updateWorldMatrix(true, true);
+  const minY = skinnedMinY(model);
+  const err = b.g.position.y - minY;
+  if (Math.abs(err) < 0.03) return;
+  model.position.y += err / b.per;
+}
+
 function fitMob(root, height) {
   const box = new THREE.Box3().setFromObject(root);
   const size = box.getSize(new THREE.Vector3());
   const k = height / Math.max(size.y, 0.01);
   root.scale.multiplyScalar(k);
   root.position.y -= new THREE.Box3().setFromObject(root).min.y;
-  root.traverse((o) => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.frustumCulled = false; } });
+  root.traverse((o) => {
+    if (!o.isMesh) return;
+    o.castShadow = o.receiveShadow = true;
+    o.frustumCulled = false;
+    const src = Array.isArray(o.material) ? o.material[0] : o.material;
+    if (!src || src.type === 'MeshBasicMaterial') return;
+    const mat = new THREE.MeshBasicMaterial({
+      map: src.map || null,
+      color: src.color ? src.color.clone() : new THREE.Color('#ffffff'),
+      side: THREE.DoubleSide,
+      alphaTest: src.alphaTest || 0,
+    });
+    // The boar albedo is nearly black, so the body disappears into the grass at the hold distance.
+    if (/boar/i.test(o.name || '')) mat.color.multiplyScalar(2.4);
+    o.material = mat;
+  });
 }
 
 async function dressMobs(all) {
@@ -132,19 +188,21 @@ async function dressMobs(all) {
     return;
   }
   const loader = new GLTFLoader();
+  const SkeletonUtils = await import('three/addons/utils/SkeletonUtils.js');
   const cache = {};
   for (const b of all) {
     if (!TALL[b.kind]) continue;
     try {
       if (!cache[b.kind]) cache[b.kind] = loader.loadAsync(`/mobs/overaction/${b.kind}.glb`);
       const gltf = await cache[b.kind];
-      const model = gltf.scene.clone(true);
+      const model = SkeletonUtils.clone(gltf.scene);
       fitMob(model, TALL[b.kind]);
       for (const child of [...b.g.children]) {
         if (child === b.bar || child.name === 'flame') continue;
         b.g.remove(child);
       }
       b.g.add(model);
+      b.model = model;
       b.bar.position.y = TALL[b.kind] + 0.28;
       const mixer = new THREE.AnimationMixer(model);
       const clips = {};
@@ -426,6 +484,7 @@ export function createBeasts(scene, ground) {
           o.material.color.setHex(b.chill > 0 ? 0x8ecbff : o.userData.base);
         });
         b.g.position.y = ground(b.g.position.x, b.g.position.z);
+        if (b.model) plantFeet(b);
         if ((b.flash > 0 || b.flinch > 0) && b.clips?.hit && b.clipName !== 'hit' && b.clipName !== 'attack') playClip(b, 'hit');
         else if (b.clipName === 'attack' || b.clipName === 'hit') { if (clipDone(b)) playClip(b, 'idle'); }
         else if (dist > 0.2) playClip(b, b.clips?.run ? 'run' : b.clips?.walk ? 'walk' : 'idle');

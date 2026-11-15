@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { shadowed } from './air.js';
-import { holoMaterial, railMaterial, tickHolo } from './holo.js';
+import { holoMaterial, laneFillMaterial, railMaterial, tickHolo } from './holo.js';
 import { ANGLE_DOT_MIN, ANGLE_DOT_SUPER, LANE, SWORD_OFFSET, TUNE, WALL_HALF, angleDot, bladePoints, clashMargin, flightU, wallBlocks } from './rider.js';
 
 // A phone sword rhythm. Approach, cut angle, and wall hits are adapted from Moon Rider
@@ -464,6 +464,96 @@ export function createBlade(onLaunch, bits = {}) {
       attr.setXYZ(o + 1, p.x - (-tz / len) * w, p.y, p.z - (tx / len) * w);
     }
     attr.needsUpdate = true;
+  }
+
+  const TRACK_N = 18;
+  function makeRibbon(mat) {
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(TRACK_N * 2 * 3);
+    const uv = new Float32Array(TRACK_N * 2 * 2);
+    const idx = [];
+    for (let i = 0; i < TRACK_N; i++) {
+      uv[i * 4] = 0;
+      uv[i * 4 + 1] = i / (TRACK_N - 1);
+      uv[i * 4 + 2] = 1;
+      uv[i * 4 + 3] = i / (TRACK_N - 1);
+      if (i < TRACK_N - 1) {
+        const a = i * 2;
+        idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+      }
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    geo.setIndex(idx);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.frustumCulled = false;
+    mesh.visible = false;
+    scene?.add(mesh);
+    return mesh;
+  }
+  const laneFill = makeRibbon(track(laneFillMaterial()));
+  const laneLeft = makeRibbon(track(railMaterial('#3ee0ff')));
+  const laneRight = makeRibbon(track(railMaterial('#3ee0ff')));
+  const laneHold = { from: new THREE.Vector3(), to: new THREE.Vector3(), launch: new THREE.Vector3(), group: { position: new THREE.Vector3() } };
+  const lanePts = Array.from({ length: TRACK_N }, () => new THREE.Vector3());
+  const edgeL = Array.from({ length: TRACK_N }, () => new THREE.Vector3());
+  const edgeR = Array.from({ length: TRACK_N }, () => new THREE.Vector3());
+
+  function layPoly(mesh, pts, width) {
+    const attr = mesh.geometry.attributes.position;
+    for (let i = 0; i < TRACK_N; i++) {
+      const p = pts[i];
+      const nxt = pts[Math.min(TRACK_N - 1, i + 1)];
+      const prv = pts[Math.max(0, i - 1)];
+      const tx = nxt.x - prv.x;
+      const tz = nxt.z - prv.z;
+      const len = Math.hypot(tx, tz) || 1;
+      const w = width;
+      attr.setXYZ(i * 2, p.x + (-tz / len) * w, p.y, p.z + (tx / len) * w);
+      attr.setXYZ(i * 2 + 1, p.x - (-tz / len) * w, p.y, p.z - (tx / len) * w);
+    }
+    attr.needsUpdate = true;
+    mesh.visible = true;
+  }
+
+  function layTrack(on) {
+    const frame = on ? laneFrame() : null;
+    if (!frame) {
+      laneFill.visible = laneLeft.visible = laneRight.visible = false;
+      return;
+    }
+    const fly = notes.find((n) => !n.resolved && n.launch && n.kind !== 'back' && n.kind !== 'orb');
+    const src = fly || laneHold;
+    if (!fly) {
+      const eye = camera.position;
+      laneHold.from.set(frame.beast.x, world.ground(frame.beast.x, frame.beast.z) + 1.05, frame.beast.z);
+      laneHold.to.set(eye.x + frame.fx * SWORD_OFFSET, world.ground(eye.x, eye.z) + 1.05, eye.z + frame.fz * SWORD_OFFSET);
+      laneHold.launch.set(frame.fx, 0, frame.fz);
+      laneHold.group.position.lerpVectors(laneHold.from, laneHold.to, 0.5);
+    }
+    for (let i = 0; i < TRACK_N; i++) threadPoint(src, i / (TRACK_N - 1), song, lanePts[i]);
+    const half = 0.72;
+    for (let i = 0; i < TRACK_N; i++) {
+      const p = lanePts[i];
+      const nxt = lanePts[Math.min(TRACK_N - 1, i + 1)];
+      const prv = lanePts[Math.max(0, i - 1)];
+      const tx = nxt.x - prv.x;
+      const tz = nxt.z - prv.z;
+      const len = Math.hypot(tx, tz) || 1;
+      const ox = (-tz / len) * half;
+      const oz = (tx / len) * half;
+      edgeL[i].set(p.x + ox, p.y, p.z + oz);
+      edgeR[i].set(p.x - ox, p.y, p.z - oz);
+    }
+    layPoly(laneLeft, edgeL, 0.04);
+    layPoly(laneRight, edgeR, 0.04);
+    const attr = laneFill.geometry.attributes.position;
+    for (let i = 0; i < TRACK_N; i++) {
+      attr.setXYZ(i * 2, edgeL[i].x, edgeL[i].y, edgeL[i].z);
+      attr.setXYZ(i * 2 + 1, edgeR[i].x, edgeR[i].y, edgeR[i].z);
+    }
+    attr.needsUpdate = true;
+    laneFill.visible = true;
   }
 
   function shatter(note) {
@@ -1800,6 +1890,7 @@ export function createBlade(onLaunch, bits = {}) {
     layGlows(engaged ? laneFrame() : null);
     defense(dt, engaged);
     if (!engaged) {
+      layTrack(false);
       if (wasEngaged) { song = 0; cursor = 0; orbsThisFight = 0; clearNotes(); }
       wasEngaged = false;
       return;
@@ -1906,6 +1997,7 @@ export function createBlade(onLaunch, bits = {}) {
         notes.splice(i, 1);
       }
     }
+    layTrack(fightOn);
   }
 
   return {

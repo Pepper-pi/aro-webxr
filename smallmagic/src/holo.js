@@ -100,3 +100,42 @@ export function railMaterial(hex) {
 export function tickHolo(mats, time) {
   for (const mat of mats) if (mat.uniforms?.uTime) mat.uniforms.uTime.value = time;
 }
+
+const laneVert = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const laneFrag = /* glsl */ `
+  uniform float uTime;
+  varying vec2 vUv;
+  void main() {
+    float x = abs(vUv.x - 0.5);
+    float along = vUv.y;
+    float fade = smoothstep(0.0, 0.42, along);
+    float tip = fract(along * 5.5 - uTime * 0.42);
+    float chev = smoothstep(0.14, 0.02, abs(tip - 0.26 - x * 0.72));
+    float scan = 0.72 + 0.28 * sin(along * 22.0 - uTime * 1.4);
+    vec3 near = vec3(0.62, 0.95, 1.0);
+    vec3 far = vec3(0.08, 0.32, 0.62);
+    vec3 col = mix(far, near, along);
+    col += vec3(0.45, 0.82, 1.0) * chev;
+    float alpha = (0.30 + chev * 0.45) * fade * scan * smoothstep(0.5, 0.05, x);
+    gl_FragColor = vec4(col, alpha);
+  }
+`;
+
+export function laneFillMaterial() {
+  return new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: laneVert,
+    fragmentShader: laneFrag,
+  });
+}
