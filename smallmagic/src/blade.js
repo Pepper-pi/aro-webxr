@@ -28,6 +28,7 @@ const MAX_BOUNCE = 5;
 
 export function createBlade(onLaunch, bits = {}) {
   let drawn = false;
+  let fightOn = true;
   let padOn = true;
   let wasEngaged = false;
   let song = 0;
@@ -181,11 +182,14 @@ export function createBlade(onLaunch, bits = {}) {
     note.to.z += (tz - note.to.z) * snap;
   }
 
+  let chimed = 0;
   function lockChime() {
+    chimed += 1;
     try {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return;
       const ctx = lockChime.ctx || (lockChime.ctx = new Ctx());
+      ctx.resume?.();
       const o = ctx.createOscillator();
       const g = ctx.createGain();
       o.type = 'sine';
@@ -240,6 +244,9 @@ export function createBlade(onLaunch, bits = {}) {
     }
     card.hidden = false;
     card.dataset.kind = beast.kind;
+    const face = document.getElementById('targetFace');
+    const pic = zones.face?.(beast.kind);
+    if (face) face.style.backgroundImage = pic ? `url(${pic})` : '';
     const name = document.getElementById('targetName');
     if (name) name.textContent = beast.kind[0].toUpperCase() + beast.kind.slice(1);
     const hp = card.querySelector('.hp span');
@@ -535,6 +542,7 @@ export function createBlade(onLaunch, bits = {}) {
     const note = { ...spec, weight, shape, due, ceiling, group: made.group, body: made.body, glow: made.glow, rail, from, to, launch, flight, release, resolved: false, bx: frame.beast.x, bz: frame.beast.z, power: 0, depth: 0, strength: spec.shape === 'deep' ? TUNE.deepStrength : TUNE.wallHp, bonus: spec.bonus || 0 };
     if (rail) layRail(note);
     notes.push(note);
+    if (frame) zones.cueBeast?.(frame.beast.x, frame.beast.z, 'attack');
   }
 
   function flash() {
@@ -619,6 +627,7 @@ export function createBlade(onLaunch, bits = {}) {
   }
 
   let lastClash = null;
+  let clashSeq = 0;
 
   function rubbleAt(note, count, scale) {
     if (!world?.addLoose) return;
@@ -664,7 +673,7 @@ export function createBlade(onLaunch, bits = {}) {
     const { tier, scale, margin } = result;
     note.resolved = true;
     note.tier = tier;
-    lastClash = { tier, margin, scale, mode, strength: note.strength, power: note.strength + margin };
+    lastClash = { id: ++clashSeq, tier, margin, scale, mode, strength: note.strength, power: note.strength + margin };
     if (tier === 'chip') {
       say('Chip');
       if (walker && note.launch) walker.place(walker.feet.x - note.launch.x * TUNE.deepPush, walker.feet.z - note.launch.z * TUNE.deepPush, walker.yaw);
@@ -760,10 +769,9 @@ export function createBlade(onLaunch, bits = {}) {
     if (note.kind === 'orb') score = Math.min(100, score + 30);
     const aligned = !tapped && dot >= ANGLE_DOT_SUPER;
     const grade = note.kind === 'orb' ? 'open' : score >= 90 && aligned ? 'perfect' : score >= 50 ? 'good' : 'chip';
-    note.resolved = true;
-    scoreTotal += score;
     const marginCut = !note.comboBox && note.weight !== 'light' && note.weight !== 'ring' && note.kind !== 'orb' && note.kind !== 'back';
     if (marginCut) {
+      scoreTotal += score;
       const heldFor = (performance.now() - (h.t || performance.now())) / 1000;
       let power = score * TUNE.powerScale;
       if (note.weight === 'heavy') power += Math.max(0, heldFor - TUNE.heavyHold) / 0.45 * TUNE.marginRain;
@@ -772,6 +780,8 @@ export function createBlade(onLaunch, bits = {}) {
       if (combo >= 4 && !clash) startRush();
       return;
     }
+    note.resolved = true;
+    scoreTotal += score;
     const dmg = (note.kind === 'orb' ? Math.max(10, Math.round(score / 6)) : Math.max(3, Math.round(score / 9))) + (note.kind === 'back' ? TUNE.backBonus : 0) + (note.comboBox ? (note.bonus || TUNE.comboBonus) : 0);
     const clean = grade === 'perfect' || grade === 'open';
     const heavy = note.weight === 'heavy';
@@ -1322,7 +1332,7 @@ export function createBlade(onLaunch, bits = {}) {
   }
 
   function onDown(e) {
-    if (e.target.closest && e.target.closest('#draw, #hops, #block, #pound, #spin, #dodgePad, #repad, #settings, #gear, #menu, #rush, #cast, #spell, #stick, #fish, #reel')) return;
+    if (e.target.closest && e.target.closest('#draw, #hops, #block, #pound, #spin, #dodgePad, #repad, #settings, #gear, #menu, #rush, #cast, #spell, #stick, #fish, #reel, #mood')) return;
     const two = hold.size >= 1;
     hold.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now(), held: false, dx: 0, dy: 0, two });
   }
@@ -1710,6 +1720,19 @@ export function createBlade(onLaunch, bits = {}) {
     }
   }
 
+  function frameHold() {
+    const frame = laneFrame();
+    if (!frame || !walker) return;
+    const chest = world.ground(frame.beast.x, frame.beast.z) + 1.05;
+    const drop = walker.feet.y + 1.66 - chest;
+    walker.pitch = -Math.atan2(Math.max(0.45, drop), Math.max(1.2, frame.dist));
+  }
+
+  function clearRails() {
+    for (const note of notes) { scene?.remove(note.group); if (note.rail) scene.remove(note.rail); }
+    notes.length = 0;
+  }
+
   function clearNotes() {
     for (const note of notes) { scene?.remove(note.group); if (note.rail) scene.remove(note.rail); }
     notes.length = 0;
@@ -1814,7 +1837,9 @@ export function createBlade(onLaunch, bits = {}) {
     const loop = LOOP / rate;
     const pad = TUNE.windup + TUNE.anticipation;
     const flightGuess = Math.max(0.45, (TUNE.holdMin - 1) / Math.max(0.5, TUNE.travelSpeed));
-    if (backOpen()) {
+    if (!fightOn) {
+      if (notes.length) clearRails();
+    } else if (backOpen()) {
       if (song > backNext) {
         const part = backFlip ? 'weak' : 'backstab';
         backFlip = !backFlip;
@@ -1888,13 +1913,18 @@ export function createBlade(onLaunch, bits = {}) {
     get combo() { return combo; },
     get song() { return song; },
     setBlock,
-    setDrawn(on) { drawn = !!on; padOn = true; if (!drawn) { song = 0; cursor = 0; clearNotes(); poundCancel(); dropOrbit(); } },
+    setDrawn(on) { drawn = !!on; padOn = true; if (drawn) frameHold(); if (!drawn) { song = 0; cursor = 0; clearNotes(); poundCancel(); dropOrbit(); } },
+    setFight(on) { fightOn = on !== false; if (!fightOn) clearRails(); },
     disengage() { padOn = false; say('Run'); },
     engagePad() { if (drawn) { padOn = true; say('Dodge'); } },
     get pad() { return !!(drawn && padOn); },
     setDecoy,
     clash(power, strength) { return clashMargin(power, strength); },
     get clashLast() { return lastClash; },
+    get clashId() { return clashSeq; },
+    get chimed() { return chimed; },
+    get halves() { return shards.length; },
+    get fighting() { return fightOn; },
     cut() { airSlice(0, -90); },
     tryRush() { if (combo >= 4) startRush(); else say('Sky Rush'); },
     get bend() {
@@ -1929,7 +1959,7 @@ export function createBlade(onLaunch, bits = {}) {
     get live() {
       return notes.filter((n) => !n.resolved).map((n) => {
         const s = project(n.group.position);
-        return { kind: n.kind, shape: n.shape || '', weight: n.weight || '', phase: song < n.release ? 'wind' : 'fly', x: s ? Math.round(s.x) : 0, y: s ? Math.round(s.y) : 0, depth: +((n.depth || 0).toFixed(2)), power: Math.round(n.power || 0) };
+        return { kind: n.kind, shape: n.shape || '', weight: n.weight || '', dir: n.dir || '', combo: !!n.comboBox, phase: song < n.release ? 'wind' : 'fly', dt: +((n.due - song).toFixed(2)), x: s ? Math.round(s.x) : 0, y: s ? Math.round(s.y) : 0, depth: +((n.depth || 0).toFixed(2)), power: Math.round(n.power || 0) };
       });
     },
     get cue() {

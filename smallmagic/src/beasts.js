@@ -44,8 +44,76 @@ function goblin() {
 
 const MAKE = { wolf, boar, slime, goblin };
 const HP = { wolf: 36, boar: 48, slime: 22, goblin: 30 };
-const TALL = { boar: 1.05, slime: 0.85, goblin: 1.2 };
+const TALL = { boar: 1.65, slime: 1.25, goblin: 1.85 };
 const mobMixers = [];
+const faces = {};
+let gl = null;
+
+export function useRenderer(renderer) { gl = renderer; }
+
+function playClip(b, name) {
+  const next = b.clips?.[name] || (name === 'idle' ? null : b.clips?.idle);
+  if (!next || b.clipName === name) return;
+  if (name === 'attack' || name === 'hit' || name === 'death') {
+    next.setLoop(THREE.LoopOnce, 1);
+    next.clampWhenFinished = true;
+  }
+  next.reset().fadeIn(0.1).play();
+  if (b.clip && b.clip !== next) b.clip.fadeOut(0.12);
+  b.clip = next;
+  b.clipName = name;
+}
+
+function clipDone(b) {
+  const a = b.clip;
+  if (!a) return true;
+  const dur = a.getClip()?.duration || 1;
+  return a.time >= dur - 0.06;
+}
+
+function snapFace(model, kind) {
+  if (!gl || faces[kind]) return;
+  try {
+    const rt = new THREE.WebGLRenderTarget(64, 64);
+    const sc = new THREE.Scene();
+    const cam = new THREE.PerspectiveCamera(30, 1, 0.05, 40);
+    const copy = model.clone(true);
+    copy.traverse((o) => {
+      if (!o.isMesh) return;
+      const src = Array.isArray(o.material) ? o.material[0] : o.material;
+      o.material = new THREE.MeshBasicMaterial({ map: src?.map || null, color: src?.color || '#ffffff' });
+    });
+    sc.add(copy, new THREE.HemisphereLight('#ffffff', '#d7e2c8', 2));
+    const box = new THREE.Box3().setFromObject(copy);
+    const mid = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const span = Math.max(size.x, size.y, size.z, 0.4);
+    cam.position.copy(mid).add(new THREE.Vector3(span * 0.9, span * 0.35, span * 1.35));
+    cam.lookAt(mid);
+    const prev = gl.getRenderTarget();
+    const clear = gl.getClearColor(new THREE.Color());
+    const alpha = gl.getClearAlpha();
+    gl.setRenderTarget(rt);
+    gl.setClearColor(0xd5e4f2, 1);
+    gl.clear();
+    gl.render(sc, cam);
+    const buf = new Uint8Array(64 * 64 * 4);
+    gl.readRenderTargetPixels(rt, 0, 0, 64, 64, buf);
+    gl.setRenderTarget(prev);
+    gl.setClearColor(clear, alpha);
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    const img = ctx.createImageData(64, 64);
+    let bright = 0;
+    for (let i = 0; i < buf.length; i += 16) bright += buf[i] + buf[i + 1] + buf[i + 2];
+    if (bright < 12000) return;
+    for (let y = 0; y < 64; y++) img.data.set(buf.subarray((63 - y) * 256, (64 - y) * 256), y * 256);
+    ctx.putImageData(img, 0, 0);
+    faces[kind] = canvas.toDataURL();
+    rt.dispose();
+  } catch { /* the colour chip stays if a snapshot cannot be taken */ }
+}
 
 function fitMob(root, height) {
   const box = new THREE.Box3().setFromObject(root);
@@ -77,12 +145,18 @@ async function dressMobs(all) {
         b.g.remove(child);
       }
       b.g.add(model);
-      const clip = gltf.animations.find((a) => /idle/i.test(a.name)) || gltf.animations[0];
-      if (clip) {
-        const mixer = new THREE.AnimationMixer(model);
-        mixer.clipAction(clip).play();
-        mobMixers.push(mixer);
+      b.bar.position.y = TALL[b.kind] + 0.28;
+      const mixer = new THREE.AnimationMixer(model);
+      const clips = {};
+      for (const clip of gltf.animations) {
+        const key = String(clip.name || '').toLowerCase();
+        if (!/idle|walk|run|attack|hit|death/.test(key) || clips[key]) continue;
+        clips[key] = mixer.clipAction(clip);
       }
+      b.clips = clips;
+      mobMixers.push(mixer);
+      playClip(b, 'idle');
+      snapFace(model, b.kind);
     } catch {
       /* keep the coded stand-in if a file is missing */
     }
@@ -136,6 +210,21 @@ export function createBeasts(scene, ground) {
   const cube = new THREE.BoxGeometry(0.16, 0.16, 0.16);
   return {
     meadow, lake,
+    act(x, z, name) {
+      let best = null;
+      let bestD = 4;
+      for (const b of all) {
+        if (b.dead || b.dying > 0) continue;
+        const d = Math.hypot(b.g.position.x - x, b.g.position.z - z);
+        if (d < bestD) { best = b; bestD = d; }
+      }
+      if (best) playClip(best, name);
+    },
+    face(kind) { return faces[kind] || ''; },
+    clip(kind) {
+      const b = all.find((m) => m.kind === kind && m.clipName);
+      return b ? b.clipName : '';
+    },
     probe() {
       return all.map((b, n) => ({ n, kind: b.kind, x: +b.g.position.x.toFixed(2), y: +b.g.position.y.toFixed(2), z: +b.g.position.z.toFixed(2), hp: +b.hp.toFixed(1), burn: +b.burn.toFixed(2), chill: +b.chill.toFixed(2), dead: b.dead, flame: !!b.g.getObjectByName('flame')?.visible }));
     },
@@ -255,7 +344,9 @@ export function createBeasts(scene, ground) {
             onHit?.({ x: b.g.position.x, y: b.g.position.y + 1.2, z: b.g.position.z, n: Math.round(dealt), k: m.k || 'fire', through: again, blast: !!m.blast });
           }
           if (b.hp <= 0) {
-            b.dead = true; b.g.visible = false; b.back = 12; b.stack = 0; b.burn = 0; b.chill = 0;
+            b.dead = true; b.back = 12; b.stack = 0; b.burn = 0; b.chill = 0;
+            if (b.clips?.death) { b.dying = Math.max(0.9, b.clips.death.getClip().duration || 1); playClip(b, 'death'); }
+            else b.g.visible = false;
             const tint = b.kind === 'slime' ? '#3dba6a' : b.kind === 'boar' ? '#8a5a3a' : '#6a6158';
             for (let i = 0; i < 7; i++) {
               const bit = new THREE.Mesh(cube, new THREE.MeshBasicMaterial({ color: tint }));
@@ -277,6 +368,12 @@ export function createBeasts(scene, ground) {
       for (const b of all) {
         if (b.where !== zone) continue;
         if (b.dead) {
+          if (b.dying > 0) {
+            b.dying -= dt;
+            b.g.position.y = ground(b.g.position.x, b.g.position.z);
+            if (b.dying <= 0) b.g.visible = false;
+            continue;
+          }
           b.back -= dt;
           if (b.back <= 0) {
             b.dead = false; b.hp = b.max; b.g.visible = true; b.flash = 0;
@@ -329,11 +426,15 @@ export function createBeasts(scene, ground) {
           o.material.color.setHex(b.chill > 0 ? 0x8ecbff : o.userData.base);
         });
         b.g.position.y = ground(b.g.position.x, b.g.position.z);
+        if ((b.flash > 0 || b.flinch > 0) && b.clips?.hit && b.clipName !== 'hit' && b.clipName !== 'attack') playClip(b, 'hit');
+        else if (b.clipName === 'attack' || b.clipName === 'hit') { if (clipDone(b)) playClip(b, 'idle'); }
+        else if (dist > 0.2) playClip(b, b.clips?.run ? 'run' : b.clips?.walk ? 'walk' : 'idle');
+        else if (b.clipName && b.clipName !== 'idle') playClip(b, 'idle');
         if (b.flash > 0) {
           b.flash -= dt;
-          b.g.scale.y = 1.4 * 0.72;
+          b.g.scale.y = 1.4 * (b.clips ? 0.94 : 0.72);
           b.g.position.x += (Math.random() - 0.5) * 0.04;
-        } else b.g.scale.y = 1.4 * (b.flinch > 0 ? 0.72 : 1);
+        } else b.g.scale.y = 1.4;
         if (b.flinch > 0) b.flinch -= dt;
         const blob = b.g.getObjectByName('blob');
         if (blob) blob.scale.y = 0.72 + Math.sin(performance.now() * 0.004 + b.homeX) * 0.08;

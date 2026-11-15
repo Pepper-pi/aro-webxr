@@ -82,7 +82,7 @@ export const TUNE = {
   wideScale: 1.75,
   wideReach: 168,
   deepTime: 0.42,
-  deepRate: 55,
+  deepRate: 760,
   deepEdge: 0.35,
   deepZone: 120,
   deepStrength: 200,

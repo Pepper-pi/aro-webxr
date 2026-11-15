@@ -23,6 +23,7 @@ import { createSpells, SPELLS } from './spells.js';
 import { createSound } from './sound.js';
 import { spellBar } from './hud.js';
 import { createZones } from './zones.js';
+import { useRenderer } from './beasts.js';
 import { createArms } from './arms.js';
 import { TUNE } from './rider.js';
 import { createBlade } from './blade.js';
@@ -44,6 +45,7 @@ const say = (text) => { told = Math.min(0.95, told + 0.1); if (loading) loading.
 const turn = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: capture });
+useRenderer(renderer);
 const phone = matchMedia('(pointer: coarse)').matches || innerWidth < 820;
 renderer.setPixelRatio(capture ? 1 : Math.min(devicePixelRatio, phone ? 1.5 : 2));
 renderer.setSize(innerWidth, innerHeight);
@@ -231,8 +233,26 @@ document.querySelectorAll('[data-hop]').forEach((b) => b.addEventListener('point
   hop(b.getAttribute('data-hop'));
   e.preventDefault(); e.stopPropagation();
 }));
+const MOOD_KEY = 'aro-sm-monsters';
+function readMood() {
+  try { return localStorage.getItem(MOOD_KEY) === 'passive' ? 'passive' : 'fight'; } catch { return 'fight'; }
+}
+function applyMood(mode, save) {
+  const next = mode === 'passive' ? 'passive' : 'fight';
+  settings.monsters = next;
+  if (save) { try { localStorage.setItem(MOOD_KEY, next); } catch { /* private mode keeps the choice for this visit */ } }
+  const btn = document.getElementById('mood');
+  if (btn) { btn.textContent = next === 'passive' ? 'Passive' : 'Fight'; btn.classList.toggle('on', next === 'fight'); }
+  blade.setFight(next === 'fight');
+}
+document.getElementById('mood')?.addEventListener('pointerup', (e) => {
+  applyMood(settings.monsters === 'passive' ? 'fight' : 'passive', true);
+  e.preventDefault(); e.stopPropagation();
+});
 document.getElementById('draw')?.addEventListener('pointerup', (e) => {
-  blade.setDrawn(!blade.drawn);
+  const next = !blade.drawn;
+  if (next && readMood() !== 'passive') applyMood('fight', false);
+  blade.setDrawn(next);
   e.preventDefault(); e.stopPropagation();
 });
 document.getElementById('pound')?.addEventListener('pointerdown', (e) => {
@@ -270,6 +290,7 @@ sword.visible = false;
 sword.traverse((o) => { o.frustumCulled = false; });
 scene.add(sword);
 const blade = createBlade((damage) => zones.launchNearest(damage), { scene, camera, world, zones, walker, air, fx });
+applyMood(readMood(), false);
 const gun = createGunner(scene, camera, world, zones);
 camera.layers.enable(9);
 let padCast = false, forceDraw = false;
@@ -352,6 +373,8 @@ function tick(dt) {
   post.heat = Math.min(1, fire.glare * 0.85 + (spells?.glare ?? 0) * 0.6);
   if (handsEl) handsEl.classList.toggle('on', !!(settings.hands && (inp.cast || spells?.cast?.holding || spells?.cast?.pour)));
   const klass = zones.name !== 'hub' ? settings.class : 'mage';
+  const moodBtn = document.getElementById('mood');
+  if (moodBtn) moodBtn.hidden = zones.name === 'hub';
   blade.update(dt, klass === 'blade', zones.nearBeast < 14);
   gun.update(dt, klass === 'gunner');
   const armsOn = (settings.hands || klass === 'blade' || klass === 'gunner') && zones.name !== 'hub' && arms.loaded;

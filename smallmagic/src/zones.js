@@ -494,6 +494,9 @@ export function createZones({ scene, world, walker, camera, air }) {
     get rodOut() { return hold.visible; },
     get nearBeast() { return beasts.near(walker.feet.x, walker.feet.z); },
     beasts() { return beasts.probe(); },
+    cueBeast(x, z, name) { beasts.act(x, z, name); },
+    face(kind) { return beasts.face(kind); },
+    clip(kind) { return beasts.clip(kind); },
     holdBeasts(px, pz, min, max, dt) { beasts.hold(px, pz, min, max, dt); },
     grabBeast(x, z) { return beasts.grab(x, z); },
     shoveBeast(x, z, dx, dz, dist) { return beasts.shove(x, z, dx, dz, dist); },
@@ -651,7 +654,7 @@ export function createZones({ scene, world, walker, camera, air }) {
           const end = bobber.position;
           for (let i = 0; i < 8; i++) {
             const t = i / 7;
-            const sag = Math.sin(t * Math.PI) * 0.12;
+            const sag = Math.sin(t * Math.PI) * 0.22;
             pos.setXYZ(i, tipW.x + (end.x - tipW.x) * t, tipW.y + (end.y - tipW.y) * t - sag, tipW.z + (end.z - tipW.z) * t);
           }
           pos.needsUpdate = true;
