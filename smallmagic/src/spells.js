@@ -344,7 +344,10 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
         const away = Math.random() * 6.283;
         marks.push({ x: twister.base.x, z: twister.base.z, r: 6, d: 16, k: 'arcane', kx: Math.cos(away) * 1.6, kz: Math.sin(away) * 1.6 });
       }
-      if (twister.phase === 'live' || twister.phase === 'gather') world.swirl?.(twister.base.x, twister.base.z, 10, dt);
+      if (twister.phase === 'live' || twister.phase === 'gather') {
+        world.swirl?.(twister.base.x, twister.base.z, 10, dt);
+        world.orbitLift?.(twister.base.x, twister.base.z, 10);
+      }
       if (stormMark <= 0 && hole.phase !== 'idle') {
         stormMark = 0.3;
         const hx = hole.ground?.x ?? hole.centre.x, hz = hole.ground?.z ?? hole.centre.z;

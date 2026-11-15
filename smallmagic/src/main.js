@@ -200,6 +200,10 @@ document.getElementById('pound')?.addEventListener('pointercancel', (e) => {
   blade.poundRelease();
   e.preventDefault();
 });
+document.getElementById('spin')?.addEventListener('pointerup', (e) => {
+  blade.spin();
+  e.preventDefault(); e.stopPropagation();
+});
 document.getElementById('gunFire')?.addEventListener('pointerup', (e) => { gun.fire(); e.preventDefault(); e.stopPropagation(); });
 document.getElementById('gunNade')?.addEventListener('pointerup', (e) => { gun.toss(); e.preventDefault(); e.stopPropagation(); });
 document.getElementById('vol')?.addEventListener('input', (e) => { if (sound) sound.volume = Number(e.target.value) / 100; });
@@ -217,7 +221,7 @@ sword.scale.setScalar(1.35);
 sword.visible = false;
 sword.traverse((o) => { o.frustumCulled = false; });
 scene.add(sword);
-const blade = createBlade((damage) => zones.launchNearest(damage), { scene, camera, world, zones, walker, air });
+const blade = createBlade((damage) => zones.launchNearest(damage), { scene, camera, world, zones, walker, air, fx });
 const gun = createGunner(scene, camera, world, zones);
 camera.layers.enable(9);
 let padCast = false, forceDraw = false;

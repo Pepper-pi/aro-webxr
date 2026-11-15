@@ -60,6 +60,15 @@ export const TUNE = {
   rockMax: 1.25,
   rockLife: 4.2,
   rockFling: 1.7,
+  spinPull: 3.4,
+  spinGather: 9,
+  orbitGap: 1.15,
+  orbitCount: 3,
+  orbitLife: 4.5,
+  orbitSpeed: 0.9,
+  hackHit: 5,
+  stoneRate: 0.08,
+  stoneHit: 4,
 };
 
 // Moon Rider beat.js. A swing within about 15° is a super cut. Past about 50° it misses.

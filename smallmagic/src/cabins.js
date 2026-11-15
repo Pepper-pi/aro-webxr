@@ -221,6 +221,18 @@ export function buildVillage(root, world, air) {
       });
     },
     /** A rock or chunk already broken loose. Wind and the tornado push it. It is gone after `life` seconds. */
+    /** Loose chunks inside `r` of (x, z), up to `n`, taken out of the wind so an orbit can hold them. */
+    takeLoose(x, z, r, n) {
+      const picked = [];
+      for (let i = loose.length - 1; i >= 0 && picked.length < n; i--) {
+        const p = loose[i];
+        if (Math.hypot(p.m.position.x - x, p.m.position.z - z) > r) continue;
+        loose.splice(i, 1);
+        p.v.set(0, 0, 0);
+        picked.push(p.m);
+      }
+      return picked;
+    },
     addLoose(mesh, v, life) {
       if (mesh.parent) mesh.parent.remove(mesh);
       root.add(mesh);

@@ -96,6 +96,7 @@ export function createZones({ scene, world, walker, camera, air }) {
   world.blow = (x, z, dx, dz, r) => village.blow(x, z, dx, dz, r);
   world.pound = (x, z, r) => village.pound(x, z, r);
   world.addLoose = (mesh, v, life) => village.addLoose(mesh, v, life);
+  world.takeLoose = (x, z, r, n) => village.takeLoose(x, z, r, n);
   world.swirl = (x, z, r) => village.swirl(x, z, r);
   world.breakAt = (x, z, r, token) => village.breakAt(x, z, r, token);
   // Hook for a warrior ability that is not in the game yet. Tornado rips a few core tiles only

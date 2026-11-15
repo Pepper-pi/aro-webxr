@@ -127,6 +127,8 @@
       #pound { position: fixed; left: max(14px, env(safe-area-inset-left)); bottom: calc(max(18px, env(safe-area-inset-bottom)) + 156px); z-index: 10; width: 84px; height: 84px; border-radius: 50%; border: 3px solid #f1d9a4; background: rgba(28, 18, 12, 0.92); color: #fff6dc; font: 700 15px Georgia, serif; }
       #pound[hidden] { display: none; }
       #pound.up { background: #c4a574; color: #2a1c08; }
+      #spin { position: fixed; left: 108px; bottom: calc(max(18px, env(safe-area-inset-bottom)) + 168px); z-index: 10; width: 72px; height: 72px; border-radius: 50%; border: 3px solid #c4a574; background: rgba(28, 22, 14, 0.92); color: #fff6dc; font: 700 14px Georgia, serif; }
+      #spin[hidden] { display: none; }
       body.blade-drawn #stick { visibility: hidden; }
       @media (orientation: landscape) {
         #blade { top: 18vh; bottom: auto; height: 58vh; left: 6vw; right: 16vw; }
@@ -226,6 +228,7 @@
     <div id="stagger" hidden><span></span></div>
     <div id="dodge" hidden>dodge</div>
     <button id="pound" type="button" hidden>Pound</button>
+    <button id="spin" type="button" hidden>Spin</button>
     <div id="hops" hidden>
       <button type="button" data-hop="left">Left</button>
       <button type="button" data-hop="back">Back</button>

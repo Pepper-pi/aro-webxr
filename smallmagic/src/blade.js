@@ -34,7 +34,7 @@ export function createBlade(onLaunch, bits = {}) {
   let rush = null;
   const notes = [];
   const hold = new Map();
-  const { scene, camera, world, zones, walker, air } = bits;
+  const { scene, camera, world, zones, walker, air, fx } = bits;
   const shots = [];
   let blocking = false;
   let blockHeld = 99;
@@ -290,12 +290,15 @@ export function createBlade(onLaunch, bits = {}) {
     const word = grade === 'perfect' ? 'Perfect' : grade === 'good' ? 'Good' : grade === 'open' ? (note.part || 'Open') : 'Chip';
     if (screen) floatScore(score, screen.x, screen.y, word);
     say(`${word} ${score}`);
-    if (zones) zones.hurt([{ x: note.bx, z: note.bz, r: 1.6, d: dmg, k: 'arcane' }]);
-    if (grade === 'good' || grade === 'perfect') addStagger(grade === 'perfect' ? TUNE.staggerPerfect : TUNE.staggerGood);
-    if (clean) beginClash();
-    else if (walker) zones?.shoveBeast(note.bx, note.bz, note.bx - walker.feet.x, note.bz - walker.feet.z, TUNE.knock * (grade === 'good' ? 1 : 0.55));
-    if (note.kind === 'slice') chopNear();
-    if (grade === 'perfect') reflectCut(note);
+    if (note.orbit) slamPiece(note, score);
+    else {
+      if (zones) zones.hurt([{ x: note.bx, z: note.bz, r: 1.6, d: dmg, k: 'arcane' }]);
+      if (grade === 'good' || grade === 'perfect') addStagger(grade === 'perfect' ? TUNE.staggerPerfect : TUNE.staggerGood);
+      if (clean) beginClash();
+      else if (walker) zones?.shoveBeast(note.bx, note.bz, note.bx - walker.feet.x, note.bz - walker.feet.z, TUNE.knock * (grade === 'good' ? 1 : 0.55));
+      if (note.kind === 'slice') chopNear();
+      if (grade === 'perfect') reflectCut(note);
+    }
     if (grade === 'perfect' || grade === 'good' || grade === 'open') combo += 1;
     if (combo >= 4 && !clash) startRush();
   }
@@ -578,6 +581,175 @@ export function createBlade(onLaunch, bits = {}) {
     }
   }
 
+  const orbit = { pieces: [], life: 0, lane: null, slams: [] };
+  let pebble = null;
+  const orbitLane = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.03, 1), new THREE.MeshBasicMaterial({ color: '#fff2b0', transparent: true, opacity: 0.28, depthWrite: false }));
+  orbitLane.visible = false;
+  orbitLane.frustumCulled = false;
+  scene?.add(orbitLane);
+
+  function dropOrbit() {
+    for (const piece of orbit.pieces) if (!piece.sent) dropPiece(piece.mesh);
+    orbit.pieces.length = 0;
+    orbit.life = 0;
+    orbitLane.visible = false;
+    if (pebble) { scene?.remove(pebble); pebble = null; }
+  }
+
+  function dropPiece(mesh) {
+    if (!mesh) return;
+    world?.addLoose?.(mesh, new THREE.Vector3((Math.random() - 0.5) * 0.6, 0.4, (Math.random() - 0.5) * 0.6), 2.4);
+  }
+
+  function liftAt(x, z, pull, gather) {
+    if (!world?.takeLoose || !scene) return 0;
+    const room = TUNE.orbitCount - orbit.pieces.length;
+    if (room <= 0) return 0;
+    const meshes = world.takeLoose(x, z, gather ?? pull, room);
+    const radius = pull + TUNE.orbitGap;
+    meshes.forEach((mesh, i) => {
+      const glow = new THREE.Mesh(new THREE.BoxGeometry(1.15, 1.7, 0.7), new THREE.MeshBasicMaterial({ color: '#fff2b0', transparent: true, opacity: 0, depthWrite: false }));
+      glow.name = 'lock';
+      glow.position.y = 0.5;
+      mesh.add(glow);
+      orbit.pieces.push({ mesh, ang: (orbit.pieces.length + i) * 1.7, radius, cx: x, cz: z, sent: false });
+    });
+    if (meshes.length) orbit.life = TUNE.orbitLife;
+    return meshes.length;
+  }
+
+  function spin() {
+    if (!drawn || !walker) return 0;
+    return liftAt(walker.feet.x, walker.feet.z, TUNE.spinPull, TUNE.spinGather);
+  }
+
+  function sendPiece(piece) {
+    if (piece.sent || !camera || !walker) return;
+    piece.sent = true;
+    const frame = laneFrame();
+    const part = ['head', 'legs', 'back'][Math.floor(orbit.pieces.filter((p) => p.sent).length) % 3];
+    const bx = frame ? frame.beast.x : piece.cx;
+    const bz = frame ? frame.beast.z : piece.cz;
+    const eye = camera.position;
+    const from = piece.mesh.position.clone();
+    const to = new THREE.Vector3(eye.x + (frame ? frame.fx : 0) * SWORD_OFFSET, world.ground(eye.x, eye.z) + 1.15, eye.z + (frame ? frame.fz : 1) * SWORD_OFFSET);
+    const flight = Math.max(0.45, from.distanceTo(to) / Math.max(0.5, TUNE.travelSpeed));
+    const due = song + flight;
+    piece.mesh.traverse((o) => { if (o.name === 'lock') o.material.opacity = 0.45; });
+    piece.base = piece.mesh.scale.x || 1;
+    notes.push({
+      kind: 'slice', dir: 'right', orbit: true, part, group: piece.mesh, body: piece.mesh, glow: null, base: piece.base,
+      from, to, flight, due, release: song, resolved: false, bx, bz, ceiling: false,
+    });
+    orbitLane.visible = true;
+    say('Lock');
+  }
+
+  function tryLock(h) {
+    if (!orbit.pieces.length) { whackPebble(h); return false; }
+    let best = null;
+    let bestD = 110;
+    for (const piece of orbit.pieces) {
+      if (piece.sent) continue;
+      const s = project(piece.mesh.position);
+      if (!s) continue;
+      const d = strokeDist(h, s.x, s.y);
+      if (d < bestD) { best = piece; bestD = d; }
+    }
+    if (best) { sendPiece(best); return true; }
+    whackPebble(h);
+    return false;
+  }
+
+  function slamPiece(note, score) {
+    const impact = Math.max(4, Math.round(score / 8));
+    const gy = world.ground(note.bx, note.bz);
+    const lift = note.part === 'head' ? 1.35 : note.part === 'legs' ? 0.3 : 0.85;
+    orbit.slams.push({
+      mesh: note.group, t: 0, dur: 0.3, impact, part: note.part,
+      from: note.group.position.clone(),
+      to: new THREE.Vector3(note.bx, gy + lift, note.bz),
+      bx: note.bx, bz: note.bz,
+    });
+    orbitLane.visible = false;
+  }
+
+  function finishSlam(slam) {
+    zones?.hurt([{ x: slam.bx, z: slam.bz, r: 1.4, d: slam.impact, k: 'arcane', exact: true }]);
+    zones?.hurt([{ x: slam.bx, z: slam.bz, r: 1.2, d: TUNE.hackHit, k: 'arcane', exact: true }]);
+    if (walker) {
+      const dx = slam.bx - walker.feet.x;
+      const dz = slam.bz - walker.feet.z;
+      const d = Math.hypot(dx, dz) || 1;
+      const step = Math.min(0.7, Math.max(0, d - 2.2));
+      if (step > 0) walker.place(walker.feet.x + (dx / d) * step, walker.feet.z + (dz / d) * step, walker.yaw);
+      zones?.shoveBeast(slam.bx, slam.bz, dx, dz, 0.8);
+    }
+    say(`Hack ${slam.part || 'back'}`);
+    world?.addLoose?.(slam.mesh, new THREE.Vector3(0, 0.8, 0), 2.2);
+  }
+
+  function whackPebble(h) {
+    if (!pebble) return;
+    const s = project(pebble.position);
+    if (!s || strokeDist(h, s.x, s.y) > 90) return;
+    const frame = laneFrame();
+    if (frame && zones) {
+      zones.hurt([{ x: frame.beast.x, z: frame.beast.z, r: 1.3, d: TUNE.stoneHit, k: 'arcane', exact: true }]);
+      fx?.spawn({ kind: 3, x: pebble.position.x, y: pebble.position.y, z: pebble.position.z, vx: frame.fx * 6, vy: 1.5, vz: frame.fz * 6, life: 0.45, size: [0.08, 0.16], colour: [0.78, 0.62, 0.36] });
+    }
+    scene.remove(pebble);
+    pebble = null;
+    say('Stone');
+  }
+
+  function orbitTick(dt) {
+    if (orbit.life > 0) orbit.life -= dt;
+    const alive = orbit.life > 0;
+    for (let i = orbit.pieces.length - 1; i >= 0; i--) {
+      const piece = orbit.pieces[i];
+      if (piece.sent) continue;
+      if (!alive) { dropPiece(piece.mesh); orbit.pieces.splice(i, 1); continue; }
+      piece.ang += TUNE.orbitSpeed * dt;
+      const gy = world.ground(piece.cx, piece.cz);
+      piece.mesh.position.set(piece.cx + Math.cos(piece.ang) * piece.radius, gy + 1.45, piece.cz + Math.sin(piece.ang) * piece.radius);
+      piece.mesh.rotation.y += dt * 0.4;
+    }
+    if (!orbit.pieces.length) orbitLane.visible = false;
+    const flying = notes.find((n) => n.orbit && !n.resolved);
+    if (flying && world) {
+      const u = flightU(song, flying.due, flying.flight);
+      flying.group.scale.setScalar((flying.base || 1) * (1 - 0.45 * u));
+      const gy = world.ground(flying.group.position.x, flying.group.position.z);
+      const dx = flying.bx - flying.group.position.x;
+      const dz = flying.bz - flying.group.position.z;
+      const len = Math.hypot(dx, dz) || 1;
+      orbitLane.visible = true;
+      orbitLane.scale.set(1, 1, len);
+      orbitLane.position.set(flying.group.position.x + dx / 2, gy + 0.2, flying.group.position.z + dz / 2);
+      orbitLane.rotation.y = Math.atan2(dx, dz);
+    }
+    for (let i = orbit.slams.length - 1; i >= 0; i--) {
+      const slam = orbit.slams[i];
+      slam.t += dt;
+      const u = Math.min(1, slam.t / slam.dur);
+      const e = u * u;
+      slam.mesh.position.lerpVectors(slam.from, slam.to, e);
+      slam.mesh.position.y += Math.sin(Math.PI * u) * 0.8;
+      if (u >= 1) { finishSlam(slam); orbit.slams.splice(i, 1); }
+    }
+    if (drawn && !pebble && Math.random() < TUNE.stoneRate * dt && walker && world) {
+      pebble = makeSlab(0.4);
+      pebble.scale.setScalar(0.35);
+      const yaw = walker.yaw;
+      pebble.position.set(walker.feet.x + Math.cos(yaw) * 1.3, world.ground(walker.feet.x, walker.feet.z) + 1.15, walker.feet.z - Math.sin(yaw) * 1.3);
+      scene.add(pebble);
+    }
+    if (pebble) pebble.position.y += Math.sin(performance.now() * 0.004) * 0.002;
+  }
+
+  if (world) world.orbitLift = liftAt;
+
   function reflectCut(note) {
     if (!scene) return;
     const bounced = shots.filter((s) => s.kind === 'bounce' && s.life > 0).length;
@@ -650,7 +822,7 @@ export function createBlade(onLaunch, bits = {}) {
   }
 
   function onDown(e) {
-    if (e.target.closest && e.target.closest('#draw, #hops, #block, #pound, #settings, #gear, #menu, #rush, #cast, #spell, #stick, #fish, #reel')) return;
+    if (e.target.closest && e.target.closest('#draw, #hops, #block, #pound, #spin, #settings, #gear, #menu, #rush, #cast, #spell, #stick, #fish, #reel')) return;
     const two = hold.size >= 1;
     hold.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now(), held: false, dx: 0, dy: 0, two });
   }
@@ -670,6 +842,7 @@ export function createBlade(onLaunch, bits = {}) {
     if (performance.now() - h.t > 220) h.held = true;
     const swipe = dirOf(h.dx || 0, h.dy || 0);
     if (swipe) trail(h.x, h.y, h.x + (h.dx || 0), h.y + (h.dy || 0));
+    if (tryLock(h)) return;
     const zone = h.y > innerHeight * 0.78 || h.x < 36 || h.x > innerWidth - 36 || h.two;
     const push = Math.min(1, Math.max(0, (Math.hypot(h.dx || 0, h.dy || 0) - 36) / 160) * 0.65 + Math.min(1, Math.max(0, (performance.now() - h.t) / 1000 - TUNE.dodgeDelay) / 0.4) * 0.35);
     if (zone && (swipe === 'left' || swipe === 'right' || swipe === 'down') && Math.hypot(h.dx || 0, h.dy || 0) > 28) {
@@ -679,6 +852,7 @@ export function createBlade(onLaunch, bits = {}) {
     if (h.held && swipe) airSlice(h.dx || 0, h.dy || 0);
     for (const note of notes) {
       if (!live(note) || note.kind === 'wall') continue;
+      if (note.orbit && song < note.due - 0.22) continue;
       gradeHit(note, h);
     }
   }
@@ -993,10 +1167,13 @@ export function createBlade(onLaunch, bits = {}) {
     if (dodge) dodge.hidden = !(classOn && drawn);
     const poundBtn = document.getElementById('pound');
     if (poundBtn) poundBtn.hidden = !(classOn && drawn);
+    const spinBtn = document.getElementById('spin');
+    if (spinBtn) spinBtn.hidden = !(classOn && drawn);
     const meter = document.getElementById('stagger');
     if (meter) meter.hidden = !(classOn && drawn);
     paintMeter();
     poundTick(dt);
+    orbitTick(dt);
     if (classOn && drawn && zones && walker && !clash) zones.holdBeasts(walker.feet.x, walker.feet.z, TUNE.holdMin, TUNE.holdMax, dt);
     if (!clash) easeDodge(dt);
     layGlows(engaged ? laneFrame() : null);
@@ -1073,7 +1250,7 @@ export function createBlade(onLaunch, bits = {}) {
         } else { combo = 0; say('Hit'); flash(); maybeOpen(); }
       } else if (!note.resolved && song > note.due + TUNE.window) fail(note);
       if (note.resolved && song > note.due + 0.35) {
-        scene?.remove(note.group);
+        if (!note.orbit) scene?.remove(note.group);
         notes.splice(i, 1);
       }
     }
@@ -1084,7 +1261,8 @@ export function createBlade(onLaunch, bits = {}) {
     get combo() { return combo; },
     get song() { return song; },
     setBlock,
-    setDrawn(on) { drawn = !!on; if (!drawn) { song = 0; cursor = 0; clearNotes(); poundCancel(); } },
+    setDrawn(on) { drawn = !!on; if (!drawn) { song = 0; cursor = 0; clearNotes(); poundCancel(); dropOrbit(); } },
+    spin,
     get drawn() { return drawn; },
     get score() { return scoreTotal; },
     get flyers() { return notes.filter((n) => !n.resolved).length; },
@@ -1102,6 +1280,19 @@ export function createBlade(onLaunch, bits = {}) {
     get poundRocks() { return risen.length; },
     get poundReachNow() { return poundWave ? +shockRing.scale.x.toFixed(2) : +poundRadius(poundCharge).toFixed(2); },
     get tossed() { return tossed; },
+    get orbiting() { return orbit.pieces.filter((p) => !p.sent).length; },
+    get orbitSpot() {
+      let best = null;
+      let bestD = 1e9;
+      for (const piece of orbit.pieces) {
+        if (piece.sent) continue;
+        const s = project(piece.mesh.position);
+        if (!s) continue;
+        const d = Math.hypot(s.x - innerWidth / 2, s.y - innerHeight / 2);
+        if (d < bestD) { best = s; bestD = d; }
+      }
+      return best ? { x: Math.round(best.x), y: Math.round(best.y), n: orbit.pieces.length } : null;
+    },
     get poundHits() { return poundHits; },
     get stagger() { return openFor > 0 ? 1 : stagger; },
     get clashing() { return clash ? clash.phase : ''; },
