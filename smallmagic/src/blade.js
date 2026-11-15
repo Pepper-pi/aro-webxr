@@ -9,7 +9,7 @@ import * as THREE from 'three';
 
 const LOOP = 4.6;
 const APPROACH = 1.05;
-const WINDOW = 0.2;
+const WINDOW = 0.34;
 const PATTERN = [
   { t: 0.7, lane: 0, kind: 'slice', dir: 'right' },
   { t: 1.35, lane: 2, kind: 'slice', dir: 'left' },
@@ -149,8 +149,25 @@ export function createBlade(onLaunch, bits = {}) {
   }
 
   function dirOf(dx, dy) {
-    if (Math.hypot(dx, dy) < 18) return '';
+    if (Math.hypot(dx, dy) < 10) return '';
     return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+  }
+
+  function crosses(h, el) {
+    const r = el.getBoundingClientRect();
+    const box = { l: r.left - 64, t: r.top - 72, r: r.right + 64, b: r.bottom + 72 };
+    const x1 = h.x + (h.dx || 0);
+    const y1 = h.y + (h.dy || 0);
+    const inside = (x, y) => x >= box.l && x <= box.r && y >= box.t && y <= box.b;
+    if (inside(h.x, h.y) || inside(x1, y1)) return true;
+    for (let t = 0.2; t < 1; t += 0.2) if (inside(h.x + (x1 - h.x) * t, h.y + (y1 - h.y) * t)) return true;
+    return false;
+  }
+
+  function dirOk(want, got) {
+    if (!want || got === want) return !!got || !want;
+    const side = { right: ['up', 'down'], left: ['up', 'down'], up: ['left', 'right'], down: ['left', 'right'] };
+    return !!side[want]?.includes(got);
   }
 
   function live(note) {
@@ -180,14 +197,16 @@ export function createBlade(onLaunch, bits = {}) {
     if (swipe) trail(h.x, h.y, h.x + (h.dx || 0), h.y + (h.dy || 0));
     if (h.held && swipe) airSlice(h.dx || 0, h.dy || 0);
     for (const note of notes) {
-      if (!live(note) || note.lane !== h.lane) continue;
-      if (note.kind === 'slice' && swipe === note.dir) succeed(note);
-      else if (note.kind === 'big' && h.held) succeed(note);
+      if (!live(note)) continue;
+      const through = note.lane === h.lane || crosses(h, note.el);
+      if (!through) continue;
+      if (note.kind === 'slice' && dirOk(note.dir, swipe)) succeed(note);
+      else if (note.kind === 'big' && (h.held || swipe)) succeed(note);
       else if (note.kind === 'wall') fail(note);
       else if (note.kind === 'slice') fail(note);
     }
     const wall = notes.find((note) => note.kind === 'wall' && live(note) && !note.resolved);
-    if (wall && h.lane !== wall.lane && swipe) succeed(wall);
+    if (wall && !crosses(h, wall.el) && swipe) succeed(wall);
   }
 
   function wire() {
@@ -443,6 +462,9 @@ export function createBlade(onLaunch, bits = {}) {
       drawBtn.hidden = !classOn;
       drawBtn.textContent = drawn ? 'Sheathe' : 'Draw';
     }
+    const hops = document.getElementById('hops');
+    if (hops) hops.hidden = !(classOn && drawn);
+    document.body.classList.toggle('blade-drawn', !!(classOn && drawn));
     if (!board) return;
     const engaged = !!(classOn && drawn && inRange);
     board.hidden = !engaged;

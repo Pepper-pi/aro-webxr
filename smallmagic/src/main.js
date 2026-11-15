@@ -177,6 +177,10 @@ document.getElementById('gunnerToggle')?.addEventListener('pointerup', (e) => {
   pickClass(settings.class === 'gunner' ? 'mage' : 'gunner');
   e.preventDefault(); e.stopPropagation();
 });
+document.querySelectorAll('[data-hop]').forEach((b) => b.addEventListener('pointerup', (e) => {
+  hop(b.getAttribute('data-hop'));
+  e.preventDefault(); e.stopPropagation();
+}));
 document.getElementById('draw')?.addEventListener('pointerup', (e) => {
   blade.setDrawn(!blade.drawn);
   e.preventDefault(); e.stopPropagation();
@@ -205,14 +209,40 @@ let padCast = false, forceDraw = false;
 let free = null;
 let shaking = 0;
 const blastAt = new THREE.Vector3();
+let hopCool = 0;
+function hop(kind) {
+  if (hopCool > 0 || !(settings.class === 'blade' && blade.drawn)) return;
+  hopCool = 0.32;
+  const yaw = walker.yaw;
+  const sy = Math.sin(yaw), cy = Math.cos(yaw);
+  const step = 1.8;
+  let dx = 0, dz = 0;
+  if (kind === 'in') {
+    let best = null, bestD = 16;
+    for (const b of zones.beasts()) {
+      if (b.dead) continue;
+      const d = Math.hypot(b.x - walker.feet.x, b.z - walker.feet.z);
+      if (d < bestD) { best = b; bestD = d; }
+    }
+    if (!best || bestD < 2.2) return;
+    const hop = Math.min(3.4, bestD - 2);
+    dx = (best.x - walker.feet.x) / bestD * hop;
+    dz = (best.z - walker.feet.z) / bestD * hop;
+  } else if (kind === 'back') { dx = -sy * step; dz = -cy * step; }
+  else if (kind === 'left') { dx = cy * step; dz = -sy * step; }
+  else { dx = -cy * step; dz = sy * step; }
+  walker.place(walker.feet.x + dx, walker.feet.z + dz, yaw);
+}
 function tick(dt) {
   dt = Math.min(dt, 1 / 20);
   // (a blast all but stops time for the instant it lands)
   const pace = clock.pace * blast.pace * hole.pace;
+  if (hopCool > 0) hopCool -= dt;
   // (a singularity opens the eye wider)
   if (Math.abs(camera.fov - (world.fov + hole.fov)) > 0.01) { camera.fov = world.fov + hole.fov; camera.updateProjectionMatrix(); }
   air.uniforms.uNow.value += dt * pace;
   const inp = input.read(dt);
+  const planted = zones.name !== 'hub' && settings.class === 'blade' && blade.drawn;
   if (zones.blocksMagic) {
     zones.castHeld(!!inp.cast, !padCast && !!inp.cast, padCast && !inp.cast);
     padCast = !!inp.cast;
@@ -223,7 +253,7 @@ function tick(dt) {
   }
   zones.update(dt);
   if (inp.any) sound?.wake();
-  walker.update(dt, inp);
+  walker.update(dt, planted ? { ...inp, move: { x: 0, y: 0 }, jump: false, sprint: false } : inp);
   if (free) { camera.position.copy(free.position); camera.lookAt(free.target); } else walker.look(camera);
   // (and shakes the eye)
   if (blast.shake + hole.shake + twister.shake > 0.002) { const s = blast.shake + hole.shake + twister.shake * 0.5; shaking += dt; camera.rotateX(Math.sin(shaking * 61) * Math.sin(shaking * 37 + 1) * 0.03 * s); camera.rotateY(Math.sin(shaking * 53 + 2) * Math.sin(shaking * 29) * 0.03 * s); camera.rotateZ(Math.sin(shaking * 47 + 4) * 0.018 * s); }
