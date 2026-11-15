@@ -34,8 +34,60 @@ function slime() {
   return g;
 }
 
-const MAKE = { wolf, boar, slime };
-const HP = { wolf: 36, boar: 48, slime: 22 };
+function goblin() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.7, 0.32), mat('#3f8f4a'));
+  body.position.y = 0.55;
+  g.add(body);
+  return g;
+}
+
+const MAKE = { wolf, boar, slime, goblin };
+const HP = { wolf: 36, boar: 48, slime: 22, goblin: 30 };
+const TALL = { boar: 1.05, slime: 0.85, goblin: 1.2 };
+const mobMixers = [];
+
+function fitMob(root, height) {
+  const box = new THREE.Box3().setFromObject(root);
+  const size = box.getSize(new THREE.Vector3());
+  const k = height / Math.max(size.y, 0.01);
+  root.scale.multiplyScalar(k);
+  root.position.y -= new THREE.Box3().setFromObject(root).min.y;
+  root.traverse((o) => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.frustumCulled = false; } });
+}
+
+async function dressMobs(all) {
+  let GLTFLoader;
+  try {
+    ({ GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js'));
+  } catch {
+    return;
+  }
+  const loader = new GLTFLoader();
+  const cache = {};
+  for (const b of all) {
+    if (!TALL[b.kind]) continue;
+    try {
+      if (!cache[b.kind]) cache[b.kind] = loader.loadAsync(`/mobs/overaction/${b.kind}.glb`);
+      const gltf = await cache[b.kind];
+      const model = gltf.scene.clone(true);
+      fitMob(model, TALL[b.kind]);
+      for (const child of [...b.g.children]) {
+        if (child === b.bar || child.name === 'flame') continue;
+        b.g.remove(child);
+      }
+      b.g.add(model);
+      const clip = gltf.animations.find((a) => /idle/i.test(a.name)) || gltf.animations[0];
+      if (clip) {
+        const mixer = new THREE.AnimationMixer(model);
+        mixer.clipAction(clip).play();
+        mobMixers.push(mixer);
+      }
+    } catch {
+      /* keep the coded stand-in if a file is missing */
+    }
+  }
+}
 
 function one(kind, x, z) {
   const g = MAKE[kind]();
@@ -70,6 +122,7 @@ export function createBeasts(scene, ground) {
   add(meadow, 'wolf', -26, -6);
   add(meadow, 'slime', -30, -14);
   add(meadow, 'boar', -24, -11);
+  add(meadow, 'goblin', -20, -9);
   add(meadow, 'wolf', -62, -16);
   add(meadow, 'boar', -68, -23);
   add(meadow, 'slime', -63, -22);
@@ -78,6 +131,7 @@ export function createBeasts(scene, ground) {
   add(meadow, 'boar', 6, 32);
   for (const b of all) b.g.scale.setScalar(1.4);
   scene.add(meadow, lake);
+  dressMobs(all);
   const bits = [];
   const cube = new THREE.BoxGeometry(0.16, 0.16, 0.16);
   return {
@@ -217,6 +271,7 @@ export function createBeasts(scene, ground) {
       }
     },
     update(dt, zone) {
+      for (const mixer of mobMixers) mixer.update(dt);
       meadow.visible = zone === 'meadow';
       lake.visible = zone === 'lake';
       for (const b of all) {
