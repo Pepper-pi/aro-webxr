@@ -95,6 +95,7 @@ export function createZones({ scene, world, walker, camera, air }) {
   const village = buildVillage(world.root, world, air);
   world.blow = (x, z, dx, dz, r) => village.blow(x, z, dx, dz, r);
   world.pound = (x, z, r) => village.pound(x, z, r);
+  world.addLoose = (mesh, v, life) => village.addLoose(mesh, v, life);
   world.swirl = (x, z, r) => village.swirl(x, z, r);
   world.breakAt = (x, z, r, token) => village.breakAt(x, z, r, token);
   // Hook for a warrior ability that is not in the game yet. Tornado rips a few core tiles only
@@ -568,7 +569,10 @@ export function createZones({ scene, world, walker, camera, air }) {
       if (fell.length || bumps.length) {
         const marks = [];
         for (const h of fell) marks.push({ x: h.x, z: h.z, r: h.r, d: TUNE.debrisHit, k: 'arcane', exact: true });
-        for (const h of bumps) marks.push({ x: h.x, z: h.z, r: 1.15, d: TUNE.debrisHit, k: 'arcane', exact: true });
+        for (const h of bumps) {
+          marks.push({ x: h.x, z: h.z, r: 1.2, d: TUNE.debrisHit, k: 'arcane', exact: true });
+          if (h.dx || h.dz) beasts.shove(h.x, h.z, h.dx, h.dz, TUNE.rockFling);
+        }
         this.hurt(marks);
       }
       beasts.update(dt, name);

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { shadowed } from './air.js';
 import { ANGLE_DOT_MIN, ANGLE_DOT_SUPER, LANE, SWORD_OFFSET, TUNE, angleDot, bladePoints, flightU, wallBlocks } from './rider.js';
 
 // A phone sword rhythm. Approach, cut angle, and wall hits are adapted from Moon Rider
@@ -33,7 +34,7 @@ export function createBlade(onLaunch, bits = {}) {
   let rush = null;
   const notes = [];
   const hold = new Map();
-  const { scene, camera, world, zones, walker } = bits;
+  const { scene, camera, world, zones, walker, air } = bits;
   const shots = [];
   let blocking = false;
   let blockHeld = 99;
@@ -401,22 +402,179 @@ export function createBlade(onLaunch, bits = {}) {
     clash = null;
   }
 
-  function pound() {
-    if (!drawn || !walker || !world) return;
+  const rockMat = (key, rgb) => air ? shadowed(air, {
+    key,
+    vertexPars: 'varying vec3 vW; varying vec3 vN;',
+    vertex: '#include <begin_vertex>\n vW = (modelMatrix * vec4(position, 1.0)).xyz; vN = normalize(mat3(modelMatrix) * normal);',
+    fragmentPars: 'varying vec3 vW; varying vec3 vN;',
+    fragment: `vec3 alb = vec3(${rgb}); float sun = clamp(dot(normalize(vN), uSun), 0.0, 1.0); vec3 col = lit(alb, 0.26 + 0.74 * sun, 0.62); gl_FragColor = vec4(air(col, vW), 1.0);`,
+  }) : new THREE.MeshLambertMaterial({ color: '#c4a06a' });
+  const rockA = rockMat('sandA', '0.78, 0.58, 0.32');
+  const rockB = rockMat('sandB', '0.62, 0.44, 0.24');
+  const rockC = rockMat('sandC', '0.86, 0.68, 0.40');
+  const slabGeo = new THREE.BoxGeometry(1, 1, 1);
+  const risen = [];
+  let poundHeld = false;
+  let poundCharge = 0;
+  let poundWave = null;
+  let tossed = 0;
+  let poundHits = 0;
+  const chargeRing = new THREE.Mesh(new THREE.RingGeometry(0.86, 1, 28), new THREE.MeshBasicMaterial({ color: '#a67c4a', side: THREE.DoubleSide, transparent: true, opacity: 0.55, depthWrite: false }));
+  const shockRing = new THREE.Mesh(new THREE.RingGeometry(0.82, 1, 32), new THREE.MeshBasicMaterial({ color: '#cbb48a', side: THREE.DoubleSide, transparent: true, opacity: 0, depthWrite: false }));
+  const dustRing = new THREE.Mesh(new THREE.RingGeometry(0.7, 1, 24), new THREE.MeshBasicMaterial({ color: '#d7c4a2', side: THREE.DoubleSide, transparent: true, opacity: 0, depthWrite: false }));
+  const cracks = new THREE.Group();
+  const crackMat = new THREE.MeshBasicMaterial({ color: '#5c4632', transparent: true, opacity: 0.8, depthWrite: false });
+  for (let i = 0; i < 7; i++) {
+    const line = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.025, 1), crackMat);
+    line.position.z = 0.5;
+    const arm = new THREE.Group();
+    arm.rotation.y = (i / 7) * Math.PI * 2 + (i % 2) * 0.18;
+    arm.add(line);
+    cracks.add(arm);
+  }
+  for (const m of [chargeRing, shockRing, dustRing]) { m.rotation.x = -Math.PI / 2; m.visible = false; m.frustumCulled = false; scene?.add(m); }
+  cracks.visible = false;
+  scene?.add(cracks);
+
+  function poundRadius(c) {
+    const t = Math.max(0, Math.min(1, c));
+    return TUNE.poundMin + (TUNE.poundReach - TUNE.poundMin) * t;
+  }
+
+  function makeSlab(spin) {
+    const g = new THREE.Group();
+    const spire = new THREE.Mesh(slabGeo, rockA);
+    spire.scale.set(0.38, 1.45, 0.28);
+    spire.position.y = 0.72;
+    spire.rotation.set(0.12, spin, 0.28);
+    const ledge = new THREE.Mesh(slabGeo, rockB);
+    ledge.scale.set(1.35, 0.2, 0.46);
+    ledge.position.set(0.48, 0.28, 0.06);
+    ledge.rotation.set(0.08, spin * 0.2, -0.7);
+    const chip = new THREE.Mesh(slabGeo, rockC);
+    chip.scale.set(0.32, 0.7, 0.26);
+    chip.position.set(-0.26, 0.42, -0.1);
+    chip.rotation.set(-0.18, spin, 0.55);
+    g.add(spire, ledge, chip);
+    g.traverse((o) => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.frustumCulled = false; } });
+    return g;
+  }
+
+  function layCharge(c) {
+    if (!walker || !world) return;
     const x = walker.feet.x;
     const z = walker.feet.z;
-    world.pound?.(x, z, TUNE.poundReach);
-    blowRing(x, z);
-    hitShake = Math.max(hitShake, 0.7);
-    freeze = Math.max(freeze, TUNE.hitStop * 0.7);
+    const reach = poundRadius(c);
+    const gy = world.ground(x, z);
+    chargeRing.visible = true;
+    chargeRing.position.set(x, gy + 0.16, z);
+    chargeRing.scale.setScalar(reach);
+    chargeRing.material.opacity = 0.28 + 0.35 * c + 0.08 * Math.sin(performance.now() * 0.02);
+    const want = Math.max(0, Math.round(TUNE.poundRocks * c));
+    while (risen.length < want) {
+      const i = risen.length;
+      const ang = (i / Math.max(1, TUNE.poundRocks)) * Math.PI * 2 + 0.35;
+      const mesh = makeSlab(ang);
+      scene.add(mesh);
+      risen.push({ mesh, ang, dist: 2.35 + (i % 3) * 0.55 });
+    }
+    const scale = TUNE.rockMin + (TUNE.rockMax - TUNE.rockMin) * c;
+    for (const rock of risen) {
+      rock.mesh.scale.setScalar(scale);
+      const rx = x + Math.cos(rock.ang) * rock.dist;
+      const rz = z + Math.sin(rock.ang) * rock.dist;
+      rock.mesh.position.set(rx, world.ground(rx, rz) - 0.9 * (1 - c), rz);
+      rock.mesh.rotation.y = rock.ang;
+    }
+    hitShake = Math.max(hitShake, 0.2 + 0.8 * c * c);
+  }
+
+  function poundCancel() {
+    poundHeld = false;
+    poundCharge = 0;
+    chargeRing.visible = false;
+    for (const rock of risen) scene?.remove(rock.mesh);
+    risen.length = 0;
+    document.getElementById('pound')?.classList.remove('up');
+  }
+
+  function poundStart() {
+    if (!drawn || !walker) return;
+    poundHeld = true;
+    poundCharge = 0;
+    document.getElementById('pound')?.classList.add('up');
+  }
+
+  function poundRelease() {
+    if (!poundHeld || !walker || !world) { poundCancel(); return; }
+    poundHeld = false;
+    document.getElementById('pound')?.classList.remove('up');
+    const charge = Math.max(0.12, poundCharge);
+    const reach = poundRadius(charge);
+    const x = walker.feet.x;
+    const z = walker.feet.z;
+    chargeRing.visible = false;
+    const gy = world.ground(x, z);
+    shockRing.visible = true;
+    dustRing.visible = true;
+    cracks.visible = true;
+    shockRing.position.set(x, gy + 0.18, z);
+    dustRing.position.set(x, gy + 0.12, z);
+    cracks.position.set(x, gy + 0.05, z);
+    cracks.scale.setScalar(reach);
+    crackMat.opacity = 0.85;
+    shockRing.scale.setScalar(0.2);
+    if (Math.abs(cracks.scale.x - reach) > 0.001) console.warn('pound crack', cracks.scale.x, reach);
+    world.pound?.(x, z, reach);
+    const speed = (2.2 + reach * 0.85) * (0.5 + 0.5 * charge);
+    const vy = 2.2 + 2.4 * charge;
+    for (const rock of risen) {
+      const dirx = Math.cos(rock.ang);
+      const dirz = Math.sin(rock.ang);
+      world.addLoose?.(rock.mesh, new THREE.Vector3(dirx * speed, vy, dirz * speed), TUNE.rockLife);
+    }
+    tossed = risen.length;
+    risen.length = 0;
+    poundWave = { x, z, reach, r: 0, t: 0, dur: TUNE.poundTime * (0.35 + 0.65 * charge), charge, hit: new Set(), id: Math.random() };
+    hitShake = Math.max(hitShake, 0.45 + 0.55 * charge);
     say('Pound');
-    for (const b of zones?.beasts?.() || []) {
-      if (b.dead) continue;
-      const dx = b.x - x;
-      const dz = b.z - z;
-      if (Math.hypot(dx, dz) > TUNE.poundReach) continue;
-      zones.shoveBeast(b.x, b.z, dx, dz, TUNE.poundToss);
-      zones.hurt([{ x: b.x, z: b.z, r: 1.3, d: TUNE.poundHit, k: 'arcane' }]);
+    poundCharge = 0;
+  }
+
+  function poundTick(dt) {
+    if (poundHeld && drawn) {
+      poundCharge = Math.min(1, poundCharge + dt / TUNE.poundWindup);
+      layCharge(poundCharge);
+    } else if (!drawn && (poundHeld || risen.length)) poundCancel();
+    if (!poundWave) return;
+    poundWave.t += dt;
+    const u = Math.min(1, poundWave.t / poundWave.dur);
+    poundWave.r = poundWave.reach * u;
+    const shown = poundWave.r;
+    shockRing.scale.setScalar(shown);
+    dustRing.scale.setScalar(shown);
+    cracks.scale.setScalar(shown);
+    shockRing.material.opacity = 0.7 * (1 - u);
+    dustRing.material.opacity = 0.45 * (1 - u);
+    crackMat.opacity = 0.85 * (1 - u * 0.85);
+    if (Math.abs(shockRing.scale.x - shown) > 0.001) console.warn('pound ring', shockRing.scale.x, shown);
+    const radius = shockRing.scale.x;
+    const herd = zones?.beasts?.() || [];
+    const dmg = TUNE.poundHit * (0.45 + 0.55 * poundWave.charge);
+    const toss = TUNE.poundToss * (0.4 + 0.6 * poundWave.charge);
+    for (const b of herd) {
+      if (b.dead || poundWave.hit.has(b.n)) continue;
+      if (Math.hypot(b.x - poundWave.x, b.z - poundWave.z) > radius) continue;
+      poundWave.hit.add(b.n);
+      poundHits += 1;
+      zones.hurt([{ x: b.x, z: b.z, r: radius, d: dmg, k: 'arcane', exact: true, once: poundWave.id }]);
+      zones.shoveBeast(b.x, b.z, b.x - poundWave.x, b.z - poundWave.z, toss);
+    }
+    if (u >= 1) {
+      shockRing.visible = false;
+      dustRing.visible = false;
+      cracks.visible = false;
+      poundWave = null;
     }
   }
 
@@ -838,6 +996,7 @@ export function createBlade(onLaunch, bits = {}) {
     const meter = document.getElementById('stagger');
     if (meter) meter.hidden = !(classOn && drawn);
     paintMeter();
+    poundTick(dt);
     if (classOn && drawn && zones && walker && !clash) zones.holdBeasts(walker.feet.x, walker.feet.z, TUNE.holdMin, TUNE.holdMax, dt);
     if (!clash) easeDodge(dt);
     layGlows(engaged ? laneFrame() : null);
@@ -925,7 +1084,7 @@ export function createBlade(onLaunch, bits = {}) {
     get combo() { return combo; },
     get song() { return song; },
     setBlock,
-    setDrawn(on) { drawn = !!on; if (!drawn) { song = 0; cursor = 0; clearNotes(); } },
+    setDrawn(on) { drawn = !!on; if (!drawn) { song = 0; cursor = 0; clearNotes(); poundCancel(); } },
     get drawn() { return drawn; },
     get score() { return scoreTotal; },
     get flyers() { return notes.filter((n) => !n.resolved).length; },
@@ -936,7 +1095,14 @@ export function createBlade(onLaunch, bits = {}) {
       return { kind: note.kind, dir: note.dir, part: note.part || '', ceiling: !!note.ceiling, phase: song < note.release ? 'wind' : 'fly', dt: +(note.due - song).toFixed(2), x: s ? Math.round(s.x) : 0, y: s ? Math.round(s.y) : 0 };
     },
     tune: TUNE,
-    pound,
+    pound: poundRelease,
+    poundStart,
+    poundRelease,
+    get poundCharge() { return poundCharge; },
+    get poundRocks() { return risen.length; },
+    get poundReachNow() { return poundWave ? +shockRing.scale.x.toFixed(2) : +poundRadius(poundCharge).toFixed(2); },
+    get tossed() { return tossed; },
+    get poundHits() { return poundHits; },
     get stagger() { return openFor > 0 ? 1 : stagger; },
     get clashing() { return clash ? clash.phase : ''; },
     get open() { return openFor > 0; },

@@ -83,7 +83,7 @@ export function createBeasts(scene, ground) {
   return {
     meadow, lake,
     probe() {
-      return all.map((b) => ({ kind: b.kind, x: +b.g.position.x.toFixed(2), y: +b.g.position.y.toFixed(2), z: +b.g.position.z.toFixed(2), hp: +b.hp.toFixed(1), burn: +b.burn.toFixed(2), chill: +b.chill.toFixed(2), dead: b.dead, flame: !!b.g.getObjectByName('flame')?.visible }));
+      return all.map((b, n) => ({ n, kind: b.kind, x: +b.g.position.x.toFixed(2), y: +b.g.position.y.toFixed(2), z: +b.g.position.z.toFixed(2), hp: +b.hp.toFixed(1), burn: +b.burn.toFixed(2), chill: +b.chill.toFixed(2), dead: b.dead, flame: !!b.g.getObjectByName('flame')?.visible }));
     },
     hold(px, pz, min, max, dt) {
       for (const b of all) {
@@ -137,9 +137,9 @@ export function createBeasts(scene, ground) {
         release() { best.busy = false; best.flinch = 0.2; },
       };
     },
-    shove(x, z, dx, dz, dist) {
+    shove(x, z, dx, dz, dist, reach = 1.5) {
       let best = null;
-      let bestD = 4;
+      let bestD = reach;
       for (const b of all) {
         if (b.dead || b.where !== 'meadow' || b.busy) continue;
         const d = Math.hypot(b.g.position.x - x, b.g.position.z - z);

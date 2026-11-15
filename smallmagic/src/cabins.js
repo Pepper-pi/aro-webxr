@@ -220,6 +220,12 @@ export function buildVillage(root, world, air) {
         p.v.y += 4.5;
       });
     },
+    /** A rock or chunk already broken loose. Wind and the tornado push it. It is gone after `life` seconds. */
+    addLoose(mesh, v, life) {
+      if (mesh.parent) mesh.parent.remove(mesh);
+      root.add(mesh);
+      loose.push({ m: mesh, v: v.clone(), life });
+    },
     takeBumps() {
       const out = [];
       for (const p of loose) {
@@ -227,12 +233,18 @@ export function buildVillage(root, world, air) {
         const now = performance.now();
         if (p.bumped && now - p.bumped < 450) continue;
         p.bumped = now;
-        out.push({ x: p.m.position.x, z: p.m.position.z });
+        out.push({ x: p.m.position.x, z: p.m.position.z, dx: p.v.x, dz: p.v.z });
       }
       return out;
     },
     tick(dt) {
-      for (const p of loose) {
+      for (let i = loose.length - 1; i >= 0; i--) {
+        const p = loose[i];
+        if (p.life != null) {
+          p.life -= dt;
+          if (p.life <= 0.45) p.m.scale.multiplyScalar(Math.max(0.2, p.life / 0.45));
+          if (p.life <= 0) { p.m.removeFromParent(); loose.splice(i, 1); continue; }
+        }
         const moving = p.v.lengthSq() > 0.04;
         if (!moving) continue;
         p.v.y -= 9 * dt;
