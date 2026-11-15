@@ -110,7 +110,13 @@ export function createBeasts(scene, ground) {
           const dealt = (again ? m.d * 0.4 : m.d) * addFall;
           b.hp -= dealt;
           b.flash = 0.28;
-          if (m.k === 'fire') b.burn = Math.max(b.burn, 3.4);
+          if (m.k === 'fire') {
+            b.burn = Math.max(b.burn, 3.4);
+            for (const other of all) {
+              if (other === b || other.dead || other.where !== b.where) continue;
+              if (Math.hypot(other.g.position.x - b.g.position.x, other.g.position.z - b.g.position.z) < 1.35) other.burn = Math.max(other.burn, 1.5);
+            }
+          }
           if (m.status === 'chill') b.chill = Math.max(b.chill, 3.4);
           if (m.radial) {
             let ox = b.g.position.x - m.x, oz = b.g.position.z - m.z;
