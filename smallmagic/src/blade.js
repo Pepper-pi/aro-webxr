@@ -176,6 +176,7 @@ export function createBlade(onLaunch, bits = {}) {
     if (performance.now() - h.t > 220) h.held = true;
     const swipe = dirOf(h.dx || 0, h.dy || 0);
     if (swipe) trail(h.x, h.y, h.x + (h.dx || 0), h.y + (h.dy || 0));
+    if (h.held && swipe) airSlice(h.dx || 0, h.dy || 0);
     for (const note of notes) {
       if (!live(note) || note.lane !== h.lane) continue;
       if (note.kind === 'slice' && swipe === note.dir) succeed(note);
@@ -228,6 +229,26 @@ export function createBlade(onLaunch, bits = {}) {
     const up = (e) => { setBlock(false); e.preventDefault(); };
     btn.addEventListener('pointerup', up);
     btn.addEventListener('pointercancel', up);
+  }
+
+  function airSlice(dx, dy) {
+    if (!scene || !camera || !world) return;
+    camera.getWorldDirection(look);
+    const right = new THREE.Vector3().crossVectors(look, new THREE.Vector3(0, 1, 0));
+    if (right.lengthSq() < 1e-6) right.set(1, 0, 0);
+    right.normalize();
+    const len = Math.hypot(dx, dy) || 1;
+    const aim = look.clone().multiplyScalar(-dy / len).addScaledVector(right, dx / len);
+    aim.y = 0;
+    if (aim.lengthSq() < 1e-6) aim.copy(look).setY(0);
+    aim.normalize();
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.28), new THREE.MeshBasicMaterial({ color: '#3ee0ff', side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));
+    mesh.position.copy(camera.position);
+    mesh.position.y -= 0.35;
+    mesh.lookAt(mesh.position.x + aim.x, mesh.position.y, mesh.position.z + aim.z);
+    scene.add(mesh);
+    shots.push({ mesh, v: aim.multiplyScalar(18), life: 0.5, kind: 'slice', blew: false });
+    say('Slice');
   }
 
   function spawnLob() {
@@ -376,14 +397,25 @@ export function createBlade(onLaunch, bits = {}) {
     for (let i = shots.length - 1; i >= 0; i--) {
       const shot = shots[i];
       shot.life -= dt;
-      shot.v.y -= GRAV * dt;
+      if (shot.kind !== 'slice') shot.v.y -= GRAV * dt;
       shot.mesh.position.addScaledVector(shot.v, dt);
-      const gy = world.ground(shot.mesh.position.x, shot.mesh.position.z) + 0.2;
-      if (shot.mesh.position.y < gy) { shot.mesh.position.y = gy; shot.v.y = Math.abs(shot.v.y) * 0.45; }
+      if (shot.kind !== 'slice') {
+        const gy = world.ground(shot.mesh.position.x, shot.mesh.position.z) + 0.2;
+        if (shot.mesh.position.y < gy) { shot.mesh.position.y = gy; shot.v.y = Math.abs(shot.v.y) * 0.45; }
+      }
       if (shot.kind === 'lob') {
         const near = Math.hypot(shot.mesh.position.x - eye.x, shot.mesh.position.z - eye.z) < 1.15 && Math.abs(shot.mesh.position.y - eye.y) < 1.5;
         if (near && blocking) reflect(shot);
         else if (near) { say('Hit'); shot.life = 0; }
+      } else if (shot.kind === 'slice') {
+        const p = shot.mesh.position;
+        const speed = Math.hypot(shot.v.x, shot.v.z) || 1;
+        world.blow(p.x, p.z, shot.v.x / speed, shot.v.z / speed, 3, dt);
+        const beast = zones.beasts().find((b) => !b.dead && Math.hypot(b.x - shot.mesh.position.x, b.z - shot.mesh.position.z) < 1.3);
+        if (beast) {
+          zones.hurt([{ x: beast.x, z: beast.z, r: 1.3, d: 6, k: 'arcane', kx: shot.v.x * 0.04, kz: shot.v.z * 0.04 }]);
+          shot.life = 0;
+        }
       } else {
         const beast = zones.beasts().find((b) => !b.dead && Math.hypot(b.x - shot.mesh.position.x, b.z - shot.mesh.position.z) < 1.15);
         if (beast) {
