@@ -95,6 +95,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
   }
 
   const marks = [];
+  let pourMark = 0, boomMark = false, windMark = 0, stormMark = 0;
   const api = {
     get selected() { return selected; }, select,
     get cast() { return cast; }, set hear(fn) { heard = fn; },
@@ -261,7 +262,13 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
       cast.pour = spell.pour && down ? spell.key : null; cast.target = cast.pour && target ? target : null;
       cast.spread = spell.key === 'frost' ? 1.2 + 4.3 * (1 - Math.exp(-hold * 0.55)) : 1.4 + 4.4 * (1 - Math.exp(-hold * 0.5));
       cast.water = Boolean(cast.target) && world.ground(target.x, target.z) < world.water;
-      if (cast.pour && target) marks.push({ x: target.x, z: target.z, r: Math.max(1.4, cast.spread * 0.45), d: 12, k: 'arcane' });
+      if (cast.pour && target) {
+        pourMark -= dt;
+        if (pourMark <= 0) {
+          pourMark = 0.28;
+          marks.push({ x: target.x, z: target.z, r: Math.max(1.4, cast.spread * 0.45), d: cast.pour === 'growth' ? 8 : 14, k: 'arcane', kx: (Math.random() - 0.5) * 0.6, kz: (Math.random() - 0.5) * 0.6 });
+        }
+      } else pourMark = 0;
 
       // --- what has been thrown ---
       let carried = null;
@@ -301,6 +308,8 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
           for (let q = 0; q < 130; q++) { const [x, cy, z, r] = tree.clumps[Math.floor(Math.random() * tree.clumps.length)]; fx.spawn({ kind: 4, x: x + rnd(r), y: cy + rnd(r * 0.6), z: z + rnd(r), vx: g.dx * (8 + 10 * Math.random()) + rnd(3), vy: 1 + 3 * Math.random(), vz: g.dz * (8 + 10 * Math.random()) + rnd(3), life: 1.6 + 1.4 * Math.random(), size: [0.13, 0.13], colour: tree.frost > 0.5 ? [0.85, 0.94, 1] : [0.3 + 0.3 * Math.random(), 0.62, 0.12], grav: -3.5, drag: 0.7, rot: Math.random() * 6.283, spin: rnd(9) }); }
         }
         fire.fan(g.x, g.z, g.dx, g.dz, g.wide);
+        windMark -= dt;
+        if (windMark <= 0) { windMark = 0.26; marks.push({ x: g.x, z: g.z, r: g.wide * 0.5, d: 12, k: 'arcane', kx: g.dx * 1.4, kz: g.dz * 1.4 }); }
         ruin?.push(g.x, g.z, g.dx, g.dz, g.wide, 20 * fade, dt);
         ruin?.gust(g.x, g.z, g.dx, g.dz, g.wide, (g.wide - 4.5) / 4.5);
         blowing = { g, fade };
@@ -320,6 +329,19 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
       blast.update(dt, realDt, camera.position);
       hole.update(dt, realDt, camera.position);
       twister.update(dt, realDt, camera.position);
+      if (blast.shockP > 0.85 && !boomMark) { boomMark = true; marks.push({ x: blast.centre.x, z: blast.centre.z, r: 12, d: 70, k: 'fire' }); }
+      if (blast.shockP < 0.2) boomMark = false;
+      stormMark -= dt;
+      if (stormMark <= 0 && (twister.phase === 'live' || twister.phase === 'gather')) {
+        stormMark = 0.3;
+        const away = Math.random() * 6.283;
+        marks.push({ x: twister.base.x, z: twister.base.z, r: 6, d: 16, k: 'arcane', kx: Math.cos(away) * 1.6, kz: Math.sin(away) * 1.6 });
+      }
+      if (stormMark <= 0 && hole.phase !== 'idle') {
+        stormMark = 0.3;
+        const hx = hole.ground?.x ?? hole.centre.x, hz = hole.ground?.z ?? hole.centre.z;
+        marks.push({ x: hx, z: hz, r: 5, d: 14, k: 'arcane', kx: 0, kz: 0 });
+      }
       const hl = hole.light.power >= twister.light.power ? hole.light : twister.light, bl = blast.light.power >= hl.power ? blast.light : hl;
       if (bl.power > flash.power * flash.power) lamp(1, bl.x, bl.y, bl.z, bl.r, bl.c, bl.power); else lamp(1, flash.x, flash.y, flash.z, flash.r, flash.c, flash.power * flash.power);
       const [ground, tree] = fire.lamps();

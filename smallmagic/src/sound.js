@@ -980,7 +980,7 @@ export function createSound({ offline = 0 } = {}) {
   return {
     ctx, ready,
     /** The sound card wakes at the first key or click: until then a page may make no sound. */
-    wake() { if (!offline && ctx.state === 'suspended') ctx.resume(); },
+    wake() { if (!offline && ctx.state !== 'running') ctx.resume(); },
     sleep() { if (!offline && ctx.state === 'running') ctx.suspend(); },
     get volume() { return volume; }, set volume(v) { volume = v; out.gain.setTargetAtTime(quiet ? 0 : 0.9 * v, t(), 0.03); },
     get quiet() { return quiet; }, set quiet(v) { quiet = v; out.gain.setTargetAtTime(v ? 0 : 0.9 * volume, t(), 0.03); },

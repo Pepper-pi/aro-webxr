@@ -143,11 +143,11 @@ export function createZones({ scene, world, walker, camera, air }) {
   blank.position.y = 0.4;
   const tipM = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.006, 0.26, 6), mat('#f2e2b8'));
   tipM.position.y = 0.86;
-  const reel = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.02, 12), mat('#c4a06a'));
-  reel.rotation.z = Math.PI / 2;
-  reel.position.set(0.045, 0.1, 0);
+  const reel = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.01, 20), mat('#e7c48a'));
+  reel.rotation.x = Math.PI / 2;
+  reel.position.set(0, 0.12, 0.03);
   rod.add(grip, blank, tipM, reel);
-  rod.position.set(0.05, -0.28, -0.82);
+  rod.position.set(0, -0.22, -0.72);
   rod.rotation.set(0.5, 0.12, -0.18);
   hold.add(rod);
   scene.add(hold);
@@ -351,11 +351,6 @@ export function createZones({ scene, world, walker, camera, air }) {
     e.preventDefault(); e.stopPropagation();
   });
   back?.addEventListener('pointerup', (e) => { if (menu) menu.hidden = false; e.preventDefault(); e.stopPropagation(); });
-  reelBtn?.addEventListener('pointerup', (e) => {
-    if (phase === 'bite') { phase = 'reel'; reelT = 0; reelBtn.hidden = true; }
-    e.preventDefault();
-    e.stopPropagation();
-  });
   document.getElementById('catchOk')?.addEventListener('pointerup', (e) => { if (catchEl) catchEl.hidden = true; resetFish(); e.preventDefault(); e.stopPropagation(); });
   document.querySelectorAll('button').forEach((b) => {
     b.addEventListener('pointerdown', (e) => e.preventDefault());
@@ -405,6 +400,15 @@ export function createZones({ scene, world, walker, camera, air }) {
     biteAt = performance.now() + 2200 + Math.random() * 2500;
   }
   let fishDown = false;
+  let reelHold = 0;
+  reelBtn?.addEventListener('pointerdown', (e) => {
+    if (phase === 'bite') reelHold = 0.001;
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  const endReel = (e) => { reelHold = 0; e.preventDefault(); };
+  reelBtn?.addEventListener('pointerup', (e) => { endReel(e); e.stopPropagation(); });
+  reelBtn?.addEventListener('pointercancel', endReel);
   fishBtn?.addEventListener('pointerdown', (e) => {
     fishDown = true;
     if (name === 'meadow' && (phase === 'idle' || phase === 'caught')) { phase = 'aim'; power = 0.25; target.visible = true; }
@@ -461,14 +465,24 @@ export function createZones({ scene, world, walker, camera, air }) {
   }
   world.root.add(life);
   const pool = [];
+  const blasts = [];
+  const blastGeo = new THREE.SphereGeometry(0.4, 10, 8);
   enter('hub');
   markDest();
   return {
     get name() { return name; },
+    get rodOut() { return hold.visible; },
     get blocksMagic() { return name !== 'meadow'; },
     showBoard, enter,
     hurt(marks) {
       beasts.hurt(marks, name, (hit) => {
+        const boom = new THREE.Mesh(blastGeo, new THREE.MeshBasicMaterial({ color: hit.through ? 0xfff6dc : (hit.k === 'arcane' ? 0xd7a6ff : 0xff7a1c), transparent: true, opacity: 0.85, depthWrite: false }));
+        boom.position.set(hit.x, hit.y, hit.z);
+        boom.userData.life = hit.through ? 0.22 : 0.42;
+        boom.userData.max = boom.userData.life;
+        boom.userData.big = hit.through ? 0.9 : 2.4;
+        scene.add(boom);
+        blasts.push(boom);
         const color = hit.k === 'arcane' ? '#d7a6ff' : '#ffb043';
         const key = `${hit.n}-${hit.k}`;
         let sprite = pool.find((s) => s.userData.life <= 0);
@@ -503,6 +517,14 @@ export function createZones({ scene, world, walker, camera, air }) {
         s.material.opacity = s.userData.life > 0.28 ? 1 : Math.max(0, s.userData.life / 0.28);
         if (s.userData.life <= 0) s.visible = false;
       }
+      for (let i = blasts.length - 1; i >= 0; i--) {
+        const m = blasts[i];
+        m.userData.life -= dt;
+        const u = 1 - m.userData.life / m.userData.max;
+        m.scale.setScalar(0.15 + u * m.userData.big);
+        m.material.opacity = Math.max(0, m.userData.life / m.userData.max);
+        if (m.userData.life <= 0) { scene.remove(m); blasts.splice(i, 1); }
+      }
       beasts.update(dt, name);
       if (pin) {
         beam.visible = name === 'meadow';
@@ -520,7 +542,10 @@ export function createZones({ scene, world, walker, camera, air }) {
         if (!boardHeld && bd < 1.7 && panel?.hidden) showBoard();
       }
       const fishing = name === 'meadow' && (byWater() || phase !== 'idle');
-      if (fishBtn) fishBtn.hidden = !(name === 'meadow' && (byWater() || phase === 'aim') && phase !== 'bite' && phase !== 'reel');
+      const showFish = name === 'meadow' && (byWater() || phase === 'aim') && phase !== 'bite' && phase !== 'reel';
+      if (fishBtn) fishBtn.hidden = !showFish;
+      const cue = document.getElementById('fishcue');
+      if (cue) cue.hidden = !showFish;
       if (name === 'meadow' && fishing) {
         if (fishDown && phase === 'aim') power = Math.min(1, power + 0.012);
         if (phase === 'aim') { const spot = waterSpot(); target.position.set(spot.x, world.water + 0.05, spot.z); }
@@ -530,6 +555,11 @@ export function createZones({ scene, world, walker, camera, air }) {
           if (reelBtn) reelBtn.hidden = false;
         }
         if (phase === 'bite') {
+          if (reelHold > 0) {
+            reelHold += dt;
+            reel.rotation.x += dt * (8 + reelHold * 10);
+            if (reelHold > 0.65) { phase = 'reel'; reelT = 0; reelHold = 0; if (reelBtn) reelBtn.hidden = true; }
+          }
           bobber.position.y = world.water + Math.sin(performance.now() * 0.02) * 0.08;
           splash.visible = true;
           splash.position.copy(bobber.position);

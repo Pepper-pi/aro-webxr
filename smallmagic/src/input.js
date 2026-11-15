@@ -151,20 +151,24 @@ export class Input {
     spell.addEventListener('pointerdown', (e) => { this.touchAt = performance.now(); e.preventDefault(); e.stopPropagation(); });
     spell.addEventListener('pointerup', (e) => { this.spellPulse = 1; e.preventDefault(); });
     let lid = null, lx = 0, ly = 0;
+    const lookBlocked = (e) => e.target.closest && e.target.closest('#cast, #spell, #stick, #fish, #reel, #board, #menu, #atlas, #back, #menubtn, #gear, #settings, #catch, #dusk');
     addEventListener('pointerdown', (e) => {
-      if (e.pointerType === 'mouse' || e.clientX < innerWidth * 0.42) return;
-      if (e.target.closest && e.target.closest('#cast, #spell, #stick, #board, #back')) return;
+      if (e.pointerType === 'mouse' || e.clientX < innerWidth * 0.42 || lookBlocked(e)) return;
       lid = e.pointerId; lx = e.clientX; ly = e.clientY;
       this.touchAt = performance.now();
+      try { e.target.setPointerCapture?.(e.pointerId); } catch { /* the drag still follows the window */ }
     });
     addEventListener('pointermove', (e) => {
       if (e.pointerId !== lid) return;
       this.lookDx += e.clientX - lx;
       this.lookDy += e.clientY - ly;
       lx = e.clientX; ly = e.clientY;
-    });
-    const endLook = (e) => { if (e.pointerId === lid) lid = null; };
+    }, { passive: false });
+    const endLook = (e) => { if (lid == null || e.pointerId === lid) lid = null; };
     addEventListener('pointerup', endLook);
     addEventListener('pointercancel', endLook);
+    addEventListener('touchend', (e) => { if (!e.touches.length) lid = null; });
+    addEventListener('touchcancel', () => { lid = null; });
+    addEventListener('blur', () => { lid = null; });
   }
 }

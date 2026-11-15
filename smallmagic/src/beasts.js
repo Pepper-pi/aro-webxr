@@ -85,12 +85,18 @@ export function createBeasts(scene, ground) {
         let shown = 0;
         for (const m of marks) {
           if (Math.hypot(b.g.position.x - m.x, b.g.position.z - m.z) > m.r + 0.6) continue;
-          b.hp -= m.d;
+          const now = performance.now();
+          const again = b.hitAt && now - b.hitAt < 650;
+          if (b.hitAt && now - b.hitAt < 180) continue;
+          b.hitAt = now;
+          const dealt = again ? m.d * 0.4 : m.d;
+          b.hp -= dealt;
           b.flash = 0.28;
+          if (m.kx || m.kz) { b.g.position.x += m.kx; b.g.position.z += m.kz; b.tx += m.kx; b.tz += m.kz; }
           if (shown < 3) {
             shown++;
             b.stack = (b.stack || 0) + 1;
-            onHit?.({ x: b.g.position.x + (shown - 1) * 0.22, y: b.g.position.y + 1.15 + (b.stack % 4) * 0.32, z: b.g.position.z, n: Math.round(m.d), k: m.k || 'fire' });
+            onHit?.({ x: b.g.position.x, y: b.g.position.y + 1.2, z: b.g.position.z, n: Math.round(dealt), k: m.k || 'fire', through: again });
           }
           if (b.hp <= 0) {
             b.dead = true; b.g.visible = false; b.back = 12; b.stack = 0;

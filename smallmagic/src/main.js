@@ -107,7 +107,7 @@ let sound = null;
 try { sound = q.has('nosound') || (capture && !q.get('sound')) ? null : createSound({ offline: capture ? Number(q.get('sound')) : 0 }); }
 catch (e) { console.warn('no sound', e); }
 if (sound && !capture) {
-  for (const what of ['pointerdown', 'keydown']) addEventListener(what, () => sound.wake());
+  for (const what of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'keydown']) addEventListener(what, () => sound.wake(), true);
   addEventListener('keydown', (e) => { if (e.code === 'KeyM') sound.quiet = !sound.quiet; });
 }
 
@@ -144,6 +144,35 @@ settingsEl?.querySelectorAll('[data-gfx]').forEach((b) => b.addEventListener('po
   e.preventDefault(); e.stopPropagation();
 }));
 document.getElementById('vol')?.addEventListener('input', (e) => { if (sound) sound.volume = Number(e.target.value) / 100; });
+function makeArm(side) {
+  const g = new THREE.Group();
+  const skin = new THREE.MeshBasicMaterial({ color: '#f0c2a0' });
+  const cloth = new THREE.MeshBasicMaterial({ color: '#6b3a22' });
+  const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.04, 0.32, 8), cloth);
+  fore.position.set(side * 0.28, -0.02, -0.85);
+  fore.rotation.z = side * 0.35;
+  fore.rotation.x = 0.35;
+  const wrist = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 6), skin);
+  wrist.position.set(side * 0.36, -0.08, -0.7);
+  const palm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.022), skin);
+  palm.position.set(side * 0.4, -0.14, -0.62);
+  g.add(fore, wrist, palm);
+  for (let i = 0; i < 4; i++) {
+    const finger = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.07, 0.013), skin);
+    finger.position.set(side * 0.37 + (i - 1.5) * 0.018, -0.2, -0.58);
+    g.add(finger);
+  }
+  const thumb = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.048, 0.013), skin);
+  thumb.position.set(side * 0.46, -0.1, -0.6);
+  thumb.rotation.z = -side * 0.8;
+  g.add(thumb);
+  return g;
+}
+const arms = new THREE.Group();
+arms.add(makeArm(-1), makeArm(1));
+arms.visible = false;
+arms.traverse((o) => { o.frustumCulled = false; });
+scene.add(arms);
 let padCast = false;
 let free = null;
 let shaking = 0;
@@ -190,7 +219,10 @@ function tick(dt) {
   post.hole(camera, hole.centre, hole.radius, hole.power, hole.blur, hole.reach * 1.05);
   post.heat = Math.min(1, fire.glare * 0.85 + (spells?.glare ?? 0) * 0.6);
   if (handsEl) handsEl.classList.toggle('on', !!(settings.hands && (inp.cast || spells?.cast?.holding || spells?.cast?.pour)));
-  post.render(scene, camera, free || zones.name === 'hub' || settings.hands ? null : staff, SUN);
+  arms.visible = !!(settings.hands && zones.name !== 'hub');
+  if (arms.visible) { arms.position.copy(camera.position); arms.quaternion.copy(camera.quaternion); }
+  arms.children[1].rotation.x = arms.visible && (inp.cast || spells?.cast?.holding || spells?.cast?.pour) ? -0.4 : 0;
+  post.render(scene, camera, free || zones.name === 'hub' || settings.hands || zones.rodOut ? null : staff, SUN);
 }
 
 // (the measuring tools were written for a figure seen from behind: these are the same handles on one seen from within)
