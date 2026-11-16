@@ -25,8 +25,8 @@ export class Walker {
     this.turned.set(inp.look.x, inp.look.y);
     // where they mean to go
     const top = inp.sprint ? RUN : WALK, sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
-    // The eye looks along (-sin yaw, cos yaw). Forward and right follow that, so a right turn while running stays a right turn.
-    const wx = (-inp.move.y * sy + inp.move.x * cy) * top, wz = (inp.move.y * cy + inp.move.x * sy) * top;
+    // The eye looks along (sin yaw, cos yaw). Forward is that, and right is (cos yaw, -sin yaw).
+    const wx = (inp.move.y * sy + inp.move.x * cy) * top, wz = (inp.move.y * cy - inp.move.x * sy) * top;
     const k = 1 - Math.exp(-dt * (this.grounded ? 11 : 2.5));
     this.vel.x += (wx - this.vel.x) * k; this.vel.z += (wz - this.vel.z) * k;
     f.x += this.vel.x * dt; f.z += this.vel.z * dt;

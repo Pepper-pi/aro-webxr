@@ -279,13 +279,13 @@ const arms = createArms(scene);
 const sword = new THREE.Group();
 const steel = new THREE.MeshBasicMaterial({ color: '#e7eef6' });
 const grip = new THREE.MeshBasicMaterial({ color: '#6b3a22' });
-const edge = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.78, 0.012), steel);
+const edge = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.72, 0.02), steel);
 edge.position.y = 0.46;
 const guard = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.035, 0.03), grip);
 const handle = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.18, 0.03), grip);
 handle.position.y = -0.12;
 sword.add(edge, guard, handle);
-sword.scale.setScalar(1.7);
+sword.scale.setScalar(1.05);
 sword.visible = false;
 sword.traverse((o) => { o.frustumCulled = false; });
 scene.add(sword);
@@ -353,7 +353,7 @@ function tick(dt) {
   const chasing = !free && walker.speed > 0.9 && !(settings.class === 'blade' && blade.drawn && blade.pad);
   if (chasing) {
     const yaw = walker.yaw;
-    const fx = -Math.sin(yaw);
+    const fx = Math.sin(yaw);
     const fz = Math.cos(yaw);
     camera.position.set(walker.feet.x - fx * 3.6, walker.feet.y + 2.2, walker.feet.z - fz * 3.6);
     camera.lookAt(walker.feet.x + fx * 2.4, walker.feet.y + 1.15, walker.feet.z + fz * 2.4);
@@ -385,28 +385,28 @@ function tick(dt) {
   if (moodBtn) moodBtn.hidden = zones.name === 'hub';
   blade.update(dt, klass === 'blade', zones.nearBeast < 14);
   gun.update(dt, klass === 'gunner');
-  const armsOn = (settings.hands || klass === 'blade' || klass === 'gunner') && zones.name !== 'hub' && arms.loaded;
+  const armsOn = (settings.hands || klass === 'gunner') && zones.name !== 'hub' && arms.loaded;
   arms.rig.visible = !!armsOn;
   if (arms.rig.visible) {
     const ready = !!(klass === 'blade' || klass === 'gunner' || inp.cast || spells?.cast?.holding || spells?.cast?.pour || zones.rodOut || zones.nearBeast < 7);
     arms.update(dt, camera, { ready, speed: walker.speed, stride: walker.stride });
   }
   sword.visible = klass === 'blade' && blade.drawn;
+  if (sword.parent !== scene) scene.add(sword);
   if (sword.visible && chasing) {
     const yaw = walker.yaw;
-    const fx = -Math.sin(yaw);
+    const fx = Math.sin(yaw);
     const fz = Math.cos(yaw);
-    const rx = Math.cos(yaw);
-    const rz = Math.sin(yaw);
-    sword.position.set(walker.feet.x + fx * 0.4 + rx * 0.34, walker.feet.y + 1.05, walker.feet.z + fz * 0.4 + rz * 0.34);
-    sword.lookAt(sword.position.x + fx, sword.position.y + 0.85, sword.position.z + fz);
-  } else if (sword.visible) {
-    sword.position.copy(camera.position);
+    sword.position.set(walker.feet.x + fx * 0.45 + fz * 0.28, walker.feet.y + 1.0, walker.feet.z + fz * 0.45 - fx * 0.28);
     sword.quaternion.copy(camera.quaternion);
-    sword.translateX(0.1);
-    sword.translateY(-0.2);
-    sword.translateZ(-0.9);
-    sword.rotateZ(-0.35);
+    sword.rotateZ(-0.5);
+  } else if (sword.visible) {
+    sword.position.set(0.04, -0.42, -0.48);
+    sword.rotation.set(0.25, 0.15, -0.2);
+    sword.scale.setScalar(1.05);
+    sword.updateMatrix();
+    sword.matrix.premultiply(camera.matrixWorld);
+    sword.matrix.decompose(sword.position, sword.quaternion, sword.scale);
   }
   const hideStaff = !!(free || zones.name === 'hub' || settings.hands || zones.rodOut || klass === 'blade' || klass === 'gunner');
   if (!q.has('fast') || forceDraw) post.render(scene, camera, hideStaff ? null : staff, SUN);

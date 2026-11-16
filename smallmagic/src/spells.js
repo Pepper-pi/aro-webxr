@@ -87,6 +87,17 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
       fx.spawn({ kind: 3, x, y: y + 0.15, z, vy: wall ? 0.15 : 0.8, life: wall ? 9 : 1.5, size: [wall ? 0.16 : 0.1, tall * (0.25 + 0.2 * Math.random())], colour: glacier ? [0.82, 0.96, 1] : [0.55, 0.86, 1] });
     }
     Object.assign(flash, { x: p.x, y: p.y + 1, z: p.z, power: 0.7, r: 8 + 6 * big, c: [0.6, 0.9, 1.3] });
+    const reach = 3.2 + 4.5 * big;
+    for (let t = 1; t < world.trees.length; t++) {
+      const tree = world.trees[t];
+      if (!tree || tree.down) continue;
+      const near = Math.hypot(tree.x - p.x, tree.z - p.z);
+      if (near > reach) continue;
+      const close = near < reach * 0.45;
+      tree.frost = Math.min(1, (tree.frost || 0) + (0.35 + 0.65 * big) * (close ? 1 : 0.55));
+      if (tree.frost > 0.4) tree.burning = 0;
+      world.treeChanged(tree);
+    }
   }
   function burst(p, big) {
     const onWater = world.ground(p.x, p.z) < world.water, r = 1.5 + 2.3 * big;

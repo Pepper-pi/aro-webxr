@@ -38,6 +38,8 @@ export class Input {
     });
     addEventListener('mouseup', (e) => { if (e.button === 2) this.mouse.right = false; });
     el.addEventListener('contextmenu', (e) => e.preventDefault());
+    addEventListener('contextmenu', (e) => e.preventDefault());
+    addEventListener('selectstart', (e) => e.preventDefault());
     addEventListener('mousemove', (e) => {
       if (document.pointerLockElement === el || this.mouse.right) { this.mouse.x += e.movementX; this.mouse.y += e.movementY; }
     });
