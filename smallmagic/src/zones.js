@@ -533,18 +533,20 @@ export function createZones({ scene, world, walker, camera, air }) {
         if (mark) { mark.classList.add('on'); clearTimeout(mark._t); mark._t = setTimeout(() => mark.classList.remove('on'), 400); }
       });
     },
-    launchNearest(damage = 12) {
+    launchNearest(damage = 12, lockN = null) {
       const here = walker.feet;
-      const fx = Math.sin(walker.yaw), fz = Math.cos(walker.yaw);
-      let best = null;
-      let bestD = 1e9;
-      for (const b of beasts.probe()) {
-        if (b.dead) continue;
-        const dx = b.x - here.x, dz = b.z - here.z;
-        const d = Math.hypot(dx, dz);
-        const ahead = d > 0.2 && (dx / d) * fx + (dz / d) * fz > 0.25;
-        const score = ahead ? d : d + 30;
-        if (score < bestD) { best = b; bestD = score; }
+      const list = beasts.probe().filter((b) => !b.dead);
+      let best = lockN != null ? list.find((b) => b.n === lockN) : null;
+      if (!best) {
+        const fx = Math.sin(walker.yaw), fz = Math.cos(walker.yaw);
+        let bestD = 1e9;
+        for (const b of list) {
+          const dx = b.x - here.x, dz = b.z - here.z;
+          const d = Math.hypot(dx, dz);
+          const ahead = d > 0.2 && (dx / d) * fx + (dz / d) * fz > 0.25;
+          const score = ahead ? d : d + 30;
+          if (score < bestD) { best = b; bestD = score; }
+        }
       }
       if (!best) return false;
       const dx = best.x - here.x, dz = best.z - here.z, len = Math.hypot(dx, dz) || 1;

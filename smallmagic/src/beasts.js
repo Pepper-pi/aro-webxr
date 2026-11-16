@@ -158,6 +158,8 @@ function plantFeet(b) {
   model.position.y += err / b.per;
 }
 
+let rimSerial = 0;
+
 function fitMob(root, height) {
   const box = new THREE.Box3().setFromObject(root);
   const size = box.getSize(new THREE.Vector3());
@@ -179,7 +181,33 @@ function fitMob(root, height) {
     // The boar albedo is nearly black, so the body disappears into the grass at the hold distance.
     if (/boar/i.test(o.name || '')) mat.color.multiplyScalar(2.4);
     o.material = mat;
+    o.renderOrder = 1;
   });
+  const skinned = [];
+  root.traverse((o) => { if (o.isSkinnedMesh && o.skeleton && o.name !== 'rime') skinned.push(o); });
+  for (const o of skinned) {
+    const mid = new THREE.Box3().setFromBufferAttribute(o.geometry.attributes.position).getCenter(new THREE.Vector3());
+    const rimMat = new THREE.MeshBasicMaterial({ color: '#f7fbff', side: THREE.BackSide });
+    const rimKey = 'rime-shell-' + (rimSerial++);
+    rimMat.customProgramCacheKey = () => rimKey;
+    rimMat.onBeforeCompile = (shader) => {
+      shader.uniforms.rime = { value: 0.18 };
+      shader.uniforms.mid = { value: mid };
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nuniform float rime;\nuniform vec3 mid;')
+        .replace('#include <project_vertex>', 'transformed = mid + (transformed - mid) * (1.0 + rime);\n#include <project_vertex>');
+    };
+    const rim = new THREE.SkinnedMesh(o.geometry, rimMat);
+    rim.name = 'rime';
+    rim.frustumCulled = false;
+    rim.renderOrder = -1;
+    rim.visible = false;
+    rim.bind(o.skeleton, o.bindMatrix);
+    rim.position.copy(o.position);
+    rim.quaternion.copy(o.quaternion);
+    rim.scale.copy(o.scale);
+    o.parent.add(rim);
+  }
 }
 
 async function dressMobs(all) {
@@ -495,7 +523,13 @@ export function createBeasts(scene, ground) {
         const flame = b.g.getObjectByName('flame');
         if (flame) { flame.visible = b.burn > 0; flame.scale.y = 0.7 + Math.sin(performance.now() * 0.02) * 0.35; }
         b.g.traverse((o) => {
-          if (!o.isMesh || !o.material?.color || o.name === 'flame') return;
+          if (!o.isMesh || !o.material) return;
+          if (o.name === 'rime') {
+            const u = Math.min(1, b.chill / 2.2);
+            o.visible = u > 0.08;
+            return;
+          }
+          if (!o.material.color || o.name === 'flame') return;
           if (!o.userData.base) o.userData.base = o.material.color.getHex();
           const u = Math.min(1, b.chill / 6);
           o.material.color.setHex(o.userData.base).lerp(frostTint, u * 0.9);

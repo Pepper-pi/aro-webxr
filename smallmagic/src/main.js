@@ -289,7 +289,7 @@ sword.scale.setScalar(1.05);
 sword.visible = false;
 sword.traverse((o) => { o.frustumCulled = false; });
 scene.add(sword);
-const blade = createBlade((damage) => zones.launchNearest(damage), { scene, camera, world, zones, walker, air, fx });
+const blade = createBlade((damage) => zones.launchNearest(damage, blade.locked), { scene, camera, world, zones, walker, air, fx });
 applyMood(readMood(), false);
 const gun = createGunner(scene, camera, world, zones);
 camera.layers.enable(9);

@@ -2038,6 +2038,7 @@ export function createBlade(onLaunch, bits = {}) {
       return +((ang * 180) / Math.PI).toFixed(1);
     },
     get locked() { return lockN; },
+    lock(n) { lockN = n == null ? null : n; },
     get thread() {
       const note = notes.find((n) => !n.resolved && n.rail && n.launch);
       if (!note) return null;

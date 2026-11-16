@@ -53,5 +53,35 @@ const rush = await page.evaluate(() => {
 });
 console.log(JSON.stringify({ ...report, rush }));
 if (!(report.afterSlice < report.start - 4 && rush.after < rush.before - 4)) process.exitCode = 1;
+await new Promise((r) => setTimeout(r, 300));
+const locked = await page.evaluate(() => {
+  const L = window.lab;
+  const live = L.zones.beasts().filter((b) => !b.dead);
+  const here = L.walker.feet;
+  const fx = Math.sin(L.walker.yaw), fz = Math.cos(L.walker.yaw);
+  let front = live[0], frontD = 1e9;
+  for (const b of live) {
+    const dx = b.x - here.x, dz = b.z - here.z, d = Math.hypot(dx, dz);
+    const ahead = d > 0.2 && (dx / d) * fx + (dz / d) * fz > 0.25;
+    const score = ahead ? d : d + 30;
+    if (score < frontD) { front = b; frontD = score; }
+  }
+  const other = live.find((b) => b.n !== front.n);
+  if (!other) return { skipped: true };
+  L.blade.lock(other.n);
+  const frontHp = L.zones.beasts().find((b) => b.n === front.n).hp;
+  const otherHp = L.zones.beasts().find((b) => b.n === other.n).hp;
+  L.blade.tryRush();
+  for (let n = 0; n < 5; n++) document.querySelector('#rush button.on')?.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+  for (let i = 0; i < 8; i++) L.step(1 / 60);
+  return {
+    front: front.kind,
+    other: other.kind,
+    frontDrop: +(frontHp - L.zones.beasts().find((b) => b.n === front.n).hp).toFixed(1),
+    otherDrop: +(otherHp - L.zones.beasts().find((b) => b.n === other.n).hp).toFixed(1),
+  };
+});
+console.log(JSON.stringify({ locked }));
+if (!locked.skipped && !(locked.otherDrop > 4 && locked.frontDrop < 1)) process.exitCode = 1;
 await browser.close();
 server.close();
