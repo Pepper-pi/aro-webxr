@@ -535,12 +535,16 @@ export function createZones({ scene, world, walker, camera, air }) {
     },
     launchNearest(damage = 12) {
       const here = walker.feet;
+      const fx = Math.sin(walker.yaw), fz = Math.cos(walker.yaw);
       let best = null;
       let bestD = 1e9;
       for (const b of beasts.probe()) {
         if (b.dead) continue;
-        const d = Math.hypot(b.x - here.x, b.z - here.z);
-        if (d < bestD) { best = b; bestD = d; }
+        const dx = b.x - here.x, dz = b.z - here.z;
+        const d = Math.hypot(dx, dz);
+        const ahead = d > 0.2 && (dx / d) * fx + (dz / d) * fz > 0.25;
+        const score = ahead ? d : d + 30;
+        if (score < bestD) { best = b; bestD = score; }
       }
       if (!best) return false;
       const dx = best.x - here.x, dz = best.z - here.z, len = Math.hypot(dx, dz) || 1;

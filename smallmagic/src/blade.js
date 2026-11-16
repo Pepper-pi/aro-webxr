@@ -2027,7 +2027,7 @@ export function createBlade(onLaunch, bits = {}) {
     get halves() { return shards.length; },
     get fighting() { return fightOn; },
     cut() { airSlice(0, -90); },
-    tryRush() { if (combo >= 4) startRush(); else say('Sky Rush'); },
+    tryRush() { if (!drawn || rush) return; startRush(); },
     get bend() {
       const note = notes.find((n) => !n.resolved && n.launch && n.kind !== 'back');
       if (!note) return 0;
