@@ -90,6 +90,10 @@ export function createBlade(onLaunch, bits = {}) {
   const decoyPost = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 1.3, 6), new THREE.MeshBasicMaterial({ color: '#f1c453' }));
   decoyPost.visible = false;
   scene?.add(decoyPost);
+  const origin = new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 10), new THREE.MeshBasicMaterial({ color: '#fff6c8', transparent: true, opacity: 0.95 }));
+  origin.visible = false;
+  origin.frustumCulled = false;
+  scene?.add(origin);
   const MAXHP = { wolf: 36, boar: 48, slime: 22, goblin: 30 };
 
   function focusBeast() {
@@ -287,24 +291,8 @@ export function createBlade(onLaunch, bits = {}) {
     say('Decoy');
   }
 
-  function layGlows(frame) {
-    const eye = camera.position;
-    glows.forEach((m, i) => {
-      if (!frame) { m.visible = false; return; }
-      const side = (i - 1) * LANE;
-      const a = 1.5;
-      const b = Math.min(frame.dist - 0.3, 7.2);
-      const len = Math.max(0.6, b - a);
-      const mid = (a + b) / 2;
-      const hot = notes.some((n) => !n.resolved && n.lane === i && n.due - song < 0.55 && n.due - song > -0.15);
-      m.visible = true;
-      m.scale.set(1, 1, len);
-      m.position.set(eye.x + frame.fx * mid + frame.rx * side, world.ground(eye.x, eye.z) + 0.28, eye.z + frame.fz * mid + frame.rz * side);
-      m.rotation.y = Math.atan2(frame.fx, frame.fz);
-      m.material.color.set(hot ? '#fff2b0' : '#7ec8ff');
-      m.material.opacity = hot ? 0.32 : 0.14;
-      m.position.y = world.ground(eye.x, eye.z) + 0.28;
-    });
+  function layGlows() {
+    glows.forEach((m) => { m.visible = false; });
   }
 
   function partIcon(part) {
@@ -411,8 +399,10 @@ export function createBlade(onLaunch, bits = {}) {
     const calm = threadCalm(note);
     const sag = Math.sin(t * Math.PI) * TUNE.threadSag * calm;
     const x = u * u * a.x + 2 * u * t * ((a.x + b.x) / 2) + t * t * b.x;
-    const y = u * u * a.y + 2 * u * t * ((a.y + b.y) / 2 - sag) + t * t * b.y;
+    let y = u * u * a.y + 2 * u * t * ((a.y + b.y) / 2 - sag) + t * t * b.y;
     const z = u * u * a.z + 2 * u * t * ((a.z + b.z) / 2) + t * t * b.z;
+    const floor = (world?.ground?.(x, z) ?? 0) + 0.62;
+    if (y < floor) y = floor;
     return out.set(x, y, z);
   }
 
@@ -532,7 +522,7 @@ export function createBlade(onLaunch, bits = {}) {
       laneHold.group.position.lerpVectors(laneHold.from, laneHold.to, 0.5);
     }
     for (let i = 0; i < TRACK_N; i++) threadPoint(src, i / (TRACK_N - 1), song, lanePts[i]);
-    const half = 0.72;
+    const half = 0.46;
     for (let i = 0; i < TRACK_N; i++) {
       const p = lanePts[i];
       const nxt = lanePts[Math.min(TRACK_N - 1, i + 1)];
@@ -602,7 +592,7 @@ export function createBlade(onLaunch, bits = {}) {
     const side = (spec.lane - 1) * LANE;
     const ceiling = !!spec.ceiling;
     const ring = spec.kind === 'ring' || spec.weight === 'ring';
-    const lift = ring ? TUNE.ringLift : spec.kind === 'wall' ? (ceiling ? 1.55 : 0.9) : spec.kind === 'orb' ? 1.35 : 1.15;
+    const lift = ring ? TUNE.ringLift : spec.kind === 'wall' && ceiling ? 1.72 : 1.38;
     const from = new THREE.Vector3(frame.beast.x + frame.rx * side * 0.35, world.ground(frame.beast.x, frame.beast.z) + lift, frame.beast.z + frame.rz * side * 0.35);
     const to = new THREE.Vector3(eye.x + frame.fx * SWORD_OFFSET + frame.rx * side, world.ground(eye.x, eye.z) + lift, eye.z + frame.fz * SWORD_OFFSET + frame.rz * side);
     if (ring) to.set(eye.x, world.ground(eye.x, eye.z) + TUNE.ringLift, eye.z);
@@ -619,7 +609,7 @@ export function createBlade(onLaunch, bits = {}) {
     made.group.position.copy(from);
     made.group.lookAt(to.x, from.y, to.z);
     scene.add(made.group);
-    const rail = spec.kind === 'orb' ? null : makeRail(spec.kind);
+    const rail = null;
     const flight = Math.max(0.4, from.distanceTo(to) / Math.max(0.5, TUNE.travelSpeed));
     let due = spec.due;
     let release = due - flight;
@@ -1220,7 +1210,10 @@ export function createBlade(onLaunch, bits = {}) {
 
   function spin() {
     if (!drawn || !walker) return 0;
-    return liftAt(walker.feet.x, walker.feet.z, TUNE.spinPull, TUNE.spinGather);
+    const n = liftAt(walker.feet.x, walker.feet.z, TUNE.spinPull, TUNE.spinGather);
+    zones?.hurt?.([{ x: walker.feet.x, z: walker.feet.z, r: 9, d: 9, k: 'arcane' }]);
+    say('Spin');
+    return n;
   }
 
   function sendPiece(piece) {
@@ -1794,7 +1787,7 @@ export function createBlade(onLaunch, bits = {}) {
         const speed = Math.hypot(shot.v.x, shot.v.z) || 1;
         world.blow(p.x, p.z, shot.v.x / speed, shot.v.z / speed, 3, dt);
         if (!shot.chopped) { shot.chopped = true; world.chop?.(p.x, p.z, shot.v.x, shot.v.z, TUNE.chopReach); }
-        const beast = zones.beasts().find((b) => !b.dead && Math.hypot(b.x - shot.mesh.position.x, b.z - shot.mesh.position.z) < 1.3);
+        const beast = zones.beasts().find((b) => !b.dead && Math.hypot(b.x - shot.mesh.position.x, b.z - shot.mesh.position.z) < 2.2);
         if (beast) {
           zones.hurt([{ x: beast.x, z: beast.z, r: 1.3, d: 6, k: 'arcane', kx: shot.v.x * 0.04, kz: shot.v.z * 0.04 }]);
           shot.life = 0;
@@ -1891,6 +1884,7 @@ export function createBlade(onLaunch, bits = {}) {
     defense(dt, engaged);
     if (!engaged) {
       layTrack(false);
+      origin.visible = false;
       if (wasEngaged) { song = 0; cursor = 0; orbsThisFight = 0; clearNotes(); }
       wasEngaged = false;
       return;
@@ -1942,8 +1936,16 @@ export function createBlade(onLaunch, bits = {}) {
         const spec = PATTERN[cursor % PATTERN.length];
         const due = pad + spec.t / rate + Math.floor(cursor / PATTERN.length) * loop;
         if (due - flightGuess - TUNE.windup > song + 0.08) break;
+        const before = notes.length;
         spawn({ ...spec, due });
+        if (notes.length === before) break;
         cursor += 1;
+      }
+      if (song > 0.25 && !notes.some((n) => !n.resolved)) {
+        const spec = PATTERN[cursor % PATTERN.length];
+        const before = notes.length;
+        spawn({ ...spec, due: song + 0.8 });
+        if (notes.length > before) cursor += 1;
       }
     }
     for (let i = notes.length - 1; i >= 0; i--) {
@@ -1997,7 +1999,14 @@ export function createBlade(onLaunch, bits = {}) {
         notes.splice(i, 1);
       }
     }
-    layTrack(fightOn);
+    const liveNote = fightOn && notes.find((n) => !n.resolved && n.launch && n.kind !== 'back' && n.kind !== 'orb');
+    if (liveNote) {
+      origin.visible = true;
+      origin.position.copy(liveNote.from);
+      const pulse = 0.9 + 0.28 * Math.abs(Math.sin(song * 9));
+      origin.scale.setScalar(pulse);
+    } else origin.visible = false;
+    layTrack(!!liveNote);
   }
 
   return {

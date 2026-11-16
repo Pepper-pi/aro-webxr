@@ -69,9 +69,10 @@ export class Input {
       s.move = { x: this.stick.x, y: this.stick.y };
       s.walk = false;
       s.device = 'pad';
+      if (Math.hypot(this.stick.x, this.stick.y) > 0.82) s.sprint = true;
     }
-    s.look.x += this.lookDx * this.sensitivity;
-    s.look.y += this.lookDy * this.sensitivity;
+    s.look.x += this.lookDx * 0.0054;
+    s.look.y += this.lookDy * 0.0042;
     this.lookDx = this.lookDy = 0;
     if (this.casting || this.wasCasting) s.cast = this.casting;
     this.wasCasting = this.casting;

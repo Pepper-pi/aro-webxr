@@ -285,7 +285,7 @@ const guard = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.035, 0.03), grip);
 const handle = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.18, 0.03), grip);
 handle.position.y = -0.12;
 sword.add(edge, guard, handle);
-sword.scale.setScalar(1.35);
+sword.scale.setScalar(1.7);
 sword.visible = false;
 sword.traverse((o) => { o.frustumCulled = false; });
 scene.add(sword);
@@ -350,6 +350,14 @@ function tick(dt) {
   if (inp.any) sound?.wake();
   walker.update(dt, planted ? { ...inp, move: { x: 0, y: 0 }, jump: false, sprint: false } : inp);
   if (free) { camera.position.copy(free.position); camera.lookAt(free.target); } else walker.look(camera);
+  const chasing = !free && walker.speed > 0.9 && !(settings.class === 'blade' && blade.drawn && blade.pad);
+  if (chasing) {
+    const yaw = walker.yaw;
+    const fx = -Math.sin(yaw);
+    const fz = Math.cos(yaw);
+    camera.position.set(walker.feet.x - fx * 3.6, walker.feet.y + 2.2, walker.feet.z - fz * 3.6);
+    camera.lookAt(walker.feet.x + fx * 2.4, walker.feet.y + 1.15, walker.feet.z + fz * 2.4);
+  }
   // (and shakes the eye)
   if (blast.shake + hole.shake + twister.shake > 0.002) { const s = blast.shake + hole.shake + twister.shake * 0.5; shaking += dt; camera.rotateX(Math.sin(shaking * 61) * Math.sin(shaking * 37 + 1) * 0.03 * s); camera.rotateY(Math.sin(shaking * 53 + 2) * Math.sin(shaking * 29) * 0.03 * s); camera.rotateZ(Math.sin(shaking * 47 + 4) * 0.018 * s); }
   camera.updateMatrixWorld(true);
@@ -384,13 +392,21 @@ function tick(dt) {
     arms.update(dt, camera, { ready, speed: walker.speed, stride: walker.stride });
   }
   sword.visible = klass === 'blade' && blade.drawn;
-  if (sword.visible) {
+  if (sword.visible && chasing) {
+    const yaw = walker.yaw;
+    const fx = -Math.sin(yaw);
+    const fz = Math.cos(yaw);
+    const rx = Math.cos(yaw);
+    const rz = Math.sin(yaw);
+    sword.position.set(walker.feet.x + fx * 0.4 + rx * 0.34, walker.feet.y + 1.05, walker.feet.z + fz * 0.4 + rz * 0.34);
+    sword.lookAt(sword.position.x + fx, sword.position.y + 0.85, sword.position.z + fz);
+  } else if (sword.visible) {
     sword.position.copy(camera.position);
     sword.quaternion.copy(camera.quaternion);
-    sword.translateX(-0.32);
+    sword.translateX(0.1);
     sword.translateY(-0.2);
-    sword.translateZ(-0.58);
-    sword.rotateZ(0.62);
+    sword.translateZ(-0.9);
+    sword.rotateZ(-0.35);
   }
   const hideStaff = !!(free || zones.name === 'hub' || settings.hands || zones.rodOut || klass === 'blade' || klass === 'gunner');
   if (!q.has('fast') || forceDraw) post.render(scene, camera, hideStaff ? null : staff, SUN);

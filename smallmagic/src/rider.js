@@ -50,7 +50,7 @@ export const TUNE = {
   treeFall: 1.15,
   debrisHit: 9,
   poundWindup: 1.15,
-  poundMin: 2.6,
+  poundMin: 5.4,
   poundReach: 7.2,
   poundTime: 0.48,
   poundToss: 2.6,

@@ -63,7 +63,7 @@ const railFrag = /* glsl */ `
   }
 `;
 
-const BODY = { light: [0.04, 0.42], medium: [0.28, 1], heavy: [0.62, 1.7], ring: [0.18, 1.05] };
+const BODY = { light: [0.55, 1.15], medium: [0.42, 1.15], heavy: [0.62, 1.7], ring: [0.34, 1.15] };
 
 export function holoMaterial(hex, weight = 'medium') {
   const pair = BODY[weight] || BODY.medium;
