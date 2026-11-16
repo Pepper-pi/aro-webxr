@@ -193,7 +193,7 @@ async function dressMobs(all) {
   for (const b of all) {
     if (!TALL[b.kind]) continue;
     try {
-      if (!cache[b.kind]) cache[b.kind] = loader.loadAsync(`/mobs/overaction/${b.kind}.glb`);
+      if (!cache[b.kind]) cache[b.kind] = loader.loadAsync(new URL(`mobs/overaction/${b.kind}.glb`, document.baseURI).href);
       const gltf = await cache[b.kind];
       const model = SkeletonUtils.clone(gltf.scene);
       fitMob(model, TALL[b.kind]);
@@ -203,7 +203,7 @@ async function dressMobs(all) {
       }
       b.g.add(model);
       b.model = model;
-      b.bar.position.y = TALL[b.kind] + 0.28;
+      b.bar.position.y = TALL[b.kind] * 0.92;
       const mixer = new THREE.AnimationMixer(model);
       const clips = {};
       for (const clip of gltf.animations) {
@@ -311,6 +311,20 @@ export function createBeasts(scene, ground) {
           const stay = Math.min(max, d);
           b.tx = px + nx * stay;
           b.tz = pz + nz * stay;
+        }
+      }
+      for (let i = 0; i < all.length; i++) {
+        for (let j = i + 1; j < all.length; j++) {
+          const a = all[i], c = all[j];
+          if (a.dead || c.dead || a.where !== 'meadow' || c.where !== 'meadow') continue;
+          const dx = c.g.position.x - a.g.position.x;
+          const dz = c.g.position.z - a.g.position.z;
+          const gap = Math.hypot(dx, dz);
+          if (gap > 2.4 || gap < 1e-4) continue;
+          const push = (2.4 - gap) * 0.35;
+          const nx = dx / gap, nz = dz / gap;
+          a.g.position.x -= nx * push; a.g.position.z -= nz * push;
+          c.g.position.x += nx * push; c.g.position.z += nz * push;
         }
       }
     },
