@@ -136,6 +136,8 @@ function skinnedMinY(model) {
   return minY;
 }
 
+const frostTint = new THREE.Color(0x9fd8ff);
+
 function plantFeet(b) {
   const model = b.model;
   if (!model) return;
@@ -401,7 +403,7 @@ export function createBeasts(scene, ground) {
               if (Math.hypot(other.g.position.x - b.g.position.x, other.g.position.z - b.g.position.z) < 1.35) other.burn = Math.max(other.burn, 1.5);
             }
           }
-          if (m.status === 'chill') b.chill = Math.max(b.chill, 3.4);
+          if (m.status === 'chill') b.chill = Math.min(8, b.chill + (m.chill != null ? m.chill : 1.4));
           if (m.radial) {
             let ox = b.g.position.x - m.x, oz = b.g.position.z - m.z;
             const len = Math.hypot(ox, oz) || 0.4;
@@ -480,7 +482,7 @@ export function createBeasts(scene, ground) {
           b.tx = b.homeX + (Math.random() - 0.5) * 3.2;
           b.tz = b.homeZ + (Math.random() - 0.5) * 3.2;
         }
-        const slow = b.chill > 0 ? 0.32 : 1;
+        const slow = 1 - Math.min(0.68, b.chill / 8);
         const dx = b.tx - b.g.position.x, dz = b.tz - b.g.position.z, dist = Math.hypot(dx, dz);
         if (dist > 0.15) {
           b.g.position.x += (dx / dist) * 0.55 * slow * dt;
@@ -495,7 +497,8 @@ export function createBeasts(scene, ground) {
         b.g.traverse((o) => {
           if (!o.isMesh || !o.material?.color || o.name === 'flame') return;
           if (!o.userData.base) o.userData.base = o.material.color.getHex();
-          o.material.color.setHex(b.chill > 0 ? 0x8ecbff : o.userData.base);
+          const u = Math.min(1, b.chill / 6);
+          o.material.color.setHex(o.userData.base).lerp(frostTint, u * 0.9);
         });
         b.g.position.y = ground(b.g.position.x, b.g.position.z);
         if (b.model) plantFeet(b);

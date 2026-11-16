@@ -73,7 +73,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     const r = 2.2 + 5.2 * big;
     const had = frostHere(p.x, p.z, Math.max(1.8, r * 0.4));
     world.mark(p.x, p.z, r, 1, 0.5 + 0.5 * big);
-    marks.push({ x: p.x, z: p.z, r: 1.6 + 1.4 * big, d: 8 + 12 * big, k: 'arcane', status: 'chill' });
+    marks.push({ x: p.x, z: p.z, r: 1.6 + 1.4 * big, d: 8 + 12 * big, k: 'arcane', status: 'chill', chill: 1.1 + 3.4 * big });
     const wall = big > 0.66 || had > 30;
     const glacier = big > 0.85 && had > 70;
     const n = glacier ? 26 : wall ? 14 : 8;
