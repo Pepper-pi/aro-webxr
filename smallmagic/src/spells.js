@@ -15,7 +15,7 @@ import { fireballRadius } from './blast.js';
 
 export const SPELLS = [
   { key: 'fire', name: 'Fire', colour: '#ff7a1c', pour: false, sides: 3 },
-  { key: 'frost', name: 'Frost', colour: '#9fe6ff', pour: true, sides: 6 },
+  { key: 'frost', name: 'Frost Bolt', colour: '#9fe6ff', pour: false, sides: 6 },
   { key: 'wind', name: 'Wind', colour: '#dffff0', pour: false, sides: 4 },
   { key: 'growth', name: 'Growth', colour: '#7dff5a', pour: true, sides: 5 },
   { key: 'explosion', name: 'Explosion', colour: '#ff4a1c', pour: false, sides: 8 },
@@ -50,9 +50,43 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     heard?.('fireThrow', { charge });
     const big = charge, speed = 36 - 12 * big, to = tmp.copy(hit.point).sub(tip), far = to.length();
     const v = to.normalize().multiplyScalar(speed); v.y += (far / speed) * 1.6;
-    bolts.push({ p: tip.clone(), v: v.clone(), life: 0, big });
+    bolts.push({ p: tip.clone(), v: v.clone(), life: 0, big, ice: false });
     kick = 0.6 + 0.6 * big; cooldown = 0.25;
     for (let i = 0; i < 14; i++) fx.spawn({ kind: 1, x: tip.x, y: tip.y, z: tip.z, vx: dir.x * 6 + rnd(3), vy: dir.y * 6 + rnd(3), vz: dir.z * 6 + rnd(3), life: 0.3 + 0.3 * Math.random(), size: [0.03, 0.01], colour: [1, 0.6, 0.15], drag: 2 });
+  }
+  function frostHere(x, z, r) {
+    const S = world.state; let had = 0;
+    if (!S) return 0;
+    for (let j = Math.floor((z - r - S.z0) / S.cell); j <= (z + r - S.z0) / S.cell; j++) for (let i = Math.floor((x - r - S.x0) / S.cell); i <= (x + r - S.x0) / S.cell; i++) {
+      if (i < 0 || j < 0 || i >= S.N || j >= S.N) continue;
+      if (Math.hypot(S.x0 + (i + 0.5) * S.cell - x, S.z0 + (j + 0.5) * S.cell - z) < r) had += S.data[(j * S.N + i) * 4 + 1];
+    }
+    return had;
+  }
+  function throwFrost(charge, hit) {
+    const big = charge, speed = 32 - 8 * big, to = tmp.copy(hit.point).sub(tip), far = to.length();
+    const v = to.normalize().multiplyScalar(speed); v.y += (far / speed) * 1.1;
+    bolts.push({ p: tip.clone(), v: v.clone(), life: 0, big, ice: true });
+    kick = 0.35 + 0.4 * big; cooldown = 0.3;
+  }
+  function freezeLand(p, big) {
+    const r = 2.2 + 5.2 * big;
+    const had = frostHere(p.x, p.z, Math.max(1.8, r * 0.4));
+    world.mark(p.x, p.z, r, 1, 0.5 + 0.5 * big);
+    marks.push({ x: p.x, z: p.z, r: 1.6 + 1.4 * big, d: 8 + 12 * big, k: 'arcane', status: 'chill' });
+    const wall = big > 0.66 || had > 30;
+    const glacier = big > 0.85 && had > 70;
+    const n = glacier ? 26 : wall ? 14 : 8;
+    const span = glacier ? 3.2 : wall ? 1.8 : r * 0.35;
+    const tall = glacier ? 3.4 : wall ? 1.8 : 0.2;
+    for (let i = 0; i < n; i++) {
+      const a = wall ? (i / (n - 1) - 0.5) * 1.4 : Math.random() * 6.283;
+      const x = p.x + Math.cos(a) * span * (wall ? 1 : Math.random());
+      const z = p.z + Math.sin(a) * (wall ? 0.2 : span * Math.random());
+      const y = world.ground(x, z);
+      fx.spawn({ kind: 3, x, y: y + 0.15, z, vy: wall ? 0.15 : 0.8, life: wall ? 9 : 1.5, size: [wall ? 0.16 : 0.1, tall * (0.25 + 0.2 * Math.random())], colour: glacier ? [0.82, 0.96, 1] : [0.55, 0.86, 1] });
+    }
+    Object.assign(flash, { x: p.x, y: p.y + 1, z: p.z, power: 0.7, r: 8 + 6 * big, c: [0.6, 0.9, 1.3] });
   }
   function burst(p, big) {
     const onWater = world.ground(p.x, p.z) < world.water, r = 1.5 + 2.3 * big;
@@ -71,7 +105,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     // what is built of blocks is torn open by it
     ruin?.blast(p, 1.7 + 2.1 * big, 1 + 0.9 * big);
     // it melts frost where it lands, and sets light to what will burn
-    if (melt(p.x, p.z, r * 1.2) > 0) for (let i = 0; i < 10; i++) fx.spawn({ kind: 2, x: p.x + rnd(r), y: p.y + 0.5, z: p.z + rnd(r), vy: 2, life: 2, size: [0.8, 2.6], colour: [0.92, 0.95, 1], alpha: 0.4, wind: 0.6 });
+    melt(p.x, p.z, r * 1.2);
     if (!onWater) fire.ignite(p.x, p.z, r, 0.6);
     for (let t = 1; t < world.trees.length; t++) { const tree = world.trees[t]; if (tree.clumps.some(([x, y, z, cr]) => Math.hypot(x - p.x, y - p.y, z - p.z) < cr + 0.6 + 1.5 * big)) { tree.frost = 0; fire.kindle(tree); world.treeChanged(tree); } }
   }
@@ -170,12 +204,16 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
             const n = (24 + 50 * charge) * dt;
             for (let q = Math.floor(n) + (Math.random() < n % 1 ? 1 : 0); q > 0; q--) fx.spawn({ kind: 0, x: tip.x + rnd(0.05), y: tip.y - 0.03, z: tip.z + rnd(0.05), vx: rnd(0.12), vy: 0.2 + 0.3 * Math.random(), vz: rnd(0.12), life: 0.2 + 0.18 * Math.random(), size: [0.022 + 0.04 * charge, 0.04 + 0.055 * charge], colour: [1, 1, 1], alpha: 0.9 });
             if (hit.ground && !hit.water) { seal = 0.5 + 0.5 * charge; target = hit.point; U.uSeal.value.z = 1.5 + 3.4 * charge; }
+          } else if (spell.key === 'frost') {
+            const n = (18 + 30 * charge) * dt;
+            for (let q = Math.floor(n) + (Math.random() < n % 1 ? 1 : 0); q > 0; q--) fx.spawn({ kind: 3, x: tip.x + rnd(0.06), y: tip.y, z: tip.z + rnd(0.06), vy: 0.15, life: 0.25, size: [0.04 + 0.05 * charge, 0.08], colour: [0.7, 0.92, 1] });
+            if (hit.ground) { seal = 0.4 + 0.6 * charge; target = hit.point; U.uSeal.value.z = 1.4 + 3 * charge; }
           } else {
             const n = 40 * dt * (0.4 + charge);
             for (let q = Math.floor(n) + (Math.random() < n % 1 ? 1 : 0); q > 0; q--) { const a = Math.random() * 6.283, r = 0.05 + 0.05 * Math.random(); fx.spawn({ kind: 5, x: tip.x + Math.cos(a) * r, y: tip.y + rnd(0.05), z: tip.z + Math.sin(a) * r, vx: -Math.sin(a) * 0.5, vy: rnd(0.1), vz: Math.cos(a) * 0.5, life: 0.3, size: [0.004, 0.004], colour: [0.9, 1, 0.95], alpha: 0.5 }); }
           }
         } else if (hold > 0) {
-          if (spell.key === 'fire') throwFire(charge, hit); else throwWind(charge);
+          if (spell.key === 'fire') throwFire(charge, hit); else if (spell.key === 'frost') throwFrost(charge, hit); else throwWind(charge);
           hold = 0;
         }
       } else if (down) {
@@ -277,16 +315,19 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
         const b = bolts[i];
         b.life += dt; b.v.y -= 3.2 * dt; b.p.addScaledVector(b.v, dt);
         const n = (130 + 150 * b.big) * dt;
-        for (let q = Math.floor(n) + (Math.random() < n % 1 ? 1 : 0); q > 0; q--) fx.spawn({ kind: 0, x: b.p.x + rnd(0.1 + 0.2 * b.big), y: b.p.y + rnd(0.1 + 0.2 * b.big), z: b.p.z + rnd(0.1 + 0.2 * b.big), vx: b.v.x * 0.12 + rnd(0.6), vy: b.v.y * 0.12 + 0.8, vz: b.v.z * 0.12 + rnd(0.6), life: 0.22 + 0.25 * Math.random(), size: [(0.13 + 0.2 * b.big) * Math.min(1, 0.25 + b.life * 3), (0.24 + 0.34 * b.big) * Math.min(1, 0.25 + b.life * 3)], colour: [1, 1, 1], rot: Math.random() * 6.283 });
-        fx.spawn({ kind: 1, x: b.p.x, y: b.p.y, z: b.p.z, vx: b.v.x, vy: b.v.y, vz: b.v.z, life: 0.05, size: [(0.12 + 0.14 * b.big) * Math.min(1, 0.2 + b.life * 3), 0.1 + 0.1 * b.big], colour: [1, 0.72, 0.3], alpha: 0.9 });
-        fx.spawn({ kind: 6, x: b.p.x, y: b.p.y, z: b.p.z, life: 0.07, size: [0.6 + 0.6 * b.big, 0.6 + 0.6 * b.big], colour: [1, 0.5, 0.12], alpha: 0.16 });
-        if (Math.random() < 20 * dt) fx.spawn({ kind: 1, x: b.p.x, y: b.p.y, z: b.p.z, vx: rnd(3), vy: rnd(3), vz: rnd(3), life: 0.5 + 0.5 * Math.random(), size: [0.035, 0.01], colour: [1, 0.6, 0.15], grav: -4, drag: 1 });
-        if (Math.random() < 14 * dt) fx.spawn({ kind: 2, x: b.p.x, y: b.p.y, z: b.p.z, life: 1.1, size: [0.25, 1.1 + b.big], colour: [0.12, 0.12, 0.15], alpha: 0.3, vy: 0.6 });
+        const tint = b.ice ? [0.7, 0.92, 1] : [1, 1, 1];
+        for (let q = Math.floor(n) + (Math.random() < n % 1 ? 1 : 0); q > 0; q--) fx.spawn({ kind: b.ice ? 3 : 0, x: b.p.x + rnd(0.1 + 0.2 * b.big), y: b.p.y + rnd(0.1 + 0.2 * b.big), z: b.p.z + rnd(0.1 + 0.2 * b.big), vx: b.v.x * 0.12 + rnd(0.6), vy: b.v.y * 0.12 + 0.8, vz: b.v.z * 0.12 + rnd(0.6), life: 0.22 + 0.25 * Math.random(), size: [(0.13 + 0.2 * b.big) * Math.min(1, 0.25 + b.life * 3), (0.24 + 0.34 * b.big) * Math.min(1, 0.25 + b.life * 3)], colour: tint, rot: Math.random() * 6.283 });
+        if (!b.ice) {
+          fx.spawn({ kind: 1, x: b.p.x, y: b.p.y, z: b.p.z, vx: b.v.x, vy: b.v.y, vz: b.v.z, life: 0.05, size: [(0.12 + 0.14 * b.big) * Math.min(1, 0.2 + b.life * 3), 0.1 + 0.1 * b.big], colour: [1, 0.72, 0.3], alpha: 0.9 });
+          fx.spawn({ kind: 6, x: b.p.x, y: b.p.y, z: b.p.z, life: 0.07, size: [0.6 + 0.6 * b.big, 0.6 + 0.6 * b.big], colour: [1, 0.5, 0.12], alpha: 0.16 });
+          if (Math.random() < 20 * dt) fx.spawn({ kind: 1, x: b.p.x, y: b.p.y, z: b.p.z, vx: rnd(3), vy: rnd(3), vz: rnd(3), life: 0.5 + 0.5 * Math.random(), size: [0.035, 0.01], colour: [1, 0.6, 0.15], grav: -4, drag: 1 });
+          if (Math.random() < 14 * dt) fx.spawn({ kind: 2, x: b.p.x, y: b.p.y, z: b.p.z, life: 1.1, size: [0.25, 1.1 + b.big], colour: [0.12, 0.12, 0.15], alpha: 0.3, vy: 0.6 });
+        }
         carried = b;
-        marks.push({ x: b.p.x, z: b.p.z, r: 0.7, d: 16, k: 'fire' });
+        if (!b.ice) marks.push({ x: b.p.x, z: b.p.z, r: 0.7, d: 16, k: 'fire' });
         const floor = Math.max(world.ground(b.p.x, b.p.z), world.water);
         const inTree = world.trees.some((t, k) => k && t.burnt < 0.9 && t.clumps.some(([x, y, z, r]) => Math.hypot(x - b.p.x, y - b.p.y, z - b.p.z) < r * 0.75));
-        if (b.p.y <= floor + 0.1 || inTree || b.life > 4 || ruin?.touches(b.p, 0.25 + 0.2 * b.big)) { if (b.p.y < floor) b.p.y = floor; burst(b.p, b.big); bolts.splice(i, 1); carried = null; }
+        if (b.p.y <= floor + 0.1 || inTree || b.life > 4 || ruin?.touches(b.p, 0.25 + 0.2 * b.big)) { if (b.p.y < floor) b.p.y = floor; if (b.ice) freezeLand(b.p, b.big); else burst(b.p, b.big); bolts.splice(i, 1); carried = null; }
       }
       let blowing = null;
       for (let i = gusts.length - 1; i >= 0; i--) {
