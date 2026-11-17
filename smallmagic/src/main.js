@@ -80,7 +80,7 @@ say('Taking up the staff');
 await turn();
 const walker = new Walker(world);
 const staff = q.has('nostaff') ? null : createStaff({ air, atlas: world.atlas });
-const castDisc = staff ? createCastDisc(staff.scene) : null;
+const castDisc = createCastDisc(scene);
 let discOn = true;
 let discCharge = false;
 if (staff) { staff.resize(innerWidth / innerHeight); fitting.push(() => staff.resize(innerWidth / innerHeight)); }
@@ -166,9 +166,10 @@ discToggle?.addEventListener('pointerup', (e) => {
 });
 let discSpin = null;
 const discAt = (e) => {
-  const cx = innerWidth * 0.5, cy = innerHeight * 0.72, R = Math.min(innerWidth, innerHeight) * 0.16;
-  const dx = e.clientX - cx, dy = e.clientY - cy, r = Math.hypot(dx, dy);
-  return { dx, dy, r, R, hit: r <= R };
+  const s = castDisc?.screen;
+  if (!s?.on) return { dx: 0, dy: 0, r: 1, R: 1, hit: false };
+  const dx = e.clientX - s.x, dy = e.clientY - s.y, r = Math.hypot(dx, dy);
+  return { dx, dy, r, R: s.r, hit: r <= s.r * 1.15 };
 };
 addEventListener('pointerdown', (e) => {
   if (!discOn || kit !== 'mage' || !spells) return;
@@ -411,7 +412,7 @@ function tick(dt) {
   camera.updateMatrixWorld(true);
   world.update(dt, walker.feet, camera, walker.speed);
   staff?.update(dt, walker, camera, world.sunAt?.(camera.position) ?? 1);
-  castDisc?.update(dt, discOn && kit === 'mage' && !melee, spells?.selected ?? 0);
+  castDisc?.update(dt, discOn && kit === 'mage' && !melee, spells?.selected ?? 0, walker, camera, discCharge ? (spells?.cast?.charge || 0) : 0, !chasing && !free);
   if (discCharge && spells?.cast?.charge >= 0.98) { discCharge = false; spells.release(); padCast = false; }
   ruin?.update(dt * pace);
   if (spells) spells.update(dt * pace, dt); else { blast.update(dt * pace, dt, camera.position); hole.update(dt * pace, dt, camera.position); twister.update(dt * pace, dt, camera.position); }
