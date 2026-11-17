@@ -147,6 +147,8 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     get selected() { return selected; }, select,
     get cast() { return cast; }, set hear(fn) { heard = fn; },
     press() { down = true; }, release() { down = false; },
+    cancel() { down = false; hold = 0; },
+    from: null, hideMark: false,
     get busy() { return bolts.length + gusts.length; },
     marks,
     /** How bright the last burst still is to the eye, 0 to 1. */
@@ -157,6 +159,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
       marks.length = 0;
       camera.getWorldDirection(dir);
       staff.tip(camera, tip);
+      if (api.from) tip.copy(api.from);
       const hit = world.aim(camera.position, dir, 70), reach = spell.key === 'frost' ? 17 : 34;
       // (a block of the ruin may stand nearer than the ground or a tree)
       const block = ruin ? ruin.ray(camera.position, dir, hit.dist) : null;
@@ -416,6 +419,8 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
       // (a blast leaves its circle branded on the burnt ground for a while)
       let branded = false;
       if (seal <= 0 && blast.brand > 0) { branded = true; target = blast.centre; seal = blast.brand; U.uSeal.value.z = 12; }
+      // The wheel is the aim mark while it is up, so the seal on the ground and the staff's circle stay out of the way.
+      if (api.hideMark) { seal = 0; circle = 0; branded = false; }
       U.uSealSides.value = branded ? 8 : spell.sides;
       sealPower += ((seal > 0 ? seal : 0) - sealPower) * Math.min(1, dt * (seal > 0 ? 8 : 5));
       if (target) { U.uSeal.value.x = target.x; U.uSeal.value.y = target.z; }

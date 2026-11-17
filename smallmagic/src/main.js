@@ -165,6 +165,7 @@ discToggle?.addEventListener('pointerup', (e) => {
   e.stopPropagation();
 });
 let discSpin = null;
+let discX = 0;
 const discAt = (e) => {
   const s = castDisc?.screen;
   if (!s?.on) return { dx: 0, dy: 0, r: 1, R: 1, hit: false };
@@ -177,7 +178,8 @@ addEventListener('pointerdown', (e) => {
   if (!at.hit) return;
   e.preventDefault();
   e.stopPropagation();
-  if (at.r > at.R * 0.42) {
+  discX = e.clientX;
+  if (at.r > at.R * 0.38) {
     discSpin = { a: Math.atan2(at.dy, at.dx), i: spells.selected };
   } else {
     discCharge = true;
@@ -185,7 +187,14 @@ addEventListener('pointerdown', (e) => {
   }
 }, true);
 addEventListener('pointermove', (e) => {
-  if (!discSpin || !spells) return;
+  if (!spells) return;
+  if (discCharge && Math.abs(e.clientX - discX) > 22 && (spells.cast?.charge || 0) < 0.2) {
+    spells.cancel();
+    discCharge = false;
+    const at = discAt(e);
+    discSpin = { a: Math.atan2(at.dy, at.dx), i: spells.selected };
+  }
+  if (!discSpin) return;
   const at = discAt(e);
   let d = Math.atan2(at.dy, at.dx) - discSpin.a;
   if (d > Math.PI) d -= Math.PI * 2;
@@ -412,7 +421,15 @@ function tick(dt) {
   camera.updateMatrixWorld(true);
   world.update(dt, walker.feet, camera, walker.speed);
   staff?.update(dt, walker, camera, world.sunAt?.(camera.position) ?? 1);
-  castDisc?.update(dt, discOn && kit === 'mage' && !melee, spells?.selected ?? 0, walker, camera, discCharge ? (spells?.cast?.charge || 0) : 0, !chasing && !free);
+  const wheel = discOn && kit === 'mage' && !melee;
+  castDisc?.update(dt, wheel, spells?.selected ?? 0, walker, camera, discCharge ? (spells?.cast?.charge || 0) : 0, !chasing && !free);
+  const spellBox = document.getElementById('spells');
+  if (spellBox) spellBox.hidden = !!(wheel && castDisc?.ready);
+  if (spells) {
+    const on = !!(wheel && castDisc?.ready);
+    spells.hideMark = on;
+    spells.from = on ? castDisc.muzzle : null;
+  }
   if (discCharge && spells?.cast?.charge >= 0.98) { discCharge = false; spells.release(); padCast = false; }
   ruin?.update(dt * pace);
   if (spells) spells.update(dt * pace, dt); else { blast.update(dt * pace, dt, camera.position); hole.update(dt * pace, dt, camera.position); twister.update(dt * pace, dt, camera.position); }
