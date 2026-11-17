@@ -28,7 +28,8 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
   const U = air.uniforms, rnd = fx.rnd, cols = SPELLS.map((s) => new THREE.Color(s.colour));
   const dir = V(0, 0, -1), tip = V(0, 0, 0), tmp = V(0, 0, 0), flat = V(0, 0, 0);
   const bolts = [], gusts = [], flash = { x: 0, y: -999, z: 0, power: 0, r: 1, c: [1, 1, 1] }, shock = { x: 0, z: 0, r: 1, power: 0 };
-  let selected = 0, down = false, hold = 0, sealPower = 0, cooldown = 0, kick = 0, beamPower = 0, beamKind = 'frost', channel = false, tether = false, leash = false;
+  let selected = 0, down = false, hold = 0, sealPower = 0, cooldown = 0, coolMax = 1, kick = 0, beamPower = 0, beamKind = 'frost', channel = false, tether = false, leash = false;
+  const wait = (t) => { cooldown = coolMax = t; };
   const beamTo = V(0, 0, -1);
   const select = (i) => { if (channel) { channel = false; blast.cancel(); } if (tether) { tether = false; hole.release(); } if (leash) { leash = false; twister.release(); } selected = ((i % SPELLS.length) + SPELLS.length) % SPELLS.length; hold = 0; onSelect?.(selected); };
   if (dom) {
@@ -51,7 +52,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     const big = charge, speed = 36 - 12 * big, to = tmp.copy(hit.point).sub(tip), far = to.length();
     const v = to.normalize().multiplyScalar(speed); v.y += (far / speed) * 1.6;
     bolts.push({ p: tip.clone(), v: v.clone(), life: 0, big, ice: false });
-    kick = 0.6 + 0.6 * big; cooldown = 0.25;
+    kick = 0.6 + 0.6 * big; wait(0.25);
     for (let i = 0; i < 14; i++) fx.spawn({ kind: 1, x: tip.x, y: tip.y, z: tip.z, vx: dir.x * 6 + rnd(3), vy: dir.y * 6 + rnd(3), vz: dir.z * 6 + rnd(3), life: 0.3 + 0.3 * Math.random(), size: [0.03, 0.01], colour: [1, 0.6, 0.15], drag: 2 });
   }
   function frostHere(x, z, r) {
@@ -67,7 +68,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     const big = charge, speed = 32 - 8 * big, to = tmp.copy(hit.point).sub(tip), far = to.length();
     const v = to.normalize().multiplyScalar(speed); v.y += (far / speed) * 1.1;
     bolts.push({ p: tip.clone(), v: v.clone(), life: 0, big, ice: true });
-    kick = 0.35 + 0.4 * big; cooldown = 0.3;
+    kick = 0.35 + 0.4 * big; wait(0.3);
   }
   function freezeLand(p, big) {
     const r = 2.2 + 5.2 * big;
@@ -136,7 +137,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     heard?.('windThrow', { charge });
     flat.set(dir.x, 0, dir.z).normalize();
     gusts.push({ x: walker.feet.x + flat.x * 1.5, z: walker.feet.z + flat.z * 1.5, dx: flat.x, dz: flat.z, t: 0, life: 1.1 + 0.8 * charge, wide: 4.5 + 4.5 * charge, speed: 22, hit: new Set() });
-    kick = 0.5 + 0.5 * charge; cooldown = 0.3;
+    kick = 0.5 + 0.5 * charge; wait(0.3);
     for (let i = 0; i < 26; i++) fx.spawn({ kind: 5, x: tip.x + rnd(0.3), y: tip.y + rnd(0.3), z: tip.z + rnd(0.3), vx: dir.x * 26 + rnd(7), vy: dir.y * 26 + rnd(5), vz: dir.z * 26 + rnd(7), life: 0.22 + 0.15 * Math.random(), size: [0.012, 0.012], colour: [0.92, 1, 0.96], alpha: 0.5, rot: 30 + 30 * Math.random() });
   }
 
@@ -174,8 +175,8 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
           if (!leash && Math.hypot(p.x - camera.position.x, p.z - camera.position.z) < 16) { p.x = camera.position.x + flat.x * 16; p.z = camera.position.z + flat.z * 16; }
           p.y = Math.max(world.ground(p.x, p.z), world.water);
           if (!leash) { leash = true; twister.begin(p); }
-          if (twister.steer(p, dt)) { twister.release(); leash = false; cooldown = 2.5; }
-        } else if (leash) { leash = false; twister.release(); cooldown = 2.5; }
+          if (twister.steer(p, dt)) { twister.release(); leash = false; wait(2.5); }
+        } else if (leash) { leash = false; twister.release(); wait(2.5); }
         // (its circle is on the ground from the first instant, and is gone once it has struck)
         if (leash) { power = 1.2 + 0.15 * Math.sin(U.uNow.value * 12); circle = 0.25; target = twister.base; seal = twister.mark; U.uSeal.value.z = 8; }
         hold = 0;
@@ -189,8 +190,8 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
             p.y = Math.max(world.ground(p.x, p.z), world.water);
             tether = true; hole.begin(p, camera.position);
           }
-          if (hole.hold(dt)) { hole.release(); tether = false; cooldown = 3; kick = 1.3; }
-        } else if (tether) { tether = false; hole.release(); cooldown = 3; kick = 1.3; }
+          if (hole.hold(dt)) { hole.release(); tether = false; wait(3); kick = 1.3; }
+        } else if (tether) { tether = false; hole.release(); wait(3); kick = 1.3; }
         if (tether) { power = 1.5 + 0.2 * Math.sin(U.uNow.value * 16); circle = 0.3; target = hole.ground; seal = hole.power; U.uSeal.value.z = 6 + 2.6 * hole.radius; }
         hold = 0;
       } else if (spell.key === 'explosion') {
@@ -203,7 +204,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
             p.y = Math.max(world.ground(p.x, p.z), world.water);
             channel = true; blast.begin(p);
           }
-          if (blast.gather(dt)) { blast.fire(); channel = false; cooldown = 2.5; kick = 1.6; }
+          if (blast.gather(dt)) { blast.fire(); channel = false; wait(2.5); kick = 1.6; }
         } else if (channel) { channel = false; blast.cancel(); }
         if (blast.charge > 0) { power = 2.4 + 0.4 * Math.sin(U.uNow.value * 18); circle = 0.4 + 0.6 * blast.charge; target = blast.centre; seal = blast.charge; U.uSeal.value.z = 4 + 8 * blast.charge; }
         hold = 0;
@@ -308,7 +309,8 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
         hold += 0;
       } else hold = 0;
 
-      cast.key = spell.key; cast.holding = (spell.key === 'fire' || spell.key === 'wind') && down && cooldown <= 0; cast.charge = cast.holding ? charge : 0;
+      cast.key = spell.key; cast.holding = (spell.key === 'fire' || spell.key === 'wind' || spell.key === 'frost') && down && cooldown <= 0; cast.charge = cast.holding ? charge : 0;
+      cast.cool = cooldown > 0.02 ? Math.min(1, cooldown / coolMax) : 0;
       cast.pour = spell.pour && down ? spell.key : null; cast.target = cast.pour && target ? target : null;
       cast.spread = spell.key === 'frost' ? 1.2 + 4.3 * (1 - Math.exp(-hold * 0.55)) : 1.4 + 4.4 * (1 - Math.exp(-hold * 0.5));
       cast.water = Boolean(cast.target) && world.ground(target.x, target.z) < world.water;

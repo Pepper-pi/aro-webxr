@@ -109,7 +109,7 @@ const GUN_ATK = [
   { key: 'bolt', name: 'Fire', colour: '#ffb043', sides: 4 },
   { key: 'nade', name: 'Grenade', colour: '#9ee7ff', sides: 5 },
 ];
-const spellsBar = spellBar(document.getElementById('spells'), SPELLS);
+const spellsBar = spellBar(document.getElementById('spells'), SPELLS, 'ui/', { ring: true, onPick: (i) => spells?.select(i) });
 let kitBar = spellsBar;
 let kit = 'mage';
 let atk = 0;
@@ -122,7 +122,7 @@ function applyKit(next) {
   const spellBtn = document.getElementById('spell');
   const castBtn = document.getElementById('cast');
   if (want === 'mage') {
-    kitBar = spellBar(box, SPELLS);
+    kitBar = spellBar(box, SPELLS, 'ui/', { ring: true, onPick: (i) => spells?.select(i) });
     kitBar.select(spells?.selected ?? 0);
     if (spellBtn) spellBtn.textContent = 'Spell';
     if (castBtn) castBtn.textContent = 'Cast';
@@ -151,7 +151,7 @@ scene.add(beam.mesh);
 const blast = createBlast({ air, world, fx, fire, ruin, scene });
 const hole = createHole({ air, world, fx, fire, ruin, scene });
 const twister = createTwister({ air, world, fx, fire, ruin, scene });
-const spells = staff ? createSpells({ world, air, fx, fire, staff, beam, ruin, blast, hole, twister, camera, walker, dom: renderer.domElement, onSelect: (i) => spellsBar.select(i) }) : null;
+const spells = staff ? createSpells({ world, air, fx, fire, staff, beam, ruin, blast, hole, twister, camera, walker, dom: renderer.domElement, onSelect: (i) => { if (kit === 'mage') kitBar.select(i); } }) : null;
 spellsBar.select(spells?.selected ?? 0);
 fitting.push(() => post.resize());
 lap('staff');
@@ -370,7 +370,11 @@ function tick(dt) {
   fx.update(dt * pace);
   sound?.update(dt, { blast, hole, twister, ruin, camera, fire, cast: spells?.cast, world, walker });
   // (the rim of the spell in hand fills as it is gathered, and stands full while it is poured or held open)
-  if (spells) { const c = spells.cast; spellsBar.charge(c.holding ? c.charge : blast.charge > 0 ? blast.charge : c.pour || hole.phase === 'open' || twister.phase === 'gather' || twister.phase === 'live' ? 1 : 0); }
+  if (spells && kit === 'mage') {
+    const c = spells.cast;
+    kitBar.charge(c.holding ? c.charge : blast.charge > 0 ? blast.charge : c.pour || hole.phase === 'open' || twister.phase === 'gather' || twister.phase === 'live' ? 1 : 0);
+    kitBar.cool(c.cool || 0);
+  }
   // (the day goes dark red for a blast being gathered, and violet for a singularity)
   // (and the grey of a storm for a whirlwind)
   if (twister.dark > hole.dark && twister.dark > blast.dark) { post.doom = twister.dark; post.doomTint(0.2 + 0.3 * twister.fire, 0.25 - 0.08 * twister.fire, 0.34 - 0.24 * twister.fire, 0.3); }

@@ -170,10 +170,11 @@
       #xmark { position: fixed; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px; pointer-events: none; z-index: 6; opacity: 0; color: #fff6dc; font: 900 46px/48px Georgia, serif; text-align: center; -webkit-text-stroke: 4px #1a1008; text-shadow: 0 0 10px #ffb043; }
       #xmark.on { opacity: 1; }
 
-      /* The spells: a row of medallions at the top left (src/hud.js draws them). Each is a dark disc with a fine gold
-         rim and its emblem in the spell's own colour. The one in hand stands larger and lit, its rim fills as the spell
-         is gathered, and its name is written under the row. */
+      /* Mage spells sit on a ring (src/hud.js). Blade and Gunner keep a row of their own attacks in the same box.
+         Each mark is a dark disc with a fine gold rim and its emblem. The one in hand stands larger, its rim fills
+         while the spell is gathered, and a dark sweep shows the cooldown. The name sits in the middle of the ring. */
       #spells { position: fixed; left: 50%; top: 8vh; transform: translateX(-50%); pointer-events: none; --s: clamp(36px, 5.6vh, 64px); z-index: 8; }
+      #spells.ring { --r: calc(var(--s) * 1.22); width: calc(var(--r) * 2 + var(--s)); height: calc(var(--r) * 2 + var(--s)); top: max(8px, env(safe-area-inset-top)); }
       @media (max-height: 500px) {
         #spells { --s: 34px; top: 6px; }
         #targetCard { top: 6px; }
@@ -181,8 +182,12 @@
         #targetCard .bars { width: 70px; }
       }
       #spells .row { display: flex; gap: calc(var(--s) * 0.12); align-items: center; }
+      #spells.ring .row { position: relative; width: 100%; height: 100%; display: block; }
       #spells .spell { position: relative; width: var(--s); height: var(--s); opacity: 0.74; transform: scale(0.9); transition: transform 0.28s cubic-bezier(0.2, 0.7, 0.2, 1.3), opacity 0.25s; }
+      #spells.ring .spell { position: absolute; left: 50%; top: 50%; margin-left: calc(var(--s) / -2); margin-top: calc(var(--s) / -2); pointer-events: auto; touch-action: none; transform: translate(calc(var(--x)), calc(var(--y))) scale(0.9); }
       #spells .spell.on { opacity: 1; transform: scale(1.14); }
+      #spells.ring .spell.on { transform: translate(calc(var(--x)), calc(var(--y))) scale(1.14); }
+      #spells .spell::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(rgba(8, 6, 16, 0.78) calc(var(--cd, 0) * 1turn), transparent 0); pointer-events: none; }
       #spells svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; fill: none; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0.2vh 0.5vh rgba(6, 4, 16, 0.55)); }
       #spells .disc { fill: rgba(17, 12, 34, 0.74); }
       #spells .on .disc { fill: color-mix(in srgb, var(--c) 16%, rgba(17, 12, 34, 0.86)); }
@@ -212,6 +217,7 @@
       #spells .on i { box-shadow: inset 0 0 0 1px var(--c); color: #fff6dc; }
       #spells .name { margin: calc(var(--s) * 0.34) 0 0 calc(var(--s) * 0.08); color: #f6ead0; font: calc(var(--s) * 0.3) / 1 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif; letter-spacing: 0.34em; text-transform: uppercase;
         text-shadow: 0 0 0.9vh var(--c), 0 0 0.5vh rgba(8, 5, 20, 0.9), 0 0.1vh 0.2vh rgba(8, 5, 20, 0.9); }
+      #spells.ring .name { position: absolute; left: 50%; top: 50%; width: calc(var(--s) * 1.7); margin: 0; transform: translate(-50%, -50%); text-align: center; letter-spacing: 0.12em; pointer-events: none; }
       #spells .name.in { animation: named 0.5s ease both; }
       @keyframes named { from { opacity: 0; transform: translateX(-0.8vh); } }
       #hint.off { display: none; }

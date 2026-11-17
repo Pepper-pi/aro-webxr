@@ -48,15 +48,24 @@ const EMBLEMS = {
 
 const el = (tag, at, to) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); to?.appendChild(e); return e; };
 
-/** Fills `box` with the spells. Gives back `select(i)` and `charge(v)` (how far the spell in hand is gathered, 0 to 1). */
-export function spellBar(box, spells, art = 'ui/') {
-  if (!box) return { select() {}, charge() {} };
+/** Fills `box` with the spells. A Mage ring lays them on a circle and calls `onPick` when one is tapped. Gives back `select(i)`, `charge(v)`, and `cool(v)`. */
+export function spellBar(box, spells, art = 'ui/', opt = {}) {
+  if (!box) return { select() {}, charge() {}, cool() {} };
+  const ring = opt === true || opt.ring === true;
+  const onPick = typeof opt.onPick === 'function' ? opt.onPick : null;
   box.innerHTML = '';
+  box.classList.toggle('ring', ring);
   const row = document.createElement('div'); row.className = 'row'; box.appendChild(row);
   const name = document.createElement('div'); name.className = 'name'; box.appendChild(name);
   const items = spells.map((s, i) => {
     const it = document.createElement('div');
     it.className = 'spell'; it.style.setProperty('--c', s.colour);
+    if (ring) {
+      const a = (i / spells.length) * TAU - Math.PI / 2;
+      it.style.setProperty('--x', `${Math.cos(a).toFixed(4)} * var(--r)`);
+      it.style.setProperty('--y', `${Math.sin(a).toFixed(4)} * var(--r)`);
+      it.addEventListener('pointerup', (e) => { onPick?.(i); e.preventDefault(); e.stopPropagation(); });
+    }
     const svg = el('svg', { viewBox: '-20 -20 40 40' }, null);
     el('circle', { r: 18.6, class: 'disc' }, svg);
     el('circle', { r: 18.6, class: 'rim' }, svg);
@@ -88,6 +97,10 @@ export function spellBar(box, spells, art = 'ui/') {
       v = Math.max(0, Math.min(1, v));
       if (Math.abs(v - told) < 0.01 && !(v === 0 && told !== 0)) return;
       told = v; items[now]?.style.setProperty('--g', v.toFixed(2));
+    },
+    cool(v) {
+      v = Math.max(0, Math.min(1, v));
+      items[now]?.style.setProperty('--cd', v.toFixed(2));
     },
   };
 }
