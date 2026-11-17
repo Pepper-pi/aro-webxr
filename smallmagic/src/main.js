@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { createAir, SUN } from './air.js';
 import { createWorld } from './meadow/world.js';
 import { createStaff } from './staff.js';
+import { createCastDisc } from './castdisc.js';
 import { createPage } from './page.js';
 import { Walker } from './player.js';
 import { Input } from './input.js';
@@ -79,6 +80,9 @@ say('Taking up the staff');
 await turn();
 const walker = new Walker(world);
 const staff = q.has('nostaff') ? null : createStaff({ air, atlas: world.atlas });
+const castDisc = staff ? createCastDisc(staff.scene) : null;
+let discOn = true;
+let discCharge = false;
 if (staff) { staff.resize(innerWidth / innerHeight); fitting.push(() => staff.resize(innerWidth / innerHeight)); }
 const input = new Input(renderer.domElement, { pads: !capture && !testing && !q.has('nopad') });
 const touchUi = document.getElementById('touch');
@@ -153,6 +157,49 @@ const hole = createHole({ air, world, fx, fire, ruin, scene });
 const twister = createTwister({ air, world, fx, fire, ruin, scene });
 const spells = staff ? createSpells({ world, air, fx, fire, staff, beam, ruin, blast, hole, twister, camera, walker, dom: renderer.domElement, onSelect: (i) => { if (kit === 'mage') kitBar.select(i); } }) : null;
 spellsBar.select(spells?.selected ?? 0);
+const discToggle = document.getElementById('discToggle');
+discToggle?.addEventListener('pointerup', (e) => {
+  discOn = !discOn;
+  discToggle.textContent = discOn ? 'Disc' : 'List';
+  e.preventDefault();
+  e.stopPropagation();
+});
+let discSpin = null;
+const discAt = (e) => {
+  const cx = innerWidth * 0.5, cy = innerHeight * 0.72, R = Math.min(innerWidth, innerHeight) * 0.16;
+  const dx = e.clientX - cx, dy = e.clientY - cy, r = Math.hypot(dx, dy);
+  return { dx, dy, r, R, hit: r <= R };
+};
+addEventListener('pointerdown', (e) => {
+  if (!discOn || kit !== 'mage' || !spells) return;
+  const at = discAt(e);
+  if (!at.hit) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (at.r > at.R * 0.42) {
+    discSpin = { a: Math.atan2(at.dy, at.dx), i: spells.selected };
+  } else {
+    discCharge = true;
+    spells.press();
+  }
+}, true);
+addEventListener('pointermove', (e) => {
+  if (!discSpin || !spells) return;
+  const at = discAt(e);
+  let d = Math.atan2(at.dy, at.dx) - discSpin.a;
+  if (d > Math.PI) d -= Math.PI * 2;
+  if (d < -Math.PI) d += Math.PI * 2;
+  const step = Math.round(d / (Math.PI * 2 / 7));
+  const next = (discSpin.i - step + 70) % 7;
+  if (next !== spells.selected) spells.select(next);
+}, true);
+const endDisc = () => {
+  if (discCharge && spells) spells.release();
+  discCharge = false;
+  discSpin = null;
+};
+addEventListener('pointerup', endDisc, true);
+addEventListener('pointercancel', endDisc, true);
 fitting.push(() => post.resize());
 lap('staff');
 
@@ -333,6 +380,7 @@ function tick(dt) {
   const planted = zones.name !== 'hub' && settings.class === 'blade' && blade.pad;
   const melee = zones.name !== 'hub' && (settings.class === 'blade' || settings.class === 'gunner');
   applyKit(melee ? settings.class : 'mage');
+  if (discToggle) discToggle.hidden = kit !== 'mage';
   if (zones.blocksMagic) {
     zones.castHeld(!!inp.cast, !padCast && !!inp.cast, padCast && !inp.cast);
     padCast = !!inp.cast;
@@ -363,6 +411,8 @@ function tick(dt) {
   camera.updateMatrixWorld(true);
   world.update(dt, walker.feet, camera, walker.speed);
   staff?.update(dt, walker, camera, world.sunAt?.(camera.position) ?? 1);
+  castDisc?.update(dt, discOn && kit === 'mage' && !melee, spells?.selected ?? 0);
+  if (discCharge && spells?.cast?.charge >= 0.98) { discCharge = false; spells.release(); padCast = false; }
   ruin?.update(dt * pace);
   if (spells) spells.update(dt * pace, dt); else { blast.update(dt * pace, dt, camera.position); hole.update(dt * pace, dt, camera.position); twister.update(dt * pace, dt, camera.position); }
   if (spells) zones.hurt(spells.marks);
@@ -419,7 +469,7 @@ function tick(dt) {
 
 // (the measuring tools were written for a figure seen from behind: these are the same handles on one seen from within)
 const head = new THREE.Vector3();
-const lab = window.lab = {
+const lab = window.lab = { castDisc, discOn: () => discOn,
   THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, arms, blade, gun, tune: TUNE, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
   player: walker,
   follow: { get yaw() { return walker.yaw; }, set yaw(v) { walker.yaw = v; }, get pitch() { return walker.pitch; }, set pitch(v) { walker.pitch = v; }, want: 0, distance: 0, pivot: new THREE.Vector3() },
