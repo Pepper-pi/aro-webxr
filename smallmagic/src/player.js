@@ -38,6 +38,11 @@ export class Walker {
     }
     // and whatever is built and still standing
     w.blockers?.(f);
+    const ice = w.iceCols;
+    if (ice) for (const c of ice) {
+      const dx = f.x - c.x, dz = f.z - c.z, d = Math.hypot(dx, dz), min = c.r + 0.28;
+      if (d < min && d > 1e-4) { f.x = c.x + (dx / d) * min; f.z = c.z + (dz / d) * min; }
+    }
     // the meadow's edge
     { const dx = f.x - w.home[0], dz = f.z - w.home[1], d = Math.hypot(dx, dz); if (d > w.edge) { f.x = w.home[0] + (dx / d) * w.edge; f.z = w.home[1] + (dz / d) * w.edge; } }
     // the ground, and leaving it

@@ -271,7 +271,7 @@ export const PACKS = [
   { name: 'Beasts on the shore', x: -42, z: -34 },
 ];
 
-export function createBeasts(scene, ground) {
+export function createBeasts(scene, ground, world) {
   const meadow = new THREE.Group();
   const lake = new THREE.Group();
   const all = [];
@@ -511,6 +511,11 @@ export function createBeasts(scene, ground) {
           b.tz = b.homeZ + (Math.random() - 0.5) * 3.2;
         }
         const slow = 1 - Math.min(0.68, b.chill / 8);
+        const ice = world?.iceCols;
+        if (ice) for (const c of ice) {
+          const ix = b.g.position.x - c.x, iz = b.g.position.z - c.z, id = Math.hypot(ix, iz);
+          if (id < c.r && id > 1e-4) { b.g.position.x = c.x + (ix / id) * c.r; b.g.position.z = c.z + (iz / id) * c.r; }
+        }
         const dx = b.tx - b.g.position.x, dz = b.tz - b.g.position.z, dist = Math.hypot(dx, dz);
         if (dist > 0.15) {
           b.g.position.x += (dx / dist) * 0.55 * slow * dt;

@@ -28,6 +28,21 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
   const U = air.uniforms, rnd = fx.rnd, cols = SPELLS.map((s) => new THREE.Color(s.colour));
   const dir = V(0, 0, -1), tip = V(0, 0, 0), tmp = V(0, 0, 0), flat = V(0, 0, 0);
   const bolts = [], gusts = [], flash = { x: 0, y: -999, z: 0, power: 0, r: 1, c: [1, 1, 1] }, shock = { x: 0, z: 0, r: 1, power: 0 };
+  const ices = [];
+  world.iceCols = [];
+  const shardMat = new THREE.MeshBasicMaterial({ color: '#c8fbff', transparent: true, opacity: 0.92 });
+  const shardViolet = new THREE.MeshBasicMaterial({ color: '#b49bff', transparent: true, opacity: 0.62, side: THREE.DoubleSide, depthWrite: false });
+  const makeShard = () => {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.OctahedronGeometry(0.14, 0), shardMat);
+    body.scale.set(0.42, 0.42, 1.9);
+    const wing = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.62), shardViolet);
+    g.add(body, wing);
+    g.visible = false;
+    world.root.add(g);
+    return g;
+  };
+  const shards = [makeShard(), makeShard(), makeShard(), makeShard()];
   let selected = 0, down = false, hold = 0, sealPower = 0, cooldown = 0, coolMax = 1, kick = 0, beamPower = 0, beamKind = 'frost', channel = false, tether = false, leash = false;
   const wait = (t) => { cooldown = coolMax = t; };
   const beamTo = V(0, 0, -1);
@@ -70,22 +85,64 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     bolts.push({ p: tip.clone(), v: v.clone(), life: 0, big, ice: true });
     kick = 0.35 + 0.4 * big; wait(0.3);
   }
-  function freezeLand(p, big) {
+  function rememberIce(g, life, cols) {
+    world.root.add(g);
+    ices.push({ g, life, max: life, cols });
+    world.iceCols = ices.flatMap((i) => i.cols);
+  }
+  /** A flat frost disc. Every landing leaves one. It fades and does not block. */
+  function frostPatch(p, r) {
+    const mesh = new THREE.Mesh(new THREE.CircleGeometry(Math.max(0.8, r * 0.42), 16), new THREE.MeshBasicMaterial({ color: '#e7fdff', transparent: true, opacity: 0.62, side: THREE.DoubleSide, depthWrite: false }));
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(p.x, world.ground(p.x, p.z) + 0.05, p.z);
+    rememberIce(mesh, 7, []);
+  }
+  /** A solid wall across the throw, or a mound when the ground is already frozen. Both block feet and beasts. */
+  function raiseIce(p, kind, vel) {
+    const y0 = world.ground(p.x, p.z);
+    const fl = Math.hypot(vel?.x || 0, vel?.z || 0) || 1;
+    const fx = (vel?.x || 0) / fl, fz = (vel?.z || 1) / fl;
+    const g = new THREE.Group();
+    g.position.set(p.x, y0, p.z);
+    const ice = new THREE.MeshBasicMaterial({ color: kind === 'glacier' ? '#e9fbff' : '#b7f3ff', transparent: true, opacity: 0.88, side: THREE.DoubleSide });
+    const violet = new THREE.MeshBasicMaterial({ color: '#8d74ff', transparent: true, opacity: 0.55, side: THREE.DoubleSide });
+    const cols = [];
+    if (kind === 'glacier') {
+      const mound = new THREE.Mesh(new THREE.IcosahedronGeometry(1.05, 1), ice);
+      mound.scale.set(1.7, 0.9, 1.35);
+      mound.position.y = 0.72;
+      const cap = new THREE.Mesh(new THREE.OctahedronGeometry(0.38, 0), violet);
+      cap.position.y = 1.55;
+      g.add(mound, cap);
+      cols.push({ x: p.x, z: p.z, r: 1.55 });
+    } else {
+      const yaw = Math.atan2(fx, fz);
+      g.rotation.y = yaw;
+      for (let i = -2; i <= 2; i++) {
+        const h = 1.15 + (Math.abs(i) === 1 ? 0.45 : 0);
+        const slab = new THREE.Mesh(new THREE.BoxGeometry(0.48, h, 0.22), Math.abs(i) === 2 ? violet : ice);
+        slab.position.set(i * 0.46, h * 0.5, 0);
+        g.add(slab);
+        cols.push({ x: p.x + Math.cos(yaw) * i * 0.46, z: p.z - Math.sin(yaw) * i * 0.46, r: 0.42 });
+      }
+    }
+    rememberIce(g, kind === 'glacier' ? 14 : 9, cols);
+  }
+  function freezeLand(p, big, vel) {
     const r = 2.2 + 5.2 * big;
     const had = frostHere(p.x, p.z, Math.max(1.8, r * 0.4));
     world.mark(p.x, p.z, r, 1, 0.5 + 0.5 * big);
     marks.push({ x: p.x, z: p.z, r: 1.6 + 1.4 * big, d: 8 + 12 * big, k: 'arcane', status: 'chill', chill: 1.1 + 3.4 * big });
-    const wall = big > 0.66 || had > 30;
-    const glacier = big > 0.85 && had > 70;
-    const n = glacier ? 26 : wall ? 14 : 8;
-    const span = glacier ? 3.2 : wall ? 1.8 : r * 0.35;
-    const tall = glacier ? 3.4 : wall ? 1.8 : 0.2;
+    frostPatch(p, r);
+    const glacier = big > 0.85 && had > 40;
+    const wall = !glacier && (big > 0.62 || had > 22);
+    if (glacier || wall) raiseIce(p, glacier ? 'glacier' : 'wall', vel);
+    const n = glacier ? 10 : wall ? 6 : 5;
     for (let i = 0; i < n; i++) {
-      const a = wall ? (i / (n - 1) - 0.5) * 1.4 : Math.random() * 6.283;
-      const x = p.x + Math.cos(a) * span * (wall ? 1 : Math.random());
-      const z = p.z + Math.sin(a) * (wall ? 0.2 : span * Math.random());
-      const y = world.ground(x, z);
-      fx.spawn({ kind: 3, x, y: y + 0.15, z, vy: wall ? 0.15 : 0.8, life: wall ? 9 : 1.5, size: [wall ? 0.16 : 0.1, tall * (0.25 + 0.2 * Math.random())], colour: glacier ? [0.82, 0.96, 1] : [0.55, 0.86, 1] });
+      const a = Math.random() * 6.283;
+      const x = p.x + Math.cos(a) * (0.3 + Math.random());
+      const z = p.z + Math.sin(a) * (0.3 + Math.random());
+      fx.spawn({ kind: 3, x, y: world.ground(x, z) + 0.2, z, vy: 0.6, life: 1.2, size: [0.08, 0.16], colour: glacier ? [0.82, 0.96, 1] : [0.55, 0.86, 1] });
     }
     Object.assign(flash, { x: p.x, y: p.y + 1, z: p.z, power: 0.7, r: 8 + 6 * big, c: [0.6, 0.9, 1.3] });
     const reach = 3.2 + 4.5 * big;
@@ -150,6 +207,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     cancel() { down = false; hold = 0; },
     from: null, hideMark: false,
     get busy() { return bolts.length + gusts.length; },
+    get ice() { return ices.map((i) => ({ life: +i.life.toFixed(2), cols: i.cols.length })); },
     marks,
     /** How bright the last burst still is to the eye, 0 to 1. */
     get glare() { return flash.power * flash.power * Math.max(0, 1 - Math.hypot(flash.x - camera.position.x, flash.z - camera.position.z) / 50); },
@@ -327,12 +385,20 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
 
       // --- what has been thrown ---
       let carried = null;
+      let shardN = 0;
       for (let i = bolts.length - 1; i >= 0; i--) {
         const b = bolts[i];
         b.life += dt; b.v.y -= 3.2 * dt; b.p.addScaledVector(b.v, dt);
-        const n = (130 + 150 * b.big) * dt;
-        const tint = b.ice ? [0.7, 0.92, 1] : [1, 1, 1];
-        for (let q = Math.floor(n) + (Math.random() < n % 1 ? 1 : 0); q > 0; q--) fx.spawn({ kind: b.ice ? 3 : 0, x: b.p.x + rnd(0.1 + 0.2 * b.big), y: b.p.y + rnd(0.1 + 0.2 * b.big), z: b.p.z + rnd(0.1 + 0.2 * b.big), vx: b.v.x * 0.12 + rnd(0.6), vy: b.v.y * 0.12 + 0.8, vz: b.v.z * 0.12 + rnd(0.6), life: 0.22 + 0.25 * Math.random(), size: [(0.13 + 0.2 * b.big) * Math.min(1, 0.25 + b.life * 3), (0.24 + 0.34 * b.big) * Math.min(1, 0.25 + b.life * 3)], colour: tint, rot: Math.random() * 6.283 });
+        const n = ((b.ice ? 22 : 130) + (b.ice ? 18 : 150) * b.big) * dt;
+        const tint = b.ice ? (Math.random() < 0.35 ? [0.72, 0.62, 1] : [0.7, 0.95, 1]) : [1, 1, 1];
+        for (let q = Math.floor(n) + (Math.random() < n % 1 ? 1 : 0); q > 0; q--) fx.spawn({ kind: b.ice ? 3 : 0, x: b.p.x + rnd(0.06), y: b.p.y + rnd(0.06), z: b.p.z + rnd(0.06), vx: b.v.x * 0.05 + rnd(0.3), vy: b.v.y * 0.05 + rnd(0.3), vz: b.v.z * 0.05 + rnd(0.3), life: b.ice ? 0.28 : 0.22 + 0.25 * Math.random(), size: b.ice ? [0.05, 0.08] : [(0.13 + 0.2 * b.big) * Math.min(1, 0.25 + b.life * 3), (0.24 + 0.34 * b.big) * Math.min(1, 0.25 + b.life * 3)], colour: tint, rot: Math.random() * 6.283 });
+        if (b.ice && shardN < shards.length) {
+          const s = shards[shardN++];
+          s.visible = true;
+          s.position.copy(b.p);
+          s.lookAt(b.p.x + b.v.x, b.p.y + b.v.y, b.p.z + b.v.z);
+          s.scale.setScalar(0.7 + b.big * 1.1);
+        }
         if (!b.ice) {
           fx.spawn({ kind: 1, x: b.p.x, y: b.p.y, z: b.p.z, vx: b.v.x, vy: b.v.y, vz: b.v.z, life: 0.05, size: [(0.12 + 0.14 * b.big) * Math.min(1, 0.2 + b.life * 3), 0.1 + 0.1 * b.big], colour: [1, 0.72, 0.3], alpha: 0.9 });
           fx.spawn({ kind: 6, x: b.p.x, y: b.p.y, z: b.p.z, life: 0.07, size: [0.6 + 0.6 * b.big, 0.6 + 0.6 * b.big], colour: [1, 0.5, 0.12], alpha: 0.16 });
@@ -343,8 +409,21 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
         if (!b.ice) marks.push({ x: b.p.x, z: b.p.z, r: 0.7, d: 16, k: 'fire' });
         const floor = Math.max(world.ground(b.p.x, b.p.z), world.water);
         const inTree = world.trees.some((t, k) => k && t.burnt < 0.9 && t.clumps.some(([x, y, z, r]) => Math.hypot(x - b.p.x, y - b.p.y, z - b.p.z) < r * 0.75));
-        if (b.p.y <= floor + 0.1 || inTree || b.life > 4 || ruin?.touches(b.p, 0.25 + 0.2 * b.big)) { if (b.p.y < floor) b.p.y = floor; if (b.ice) freezeLand(b.p, b.big); else burst(b.p, b.big); bolts.splice(i, 1); carried = null; }
+        if (b.p.y <= floor + 0.1 || inTree || b.life > 4 || ruin?.touches(b.p, 0.25 + 0.2 * b.big)) { if (b.p.y < floor) b.p.y = floor; if (b.ice) freezeLand(b.p, b.big, b.v); else burst(b.p, b.big); bolts.splice(i, 1); carried = null; }
       }
+      for (let k = shardN; k < shards.length; k++) shards[k].visible = false;
+      for (let i = ices.length - 1; i >= 0; i--) {
+        const ice = ices[i];
+        ice.life -= dt;
+        const fade = Math.max(0, Math.min(1, ice.life / 1.4));
+        ice.g.traverse((o) => {
+          if (!o.material) return;
+          if (o.material.userData.o0 == null) o.material.userData.o0 = o.material.opacity;
+          o.material.opacity = o.material.userData.o0 * fade;
+        });
+        if (ice.life <= 0) { world.root.remove(ice.g); ices.splice(i, 1); }
+      }
+      world.iceCols = ices.flatMap((i) => i.cols);
       let blowing = null;
       for (let i = gusts.length - 1; i >= 0; i--) {
         const g = gusts[i];

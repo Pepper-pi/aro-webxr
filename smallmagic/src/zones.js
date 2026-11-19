@@ -143,7 +143,7 @@ export function createZones({ scene, world, walker, camera, air }) {
   scene.add(bobber);
 
   scene.add(meadowRing, hub);
-  const beasts = createBeasts(scene, (x, z) => world.ground(x, z));
+  const beasts = createBeasts(scene, (x, z) => world.ground(x, z), world);
   hub.visible = meadowRing.visible = false;
 
   const hold = new THREE.Group();
