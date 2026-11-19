@@ -118,11 +118,19 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     } else {
       const yaw = Math.atan2(fx, fz);
       g.rotation.y = yaw;
+      ice.opacity = 0.62;
+      violet.opacity = 0.48;
       for (let i = -2; i <= 2; i++) {
         const h = 1.15 + (Math.abs(i) === 1 ? 0.45 : 0);
-        const slab = new THREE.Mesh(new THREE.BoxGeometry(0.48, h, 0.22), Math.abs(i) === 2 ? violet : ice);
-        slab.position.set(i * 0.46, h * 0.5, 0);
-        g.add(slab);
+        const shard = new THREE.CylinderGeometry(0.05, 0.16, 1, 5, 1);
+        shard.translate(0, 0.5, 0);
+        const slab = new THREE.Mesh(shard, Math.abs(i) === 2 ? violet : ice);
+        slab.scale.set(1, h, 1);
+        slab.position.set(i * 0.46, 0, (i % 2) * 0.05);
+        slab.rotation.y = i * 0.35;
+        const tip = new THREE.Mesh(new THREE.OctahedronGeometry(0.09, 0), violet);
+        tip.position.set(i * 0.46, h + 0.06, (i % 2) * 0.05);
+        g.add(slab, tip);
         cols.push({ x: p.x + Math.cos(yaw) * i * 0.46, z: p.z - Math.sin(yaw) * i * 0.46, r: 0.42 });
       }
     }
