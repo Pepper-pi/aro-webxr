@@ -103,7 +103,6 @@ const flames = createFlames(air);
 scene.add(flames.mesh);
 const fire = createFire({ world, air, fx, flames });
 const zones = createZones({ scene, world, walker, camera, air });
-const quest = createQuest({ scene, world, walker, zones });
 const BLADE_ATK = [
   { key: 'pound', name: 'Pound', colour: '#c4a574', sides: 4 },
   { key: 'spin', name: 'Spin', colour: '#7ec8ff', sides: 6 },
@@ -158,6 +157,7 @@ const blast = createBlast({ air, world, fx, fire, ruin, scene });
 const hole = createHole({ air, world, fx, fire, ruin, scene });
 const twister = createTwister({ air, world, fx, fire, ruin, scene });
 const spells = staff ? createSpells({ world, air, fx, fire, staff, beam, ruin, blast, hole, twister, camera, walker, dom: renderer.domElement, onSelect: (i) => { if (kit === 'mage') kitBar.select(i); } }) : null;
+const quest = createQuest({ walker, zones, spells });
 spellsBar.select(spells?.selected ?? 0);
 const discToggle = document.getElementById('discToggle');
 discToggle?.addEventListener('pointerup', (e) => {
@@ -484,8 +484,8 @@ function tick(dt) {
     sword.rotateZ(-0.5);
   } else if (sword.visible) {
     const s = blade.swing || 0;
-    sword.position.set(0.16 + s * 0.08, -0.32, -0.62);
-    sword.rotation.set(0.35 - s * 0.9, 0.2, -0.35 - s * 1.15);
+    sword.position.set(0.22, -0.18 - s * 0.04, -0.7);
+    sword.rotation.set(0.55 - s * 0.45, 0.15, -0.45 - s * 0.55);
     sword.scale.setScalar(1.05);
     sword.updateMatrix();
     sword.matrix.premultiply(camera.matrixWorld);

@@ -205,6 +205,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     get cast() { return cast; }, set hear(fn) { heard = fn; },
     press() { down = true; }, release() { down = false; },
     cancel() { down = false; hold = 0; },
+    refresh() { cooldown = 0; },
     from: null, hideMark: false,
     get busy() { return bolts.length + gusts.length; },
     get ice() { return ices.map((i) => ({ life: +i.life.toFixed(2), cols: i.cols.length })); },

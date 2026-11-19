@@ -296,6 +296,26 @@ export function createBeasts(scene, ground, world) {
   dressMobs(all);
   const bits = [];
   const cube = new THREE.BoxGeometry(0.16, 0.16, 0.16);
+  const drops = [];
+  const slams = [];
+  const ring = new THREE.Mesh(new THREE.RingGeometry(1.35, 1.7, 28), new THREE.MeshBasicMaterial({ color: '#ff5a45', side: THREE.DoubleSide, transparent: true, opacity: 0.9, depthWrite: false }));
+  ring.rotation.x = -Math.PI / 2;
+  ring.visible = false;
+  const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1.15, 6), new THREE.MeshBasicMaterial({ color: '#ffc2b0', transparent: true, opacity: 0.8 }));
+  pillar.visible = false;
+  scene.add(ring, pillar);
+  const KINDS = ['gold', 'heal', 'mana'];
+  function dropAt(b) {
+    if (b.dropped) return;
+    b.dropped = true;
+    const kind = KINDS[Math.floor(Math.random() * KINDS.length)];
+    const geo = kind === 'gold' ? new THREE.OctahedronGeometry(0.16, 0) : new THREE.SphereGeometry(0.16, 8, 6);
+    const color = kind === 'gold' ? '#ffd56a' : kind === 'heal' ? '#7dff9a' : '#9fd4ff';
+    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color }));
+    mesh.position.set(b.g.position.x, ground(b.g.position.x, b.g.position.z) + 0.5, b.g.position.z);
+    scene.add(mesh);
+    drops.push({ kind, mesh, life: 18 });
+  }
   return {
     meadow, lake,
     act(x, z, name) {
@@ -313,8 +333,31 @@ export function createBeasts(scene, ground, world) {
       const b = all.find((m) => m.kind === kind && m.clipName);
       return b ? b.clipName : '';
     },
+    promote() {
+      const b = all.find((m) => !m.dead && m.where === 'meadow' && m.kind === 'boar') || all.find((m) => !m.dead && m.where === 'meadow');
+      if (!b) return -1;
+      b.boss = true;
+      b.max = 96;
+      b.hp = 96;
+      b.g.scale.setScalar(2.35);
+      b.cool = 1.3;
+      b.wind = 0;
+      return all.indexOf(b);
+    },
+    collect(x, z, reach = 1.35) {
+      const got = [];
+      for (let i = drops.length - 1; i >= 0; i--) {
+        const d = drops[i];
+        if (Math.hypot(d.mesh.position.x - x, d.mesh.position.z - z) > reach) continue;
+        got.push(d.kind);
+        scene.remove(d.mesh);
+        drops.splice(i, 1);
+      }
+      return got;
+    },
+    slams() { const out = slams.splice(0, slams.length); return out; },
     probe() {
-      return all.map((b, n) => ({ n, kind: b.kind, x: +b.g.position.x.toFixed(2), y: +b.g.position.y.toFixed(2), z: +b.g.position.z.toFixed(2), hp: +b.hp.toFixed(1), burn: +b.burn.toFixed(2), chill: +b.chill.toFixed(2), dead: b.dead, flame: !!b.g.getObjectByName('flame')?.visible }));
+      return all.map((b, n) => ({ n, kind: b.kind, boss: !!b.boss, x: +b.g.position.x.toFixed(2), y: +b.g.position.y.toFixed(2), z: +b.g.position.z.toFixed(2), hp: +b.hp.toFixed(1), burn: +b.burn.toFixed(2), chill: +b.chill.toFixed(2), dead: b.dead, flame: !!b.g.getObjectByName('flame')?.visible }));
     },
     hold(px, pz, min, max, dt) {
       for (const b of all) {
@@ -450,7 +493,7 @@ export function createBeasts(scene, ground, world) {
             onHit?.({ x: b.g.position.x, y: b.g.position.y + 1.2, z: b.g.position.z, n: Math.round(dealt), k: m.k || 'fire', through: again, blast: !!m.blast });
           }
           if (b.hp <= 0) {
-            b.dead = true; b.back = 12; b.stack = 0; b.burn = 0; b.chill = 0;
+            b.dead = true; b.back = 12; b.stack = 0; b.burn = 0; b.chill = 0; dropAt(b); b.boss = false;
             if (b.clips?.death) { b.dying = Math.max(0.9, b.clips.death.getClip().duration || 1); playClip(b, 'death'); }
             else b.g.visible = false;
             const tint = b.kind === 'slime' ? '#3dba6a' : b.kind === 'boar' ? '#8a5a3a' : '#6a6158';
@@ -469,6 +512,13 @@ export function createBeasts(scene, ground, world) {
     },
     update(dt, zone) {
       for (const mixer of mobMixers) mixer.update(dt);
+      for (let i = drops.length - 1; i >= 0; i--) {
+        const d = drops[i];
+        d.life -= dt;
+        d.mesh.rotation.y += dt * 2;
+        d.mesh.position.y += Math.sin(d.life * 4) * 0.002;
+        if (d.life <= 0) { scene.remove(d.mesh); drops.splice(i, 1); }
+      }
       meadow.visible = zone === 'meadow';
       lake.visible = zone === 'lake';
       for (const b of all) {
@@ -482,7 +532,7 @@ export function createBeasts(scene, ground, world) {
           }
           b.back -= dt;
           if (b.back <= 0) {
-            b.dead = false; b.hp = b.max; b.g.visible = true; b.flash = 0;
+            b.dead = false; b.hp = b.max; b.g.visible = true; b.flash = 0; b.dropped = false; b.boss = false;
             b.g.position.set(b.homeX, ground(b.homeX, b.homeZ), b.homeZ);
             b.g.rotation.z = 0;
             b.g.scale.setScalar(1.4);
@@ -514,6 +564,25 @@ export function createBeasts(scene, ground, world) {
           b.tx = b.homeX + (Math.random() - 0.5) * 3.2;
           b.tz = b.homeZ + (Math.random() - 0.5) * 3.2;
         }
+        if (b.boss) {
+          b.cool = (b.cool ?? 1.4) - dt;
+          if (!b.wind && b.cool <= 0) { b.wind = 0.85; b.cool = 4.4; }
+          if (b.wind > 0) {
+            b.wind -= dt;
+            const gy = ground(b.g.position.x, b.g.position.z);
+            ring.visible = true;
+            ring.position.set(b.g.position.x, gy + 0.08, b.g.position.z);
+            ring.scale.setScalar(0.4 + (1 - Math.max(0, b.wind) / 0.85) * 0.75);
+            pillar.visible = true;
+            pillar.position.set(b.g.position.x, gy + 1.1, b.g.position.z);
+            if (b.wind <= 0) {
+              b.wind = 0;
+              ring.visible = false;
+              pillar.visible = false;
+              slams.push({ x: b.g.position.x, z: b.g.position.z, r: 2.3 });
+            }
+          }
+        }
         const slow = 1 - Math.min(0.68, b.chill / 8);
         const ice = world?.iceCols;
         if (ice) for (const c of ice) {
@@ -526,7 +595,7 @@ export function createBeasts(scene, ground, world) {
           b.g.position.z += (dz / dist) * 0.55 * slow * dt;
           b.g.rotation.y = Math.atan2(dx, dz);
         }
-        if (b.burn > 0) { b.burn -= dt; b.hp -= 7 * dt; if (b.hp <= 0) { b.dead = true; b.g.visible = false; b.back = 12; b.burn = 0; } }
+        if (b.burn > 0) { b.burn -= dt; b.hp -= 7 * dt; if (b.hp <= 0) { b.dead = true; b.g.visible = false; b.back = 12; b.burn = 0; dropAt(b); b.boss = false; } }
         else b.burn = 0;
         if (b.chill > 0) b.chill -= dt; else b.chill = 0;
         const flame = b.g.getObjectByName('flame');

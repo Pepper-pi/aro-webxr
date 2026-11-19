@@ -494,7 +494,9 @@ export function createZones({ scene, world, walker, camera, air }) {
     get name() { return name; },
     get hearts() { return hearts; },
     nick(n) { hearts = Math.max(0, hearts - n); },
-    heal() { hearts = 100; },
+    heal(n) { hearts = n ? Math.min(100, hearts + n) : 100; },
+    promote() { return beasts.promote(); },
+    collect(x, z) { return beasts.collect(x, z); },
     get ring() { return meadowRing.position; },
     get rodOut() { return hold.visible; },
     get nearBeast() { return beasts.near(walker.feet.x, walker.feet.z); },
@@ -560,6 +562,9 @@ export function createZones({ scene, world, walker, camera, air }) {
     },
     castHeld() {},
     update(dt) {
+      for (const s of beasts.slams()) {
+        if (Math.hypot(walker.feet.x - s.x, walker.feet.z - s.z) < s.r) this.nick(24);
+      }
       for (const s of pool) {
         if (s.userData.life <= 0) continue;
         s.userData.life -= dt;
