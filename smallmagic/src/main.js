@@ -230,7 +230,7 @@ if (sound && spells) spells.hear = (what, o) => sound.cue(what, o);
 // The one clock. Everything that moves is a function of it; `pace` is how fast it runs (1 as a rule).
 const clock = { pace: 1 };
 const settings = { hands: false, class: 'mage', blade: false, gunner: false, gfx: 'high', viewBack: false };
-document.getElementById('view')?.addEventListener('pointerup', (e) => {
+document.getElementById('chase')?.addEventListener('pointerup', (e) => {
   settings.viewBack = !settings.viewBack;
   e.currentTarget.textContent = settings.viewBack ? 'Far' : 'Near';
   e.currentTarget.classList.toggle('on', settings.viewBack);
