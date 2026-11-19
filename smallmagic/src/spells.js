@@ -193,7 +193,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
   function throwWind(charge) {
     heard?.('windThrow', { charge });
     flat.set(dir.x, 0, dir.z).normalize();
-    gusts.push({ x: walker.feet.x + flat.x * 1.5, z: walker.feet.z + flat.z * 1.5, dx: flat.x, dz: flat.z, t: 0, life: 1.1 + 0.8 * charge, wide: 4.5 + 4.5 * charge, speed: 22, hit: new Set() });
+    gusts.push({ x: walker.feet.x + flat.x * 1.5, z: walker.feet.z + flat.z * 1.5, dx: flat.x, dz: flat.z, t: 0, life: 1.1 + 0.8 * charge, wide: 4.5 + 4.5 * charge, speed: 22, hit: new Set(), pull: charge > 0.45 });
     kick = 0.5 + 0.5 * charge; wait(0.3);
     for (let i = 0; i < 26; i++) fx.spawn({ kind: 5, x: tip.x + rnd(0.3), y: tip.y + rnd(0.3), z: tip.z + rnd(0.3), vx: dir.x * 26 + rnd(7), vy: dir.y * 26 + rnd(5), vz: dir.z * 26 + rnd(7), life: 0.22 + 0.15 * Math.random(), size: [0.012, 0.012], colour: [0.92, 1, 0.96], alpha: 0.5, rot: 30 + 30 * Math.random() });
   }
@@ -446,7 +446,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
         }
         fire.fan(g.x, g.z, g.dx, g.dz, g.wide);
         windMark -= dt;
-        if (windMark <= 0) { windMark = 0.26; marks.push({ x: g.x, z: g.z, r: g.wide * 0.5, d: 12, k: 'arcane', kx: g.dx * 1.4, kz: g.dz * 1.4 }); }
+        if (windMark <= 0) { windMark = 0.26; marks.push(g.pull ? { x: g.x, z: g.z, r: g.wide * 0.55, d: 10, k: 'arcane', pull: 0.7 } : { x: g.x, z: g.z, r: g.wide * 0.5, d: 12, k: 'arcane', kx: g.dx * 1.4, kz: g.dz * 1.4 }); }
         world.blow?.(g.x, g.z, g.dx, g.dz, g.wide, dt);
         ruin?.push(g.x, g.z, g.dx, g.dz, g.wide, 20 * fade, dt);
         ruin?.gust(g.x, g.z, g.dx, g.dz, g.wide, (g.wide - 4.5) / 4.5);

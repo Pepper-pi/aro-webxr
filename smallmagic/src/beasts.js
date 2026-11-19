@@ -439,6 +439,10 @@ export function createBeasts(scene, ground, world) {
             ox /= len; oz /= len;
             b.g.position.x += ox * push; b.g.position.z += oz * push;
             b.tx += ox * push; b.tz += oz * push;
+          } else if (m.pull) {
+            let ox = m.x - b.g.position.x, oz = m.z - b.g.position.z;
+            const len = Math.hypot(ox, oz) || 0.4;
+            if (len > 0.7) { const step = m.pull * addFall; b.g.position.x += (ox / len) * step; b.g.position.z += (oz / len) * step; b.tx += (ox / len) * step; b.tz += (oz / len) * step; }
           } else if (!same && (m.kx || m.kz)) { b.g.position.x += m.kx; b.g.position.z += m.kz; b.tx += m.kx; b.tz += m.kz; }
           if (!same && shown < 3) {
             shown++;
