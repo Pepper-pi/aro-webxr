@@ -485,7 +485,7 @@ function tick(dt) {
   } else if (sword.visible) {
     const s = blade.swing || 0;
     const narrow = innerWidth < 820;
-    sword.position.set(narrow ? 0.1 : 0.22, (narrow ? -0.16 : -0.18) - s * 0.02, narrow ? -0.55 : -0.7);
+    sword.position.set(narrow ? -0.02 : 0.22, (narrow ? -0.2 : -0.18) - s * 0.02, narrow ? -0.58 : -0.7);
     sword.rotation.set(narrow ? 0.35 - s * 0.2 : 0.55 - s * 0.45, narrow ? 0.4 : 0.15, narrow ? -0.5 - s * 0.25 : -0.45 - s * 0.55);
     sword.scale.setScalar(narrow ? 0.62 : 1.05);
     sword.updateMatrix();
