@@ -2,7 +2,7 @@
 export function createQuest({ walker, zones, spells }) {
   const hud = document.createElement('div');
   hud.id = 'quest';
-  hud.style.cssText = 'position:fixed;left:50%;top:max(54px,env(safe-area-inset-top));transform:translateX(-50%);z-index:8;color:#f6ead0;font:15px Georgia,serif;letter-spacing:.04em;text-shadow:0 1px 2px #000;pointer-events:none;text-align:center;';
+  hud.style.cssText = 'position:fixed;left:50%;top:max(188px,calc(env(safe-area-inset-top) + 176px));transform:translateX(-50%);width:min(220px,70vw);z-index:8;color:#f6ead0;font:12px/1.3 Georgia,serif;letter-spacing:.02em;text-shadow:0 1px 2px #000;pointer-events:none;text-align:center;';
   document.body.appendChild(hud);
   const banner = document.createElement('div');
   banner.style.cssText = 'position:fixed;inset:0;display:none;place-items:center;z-index:12;background:rgba(8,6,16,.45);color:#fff6dc;font:34px Georgia,serif;pointer-events:none;';
