@@ -489,8 +489,13 @@ export function createZones({ scene, world, walker, camera, air }) {
   const blastGeo = new THREE.SphereGeometry(0.4, 10, 8);
   enter('hub');
   markDest();
+  let hearts = 100;
   return {
     get name() { return name; },
+    get hearts() { return hearts; },
+    nick(n) { hearts = Math.max(0, hearts - n); },
+    heal() { hearts = 100; },
+    get ring() { return meadowRing.position; },
     get rodOut() { return hold.visible; },
     get nearBeast() { return beasts.near(walker.feet.x, walker.feet.z); },
     beasts() { return beasts.probe(); },

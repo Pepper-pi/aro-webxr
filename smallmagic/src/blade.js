@@ -515,9 +515,8 @@ export function createBlade(onLaunch, bits = {}) {
     const fly = notes.find((n) => !n.resolved && n.launch && n.kind !== 'back' && n.kind !== 'orb');
     const src = fly || laneHold;
     if (!fly) {
-      const eye = camera.position;
       laneHold.from.set(frame.beast.x, world.ground(frame.beast.x, frame.beast.z) + 1.05, frame.beast.z);
-      laneHold.to.set(eye.x + frame.fx * SWORD_OFFSET, world.ground(eye.x, eye.z) + 1.05, eye.z + frame.fz * SWORD_OFFSET);
+      laneHold.to.set(frame.beast.x + frame.fx * 4.2, world.ground(frame.beast.x, frame.beast.z) + 1.05, frame.beast.z + frame.fz * 4.2);
       laneHold.launch.set(frame.fx, 0, frame.fz);
       laneHold.group.position.lerpVectors(laneHold.from, laneHold.to, 0.5);
     }
@@ -1608,6 +1607,7 @@ export function createBlade(onLaunch, bits = {}) {
     btn.addEventListener('pointercancel', up);
   }
 
+  let chain = 0, chainAt = 0, swing = 0;
   function airSlice(dx, dy) {
     if (!scene || !camera || !world) return;
     camera.getWorldDirection(look);
@@ -1619,12 +1619,18 @@ export function createBlade(onLaunch, bits = {}) {
     aim.y = 0;
     if (aim.lengthSq() < 1e-6) aim.copy(look).setY(0);
     aim.normalize();
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.28), new THREE.MeshBasicMaterial({ color: '#3ee0ff', side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));
+    const now = performance.now();
+    if (now - chainAt > 900) chain = 0;
+    const step = chain;
+    chain = (chain + 1) % 3;
+    chainAt = now;
+    swing = 1;
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(step === 2 ? 2.3 : 1.6, 0.28), new THREE.MeshBasicMaterial({ color: step === 2 ? '#ffe7a4' : step === 1 ? '#fff6dc' : '#3ee0ff', side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));
     mesh.position.copy(camera.position);
     mesh.position.y -= 0.35;
     mesh.lookAt(mesh.position.x + aim.x, mesh.position.y, mesh.position.z + aim.z);
     scene.add(mesh);
-    shots.push({ mesh, v: aim.multiplyScalar(18), life: 0.5, kind: 'slice', blew: false, chopped: false });
+    shots.push({ mesh, v: aim.multiplyScalar(step === 2 ? 22 : 18), life: 0.5, kind: 'slice', blew: false, chopped: false, dmg: [8, 14, 26][step], kick: step === 2 ? 0.12 : 0.04 });
     say('Slice');
   }
 
@@ -1682,7 +1688,7 @@ export function createBlade(onLaunch, bits = {}) {
   }
 
   function meet(blockingNow) {
-    if (!blockingNow) { say('Hit'); return; }
+    if (!blockingNow) { say('Hit'); zones?.nick?.(12); return; }
     const perfect = blocking && blockHeld <= 0.2;
     say(perfect ? 'Taunt' : 'Blocked');
     if (perfect) showTaunt();
@@ -1781,7 +1787,7 @@ export function createBlade(onLaunch, bits = {}) {
       if (shot.kind === 'lob') {
         const near = Math.hypot(shot.mesh.position.x - eye.x, shot.mesh.position.z - eye.z) < 1.15 && Math.abs(shot.mesh.position.y - eye.y) < 1.5;
         if (near && blocking) reflect(shot);
-        else if (near) { say('Hit'); shot.life = 0; }
+        else if (near) { say('Hit'); zones?.nick?.(12); shot.life = 0; }
       } else if (shot.kind === 'slice') {
         const p = shot.mesh.position;
         const speed = Math.hypot(shot.v.x, shot.v.z) || 1;
@@ -1789,7 +1795,7 @@ export function createBlade(onLaunch, bits = {}) {
         if (!shot.chopped) { shot.chopped = true; world.chop?.(p.x, p.z, shot.v.x, shot.v.z, TUNE.chopReach); }
         const beast = zones.beasts().find((b) => !b.dead && Math.hypot(b.x - shot.mesh.position.x, b.z - shot.mesh.position.z) < 2.2);
         if (beast) {
-          zones.hurt([{ x: beast.x, z: beast.z, r: 1.3, d: 6, k: 'arcane', kx: shot.v.x * 0.04, kz: shot.v.z * 0.04 }]);
+          zones.hurt([{ x: beast.x, z: beast.z, r: 1.3, d: shot.dmg || 6, k: 'arcane', kx: shot.v.x * (shot.kick || 0.04), kz: shot.v.z * (shot.kick || 0.04) }]);
           shot.life = 0;
         }
       } else {
@@ -1866,6 +1872,7 @@ export function createBlade(onLaunch, bits = {}) {
         decoyBtn.addEventListener('pointerup', (e) => { setDecoy(!decoy); e.preventDefault(); e.stopPropagation(); });
       }
     }
+    if (swing > 0) swing = Math.max(0, swing - dt * 3.4);
     poundTick(dt);
     orbitTick(dt);
     tickHolo(holos, song);
@@ -1979,19 +1986,19 @@ export function createBlade(onLaunch, bits = {}) {
         else finishDeep(note);
       } else if (!note.resolved && note.weight === 'heavy' && song >= note.due) {
         if (blocking) breakHeavy(note, 'Block');
-        else { note.resolved = true; combo = 0; say('Hit'); flash(); }
+        else { note.resolved = true; combo = 0; say('Hit'); zones?.nick?.(12); flash(); }
       } else if (!note.resolved && note.weight === 'ring' && song >= note.due) {
         const crouched = (walker?.crouch || 0) > 0.45 || slide?.kind === 'crouch';
         note.resolved = true;
         if (crouched || slide) say(crouched ? 'Crouch' : 'Dodge');
-        else { combo = 0; say('Hit'); flash(); }
+        else { combo = 0; say('Hit'); zones?.nick?.(12); flash(); }
       } else if (note.kind === 'wall' && note.shape !== 'deep' && !note.resolved && song >= note.due) {
         const feet = walker ? walker.feet : camera.position;
         const lateral = Math.hypot(feet.x - note.group.position.x, feet.z - note.group.position.z);
         const crouched = (walker?.crouch || 0) > 0.6;
         if (!wallBlocks(lateral, crouched, note.ceiling)) { note.resolved = true; say(note.ceiling && crouched ? 'Crouch' : 'Dodge'); }
         else if (blocking) breakHeavy(note, 'Block');
-        else { note.resolved = true; combo = 0; say('Hit'); flash(); maybeOpen(); }
+        else { note.resolved = true; combo = 0; say('Hit'); zones?.nick?.(12); flash(); maybeOpen(); }
       } else if (!note.resolved && song > note.due + TUNE.window) fail(note);
       if (note.resolved && song > note.due + 0.35) {
         if (!note.orbit) scene?.remove(note.group);
@@ -2012,6 +2019,8 @@ export function createBlade(onLaunch, bits = {}) {
   return {
     update,
     get combo() { return combo; },
+    get swing() { return swing; },
+    get chain() { return chain; },
     get song() { return song; },
     setBlock,
     setDrawn(on) { drawn = !!on; padOn = true; if (drawn) frameHold(); if (!drawn) { song = 0; cursor = 0; clearNotes(); poundCancel(); dropOrbit(); } },

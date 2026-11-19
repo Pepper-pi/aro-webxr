@@ -21,6 +21,7 @@ import { createBlast } from './blast.js';
 import { createHole } from './hole.js';
 import { createTwister } from './twister.js';
 import { createSpells, SPELLS } from './spells.js';
+import { createQuest } from './quest.js';
 import { createSound } from './sound.js';
 import { spellBar } from './hud.js';
 import { createZones } from './zones.js';
@@ -102,6 +103,7 @@ const flames = createFlames(air);
 scene.add(flames.mesh);
 const fire = createFire({ world, air, fx, flames });
 const zones = createZones({ scene, world, walker, camera, air });
+const quest = createQuest({ scene, world, walker, zones });
 const BLADE_ATK = [
   { key: 'pound', name: 'Pound', colour: '#c4a574', sides: 4 },
   { key: 'spin', name: 'Spin', colour: '#7ec8ff', sides: 6 },
@@ -227,7 +229,14 @@ if (sound && spells) spells.hear = (what, o) => sound.cue(what, o);
 
 // The one clock. Everything that moves is a function of it; `pace` is how fast it runs (1 as a rule).
 const clock = { pace: 1 };
-const settings = { hands: false, class: 'mage', blade: false, gunner: false, gfx: 'high' };
+const settings = { hands: false, class: 'mage', blade: false, gunner: false, gfx: 'high', viewBack: false };
+document.getElementById('view')?.addEventListener('pointerup', (e) => {
+  settings.viewBack = !settings.viewBack;
+  e.currentTarget.textContent = settings.viewBack ? 'Far' : 'Near';
+  e.currentTarget.classList.toggle('on', settings.viewBack);
+  e.preventDefault();
+  e.stopPropagation();
+});
 const handsEl = document.getElementById('hands');
 const gear = document.getElementById('gear');
 const settingsEl = document.getElementById('settings');
@@ -405,10 +414,11 @@ function tick(dt) {
     if (inp.spell) spells.select(spells.selected + inp.spell);
   }
   zones.update(dt);
+  quest?.update();
   if (inp.any) sound?.wake();
   walker.update(dt, planted ? { ...inp, move: { x: 0, y: 0 }, jump: false, sprint: false } : inp);
   if (free) { camera.position.copy(free.position); camera.lookAt(free.target); } else walker.look(camera);
-  const chasing = !free && walker.speed > 0.9 && !(settings.class === 'blade' && blade.drawn && blade.pad);
+  const chasing = !free && (settings.viewBack || walker.speed > 0.9) && !(settings.class === 'blade' && blade.drawn && blade.pad);
   if (chasing) {
     const yaw = walker.yaw;
     const fx = Math.sin(yaw);
@@ -473,8 +483,9 @@ function tick(dt) {
     sword.quaternion.copy(camera.quaternion);
     sword.rotateZ(-0.5);
   } else if (sword.visible) {
-    sword.position.set(0.04, -0.42, -0.48);
-    sword.rotation.set(0.25, 0.15, -0.2);
+    const s = blade.swing || 0;
+    sword.position.set(0.16 + s * 0.08, -0.32, -0.62);
+    sword.rotation.set(0.35 - s * 0.9, 0.2, -0.35 - s * 1.15);
     sword.scale.setScalar(1.05);
     sword.updateMatrix();
     sword.matrix.premultiply(camera.matrixWorld);
@@ -487,7 +498,7 @@ function tick(dt) {
 
 // (the measuring tools were written for a figure seen from behind: these are the same handles on one seen from within)
 const head = new THREE.Vector3();
-const lab = window.lab = { castDisc, discOn: () => discOn,
+const lab = window.lab = { castDisc, discOn: () => discOn, quest,
   THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, arms, blade, gun, tune: TUNE, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
   player: walker,
   follow: { get yaw() { return walker.yaw; }, set yaw(v) { walker.yaw = v; }, get pitch() { return walker.pitch; }, set pitch(v) { walker.pitch = v; }, want: 0, distance: 0, pivot: new THREE.Vector3() },
