@@ -485,9 +485,9 @@ function tick(dt) {
   } else if (sword.visible) {
     const s = blade.swing || 0;
     const narrow = innerWidth < 820;
-    sword.position.set(narrow ? 0.04 : 0.22, (narrow ? -0.22 : -0.18) - s * 0.03, narrow ? -0.42 : -0.7);
-    sword.rotation.set(narrow ? 0.2 - s * 0.25 : 0.55 - s * 0.45, narrow ? 0.02 : 0.15, narrow ? -0.2 - s * 0.3 : -0.45 - s * 0.55);
-    sword.scale.set(narrow ? 1.45 : 1.05, narrow ? 0.92 : 1.05, narrow ? 2.4 : 1.05);
+    sword.position.set(narrow ? 0.1 : 0.22, (narrow ? -0.16 : -0.18) - s * 0.02, narrow ? -0.55 : -0.7);
+    sword.rotation.set(narrow ? 0.35 - s * 0.2 : 0.55 - s * 0.45, narrow ? 0.4 : 0.15, narrow ? -0.5 - s * 0.25 : -0.45 - s * 0.55);
+    sword.scale.setScalar(narrow ? 0.62 : 1.05);
     sword.updateMatrix();
     sword.matrix.premultiply(camera.matrixWorld);
     sword.matrix.decompose(sword.position, sword.quaternion, sword.scale);
