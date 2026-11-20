@@ -184,6 +184,29 @@ function skinnedMinY(model) {
 }
 
 const frostTint = new THREE.Color(0x9fd8ff);
+const toonCache = {};
+function toonTex(hex) {
+  if (toonCache[hex]) return toonCache[hex];
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = hex;
+  g.fillRect(0, 0, 64, 64);
+  g.fillStyle = 'rgba(255,255,255,0.34)';
+  g.fillRect(0, 0, 64, 20);
+  g.fillStyle = 'rgba(0,0,0,0.22)';
+  g.fillRect(0, 46, 64, 18);
+  g.strokeStyle = 'rgba(255,255,255,0.4)';
+  g.lineWidth = 2;
+  g.beginPath();
+  g.moveTo(6, 12); g.lineTo(34, 28); g.lineTo(58, 10);
+  g.moveTo(8, 40); g.lineTo(40, 34);
+  g.stroke();
+  const tex = new THREE.CanvasTexture(c);
+  if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+  toonCache[hex] = tex;
+  return tex;
+}
 
 function plantFeet(b) {
   const model = b.model;
@@ -221,9 +244,10 @@ function fitMob(root, height, tint) {
     if (!src || src.type === 'MeshBasicMaterial') return;
     const color = src.color ? src.color.clone() : new THREE.Color('#ffffff');
     const blank = !src.map && color.r > 0.93 && color.g > 0.93 && color.b > 0.93;
-    if (blank && tint) color.set(tint);
+    const paint = !src.map ? ((blank && tint) ? tint : `#${color.getHexString()}`) : null;
+    if (paint) color.set('#ffffff');
     const mat = new THREE.MeshBasicMaterial({
-      map: src.map || null,
+      map: src.map || (paint ? toonTex(paint) : null),
       color,
       side: THREE.DoubleSide,
       alphaTest: src.alphaTest || 0,
@@ -448,7 +472,6 @@ export function createBeasts(scene, ground, world) {
   const slams = [];
   const strikes = [];
   let foe = null;
-  const STILL = new Set(['fox', 'bear', 'oryx', 'pig', 'crab', 'fish']);
   const ring = new THREE.Mesh(new THREE.RingGeometry(1.35, 1.7, 28), new THREE.MeshBasicMaterial({ color: '#ff5a45', side: THREE.DoubleSide, transparent: true, opacity: 0.9, depthWrite: false }));
   ring.rotation.x = -Math.PI / 2;
   ring.visible = false;
@@ -842,13 +865,20 @@ export function createBeasts(scene, ground, world) {
           if (b.bleed > 0.2) o.material.color.lerp(new THREE.Color('#c43838'), 0.35);
           if (b.siphon > 0.2) o.material.color.lerp(new THREE.Color('#7a4ad4'), 0.4);
         });
-        const still = STILL.has(b.kind) || (!b.clips?.walk && !b.clips?.run);
+        const still = !b.clips?.walk && !b.clips?.run;
         const moving = dist > 0.15 || (aggro && fd > 2.3);
-        const hop = still && moving ? Math.abs(Math.sin(performance.now() * 0.012 + b.homeX)) * 0.14 : 0;
-        b.g.position.y = ground(b.g.position.x, b.g.position.z) + hop;
+        const gaitT = performance.now() * 0.009 + b.homeX;
+        const step = moving ? Math.sin(gaitT * 2) : Math.sin(gaitT) * 0.2;
+        b.g.position.y = ground(b.g.position.x, b.g.position.z) + (still && moving ? Math.abs(step) * 0.07 : 0);
         if (still && (moving || aggro)) {
           b.g.rotation.y = Math.atan2(aggro ? fx : dx, aggro ? fz : dz);
-          b.g.rotation.z = moving ? Math.sin(performance.now() * 0.014 + b.homeZ) * 0.1 : 0;
+          b.g.rotation.z = step * 0.16;
+          b.g.rotation.x = moving ? Math.sin(gaitT * 2) * 0.07 : 0;
+          if (b.model && !b.gait) {
+            b.gait = [];
+            b.model.traverse((o) => { if (/leg|thigh|shin|calf|foot|paw|hoof/i.test(o.name || '')) b.gait.push(o); });
+          }
+          b.gait?.forEach((bone, i) => { bone.rotation.x = step * (i % 2 ? 0.55 : -0.55); });
         }
         if (b.model) plantFeet(b);
         const wind = b.g.getObjectByName('wind');
@@ -867,11 +897,13 @@ export function createBeasts(scene, ground, world) {
             track.visible = true;
             for (const seg of track.children) if (seg.material) seg.material.opacity = 0.3 + u * 0.65;
           }
+          if (b.kind === 'wolf' && b.model) b.model.rotation.x = -0.55 * u;
           if (b.swing <= 0) {
             b.swing = 0;
+            if (b.model) b.model.rotation.x = 0;
             if (wind) wind.material.opacity = 0;
             if (track) track.visible = false;
-            if (fd < 2.9) strikes.push({ x: b.g.position.x, z: b.g.position.z, d: b.kind === 'bear' ? 16 : 12 });
+            if (fd < 2.9) strikes.push({ x: b.g.position.x, z: b.g.position.z, d: b.kind === 'wolf' ? 14 : b.kind === 'bear' ? 16 : 12, word: b.kind === 'wolf' ? 'Bite' : 'Hit' });
           }
         } else {
           if (wind) wind.material.opacity = 0;

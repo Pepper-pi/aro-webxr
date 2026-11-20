@@ -1394,7 +1394,7 @@ export function createZones({ scene, world, walker, camera, air }) {
       }
       for (const hit of beasts.strikes()) {
         let dmg = hit.d;
-        let word = 'Hit';
+        let word = hit.word || 'Hit';
         if (arm.dodge) { dmg = 0; word = 'Dodged'; }
         else if (arm.block) { dmg = 0; word = 'Parry'; }
         else if (arm.guard) { dmg = Math.max(1, Math.round(hit.d * 0.35)); word = 'Guarded'; }
