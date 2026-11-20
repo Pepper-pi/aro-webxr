@@ -126,7 +126,7 @@ function hideQuest(on) {
   if (q) q.style.visibility = on ? 'hidden' : '';
 }
 
-export function createHub() {
+export function createHub(hooks = {}) {
   let data = state();
   let who = null;
   let lastLine = '';
@@ -256,6 +256,7 @@ export function createHub() {
   }
 
   function openHome() {
+    hooks.visit?.();
     data = state();
     document.getElementById('menu') && (document.getElementById('menu').hidden = true);
     document.getElementById('home').hidden = false;

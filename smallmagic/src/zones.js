@@ -176,8 +176,8 @@ export function createZones({ scene, world, walker, camera, air }) {
   reel.rotation.x = Math.PI / 2;
   reel.position.set(0, 0.12, 0.03);
   rod.add(grip, blank, tipM, reel);
-  rod.position.set(0.32, -0.42, -0.62);
-  rod.rotation.set(1.15, -0.4, -0.62);
+  rod.position.set(0.28, -0.22, -0.48);
+  rod.rotation.set(0.82, -0.55, -0.35);
   hold.add(rod);
   scene.add(hold);
   const lineGeo = new THREE.BufferGeometry();
@@ -266,6 +266,34 @@ export function createZones({ scene, world, walker, camera, air }) {
   bio.visible = false;
   bio.frustumCulled = false;
   scene.add(bio);
+  const shorePos = new Float32Array(160 * 3);
+  const shoreCol = new Float32Array(160 * 3);
+  for (let i = 0; i < 160; i++) {
+    const a = (i / 160) * Math.PI * 2;
+    const edge = 1.02 + (i % 4) * 0.03;
+    shorePos[i * 3] = -50 + Math.cos(a) * 14 * edge;
+    shorePos[i * 3 + 1] = world.water + 0.12;
+    shorePos[i * 3 + 2] = -46 + Math.sin(a) * 9 * edge;
+    shoreCol[i * 3] = 0.95;
+    shoreCol[i * 3 + 1] = 0.2 + (i % 3) * 0.08;
+    shoreCol[i * 3 + 2] = 1;
+  }
+  const shoreGeo = new THREE.BufferGeometry();
+  shoreGeo.setAttribute('position', new THREE.BufferAttribute(shorePos, 3));
+  shoreGeo.setAttribute('color', new THREE.BufferAttribute(shoreCol, 3));
+  const shoreGlow = new THREE.Points(shoreGeo, new THREE.PointsMaterial({ size: 0.16, vertexColors: true, transparent: true, opacity: 0.95, depthWrite: false }));
+  shoreGlow.visible = false;
+  shoreGlow.frustumCulled = false;
+  scene.add(shoreGlow);
+  const shoreVeil = new THREE.Mesh(
+    new THREE.RingGeometry(7.5, 20, 40),
+    new THREE.MeshBasicMaterial({ color: '#10162e', transparent: true, opacity: 0.42, side: THREE.DoubleSide, depthWrite: false }),
+  );
+  shoreVeil.rotation.x = -Math.PI / 2;
+  shoreVeil.position.set(-50, world.water + 0.03, -46);
+  shoreVeil.scale.set(1.15, 1, 0.72);
+  shoreVeil.visible = false;
+  scene.add(shoreVeil);
   const stars = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ color: '#f4f0ff', size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0.85 }));
   {
     const n = 180;
@@ -315,6 +343,7 @@ export function createZones({ scene, world, walker, camera, air }) {
       let w = s.w;
       if (lure === 'fly' && s.max < 26) w += 3;
       if (lure === 'glow' && s.dusk && dusk) w += 4;
+      try { if (s.dusk && (JSON.parse(localStorage.getItem('aro-hub') || '{}').people?.sable?.fp || 0) >= 90) w += 3; } catch { /* ordinary odds */ }
       for (let i = 0; i < w; i++) bag.push(s);
     }
     if (!bag.length) bag = SPECIES.filter((s) => !s.dusk);
@@ -622,7 +651,9 @@ export function createZones({ scene, world, walker, camera, air }) {
     line.visible = true;
     flicking = 1;
     const quick = lure === 'fly' ? 0.7 : lure === 'glow' ? 0.4 : 0;
-    biteIn = 1.5 + Math.random() * 2.1 - quick;
+    let wait = 1.5 + Math.random() * 2.1 - quick;
+    try { if ((JSON.parse(localStorage.getItem('aro-hub') || '{}').people?.sable?.fp || 0) >= 90) wait *= 0.55; } catch { /* keep the ordinary wait */ }
+    biteIn = wait;
     splashAt(spot.x, spot.z, dusk);
   }
   let fishDown = false;
@@ -664,7 +695,11 @@ export function createZones({ scene, world, walker, camera, air }) {
   const dayHorizon = skyMesh?.material.uniforms.uHorizon.value.clone();
   let dusk = false;
   let waterMat = null;
-  world.root.traverse((o) => { if (!waterMat && o.material?.uniforms?.uBio) waterMat = o.material; });
+  let grassU = null;
+  world.root.traverse((o) => {
+    if (!waterMat && o.material?.uniforms?.uBio) waterMat = o.material;
+    if (!grassU && o.material?.uniforms?.uG1) grassU = o.material.uniforms;
+  });
   function setDusk(on) {
     dusk = on;
     if (duskBtn) duskBtn.textContent = on ? 'Day' : 'Dusk';
@@ -679,6 +714,7 @@ export function createZones({ scene, world, walker, camera, air }) {
       }
       u.uZenith.value.set(on ? '#070d24' : dayZenith);
       u.uHorizon.value.set(on ? '#3a2458' : dayHorizon);
+      if (u.uNight) u.uNight.value = on ? 1 : 0;
       if (u.uCloud && skyMesh.userData.dayCloud) {
         u.uCloud.value.copy(on ? new THREE.Color('#14183a') : skyMesh.userData.dayCloud);
         u.uCloudMid.value.copy(on ? new THREE.Color('#2a2048') : skyMesh.userData.dayMid);
@@ -688,6 +724,20 @@ export function createZones({ scene, world, walker, camera, air }) {
     if (waterMat) waterMat.uniforms.uBio.value = on ? 1 : 0;
     bio.visible = on;
     stars.visible = on;
+    shoreGlow.visible = on;
+    shoreVeil.visible = on && atLake;
+    if (on && atLake) { shotT = 0.05; shot.visible = true; }
+    if (grassU) {
+      const eve = on && atLake;
+      ['uG1', 'uG2', 'uG3', 'uG4'].forEach((k) => {
+        const slot = grassU[k];
+        if (!slot) return;
+        if (!slot.userData) slot.userData = {};
+        if (!slot.userData.day) slot.userData.day = slot.value.clone();
+        slot.value.copy(slot.userData.day);
+        if (eve) slot.value.multiply(new THREE.Color('#243058'));
+      });
+    }
   }
   duskBtn?.addEventListener('pointerup', (e) => { setDusk(!dusk); e.preventDefault(); e.stopPropagation(); });
   document.getElementById('eve')?.addEventListener('pointerup', (e) => { setDusk(!dusk); e.preventDefault(); e.stopPropagation(); });
@@ -762,6 +812,27 @@ export function createZones({ scene, world, walker, camera, air }) {
     shoveBeast(x, z, dx, dz, dist) { return beasts.shove(x, z, dx, dz, dist); },
     get blocksMagic() { return name !== 'meadow'; },
     showBoard, enter,
+    seatHexes(list) {
+      const live = beasts.live().filter((b) => !b.dead && b.where === 'meadow');
+      const take = (kind) => {
+        const i = live.findIndex((b) => b.kind === kind && !b._sat);
+        if (i < 0) return null;
+        live[i]._sat = true;
+        return live[i];
+      };
+      const put = (b, hex, side) => {
+        if (!b || !hex) return;
+        const x = hex.x + side;
+        const z = hex.z + 1.2;
+        beasts.anchor(b.n, x, world.ground(x, z), z, 0);
+      };
+      const byId = (id) => list.find((h) => h.id === id);
+      put(take('boar'), byId('moss'), -1.2);
+      put(take('wolf'), byId('moss'), 1.4);
+      put(take('wolf'), byId('glen'), 0.4);
+      put(take('slime'), byId('meadow'), 0);
+      put(take('slime'), byId('bloom'), -0.6);
+    },
     hurt(marks) {
       beasts.hurt(marks, name, (hit) => {
         const boom = new THREE.Mesh(blastGeo, new THREE.MeshBasicMaterial({ color: hit.through ? 0xfff6dc : (hit.k === 'arcane' ? 0xd7a6ff : 0xff7a1c), transparent: true, opacity: 0.85, depthWrite: false }));
@@ -815,6 +886,9 @@ export function createZones({ scene, world, walker, camera, air }) {
     },
     castHeld() {},
     update(dt) {
+      try {
+        if ((JSON.parse(localStorage.getItem('aro-hub') || '{}').people?.maren?.fp || 0) >= 90 && hearts < 120) hearts = Math.min(120, hearts + dt * 4);
+      } catch { /* ordinary health */ }
       for (const s of beasts.slams()) {
         if (Math.hypot(walker.feet.x - s.x, walker.feet.z - s.z) < s.r) this.nick(24);
       }
@@ -910,7 +984,7 @@ export function createZones({ scene, world, walker, camera, air }) {
         fly.visible = false;
         wisps.forEach((w) => { w.visible = false; });
       }
-      const wantZ = phase === 'aim' ? 0.55 : (phase === 'bite' || phase === 'reel') ? 1.15 : (fishing ? 0.12 : 0);
+      const wantZ = phase === 'aim' ? 0.28 : (phase === 'bite' || phase === 'reel') ? 0.36 : (fishing ? 0.08 : 0);
       fishZoom += (wantZ - fishZoom) * Math.min(1, dt * 2.4);
       if (name === 'meadow' && fishing) {
         if (fishDown && phase === 'aim') power = Math.min(1, power + dt * 0.55);
@@ -975,7 +1049,7 @@ export function createZones({ scene, world, walker, camera, air }) {
         }
         if (dip > 0) dip = Math.max(0, dip - dt * 1.6);
         const bend = (phase === 'bite' ? 0.25 + tension * 0.7 : 0) + dip * 0.45;
-        rod.rotation.x = 1.05 + pose * 0.55 + bend * 0.45;
+        rod.rotation.x = 0.78 + pose * 0.4 + bend * 0.22;
         rod.rotation.z = -0.55 - Math.max(0, pose) * 0.15 - bend * 0.2;
         blank.rotation.z = -bend * 0.8;
         tipM.rotation.z = -bend * 1.3;

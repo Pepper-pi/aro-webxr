@@ -73,13 +73,13 @@ export function createAR(scene, camera, world, zones) {
   const rift = new THREE.Group();
   rift.name = 'ar-rift';
   const arch = new THREE.Mesh(
-    new THREE.TorusGeometry(0.95, 0.045, 8, 28, Math.PI),
-    new THREE.MeshBasicMaterial({ color: '#f1d9a4', transparent: true, opacity: 0.95, side: THREE.DoubleSide }),
+    new THREE.TorusGeometry(1.25, 0.07, 8, 36, Math.PI),
+    new THREE.MeshBasicMaterial({ color: '#ffe7a4', transparent: true, opacity: 0.95, side: THREE.DoubleSide }),
   );
   arch.rotation.z = Math.PI;
   const inner = new THREE.Mesh(
-    new THREE.TorusGeometry(0.72, 0.02, 6, 24, Math.PI),
-    new THREE.MeshBasicMaterial({ color: '#7ee0ff', transparent: true, opacity: 0.8, side: THREE.DoubleSide }),
+    new THREE.TorusGeometry(0.95, 0.035, 6, 32, Math.PI),
+    new THREE.MeshBasicMaterial({ color: '#7ee0ff', transparent: true, opacity: 0.9, side: THREE.DoubleSide }),
   );
   inner.rotation.z = Math.PI;
   const glow = new THREE.Mesh(
@@ -87,10 +87,10 @@ export function createAR(scene, camera, world, zones) {
     new THREE.MeshBasicMaterial({ color: '#ffe7a8', transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false }),
   );
   rift.add(glow, arch, inner);
-  for (let i = 0; i < 9; i++) {
-    const tick = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.09, 0.02), new THREE.MeshBasicMaterial({ color: '#fff6dc' }));
-    const a = Math.PI + (i / 8) * Math.PI;
-    tick.position.set(Math.cos(a) * 0.95, Math.sin(a) * 0.95, 0);
+  for (let i = 0; i < 14; i++) {
+    const tick = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.03), new THREE.MeshBasicMaterial({ color: i % 2 ? '#fff6dc' : '#9af6ff' }));
+    const a = Math.PI + (i / 13) * Math.PI;
+    tick.position.set(Math.cos(a) * 1.25, Math.sin(a) * 1.25, 0.02);
     tick.rotation.z = a - Math.PI / 2;
     rift.add(tick);
   }
@@ -170,12 +170,14 @@ export function createAR(scene, camera, world, zones) {
       anchored.push(b);
     });
     const lead = anchored[0];
+    const other = anchored[1];
     if (lead) {
-      const rx = fz;
-      const rz = -fx;
-      rift.position.set(lead.g.position.x + fx * 0.45 - rx * 0.15, lead.g.position.y + 1.25, lead.g.position.z + fz * 0.45 - rz * 0.15);
-      rift.scale.setScalar(1.35);
-      rift.lookAt(walker.feet.x, walker.feet.y + 1.5, walker.feet.z);
+      const ax = other ? (lead.g.position.x + other.g.position.x) * 0.5 : lead.g.position.x;
+      const az = other ? (lead.g.position.z + other.g.position.z) * 0.5 : lead.g.position.z;
+      const ay = Math.max(lead.g.position.y, other ? other.g.position.y : lead.g.position.y);
+      rift.position.set(ax + fx * 0.35, ay + 1.85, az + fz * 0.35);
+      rift.scale.setScalar(1.15);
+      rift.lookAt(walker.feet.x, walker.feet.y + 1.3, walker.feet.z);
     }
   }
 
@@ -237,7 +239,7 @@ export function createAR(scene, camera, world, zones) {
       }
       return;
     }
-    riftLife = 1.7;
+    riftLife = 3.4;
     rift.scale.setScalar(0.2);
     if (walker) plant(walker);
     tryFeed();
@@ -270,9 +272,9 @@ export function createAR(scene, camera, world, zones) {
     });
     if (riftLife > 0) {
       riftLife = Math.max(0, riftLife - dt);
-      const open = Math.min(1, (1.7 - riftLife) / 0.45);
-      rift.scale.setScalar((0.35 + open * 0.9) * 1.55);
-      const fade = riftLife < 0.55 ? riftLife / 0.55 : 1;
+      const open = Math.min(1, (3.4 - riftLife) / 0.45);
+      rift.scale.setScalar((0.4 + open * 0.7) * 1.7);
+      const fade = riftLife < 0.7 ? riftLife / 0.7 : 1;
       rift.visible = fade > 0.02;
       arch.material.opacity = 0.95 * fade;
       inner.material.opacity = 0.8 * fade;

@@ -247,7 +247,9 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
       cooldown = Math.max(0, cooldown - dt);
       let power = 1, circle = 0, seal = 0, target = null;
       if (down && cooldown <= 0) hold += dt;
-      const charge = Math.min(1, Math.max(0, (hold - 0.25) / 1.1));
+      const pace = (typeof localStorage !== 'undefined' && (() => { try { return (JSON.parse(localStorage.getItem('aro-hub') || '{}').people?.lumen?.fp || 0) >= 90; } catch { return false; } })()) ? 0.68 : 1.1;
+      const windup = pace < 1 ? 0.12 : 0.25;
+      const charge = Math.min(1, Math.max(0, (hold - windup) / pace));
 
       if (spell.key === 'tornado') {
         if (down && cooldown <= 0 && (leash || !twister.busy)) {

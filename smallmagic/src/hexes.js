@@ -64,7 +64,9 @@ export function createHexes(scene, world, camera, walker) {
     node.position.set(at.x, 0, at.z);
     const fill = fillMesh(at.x, at.z, def.tint);
     const edge = edgeLine(at.x, at.z, SIZE * 0.96, def.accent);
+    const glow = ribbon(at.x, at.z, def.accent);
     const outer = edgeLine(at.x, at.z, SIZE * 1.22, '#ffe27a');
+    const aurora = auroraOf();
     outer.visible = false;
     const runes = new THREE.Group();
     for (let i = 0; i < 6; i++) {
@@ -86,7 +88,7 @@ export function createHexes(scene, world, camera, walker) {
     const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.45, 6.5, 6), new THREE.MeshBasicMaterial({ color: def.accent, transparent: true, opacity: 0.9 }));
     beacon.visible = false;
     beacon.position.y = 1.8;
-    node.add(fill, edge, outer, runes, beacon);
+    node.add(fill, edge, glow, outer, runes, beacon, aurora);
     if (water) node.add(water);
     if (stones) node.add(stones);
     const herb = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), new THREE.MeshBasicMaterial({ color: '#7dff9a' }));
@@ -94,7 +96,7 @@ export function createHexes(scene, world, camera, walker) {
     herb.visible = def.theme === 'Forest Creek' || def.theme === 'Sunlit Meadow';
     node.add(herb);
     group.add(node);
-    return { ...def, ...at, node, fill, edge, outer, runes, motes, water, beacon, herb, got: false };
+    return { ...def, ...at, node, fill, edge, glow, outer, aurora, runes, motes, water, beacon, herb, got: false };
   });
 
   function fillMesh(cx, cz, color) {
@@ -139,6 +141,30 @@ export function createHexes(scene, world, camera, walker) {
     const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color }));
     line.frustumCulled = false;
     return line;
+  }
+  function ribbon(cx, cz, color) {
+    const g = new THREE.Group();
+    for (let i = 0; i < 30; i++) {
+      const a = (i / 30) * TAU;
+      const rad = SIZE * hexRadius(a) * 0.98;
+      const x = Math.cos(a) * rad;
+      const z = Math.sin(a) * rad;
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.07, 0.28), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.82 }));
+      slab.position.set(x, world.ground(cx + x, cz + z) + 0.1, z);
+      slab.rotation.y = -a;
+      g.add(slab);
+    }
+    return g;
+  }
+  function auroraOf() {
+    const g = new THREE.Group();
+    for (let i = 0; i < 3; i++) {
+      const sheet = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 2.2), new THREE.MeshBasicMaterial({ color: i === 1 ? '#d7b0ff' : '#8dffe0', transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false }));
+      sheet.position.set(-1.2 + i * 1.2, 2.4, 0);
+      g.add(sheet);
+    }
+    g.visible = false;
+    return g;
   }
   function creek(theme) {
     const g = new THREE.Group();
@@ -254,6 +280,12 @@ export function createHexes(scene, world, camera, walker) {
       h.fill.material.opacity = (here === h ? 0.46 : 0.24) + (t === 3 ? 0.22 : (t - 1) * 0.08);
       h.edge.material.color.set(t >= 3 ? '#fff6c8' : h.accent);
       h.outer.visible = t >= 3;
+      h.aurora.visible = t >= 3;
+      if (h.aurora.visible) {
+        h.aurora.rotation.y = time * 0.25;
+        h.aurora.children.forEach((s, i) => { s.material.opacity = 0.16 + Math.sin(time * 1.4 + i) * 0.08; });
+      }
+      h.glow.children.forEach((s) => { s.material.opacity = t >= 3 ? 1 : t === 2 ? 0.9 : 0.72; });
       if (h.outer.material) h.outer.material.color.set('#ffe27a');
       h.beacon.visible = t >= 3;
       if (h.beacon.visible) h.beacon.position.y = 1.6 + Math.sin(time * 2 + h.q) * 0.15;
@@ -280,7 +312,8 @@ export function createHexes(scene, world, camera, walker) {
       if (h.herb.visible && !h.got && Math.hypot(walker.feet.x - (h.x + 1.4), walker.feet.z - (h.z + 0.6)) < 1.3) {
         h.got = true;
         h.herb.visible = false;
-        grant(h.id, 12);
+        const bonus = (() => { try { return (JSON.parse(localStorage.getItem('aro-hub') || '{}').people?.bram?.fp || 0) >= 90; } catch { return false; } })();
+        grant(h.id, bonus ? 18 : 12);
         try {
           const n = Number(localStorage.getItem('aro-herbs') || 0) + 1;
           localStorage.setItem('aro-herbs', String(n));
@@ -289,7 +322,11 @@ export function createHexes(scene, world, camera, walker) {
     }
     if (here) {
       here._acc = (here._acc || 0) + dt;
-      if (here._acc > 8) { here._acc = 0; grant(here.id, 1); }
+        if (here._acc > 8) {
+          here._acc = 0;
+          const bonus = (() => { try { return (JSON.parse(localStorage.getItem('aro-hub') || '{}').people?.bram?.fp || 0) >= 90; } catch { return false; } })();
+          grant(here.id, bonus ? 2 : 1);
+        }
     }
     if (bannerT > 0) {
       bannerT -= dt;

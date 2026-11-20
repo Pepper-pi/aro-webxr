@@ -109,8 +109,16 @@ const fire = createFire({ world, air, fx, flames });
 const zones = createZones({ scene, world, walker, camera, air });
 const ar = createAR(scene, camera, world, zones);
 const hexes = createHexes(scene, world, camera, walker);
-const hub = createHub();
+const hub = createHub({
+  visit() {
+    zones.enter('hub');
+    walker.pitch = 0.06;
+    const board = document.getElementById('board');
+    if (board) board.hidden = true;
+  },
+});
 zones.onLand = () => { const shore = hexes.at(walker.feet.x, walker.feet.z); hexes.grant(shore?.id || 'shore', shore ? 16 : 8); };
+zones.seatHexes(hexes.list);
 const wrist = new THREE.Vector3();
 function wristPoint() {
   if (!tracked.on) return null;
@@ -487,13 +495,13 @@ function tick(dt) {
     camera.position.y += fishPull * 0.32;
     camera.position.z -= Math.cos(yaw) * fishPull;
   }
-  const wheel = discOn && kit === 'mage' && !melee && !zones.rodOut;
+  const wheel = discOn && kit === 'mage' && !melee && !zones.rodOut && zones.name !== 'hub';
   const armCharge = (discCharge || spells?.cast?.holding) ? Math.max(0.14, spells?.cast?.charge || 0) : 0;
   castDisc?.update(dt, wheel, spells?.selected ?? 0, walker, camera, armCharge, !chasing && !free, wristPoint());
   ar.update(dt, walker);
   hexes.update(dt);
   const spellBox = document.getElementById('spells');
-  if (spellBox) spellBox.hidden = !!(zones.rodOut || (wheel && castDisc?.ready));
+  if (spellBox) spellBox.hidden = !!(zones.name === 'hub' || zones.rodOut || (wheel && castDisc?.ready));
   if (spells) {
     const on = !!(wheel && castDisc?.ready);
     spells.hideMark = on;
@@ -552,6 +560,14 @@ function tick(dt) {
     sword.matrix.decompose(sword.position, sword.quaternion, sword.scale);
   }
   const hideStaff = !!(free || ar.on || zones.name === 'hub' || settings.hands || zones.rodOut || klass === 'blade' || klass === 'gunner');
+  const questEl = document.getElementById('quest');
+  if (questEl) {
+    const open = ['catch', 'book', 'hexcard', 'home', 'crew', 'menu', 'settings', 'atlas', 'board'].some((id) => {
+      const el = document.getElementById(id);
+      return el && !el.hidden;
+    });
+    questEl.style.visibility = (open || zones.rodOut) ? 'hidden' : '';
+  }
   if (!q.has('fast') || forceDraw) post.render(scene, camera, hideStaff ? null : staff, SUN);
   forceDraw = false;
 }

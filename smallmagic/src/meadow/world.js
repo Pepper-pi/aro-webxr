@@ -148,10 +148,10 @@ export async function createWorld({ air, scene, say, turn }) {
   await turn();
   const sky = new THREE.Mesh(new THREE.SphereGeometry(3000, 48, 24), new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, depthTest: false,
-    uniforms: { uNow: U.uNow, uSun: U.uSun, uZenith: { value: C('#2f79e6') }, uHorizon: { value: C('#b9e2ff') }, uCloud: { value: C('#fffaf0').multiplyScalar(1.45) }, uCloudMid: { value: C('#f6e4ee') }, uCloudShade: { value: C('#9fb4ea') } },
+    uniforms: { uNow: U.uNow, uSun: U.uSun, uZenith: { value: C('#2f79e6') }, uHorizon: { value: C('#b9e2ff') }, uCloud: { value: C('#fffaf0').multiplyScalar(1.45) }, uCloudMid: { value: C('#f6e4ee') }, uCloudShade: { value: C('#9fb4ea') }, uNight: { value: 0 } },
     vertexShader: /* glsl */ `varying vec3 vDir; void main() { vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: /* glsl */ `
-      varying vec3 vDir; uniform float uNow; uniform vec3 uSun; uniform vec3 uZenith; uniform vec3 uHorizon; uniform vec3 uCloud; uniform vec3 uCloudMid; uniform vec3 uCloudShade;
+      varying vec3 vDir; uniform float uNow; uniform float uNight; uniform vec3 uSun; uniform vec3 uZenith; uniform vec3 uHorizon; uniform vec3 uCloud; uniform vec3 uCloudMid; uniform vec3 uCloudShade;
       float h2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float n2(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h2(i), h2(i + vec2(1, 0)), f.x), mix(h2(i + vec2(0, 1)), h2(i + vec2(1, 1)), f.x), f.y); }
       float fbm(vec2 p) { float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { s += a * n2(p); p = p * 2.03 + 7.1; a *= 0.5; } return s; }
@@ -177,6 +177,14 @@ export async function createWorld({ air, scene, say, turn }) {
           cc = mix(cc, uCloud, smoothstep(0.5, 0.85, light));
           cc = mix(cc, uCloudShade * 0.9, under * 0.5);
           col = mix(col, cc, c * 0.96);
+        }
+        if (uNight > 0.5) {
+          col = mix(uHorizon, uZenith, pow(up, 0.45));
+          float star = step(0.996, h2(floor(d.xy * 220.0 + d.zx * 90.0)));
+          col += vec3(0.9, 0.93, 1.0) * star * smoothstep(0.02, 0.2, up);
+          float band = exp(-pow((d.y - 0.42 - d.x * 0.22) * 5.5, 2.0));
+          col += vec3(0.55, 0.28, 0.85) * band * 0.85 * smoothstep(0.05, 0.25, up);
+          col += vec3(0.35, 0.45, 0.95) * band * 0.35 * fbm(d.xz * 3.0 + 2.0);
         }
         gl_FragColor = vec4(col, 1.0);
       }`,

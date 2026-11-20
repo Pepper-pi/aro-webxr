@@ -102,7 +102,7 @@ export function createCastDisc(scene) {
   const along = (t) => -0.46 + t * 0.74;
   const ribbons = [];
   for (let i = 0; i < 10; i++) {
-    const bit = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.02, 0.05), ringMat('#ffb15a', 0.92));
+    const bit = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.035, 0.07), ringMat('#ffb15a', 0.95));
     bit.userData.t = i / 9;
     arm.add(bit);
     ribbons.push(bit);
@@ -123,7 +123,7 @@ export function createCastDisc(scene) {
   }
   const plates = [];
   for (let i = 0; i < 7; i++) {
-    const plate = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.05, 0.012), ringMat('#d8f6ff', 0.88));
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.07, 0.02), ringMat('#d8f6ff', 0.9));
     plate.userData.t = i / 6;
     arm.add(plate);
     plates.push(plate);
@@ -319,7 +319,7 @@ export function createCastDisc(scene) {
         const t = bit.userData.t;
         bit.visible = arm.visible && fireOn && lit(t);
         const a = sparkT * 3.2 + t * 8;
-        bit.position.set(Math.cos(a) * 0.11, Math.sin(a) * 0.11, along(t));
+        bit.position.set(Math.cos(a) * 0.16, Math.sin(a) * 0.16, along(t));
         bit.rotation.z = a;
         bit.scale.setScalar(bit.visible ? 0.7 + pose * 0.5 : 1);
       });
