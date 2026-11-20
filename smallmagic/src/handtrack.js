@@ -2,6 +2,7 @@
 // @mediapipe/tasks-vision is Apache-2.0. Nothing from it is stored in this repo.
 // If the camera is refused, or the files cannot be fetched, the drawn arms stay as they are.
 let started = false;
+export const tracked = { u: 0.5, v: 0.7, on: false };
 
 export async function startHandTrack(onHands) {
   if (started) return;
@@ -27,7 +28,13 @@ export async function startHandTrack(onHands) {
       if (video.readyState >= 2) {
         try {
           const res = landmarker.detectForVideo(video, performance.now());
-          if (res?.landmarks?.length) onHands(res.landmarks);
+          const hand = res?.landmarks?.[0];
+          if (hand?.[0]) {
+            tracked.u = hand[0].x;
+            tracked.v = hand[0].y;
+            tracked.on = true;
+            onHands(res.landmarks);
+          } else tracked.on = false;
         } catch { /* a bad frame is skipped */ }
       }
       requestAnimationFrame(loop);

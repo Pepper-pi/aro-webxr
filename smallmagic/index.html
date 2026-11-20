@@ -68,10 +68,15 @@
       #menubtn { top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); padding: 10px 16px; }
       #back { top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); padding: 10px 16px; }
       #reel { right: max(108px, calc(env(safe-area-inset-right) + 108px)); bottom: calc(max(22px, env(safe-area-inset-bottom)) + 96px); width: 76px; height: 76px; border-radius: 50%; font-size: 16px; }
-      #fish, #dusk, #chase { pointer-events: auto; position: fixed; z-index: 7; border-radius: 999px; border: 2px solid rgba(241, 217, 164, 0.7); background: rgba(20, 12, 36, 0.55); color: #f6ead0; font: 13px/1.1 Georgia, serif; letter-spacing: 0.06em; text-transform: uppercase; }
+      #fish, #dusk, #chase, #ar { pointer-events: auto; position: fixed; z-index: 7; border-radius: 999px; border: 2px solid rgba(241, 217, 164, 0.7); background: rgba(20, 12, 36, 0.55); color: #f6ead0; font: 13px/1.1 Georgia, serif; letter-spacing: 0.06em; text-transform: uppercase; }
       #fish { left: 50%; right: auto; bottom: calc(max(22px, env(safe-area-inset-bottom)) + 118px); transform: translateX(-50%); width: 148px; height: 64px; font-size: 22px; background: rgba(20, 12, 28, 0.88); box-shadow: 0 0 18px rgba(255, 214, 120, 0.85); }
       #fishcue { position: fixed; left: 50%; bottom: calc(max(22px, env(safe-area-inset-bottom)) + 190px); transform: translateX(-50%); z-index: 7; pointer-events: none; color: #fff6dc; font: 22px/1.2 Georgia, serif; letter-spacing: 0.08em; text-transform: uppercase; text-shadow: 0 0 8px #000, 0 2px 0 #1a1008; }
-      #dusk, #chase { top: calc(max(12px, env(safe-area-inset-top)) + 46px); right: max(12px, env(safe-area-inset-right)); padding: 8px 12px; }
+      #dusk, #chase, #ar { top: calc(max(12px, env(safe-area-inset-top)) + 46px); right: max(12px, env(safe-area-inset-right)); padding: 8px 12px; }
+      #ar { right: auto; left: max(12px, env(safe-area-inset-left)); }
+      #ar.on { background: #f1d9a4; color: #24160c; }
+      #arGrade { position: fixed; inset: 0; z-index: 4; pointer-events: none; display: none; box-shadow: inset 0 0 90px 18px rgba(90, 60, 30, 0.32); }
+      #arGrade.on { display: block; }
+      #arGrade.dusk { box-shadow: inset 0 0 110px 22px rgba(70, 30, 110, 0.4); }
       #chase { top: calc(max(12px, env(safe-area-inset-top)) + 90px); }
       #gear { pointer-events: auto; position: fixed; z-index: 7; top: max(12px, env(safe-area-inset-top)); right: calc(max(12px, env(safe-area-inset-right)) + 92px); width: 44px; height: 44px; border-radius: 50%; border: 1px solid #f1d9a4; background: rgba(20, 12, 28, 0.78); color: #f6ead0; font-size: 22px; }
       #discToggle { pointer-events: auto; position: fixed; z-index: 8; left: max(10px, env(safe-area-inset-left)); bottom: max(150px, env(safe-area-inset-bottom)); border-radius: 999px; border: 1px solid #f1d9a4; background: rgba(20, 12, 28, 0.78); color: #f6ead0; font: 12px Georgia, serif; padding: 6px 10px; }
@@ -353,6 +358,8 @@
     <div id="fishcue" hidden>Hold to fish</div>
     <button id="fish" type="button" hidden>Fish</button>
     <button id="dusk" type="button">Dusk</button>
+    <button id="ar" type="button">AR</button>
+    <div id="arGrade"></div>
     <div id="touch" hidden>
       <div id="stick"><div id="knob"></div></div>
       <button id="spell" type="button">Spell</button>

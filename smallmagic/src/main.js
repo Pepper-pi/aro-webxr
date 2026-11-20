@@ -9,6 +9,8 @@ import { createAir, SUN } from './air.js';
 import { createWorld } from './meadow/world.js';
 import { createStaff } from './staff.js';
 import { createCastDisc } from './castdisc.js';
+import { createAR } from './ar.js';
+import { tracked } from './handtrack.js';
 import { createPage } from './page.js';
 import { Walker } from './player.js';
 import { Input } from './input.js';
@@ -103,6 +105,19 @@ const flames = createFlames(air);
 scene.add(flames.mesh);
 const fire = createFire({ world, air, fx, flames });
 const zones = createZones({ scene, world, walker, camera, air });
+const ar = createAR(scene, camera, world, zones);
+const wrist = new THREE.Vector3();
+function wristPoint() {
+  if (!tracked.on) return null;
+  wrist.set((0.5 - tracked.u) * 0.5, (0.45 - tracked.v) * 0.42 - 0.05, -0.35);
+  return wrist.applyMatrix4(camera.matrixWorld);
+}
+document.getElementById('ar')?.addEventListener('pointerup', (e) => {
+  ar.set(!ar.on, walker, renderer);
+  if (ar.on) import('./handtrack.js').then((m) => m.startHandTrack(() => {})).catch(() => {});
+  e.preventDefault();
+  e.stopPropagation();
+});
 const BLADE_ATK = [
   { key: 'pound', name: 'Pound', colour: '#c4a574', sides: 4 },
   { key: 'spin', name: 'Spin', colour: '#7ec8ff', sides: 6 },
@@ -462,7 +477,8 @@ function tick(dt) {
   staff?.update(dt, walker, camera, world.sunAt?.(camera.position) ?? 1);
   const wheel = discOn && kit === 'mage' && !melee;
   const armCharge = (discCharge || spells?.cast?.holding) ? Math.max(0.14, spells?.cast?.charge || 0) : 0;
-  castDisc?.update(dt, wheel, spells?.selected ?? 0, walker, camera, armCharge, !chasing && !free);
+  castDisc?.update(dt, wheel, spells?.selected ?? 0, walker, camera, armCharge, !chasing && !free, wristPoint());
+  ar.update(dt, walker);
   const spellBox = document.getElementById('spells');
   if (spellBox) spellBox.hidden = !!(wheel && castDisc?.ready);
   if (spells) {
@@ -522,14 +538,14 @@ function tick(dt) {
     sword.matrix.premultiply(camera.matrixWorld);
     sword.matrix.decompose(sword.position, sword.quaternion, sword.scale);
   }
-  const hideStaff = !!(free || zones.name === 'hub' || settings.hands || zones.rodOut || klass === 'blade' || klass === 'gunner');
+  const hideStaff = !!(free || ar.on || zones.name === 'hub' || settings.hands || zones.rodOut || klass === 'blade' || klass === 'gunner');
   if (!q.has('fast') || forceDraw) post.render(scene, camera, hideStaff ? null : staff, SUN);
   forceDraw = false;
 }
 
 // (the measuring tools were written for a figure seen from behind: these are the same handles on one seen from within)
 const head = new THREE.Vector3();
-const lab = window.lab = { castDisc, discOn: () => discOn, quest,
+const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar,
   THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, arms, blade, gun, tune: TUNE, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
   player: walker,
   follow: { get yaw() { return walker.yaw; }, set yaw(v) { walker.yaw = v; }, get pitch() { return walker.pitch; }, set pitch(v) { walker.pitch = v; }, want: 0, distance: 0, pivot: new THREE.Vector3() },

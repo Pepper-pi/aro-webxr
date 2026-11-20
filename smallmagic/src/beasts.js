@@ -257,22 +257,30 @@ function patchWebKitImageBitmap() {
   };
 }
 
+let mobsReady = Promise.resolve(0);
 async function dressMobs(all) {
+  let done = () => {};
+  mobsReady = new Promise((resolve) => { done = resolve; });
   let GLTFLoader;
   try {
     patchWebKitImageBitmap();
     ({ GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js'));
   } catch (err) {
     console.warn('mob loader', err);
+    done(0);
     return;
   }
   const loader = new GLTFLoader();
   const SkeletonUtils = await import('three/addons/utils/SkeletonUtils.js');
   const cache = {};
+  const kinds = [...new Set(all.map((b) => b.kind).filter((k) => TALL[k]))];
+  await Promise.all(kinds.map((k) => {
+    cache[k] = loader.loadAsync(new URL(`mobs/overaction/${k}.glb`, document.baseURI).href);
+    return cache[k];
+  })).catch((err) => console.warn('mob pack', err));
   for (const b of all) {
-    if (!TALL[b.kind]) continue;
+    if (!TALL[b.kind] || !cache[b.kind]) continue;
     try {
-      if (!cache[b.kind]) cache[b.kind] = loader.loadAsync(new URL(`mobs/overaction/${b.kind}.glb`, document.baseURI).href);
       const gltf = await cache[b.kind];
       const model = SkeletonUtils.clone(gltf.scene);
       fitMob(model, TALL[b.kind]);
@@ -294,14 +302,19 @@ async function dressMobs(all) {
       mobMixers.push(mixer);
       playClip(b, 'idle');
       snapFace(model, b.kind);
+      b.g.getObjectByName('standin')?.removeFromParent();
     } catch (err) {
       console.warn('mob', b.kind, err);
     }
   }
+  done(all.filter((b) => TALL[b.kind] && b.model).length);
 }
 
 function one(kind, x, z) {
-  const g = MAKE[kind]();
+  const g = new THREE.Group();
+  const standin = MAKE[kind]();
+  standin.name = 'standin';
+  g.add(standin);
   const bar = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xe23b32 }));
   bar.position.y = kind === 'slime' ? 0.85 : 1.15;
   bar.scale.set(0.7, 0.07, 1);
@@ -429,6 +442,28 @@ export function createBeasts(scene, ground, world) {
       return got;
     },
     slams() { const out = slams.splice(0, slams.length); return out; },
+    get mobsReady() { return mobsReady; },
+    live() {
+      return all.map((b, n) => ({ n, kind: b.kind, dead: b.dead, where: b.where, model: !!b.model, g: b.g }));
+    },
+    anchor(n, x, y, z, face) {
+      const b = all[n];
+      if (!b || b.dead) return;
+      b.busy = true;
+      b.g.visible = true;
+      b.g.position.set(x, y, z);
+      b.tx = x;
+      b.tz = z;
+      if (face != null) b.g.rotation.y = face;
+    },
+    releaseAnchor(n) {
+      const b = all[n];
+      if (!b) return;
+      b.busy = false;
+      b.g.position.set(b.homeX, ground(b.homeX, b.homeZ), b.homeZ);
+      b.tx = b.homeX;
+      b.tz = b.homeZ;
+    },
     probe() {
       return all.map((b, n) => ({ n, kind: b.kind, boss: !!b.boss, x: +b.g.position.x.toFixed(2), y: +b.g.position.y.toFixed(2), z: +b.g.position.z.toFixed(2), hp: +b.hp.toFixed(1), burn: +b.burn.toFixed(2), chill: +b.chill.toFixed(2), dead: b.dead, flame: !!b.g.getObjectByName('flame')?.visible }));
     },
@@ -614,6 +649,7 @@ export function createBeasts(scene, ground, world) {
           }
           continue;
         }
+        if (b.model) b.g.getObjectByName('standin')?.removeFromParent();
         if (b.busy) {
           b.g.position.y = ground(b.g.position.x, b.g.position.z);
           if (b.flinch > 0) { b.flinch -= dt; b.g.rotation.z = Math.sin(b.flinch * 40) * 0.25; }

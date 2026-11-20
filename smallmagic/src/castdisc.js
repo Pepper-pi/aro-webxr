@@ -66,10 +66,11 @@ export function createCastDisc(scene) {
   const arm = new THREE.Group();
   arm.name = 'cast-arm';
   arm.visible = false;
-  const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.04, 0.42, 8), skin);
+  const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.055, 0.82, 10), skin);
   fore.rotation.x = Math.PI / 2;
-  const fist = new THREE.Mesh(new THREE.SphereGeometry(0.048, 10, 8), skin);
-  fist.position.z = -0.24;
+  fore.position.z = -0.06;
+  const fist = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), skin);
+  fist.position.z = -0.48;
   arm.add(fore, fist);
   scene.add(arm);
   const mandala = new THREE.Group();
@@ -98,46 +99,61 @@ export function createCastDisc(scene) {
     sparks.push(spark);
   }
   mandala.add(outerRing, midRing, innerRing, ticks);
-  const coils = [0, 1, 2].map((i) => {
-    const mesh = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.007, 6, 18), ringMat('#ff7a1c', 0.9));
-    mesh.rotation.y = Math.PI / 2;
-    mesh.position.z = -0.02 - i * 0.11;
-    arm.add(mesh);
-    return mesh;
+  const along = (t) => -0.46 + t * 0.74;
+  const ribbons = [];
+  for (let i = 0; i < 10; i++) {
+    const bit = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.02, 0.05), ringMat('#ffb15a', 0.92));
+    bit.userData.t = i / 9;
+    arm.add(bit);
+    ribbons.push(bit);
+  }
+  const fireBands = [0.18, 0.55].map((t) => {
+    const band = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.008, 6, 18), ringMat('#ffe08a', 0.95));
+    band.rotation.y = Math.PI / 2;
+    band.userData.t = t;
+    arm.add(band);
+    return band;
   });
   const embers = [];
-  for (let i = 0; i < 6; i++) {
-    const ember = new THREE.Mesh(new THREE.OctahedronGeometry(0.012, 0), ringMat('#ff7a1c', 0.95));
-    ember.position.set(i % 2 ? 0.03 : -0.03, 0.02, -0.02 - i * 0.038);
+  for (let i = 0; i < 8; i++) {
+    const ember = new THREE.Mesh(new THREE.OctahedronGeometry(0.014, 0), ringMat('#ff7a1c', 0.95));
+    ember.userData.t = i / 7;
     arm.add(ember);
     embers.push(ember);
   }
-  const ribbon = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.006, 5, 16, Math.PI * 1.5), ringMat('#ffb15a', 0.85));
-  ribbon.rotation.y = Math.PI / 2;
-  ribbon.position.z = -0.12;
-  arm.add(ribbon);
-  const crystals = [];
-  for (let i = 0; i < 5; i++) {
-    const crystal = new THREE.Mesh(new THREE.ConeGeometry(0.012, 0.05, 4), ringMat('#d8f6ff', 0.9));
-    crystal.position.set(i % 2 ? 0.028 : -0.028, 0.012, -0.04 - i * 0.04);
-    crystal.rotation.z = i % 2 ? 0.7 : -0.7;
-    arm.add(crystal);
-    crystals.push(crystal);
+  const plates = [];
+  for (let i = 0; i < 7; i++) {
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.05, 0.012), ringMat('#d8f6ff', 0.88));
+    plate.userData.t = i / 6;
+    arm.add(plate);
+    plates.push(plate);
   }
-  const mist = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), ringMat('#bfefff', 0.28));
-  mist.position.z = -0.1;
-  arm.add(mist);
-  const thread = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.36, 6), ringMat('#7a4ad4', 0.9));
+  const mists = [0.15, 0.5, 0.82].map((t) => {
+    const mist = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), ringMat('#c9b6ff', 0.22));
+    mist.userData.t = t;
+    arm.add(mist);
+    return mist;
+  });
+  const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.074, 1, 10), ringMat('#bfefff', 0.22));
+  sleeve.rotation.x = Math.PI / 2;
+  arm.add(sleeve);
+  const helices = [0.12, 0.4, 0.68, 0.9].map((t) => {
+    const coil = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.008, 6, 18), ringMat('#dffff0', 0.9));
+    coil.rotation.y = Math.PI / 2;
+    coil.userData.t = t;
+    arm.add(coil);
+    return coil;
+  });
+  const tethers = [0.1, 0.38, 0.66, 0.9].map((t, i) => {
+    const band = new THREE.Mesh(new THREE.TorusGeometry(0.072, 0.009, 6, 16), ringMat(i % 2 ? '#3ddea0' : '#b388ff', 0.92));
+    band.rotation.y = Math.PI / 2;
+    band.userData.t = t;
+    arm.add(band);
+    return band;
+  });
+  const thread = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 1, 6), ringMat('#7a4ad4', 0.9));
   thread.rotation.x = Math.PI / 2;
-  thread.position.z = -0.1;
   arm.add(thread);
-  const beads = [];
-  for (let i = 0; i < 4; i++) {
-    const bead = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 5), ringMat(i % 2 ? '#3ddea0' : '#c9a0ff', 0.95));
-    bead.position.z = -0.02 - i * 0.07;
-    arm.add(bead);
-    beads.push(bead);
-  }
   const charge = new THREE.Mesh(
     new THREE.RingGeometry(0.045, 0.11, 40),
     new THREE.MeshBasicMaterial({ color: '#ff7a1c', transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }),
@@ -230,7 +246,7 @@ export function createCastDisc(scene) {
      * First person: on the view, a little under the crosshair, sized to about a third of the screen.
      * Otherwise: upright at the caster's chest, a short step in front. Always face-on to the camera.
      */
-    update(dt, show, index, walker, camera, held, firstPerson) {
+    update(dt, show, index, walker, camera, held, firstPerson, wrist) {
       if (held > 0.02) { armShown = held; armLinger = 0.28; }
       else armLinger = Math.max(0, armLinger - dt);
       const pose = held > 0.02 ? held : armShown * (armLinger / 0.28);
@@ -296,45 +312,72 @@ export function createCastDisc(scene) {
       const key = SPELLS[index]?.key;
       const fireOn = key === 'fire' || key === 'explosion';
       const frostOn = key === 'frost';
+      const windOn = key === 'wind' || key === 'tornado';
       const siphonOn = key === 'singularity';
-      const coilOn = !fireOn && !frostOn && !siphonOn;
-      coils.forEach((coil, i) => {
-        coil.visible = arm.visible && coilOn;
-        coil.material.color.copy(tint);
-        coil.scale.setScalar(0.45 + pose * (0.7 + i * 0.15));
-        coil.rotation.x += dt * (1.4 + i) * (i % 2 ? -1 : 1);
-        coil.material.opacity = 0.35 + pose * 0.6;
+      const lit = (t) => pose >= t * 0.9;
+      ribbons.forEach((bit, i) => {
+        const t = bit.userData.t;
+        bit.visible = arm.visible && fireOn && lit(t);
+        const a = sparkT * 3.2 + t * 8;
+        bit.position.set(Math.cos(a) * 0.11, Math.sin(a) * 0.11, along(t));
+        bit.rotation.z = a;
+        bit.scale.setScalar(bit.visible ? 0.7 + pose * 0.5 : 1);
       });
-      ribbon.visible = arm.visible && fireOn;
-      ribbon.material.opacity = 0.35 + pose * 0.55;
-      ribbon.rotation.z += dt * 2.2;
+      fireBands.forEach((band) => {
+        band.visible = arm.visible && fireOn && lit(band.userData.t);
+        band.position.z = along(band.userData.t);
+        band.rotation.z += dt * 1.4;
+        band.scale.setScalar(0.85 + pose * 0.35);
+      });
       embers.forEach((ember, i) => {
-        ember.visible = arm.visible && fireOn;
-        const a = sparkT * 3 + i;
-        ember.position.x = Math.sin(a) * 0.035;
-        ember.position.y = Math.cos(a * 1.3) * 0.03;
-        ember.scale.setScalar(0.6 + pose * (0.8 + (i % 3) * 0.25));
+        const climb = (sparkT * 0.45 + ember.userData.t) % 1;
+        ember.visible = arm.visible && fireOn && lit(climb);
+        const a = sparkT * 4 + i;
+        ember.position.set(Math.cos(a) * 0.05, Math.sin(a) * 0.05, along(climb));
+        ember.scale.setScalar(0.6 + (1 - climb) * pose);
       });
-      crystals.forEach((crystal, i) => {
-        crystal.visible = arm.visible && frostOn;
-        crystal.scale.setScalar(0.5 + pose * (0.7 + i * 0.12));
+      plates.forEach((plate, i) => {
+        const t = plate.userData.t;
+        plate.visible = arm.visible && frostOn && lit(t);
+        plate.position.set((i % 2 ? 0.045 : -0.045), 0.02, along(t));
+        plate.rotation.z = i % 2 ? 0.5 : -0.5;
+        plate.scale.setScalar(plate.visible ? 0.45 + pose * (0.5 + t) : 1);
       });
-      mist.visible = arm.visible && frostOn;
-      mist.material.opacity = 0.12 + pose * 0.4;
-      mist.scale.setScalar(0.6 + pose * 1.3);
+      mists.forEach((mist) => {
+        mist.visible = arm.visible && frostOn && lit(mist.userData.t);
+        mist.position.z = along(mist.userData.t);
+        mist.material.opacity = 0.1 + pose * 0.28;
+        mist.scale.setScalar(0.5 + pose * 1.1);
+      });
+      sleeve.visible = arm.visible && frostOn && pose > 0.05;
+      sleeve.scale.y = Math.max(0.05, pose * 0.78);
+      sleeve.position.z = -0.46 + sleeve.scale.y * 0.5;
+      sleeve.material.opacity = 0.12 + pose * 0.28;
+      helices.forEach((coil, i) => {
+        coil.visible = arm.visible && windOn && lit(coil.userData.t);
+        coil.position.z = along(coil.userData.t);
+        coil.rotation.x += dt * (1.6 + i * 0.35) * (i % 2 ? -1 : 1);
+        coil.material.color.copy(tint);
+        coil.scale.setScalar(0.7 + pose * 0.55);
+      });
+      tethers.forEach((band, i) => {
+        band.visible = arm.visible && siphonOn && lit(band.userData.t);
+        band.position.z = along(band.userData.t);
+        const pulse = 0.85 + Math.sin(sparkT * 5 + i) * 0.12;
+        band.scale.setScalar(pulse * (0.7 + pose * 0.5));
+      });
       thread.visible = arm.visible && siphonOn;
-      thread.material.opacity = 0.4 + pose * 0.55;
-      thread.scale.set(1, 1, 0.5 + pose);
-      beads.forEach((bead, i) => {
-        bead.visible = arm.visible && siphonOn;
-        bead.position.x = Math.sin(sparkT * 4 + i) * 0.02;
-        bead.scale.setScalar(0.6 + pose);
-      });
+      thread.scale.y = Math.max(0.05, pose * 0.78);
+      thread.position.z = -0.46 + thread.scale.y * 0.5;
+      thread.material.opacity = 0.35 + pose * 0.55;
       if (arm.visible) {
-        const past = root.position.clone().addScaledVector(fwd, -0.05 + pose * 0.45);
-        const from = camera.position.clone().addScaledVector(up, -0.22).addScaledVector(fwd, 0.2);
-        arm.position.lerpVectors(from, past, 0.2 + pose * 0.75);
-        arm.lookAt(root.position.x + fwd.x * 0.6, root.position.y + fwd.y * 0.6, root.position.z + fwd.z * 0.6);
+        const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+        const from = wrist
+          ? wrist.clone()
+          : camera.position.clone().addScaledVector(up, -0.42).addScaledVector(right, 0.38).addScaledVector(fwd, 0.42);
+        const reach = root.position.clone().addScaledVector(right, 0.05);
+        arm.position.lerpVectors(from, reach, wrist ? 0.2 + pose * 0.35 : 0.12 + pose * 0.22);
+        arm.lookAt(root.position.x, root.position.y, root.position.z);
       }
     },
   };
