@@ -515,34 +515,14 @@ export function createBlade(onLaunch, bits = {}) {
     const fly = notes.find((n) => !n.resolved && n.launch && n.kind !== 'back' && n.kind !== 'orb');
     const src = fly || laneHold;
     if (!fly) {
-      laneHold.from.set(frame.beast.x, world.ground(frame.beast.x, frame.beast.z) + 1.05, frame.beast.z);
-      laneHold.to.set(frame.beast.x + frame.fx * 4.2, world.ground(frame.beast.x, frame.beast.z) + 1.05, frame.beast.z + frame.fz * 4.2);
+      laneHold.from.set(frame.beast.x, world.ground(frame.beast.x, frame.beast.z) + 1.15, frame.beast.z);
+      laneHold.to.set(frame.beast.x + frame.fx * 3.2, world.ground(frame.beast.x, frame.beast.z) + 1.15, frame.beast.z + frame.fz * 3.2);
       laneHold.launch.set(frame.fx, 0, frame.fz);
       laneHold.group.position.lerpVectors(laneHold.from, laneHold.to, 0.5);
     }
     for (let i = 0; i < TRACK_N; i++) threadPoint(src, i / (TRACK_N - 1), song, lanePts[i]);
-    const half = 0.46;
-    for (let i = 0; i < TRACK_N; i++) {
-      const p = lanePts[i];
-      const nxt = lanePts[Math.min(TRACK_N - 1, i + 1)];
-      const prv = lanePts[Math.max(0, i - 1)];
-      const tx = nxt.x - prv.x;
-      const tz = nxt.z - prv.z;
-      const len = Math.hypot(tx, tz) || 1;
-      const ox = (-tz / len) * half;
-      const oz = (tx / len) * half;
-      edgeL[i].set(p.x + ox, p.y, p.z + oz);
-      edgeR[i].set(p.x - ox, p.y, p.z - oz);
-    }
-    layPoly(laneLeft, edgeL, 0.04);
-    layPoly(laneRight, edgeR, 0.04);
-    const attr = laneFill.geometry.attributes.position;
-    for (let i = 0; i < TRACK_N; i++) {
-      attr.setXYZ(i * 2, edgeL[i].x, edgeL[i].y, edgeL[i].z);
-      attr.setXYZ(i * 2 + 1, edgeR[i].x, edgeR[i].y, edgeR[i].z);
-    }
-    attr.needsUpdate = true;
-    laneFill.visible = true;
+    laneLeft.visible = laneRight.visible = false;
+    layPoly(laneFill, lanePts, 0.09);
   }
 
   function shatter(note) {
@@ -584,7 +564,9 @@ export function createBlade(onLaunch, bits = {}) {
     }
   }
 
+  let warrior = false;
   function spawn(spec) {
+    if (!warrior) return;
     const frame = laneFrame();
     if (!frame || !scene) return;
     const eye = camera.position;
@@ -592,8 +574,10 @@ export function createBlade(onLaunch, bits = {}) {
     const ceiling = !!spec.ceiling;
     const ring = spec.kind === 'ring' || spec.weight === 'ring';
     const lift = ring ? TUNE.ringLift : spec.kind === 'wall' && ceiling ? 1.72 : 1.38;
-    const from = new THREE.Vector3(frame.beast.x + frame.rx * side * 0.35, world.ground(frame.beast.x, frame.beast.z) + lift, frame.beast.z + frame.rz * side * 0.35);
-    const to = new THREE.Vector3(eye.x + frame.fx * SWORD_OFFSET + frame.rx * side, world.ground(eye.x, eye.z) + lift, eye.z + frame.fz * SWORD_OFFSET + frame.rz * side);
+    const chest = world.ground(frame.beast.x, frame.beast.z) + 1.15;
+    const from = new THREE.Vector3(frame.beast.x + frame.rx * side * 0.35, chest, frame.beast.z + frame.rz * side * 0.35);
+    const span = Math.min(3.4, Math.max(1.4, Math.hypot(eye.x - frame.beast.x, eye.z - frame.beast.z) - 1.8));
+    const to = new THREE.Vector3(frame.beast.x + frame.fx * span + frame.rx * side, chest, frame.beast.z + frame.fz * span + frame.rz * side);
     if (ring) to.set(eye.x, world.ground(eye.x, eye.z) + TUNE.ringLift, eye.z);
     if (spec.kind === 'back') {
       const px = eye.x - frame.beast.x;
@@ -1835,6 +1819,7 @@ export function createBlade(onLaunch, bits = {}) {
   }
 
   function update(dt, classOn, inRange) {
+    warrior = !!classOn;
     const board = root();
     const label = document.getElementById('bladeSay');
     const drawBtn = document.getElementById('draw');
@@ -2007,13 +1992,14 @@ export function createBlade(onLaunch, bits = {}) {
       }
     }
     const liveNote = fightOn && notes.find((n) => !n.resolved && n.launch && n.kind !== 'back' && n.kind !== 'orb');
-    if (liveNote) {
+    const who = laneFrame();
+    if (who) {
       origin.visible = true;
-      origin.position.copy(liveNote.from);
-      const pulse = 0.9 + 0.28 * Math.abs(Math.sin(song * 9));
+      origin.position.set(who.beast.x, world.ground(who.beast.x, who.beast.z) + 1.15, who.beast.z);
+      const pulse = 0.85 + 0.3 * Math.abs(Math.sin(song * 9));
       origin.scale.setScalar(pulse);
     } else origin.visible = false;
-    layTrack(!!liveNote);
+    layTrack(!!who);
   }
 
   return {

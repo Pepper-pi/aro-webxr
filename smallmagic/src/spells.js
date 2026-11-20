@@ -104,8 +104,23 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     const fx = (vel?.x || 0) / fl, fz = (vel?.z || 1) / fl;
     const g = new THREE.Group();
     g.position.set(p.x, y0, p.z);
-    const ice = new THREE.MeshBasicMaterial({ color: kind === 'glacier' ? '#e9fbff' : '#b7f3ff', transparent: true, opacity: 0.88, side: THREE.DoubleSide });
-    const violet = new THREE.MeshBasicMaterial({ color: '#8d74ff', transparent: true, opacity: 0.55, side: THREE.DoubleSide });
+    const iceShade = (tint, op) => new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, side: THREE.DoubleSide,
+      uniforms: { uTint: { value: new THREE.Color(tint) }, uOp: { value: op } },
+      vertexShader: `varying vec3 vN; varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * viewMatrix * w; }`,
+      fragmentShader: `varying vec3 vN; varying vec3 vW; uniform vec3 uTint; uniform float uOp;
+        void main() {
+          vec3 V = normalize(cameraPosition - vW);
+          float rim = pow(1.0 - max(dot(normalize(vN), V), 0.0), 2.0);
+          float facet = 0.55 + 0.45 * abs(normalize(vN).y);
+          vec3 col = uTint * facet + vec3(0.55, 0.85, 1.0) * rim + vec3(0.35, 0.12, 0.55) * rim * rim;
+          gl_FragColor = vec4(col, uOp * (0.42 + rim * 0.5));
+        }`,
+    });
+    const ice = iceShade(kind === 'glacier' ? '#e7fbff' : '#b7f4ff', 0.78);
+    const violet = iceShade('#9a86ff', 0.55);
+    ice.opacity = 0.78;
+    violet.opacity = 0.55;
     const cols = [];
     if (kind === 'glacier') {
       const mound = new THREE.Mesh(new THREE.IcosahedronGeometry(1.05, 1), ice);
@@ -118,8 +133,6 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     } else {
       const yaw = Math.atan2(fx, fz);
       g.rotation.y = yaw;
-      ice.opacity = 0.62;
-      violet.opacity = 0.48;
       for (let i = -2; i <= 2; i++) {
         const h = 1.15 + (Math.abs(i) === 1 ? 0.45 : 0);
         const shard = new THREE.CylinderGeometry(0.05, 0.16, 1, 5, 1);
@@ -427,8 +440,9 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
         const fade = Math.max(0, Math.min(1, ice.life / 1.4));
         ice.g.traverse((o) => {
           if (!o.material) return;
-          if (o.material.userData.o0 == null) o.material.userData.o0 = o.material.opacity;
+          if (o.material.userData.o0 == null) o.material.userData.o0 = o.material.uniforms?.uOp?.value || o.material.opacity || 0.72;
           o.material.opacity = o.material.userData.o0 * fade;
+          if (o.material.uniforms?.uOp) o.material.uniforms.uOp.value = o.material.userData.o0 * fade;
         });
         if (ice.life <= 0) { world.root.remove(ice.g); ices.splice(i, 1); }
       }
