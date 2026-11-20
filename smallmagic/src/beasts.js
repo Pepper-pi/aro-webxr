@@ -230,12 +230,27 @@ function plantFeet(b) {
 
 let rimSerial = 0;
 
+// Quaternius armatures carry a scale of 100. A skinned bounds check treats that as
+// part of the body and shrinks the animal to a speck. Measure the bind-pose vertices.
+function bindBox(root) {
+  const box = new THREE.Box3();
+  const v = new THREE.Vector3();
+  root.updateWorldMatrix(true, true);
+  root.traverse((o) => {
+    const pos = o.geometry?.attributes?.position;
+    if (!o.isMesh || !pos || pos.count < 40) return;
+    const step = Math.max(1, Math.floor(pos.count / 300));
+    for (let i = 0; i < pos.count; i += step) box.expandByPoint(v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld));
+  });
+  return box;
+}
+
 function fitMob(root, height, tint) {
-  const box = new THREE.Box3().setFromObject(root);
+  const box = bindBox(root);
   const size = box.getSize(new THREE.Vector3());
   const k = height / Math.max(size.y, 0.01);
   root.scale.multiplyScalar(k);
-  root.position.y -= new THREE.Box3().setFromObject(root).min.y;
+  root.position.y -= bindBox(root).min.y;
   root.traverse((o) => {
     if (!o.isMesh) return;
     o.castShadow = o.receiveShadow = true;

@@ -596,6 +596,27 @@ export function createZones({ scene, world, walker, camera, air }) {
   shoreVeil.scale.set(1.15, 1, 0.72);
   shoreVeil.visible = false;
   scene.add(shoreVeil);
+  const net = new THREE.Group();
+  for (let i = 0; i < 5; i++) {
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(1.4 + i * 1.7, 1.48 + i * 1.7, 64),
+      new THREE.MeshBasicMaterial({ color: '#5dfff0', transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    net.add(ring);
+  }
+  for (let i = 0; i < 8; i++) {
+    const spoke = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.025, 8.4),
+      new THREE.MeshBasicMaterial({ color: '#7ef6ff', transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false }),
+    );
+    spoke.rotation.x = -Math.PI / 2;
+    spoke.rotation.z = (i / 8) * Math.PI;
+    net.add(spoke);
+  }
+  net.position.set(-50, world.water + 0.07, -42);
+  net.visible = false;
+  scene.add(net);
   const stars = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ color: '#f4f0ff', size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0.85 }));
   {
     const n = 180;
@@ -1077,8 +1098,8 @@ export function createZones({ scene, world, walker, camera, air }) {
         skyMesh.userData.dayMid = u.uCloudMid.value.clone();
         skyMesh.userData.dayShade = u.uCloudShade.value.clone();
       }
-      u.uZenith.value.set(on ? '#070d24' : dayZenith);
-      u.uHorizon.value.set(on ? '#3a2458' : dayHorizon);
+      u.uZenith.value.set(on ? '#050814' : dayZenith);
+      u.uHorizon.value.set(on ? '#1c1038' : dayHorizon);
       if (u.uNight) u.uNight.value = on ? 1 : 0;
       if (u.uCloud && skyMesh.userData.dayCloud) {
         u.uCloud.value.copy(on ? new THREE.Color('#14183a') : skyMesh.userData.dayCloud);
@@ -1091,6 +1112,7 @@ export function createZones({ scene, world, walker, camera, air }) {
     stars.visible = on;
     shoreGlow.visible = on;
     shoreVeil.visible = on && atLake;
+    net.visible = on && atLake;
     if (on && atLake) { shotT = 0.05; shot.visible = true; }
     if (grassU) {
       const eve = on && atLake;
@@ -1588,17 +1610,24 @@ export function createZones({ scene, world, walker, camera, air }) {
           w.position.set(-52 + i * 1.4 + Math.sin(tt + i) * 0.4, world.water + 0.8, -35.5);
           w.lookAt(camera.position);
         });
-        if (dusk && shotT < 0 && Math.random() < dt * 0.08) { shotT = 0; shot.visible = true; }
+        if (dusk && shotT < 0 && Math.random() < dt * 0.16) { shotT = 0; shot.visible = true; }
         if (shotT >= 0) {
           shotT += dt;
           const u = shotT / 1.1;
-          shot.position.set(-62 + u * 28, 14 - u * 6, -50);
+          shot.position.set(-68 + u * 36, 16 - u * 8, -54);
           shot.lookAt(camera.position);
-          shot.material.opacity = u < 0.8 ? 0.8 : (1 - u) * 4;
+          shot.material.opacity = u < 0.75 ? 0.95 : (1 - u) * 3.6;
+          shot.scale.set(1.8, 1, 1);
           if (shotT > 1.1) { shotT = -1; shot.visible = false; }
         }
         stars.position.copy(camera.position);
         bio.material.uniforms.uNow.value = tt;
+        if (dusk) {
+          shoreGlow.material.opacity = 0.55 + Math.abs(Math.sin(tt * 2.2)) * 0.4;
+          net.visible = true;
+          net.rotation.y = tt * 0.15;
+          net.children.forEach((ring, i) => { ring.material.opacity = 0.16 + Math.abs(Math.sin(tt * 1.3 + i)) * 0.22; });
+        }
       } else {
         fishShade.forEach((s) => { s.visible = false; });
         fly.visible = false;
@@ -1699,14 +1728,15 @@ export function createZones({ scene, world, walker, camera, air }) {
         if (bobber.visible && phase !== 'bite') {
           const u = (performance.now() * 0.0007) % 1;
           rip.scale.setScalar(0.8 + u * 1.3);
-          rip.material.opacity = (1 - u) * 0.7;
+          rip.material.opacity = (1 - u) * (dusk ? 0.9 : 0.7);
+          if (dusk) rip.material.color.set('#5dfff0');
         }
         for (const m of ripples) {
           if (m.userData.life <= 0) continue;
           m.userData.life -= dt * 0.7;
           const u = 1 - m.userData.life;
-          m.scale.setScalar(0.6 + u * 4.2);
-          m.material.opacity = Math.max(0, m.userData.life) * 0.75;
+          m.scale.setScalar(0.6 + u * (dusk ? 5.4 : 4.2));
+          m.material.opacity = Math.max(0, m.userData.life) * (dusk ? 0.95 : 0.75);
           m.position.y = world.water + 0.04;
           if (m.userData.life <= 0) m.visible = false;
         }
