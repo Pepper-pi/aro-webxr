@@ -23,7 +23,7 @@ function medal(spell, hot) {
   g.fillStyle = hot ? '#1a1020' : spell.colour;
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  const word = spell.name.split(' ')[0].toUpperCase();
+  const word = (spell.short || spell.name.split(' ')[0]).toUpperCase();
   g.font = `700 ${word.length > 8 ? 16 : 22}px Georgia, serif`;
   g.fillText(word, 64, 66);
   const t = new THREE.CanvasTexture(c);

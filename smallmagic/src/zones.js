@@ -1121,7 +1121,7 @@ export function createZones({ scene, world, walker, camera, air }) {
       'Lakeshore': { color: '#7ee7ff', scale: 1.05, tag: 'Tide', bit: 'shell' },
       Hearth: { color: '#ffb15a', scale: 1.08, tag: 'Lantern', bit: 'lamp' },
     };
-    const who = { boar: 'Boar', wolf: 'Wolf', slime: 'Slime', goblin: 'Goblin' };
+    const who = { boar: 'Boar', wolf: 'Wolf', slime: 'Slime', goblin: 'Goblin', fox: 'Fox', bear: 'Bear', bunny: 'Bunny', oryx: 'Oryx', pig: 'Pig', crab: 'Crab', fish: 'Fish' };
     const look = LOOK[hex.theme] || LOOK['Forest Creek'];
     b.g.getObjectByName('hexkit')?.removeFromParent();
     const kit = new THREE.Group();
@@ -1159,15 +1159,6 @@ export function createZones({ scene, world, walker, camera, air }) {
     kit.add(tag);
     b.g.add(kit);
     b.g.scale.setScalar((look.scale || 1) * (elite ? 1.35 : 1));
-    const tint = new THREE.Color(look.color);
-    b.g.traverse((o) => {
-      if (!o.isMesh || o.parent === kit || !o.material?.color) return;
-      if (o.name === 'spot' || o.name === 'elite') return;
-      for (const m of [].concat(o.material)) {
-        if (!m.userData.base) m.userData.base = m.color.clone();
-        m.color.copy(m.userData.base).lerp(tint, 0.62);
-      }
-    });
   }
   return {
     toast(text) {
@@ -1218,6 +1209,8 @@ export function createZones({ scene, world, walker, camera, air }) {
     holdBeasts(px, pz, min, max, dt) { beasts.hold(px, pz, min, max, dt); },
     grabBeast(x, z) { return beasts.grab(x, z); },
     shoveBeast(x, z, dx, dz, dist) { return beasts.shove(x, z, dx, dz, dist); },
+    markBeast(n) { return beasts.mark(n); },
+    tauntBeasts(x, z) { return beasts.taunt(x, z); },
     get blocksMagic() { return name !== 'meadow'; },
     showBoard, enter,
     useHearth,
@@ -1250,7 +1243,7 @@ export function createZones({ scene, world, walker, camera, air }) {
       return { ids, done: false, noted: new Set(), drops: [] };
     },
     waveAlive(wave) {
-      const dropName = { boar: 'tusk', wolf: 'ruff', slime: 'gel', goblin: 'bead' };
+      const dropName = { boar: 'tusk', wolf: 'ruff', slime: 'gel', goblin: 'bead', fox: 'brush', bear: 'claw', bunny: 'fluff', oryx: 'horn', pig: 'bristle', crab: 'shell', fish: 'scale' };
       let left = 0;
       const live = beasts.live();
       for (const id of wave.ids) {
@@ -1285,11 +1278,16 @@ export function createZones({ scene, world, walker, camera, air }) {
         beasts.anchor(b.n, x, world.ground(x, z), z, 0);
       };
       const byId = (id) => list.find((h) => h.id === id);
-      put(take('boar'), byId('moss'), -1.2);
-      put(take('wolf'), byId('moss'), 1.4);
-      put(take('wolf'), byId('glen'), 0.4);
-      put(take('slime'), byId('meadow'), 0);
-      put(take('slime'), byId('bloom'), -0.6);
+      put(take('wolf'), byId('moss'), -1.2);
+      put(take('boar'), byId('moss'), 1.4);
+      put(take('fox'), byId('glen'), -1.1);
+      put(take('bear'), byId('glen'), 1.3);
+      put(take('bunny'), byId('meadow'), -1);
+      put(take('oryx'), byId('meadow'), 1.2);
+      put(take('pig'), byId('bloom'), -1);
+      put(take('slime'), byId('bloom'), 1.1);
+      put(take('crab'), byId('shore'), -1.1);
+      put(take('fish'), byId('shore'), 1.2);
     },
     hurt(marks) {
       beasts.hurt(marks, name, (hit) => {

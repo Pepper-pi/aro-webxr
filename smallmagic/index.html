@@ -74,9 +74,13 @@
       #toast { position: fixed; left: 50%; top: 28%; transform: translateX(-50%); z-index: 16; max-width: min(420px, 86vw); padding: 12px 16px; border-radius: 14px; border: 2px solid #f1d9a4; background: rgba(28, 16, 12, 0.92); color: #fff6dc; font: 18px Georgia, serif; text-align: center; pointer-events: none; }
       #discActs { position: fixed; inset: 0; z-index: 8; pointer-events: none; }
       #discActs button { position: absolute; transform: translate(-50%, -50%); pointer-events: auto; min-width: 72px; min-height: 44px; border-radius: 999px; border: 2px solid #f1d9a4; background: rgba(20, 12, 28, 0.82); color: #fff6dc; font: 15px Georgia, serif; }
-      #rangerBar { position: fixed; right: 16px; bottom: 18%; z-index: 8; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
-      #rangerBar button { min-width: 88px; min-height: 44px; border-radius: 999px; border: 2px solid #c4a574; background: rgba(20, 12, 28, 0.82); color: #fff6dc; font: 16px Georgia, serif; }
-      #rangerNote { margin: 0; color: #ffe7a4; font: 14px Georgia, serif; text-shadow: 0 1px 2px #000; }
+      #rangerBar, #wardenBar, #alchemistBar { position: fixed; right: 16px; bottom: 18%; z-index: 8; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+      #rangerBar button, #wardenBar button, #alchemistBar button { min-width: 88px; min-height: 44px; border-radius: 999px; border: 2px solid #c4a574; background: rgba(20, 12, 28, 0.82); color: #fff6dc; font: 16px Georgia, serif; }
+      #rangerNote, #wardenNote, #alchemistNote, #rangerAmmo { margin: 0; color: #ffe7a4; font: 14px Georgia, serif; text-shadow: 0 1px 2px #000; }
+      #rangerCharge { width: 120px; height: 10px; border-radius: 999px; border: 2px solid #f1d9a4; background: rgba(20, 12, 28, 0.7); overflow: hidden; }
+      #rangerCharge i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #e7c56a, #fff1c4); }
+      #classPick { display: flex; flex-wrap: wrap; gap: 6px; }
+      #classPick button { flex: 1 1 30%; }
       #home, #crew { position: fixed; left: max(10px, env(safe-area-inset-left)); top: max(10px, env(safe-area-inset-top)); transform: none; z-index: 20; width: min(400px, 92vw); max-height: calc(100vh - 20px); overflow: hidden; display: flex; flex-direction: column; padding: 0; border: 2px solid #f1d9a4; border-radius: 16px; background: rgba(16, 10, 24, 0.9); color: #f6ead0; text-align: left; font: 15px/1.35 Georgia, serif; }
       #home[hidden], #crew[hidden] { display: none; }
       #home .sheetBody, #crew .sheetBody { overflow: auto; padding: 10px 12px 16px; }
@@ -388,9 +392,22 @@
     <div id="hexbanner" hidden></div>
     <div id="toast" hidden></div>
     <div id="rangerBar" hidden>
-      <button id="rangerShoot" type="button">Shoot</button>
+      <p id="rangerAmmo">12 / 12 arrows</p>
+      <div id="rangerCharge"><i></i></div>
+      <button id="rangerShoot" type="button">Hold shot</button>
+      <button id="rangerMark" type="button">Mark</button>
       <button id="rangerDodge" type="button">Dodge</button>
       <p id="rangerNote">Ranger preview</p>
+    </div>
+    <div id="wardenBar" hidden>
+      <button id="wardenBash" type="button">Bash</button>
+      <button id="wardenGuard" type="button">Guard</button>
+      <p id="wardenNote">Warden preview</p>
+    </div>
+    <div id="alchemistBar" hidden>
+      <button id="alchemistToss" type="button">Throw</button>
+      <button id="alchemistSip" type="button">Sip</button>
+      <p id="alchemistNote">Alchemist preview</p>
     </div>
     <div id="discActs" hidden>
       <button id="discPrev" type="button">Prev</button>
@@ -415,13 +432,10 @@
           <button type="button" data-class="blade">Warrior</button>
           <button type="button" data-class="gunner">Gunner</button>
           <button type="button" data-class="ranger">Ranger preview</button>
+          <button type="button" data-class="warden">Warden preview</button>
+          <button type="button" data-class="alchemist">Alchemist preview</button>
         </div>
-        <p class="note">Three live kits. Mage casts from the disc. Warrior draws the sword. Gunner fires the blaster. Ranger is a preview: a bow shot and a dodge.</p>
-        <p class="deck">On deck</p>
-        <div class="deck-row">
-          <span>Warden — holds the line</span>
-          <span>Alchemist — bottles and bursts</span>
-        </div>
+        <p class="note">Mage casts from the disc. Warrior draws the sword. Gunner fires the blaster. Ranger, Warden, and Alchemist are previews.</p>
         <p>Staff is the usual way to cast.</p>
         <div class="row"><button id="handsToggle" type="button">Hands mode: off</button></div>
         <p class="note">These are the walking character's arms. They hang while you move and come up to cast, fish, or stand near a beast. Camera tracking starts when this is on, if the camera is allowed. Cast still uses the Cast button.</p>

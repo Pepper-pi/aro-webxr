@@ -11,19 +11,19 @@ const HEXES = [
     spawns: 'No beasts. A safe square.', features: 'Lantern cobbles and a warm rim.',
     next: 'Tier II brightens the lanterns. Tier III raises a gold beacon.' },
   { id: 'meadow', name: 'Wildflower Pasture', theme: 'Sunlit Meadow', q: 1, r: 0, tint: '#d2e27a', accent: '#fff6b0',
-    spawns: 'Slimes and other starter beasts.', features: 'Pollen and flower knots.',
+    spawns: 'A pasture bunny and an oryx.', features: 'Pollen and flower knots.',
     next: 'Tier II thickens the pollen. Tier III adds a golden wisp ring.' },
   { id: 'moss', name: 'Moss Creek', theme: 'Forest Creek', q: 0, r: 1, tint: '#1f8f62', accent: '#b6ffe0',
-    spawns: 'Woodland boar and wolf. Herb nodes.', features: 'A creek, moss stones, forest motes.',
+    spawns: 'A creek wolf and a boar. Herb nodes.', features: 'A creek, moss stones, forest motes.',
     next: 'Tier II shimmers the creek. Tier III lights it and calls an elite.' },
   { id: 'shore', name: 'Tide Reeds', theme: 'Lakeshore', q: -1, r: 1, tint: '#3ec8c0', accent: '#d8fff8',
-    spawns: 'Shore birds of a sort, and fish when you cast.', features: 'A water edge, reeds, pebbles. Ties to Long Lake.',
+    spawns: 'A shore crab and a fish.', features: 'A water edge, reeds, pebbles. Ties to Long Lake.',
     next: 'Tier II animates the shallows. Tier III adds a dusk glow and bonus catch XP.' },
   { id: 'glen', name: 'Fern Glen', theme: 'Forest Creek', q: 1, r: -1, tint: '#146b48', accent: '#9dffd2',
-    spawns: 'A second wolf trail and forage.', features: 'Moss and a short rill.',
+    spawns: 'A glen fox and a bear.', features: 'Moss and a short rill.',
     next: 'Same forest ladder as Moss Creek.' },
   { id: 'bloom', name: 'Buttercup Reach', theme: 'Sunlit Meadow', q: -1, r: 0, tint: '#e6d15a', accent: '#fff3c4',
-    spawns: 'Slimes in the flowers.', features: 'Warm pasture tint.',
+    spawns: 'A buttercup pig and a slime.', features: 'Warm pasture tint.',
     next: 'Same meadow ladder as Wildflower Pasture.' },
   { id: 'landing', name: 'Lantern Gate', theme: 'Hearth', q: 0, r: -1, tint: '#f0b45a', accent: '#ffe7b0',
     spawns: 'Safe ground. No fight.', features: 'A gate of warm stones.',
@@ -52,11 +52,11 @@ function need(tier) { return tier >= 3 ? 110 : tier === 2 ? 40 : 0; }
 function nextNeed(tier) { return tier >= 3 ? 110 : tier === 2 ? 110 : 40; }
 
 const FIGHT = {
-  moss: ['boar', 'wolf'],
-  glen: ['wolf', 'boar'],
-  meadow: ['slime', 'goblin'],
-  bloom: ['slime', 'slime'],
-  shore: ['slime', 'boar'],
+  moss: ['wolf', 'boar'],
+  glen: ['fox', 'bear'],
+  meadow: ['bunny', 'oryx'],
+  bloom: ['pig', 'slime'],
+  shore: ['crab', 'fish'],
 };
 
 export function createHexes(scene, world, camera, walker, zones) {

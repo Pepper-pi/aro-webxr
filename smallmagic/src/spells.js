@@ -18,8 +18,8 @@ export const SPELLS = [
   { key: 'frost', name: 'Frost Bolt', colour: '#9fe6ff', pour: false, sides: 6 },
   { key: 'wind', name: 'Wind', colour: '#dffff0', pour: false, sides: 4 },
   { key: 'growth', name: 'Growth', colour: '#7dff5a', pour: true, sides: 5 },
-  { key: 'explosion', name: 'Explosion', colour: '#ff4a1c', pour: false, sides: 8 },
-  { key: 'singularity', name: 'Singularity', colour: '#a06bff', pour: false, sides: 7 },
+  { key: 'explosion', name: 'Explosion', short: 'Expl', colour: '#ff4a1c', pour: false, sides: 8 },
+  { key: 'singularity', name: 'Singularity', short: 'Singul', colour: '#a06bff', pour: false, sides: 7 },
   { key: 'tornado', name: 'Tornado', colour: '#8fe0e4', pour: false, sides: 9 },
 ];
 const V = (x, y, z) => new THREE.Vector3(x, y, z);

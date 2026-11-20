@@ -1,4 +1,5 @@
-// Passive beasts. Drawn in code, no downloaded models. They wander, never attack, and can be felled by a spell.
+// Passive beasts. They wander, never attack, and can be felled by a spell.
+// Each kind prefers a CC0 GLB. The coded shape is only the stand-in if that file fails to load.
 import * as THREE from 'three';
 
 const mat = (color) => new THREE.MeshBasicMaterial({ color });
@@ -60,9 +61,37 @@ function goblin() {
   return g;
 }
 
-const MAKE = { wolf, boar, slime, goblin };
-const HP = { wolf: 36, boar: 48, slime: 22, goblin: 30 };
-const TALL = { boar: 1.65, slime: 1.25, goblin: 1.85 };
+function lump(color) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 6), mat(color));
+  body.position.y = 0.36;
+  g.add(body);
+  return g;
+}
+const MAKE = {
+  wolf, boar, slime, goblin,
+  fox: () => lump('#c46a2a'),
+  bear: () => lump('#d8d2c8'),
+  bunny: () => lump('#f3efe6'),
+  oryx: () => lump('#c4a574'),
+  pig: () => lump('#e7a0b0'),
+  crab: () => lump('#e23b32'),
+  fish: () => lump('#7ee7ff'),
+};
+const HP = { wolf: 36, boar: 48, slime: 22, goblin: 30, fox: 28, bear: 64, bunny: 18, oryx: 40, pig: 34, crab: 26, fish: 16 };
+const MOB = {
+  wolf: { file: 'mobs/cc0/wolf.glb', tall: 1.25, tint: '#6d645c' },
+  fox: { file: 'mobs/cc0/fox.glb', tall: 0.95, tint: '#d27a3a' },
+  bear: { file: 'mobs/cc0/bear.glb', tall: 1.55, tint: '#efe8dc' },
+  bunny: { file: 'mobs/cc0/bunny.glb', tall: 0.85, tint: '#f4efe6' },
+  oryx: { file: 'mobs/cc0/oryx.glb', tall: 1.35, tint: '#c4a574' },
+  pig: { file: 'mobs/cc0/pig.glb', tall: 0.9 },
+  crab: { file: 'mobs/cc0/crab.glb', tall: 0.72, tint: '#e07a62' },
+  fish: { file: 'mobs/cc0/fish.glb', tall: 0.55 },
+  boar: { file: 'mobs/overaction/boar.glb', tall: 1.65 },
+  slime: { file: 'mobs/overaction/slime.glb', tall: 1.25 },
+  goblin: { file: 'mobs/overaction/goblin.glb', tall: 1.85 },
+};
 const mobMixers = [];
 const faces = {};
 let gl = null;
@@ -178,7 +207,7 @@ function plantFeet(b) {
 
 let rimSerial = 0;
 
-function fitMob(root, height) {
+function fitMob(root, height, tint) {
   const box = new THREE.Box3().setFromObject(root);
   const size = box.getSize(new THREE.Vector3());
   const k = height / Math.max(size.y, 0.01);
@@ -190,9 +219,12 @@ function fitMob(root, height) {
     o.frustumCulled = false;
     const src = Array.isArray(o.material) ? o.material[0] : o.material;
     if (!src || src.type === 'MeshBasicMaterial') return;
+    const color = src.color ? src.color.clone() : new THREE.Color('#ffffff');
+    const blank = !src.map && color.r > 0.93 && color.g > 0.93 && color.b > 0.93;
+    if (blank && tint) color.set(tint);
     const mat = new THREE.MeshBasicMaterial({
       map: src.map || null,
-      color: src.color ? src.color.clone() : new THREE.Color('#ffffff'),
+      color,
       side: THREE.DoubleSide,
       alphaTest: src.alphaTest || 0,
     });
@@ -273,31 +305,33 @@ async function dressMobs(all) {
   const loader = new GLTFLoader();
   const SkeletonUtils = await import('three/addons/utils/SkeletonUtils.js');
   const cache = {};
-  const kinds = [...new Set(all.map((b) => b.kind).filter((k) => TALL[k]))];
+  const kinds = [...new Set(all.map((b) => b.kind).filter((k) => MOB[k]))];
   await Promise.all(kinds.map((k) => {
-    cache[k] = loader.loadAsync(new URL(`mobs/overaction/${k}.glb`, document.baseURI).href);
+    cache[k] = loader.loadAsync(new URL(MOB[k].file, document.baseURI).href);
     return cache[k];
   })).catch((err) => console.warn('mob pack', err));
   for (const b of all) {
-    if (!TALL[b.kind] || !cache[b.kind]) continue;
+    if (!MOB[b.kind] || !cache[b.kind]) continue;
     try {
       const gltf = await cache[b.kind];
       const model = SkeletonUtils.clone(gltf.scene);
-      fitMob(model, TALL[b.kind]);
+      fitMob(model, MOB[b.kind].tall, MOB[b.kind].tint);
       for (const child of [...b.g.children]) {
         if (child === b.bar || child.name === 'flame' || child.name === 'rime' || child.name === 'bleedtick' || child.name === 'siphonthread') continue;
         b.g.remove(child);
       }
       b.g.add(model);
       b.model = model;
-      b.bar.position.y = TALL[b.kind] * 0.92;
+      b.bar.position.y = MOB[b.kind].tall * 0.92;
       const mixer = new THREE.AnimationMixer(model);
       const clips = {};
       for (const clip of gltf.animations) {
-        const key = String(clip.name || '').toLowerCase();
-        if (!/idle|walk|run|attack|hit|death/.test(key) || clips[key]) continue;
-        clips[key] = mixer.clipAction(clip);
+        const slot = clipSlot(clip.name);
+        if (!slot || clips[slot]) continue;
+        clips[slot] = mixer.clipAction(clip);
       }
+      if (!clips.idle && clips.walk) clips.idle = clips.walk;
+      if (!clips.idle && gltf.animations[0]) clips.idle = mixer.clipAction(gltf.animations[0]);
       b.clips = clips;
       mobMixers.push(mixer);
       playClip(b, 'idle');
@@ -307,7 +341,17 @@ async function dressMobs(all) {
       console.warn('mob', b.kind, err);
     }
   }
-  done(all.filter((b) => TALL[b.kind] && b.model).length);
+  done(all.filter((b) => MOB[b.kind] && b.model).length);
+}
+
+function clipSlot(name) {
+  const key = String(name || '').toLowerCase();
+  if (/death|die|dead/.test(key)) return 'death';
+  if (/hitrecieve|flinch|hurt/.test(key) || key === 'hit') return 'hit';
+  if (/attack|bite/.test(key)) return 'attack';
+  if (/walk|run|roam|swim/.test(key)) return 'walk';
+  if (/idle|stand/.test(key)) return 'idle';
+  return '';
 }
 
 function one(kind, x, z) {
@@ -372,16 +416,16 @@ export function createBeasts(scene, ground, world) {
     group.add(b.g);
     all.push(b);
   };
-  add(meadow, 'wolf', -26, -6);
-  add(meadow, 'slime', -30, -14);
-  add(meadow, 'boar', -24, -11);
-  add(meadow, 'goblin', -20, -9);
-  add(meadow, 'wolf', -62, -16);
-  add(meadow, 'boar', -68, -23);
-  add(meadow, 'slime', -63, -22);
-  add(meadow, 'wolf', -44, -34);
-  add(meadow, 'slime', -36, -32);
-  add(meadow, 'boar', 6, 32);
+  add(meadow, 'wolf', 10.2, 39.2);
+  add(meadow, 'boar', 13.4, 37.6);
+  add(meadow, 'fox', 10.2, 6.2);
+  add(meadow, 'bear', 13.2, 5.2);
+  add(meadow, 'bunny', 19.6, 22.4);
+  add(meadow, 'oryx', 22.6, 21.2);
+  add(meadow, 'pig', -18.4, 22.6);
+  add(meadow, 'slime', -15.4, 21.4);
+  add(meadow, 'crab', -8.8, 39.2);
+  add(meadow, 'fish', -6.2, 37.4);
   for (const b of all) b.g.scale.setScalar(1.4);
   scene.add(meadow, lake);
   dressMobs(all);
@@ -538,6 +582,41 @@ export function createBeasts(scene, ground, world) {
         release() { best.busy = false; best.flinch = 0.2; },
       };
     },
+    mark(n) {
+      for (const b of all) {
+        b.marked = false;
+        const ring = b.g.getObjectByName('hmark');
+        if (ring) ring.visible = false;
+      }
+      const b = all[n];
+      if (!b || b.dead) return false;
+      b.marked = true;
+      let ring = b.g.getObjectByName('hmark');
+      if (!ring) {
+        ring = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.035, 6, 22), new THREE.MeshBasicMaterial({ color: '#ff5a5a', transparent: true, opacity: 0.95, depthWrite: false, side: THREE.DoubleSide }));
+        ring.name = 'hmark';
+        ring.rotation.x = Math.PI / 2;
+        ring.position.y = 1.25;
+        b.g.add(ring);
+      }
+      ring.visible = true;
+      return true;
+    },
+    taunt(x, z, reach = 12) {
+      let n = 0;
+      for (const b of all) {
+        if (b.dead || b.where !== 'meadow') continue;
+        const dx = b.g.position.x - x;
+        const dz = b.g.position.z - z;
+        const d = Math.hypot(dx, dz);
+        if (d > reach || d < 0.35) continue;
+        b.tx = x + (dx / d) * 1.7;
+        b.tz = z + (dz / d) * 1.7;
+        b.wait = 0.12;
+        n += 1;
+      }
+      return n;
+    },
     shove(x, z, dx, dz, dist, reach = 1.5) {
       let best = null;
       let bestD = reach;
@@ -577,7 +656,7 @@ export function createBeasts(scene, ground, world) {
           if (!same && b.hitAt && now - b.hitAt < 180) continue;
           b.hitAt = now;
           if (m.once != null) { b.seen = m.once; b.blastFall = fall; }
-          const dealt = (again ? m.d * 0.4 : m.d) * addFall;
+          const dealt = (again ? m.d * 0.4 : m.d) * addFall * (b.marked && m.hunt ? 1.5 : 1);
           b.hp -= dealt;
           b.flash = 0.28;
           if (m.k === 'fire') {
