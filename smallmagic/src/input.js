@@ -71,10 +71,11 @@ export class Input {
       s.move = { x: this.stick.x, y: this.stick.y };
       s.walk = false;
       s.device = 'pad';
-      if (Math.hypot(this.stick.x, this.stick.y) > 0.82) s.sprint = true;
+      if (Math.hypot(this.stick.x, this.stick.y) > 0.72) s.sprint = true;
     }
-    s.look.x += this.lookDx * 0.0054;
-    s.look.y += this.lookDy * 0.0042;
+    const look = s.sprint ? 0.0096 : 0.0074;
+    s.look.x += this.lookDx * look;
+    s.look.y += this.lookDy * (look * 0.72);
     this.lookDx = this.lookDy = 0;
     if (this.casting || this.wasCasting) s.cast = this.casting;
     this.wasCasting = this.casting;

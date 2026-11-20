@@ -2,7 +2,7 @@
 // are stopped by trunks and stones, and cannot leave the meadow.
 import * as THREE from 'three';
 
-const EYE = 1.66, WALK = 5.4, RUN = 9.2;
+const EYE = 1.66, WALK = 6.8, RUN = 13.4;
 /** How far the eye's rise and fall has gone per metre walked (radians): one dip, and so one step heard, every 1.85 m. */
 export const BOB = 3.4;
 
@@ -27,7 +27,8 @@ export class Walker {
     const top = inp.sprint ? RUN : WALK, sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
     // The eye looks along (sin yaw, cos yaw). Forward is that, and right is (cos yaw, -sin yaw).
     const wx = (inp.move.y * sy + inp.move.x * cy) * top, wz = (inp.move.y * cy - inp.move.x * sy) * top;
-    const k = 1 - Math.exp(-dt * (this.grounded ? 11 : 2.5));
+    const follow = inp.sprint ? 22 : 14;
+    const k = 1 - Math.exp(-dt * (this.grounded ? follow : 4));
     this.vel.x += (wx - this.vel.x) * k; this.vel.z += (wz - this.vel.z) * k;
     f.x += this.vel.x * dt; f.z += this.vel.z * dt;
     // trunks and stones

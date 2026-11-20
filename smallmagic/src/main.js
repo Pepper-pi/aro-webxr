@@ -344,13 +344,38 @@ document.getElementById('vol')?.addEventListener('input', (e) => { if (sound) so
 const arms = createArms(scene);
 const sword = new THREE.Group();
 const steel = new THREE.MeshBasicMaterial({ color: '#e7eef6' });
-const grip = new THREE.MeshBasicMaterial({ color: '#6b3a22' });
-const edge = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.72, 0.02), steel);
-edge.position.y = 0.46;
-const guard = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.035, 0.03), grip);
-const handle = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.18, 0.03), grip);
-handle.position.y = -0.12;
-sword.add(edge, guard, handle);
+const gripMat = new THREE.MeshBasicMaterial({ color: '#6b3a22' });
+const gold = new THREE.MeshBasicMaterial({ color: '#e6c27a' });
+function sculptedBlade() {
+  const h = 0.74, n = 7;
+  const pos = [], idx = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, y = 0.08 + t * h;
+    const half = 0.05 * (1 - t * 0.9);
+    const thick = 0.011 * (1 - t * 0.55);
+    pos.push(-half, y, 0, 0, y, thick, half, y, 0, 0, y, -thick * 0.45);
+    if (i === n) continue;
+    const b = i * 4;
+    idx.push(b, b + 4, b + 1, b + 1, b + 4, b + 5, b + 1, b + 5, b + 2, b + 2, b + 5, b + 6, b + 2, b + 6, b + 3, b + 3, b + 6, b + 7, b + 3, b + 7, b, b, b + 7, b + 4);
+  }
+  const tip = pos.length / 3;
+  pos.push(0, 0.08 + h + 0.05, 0);
+  const last = n * 4;
+  idx.push(last, last + 1, tip, last + 1, last + 2, tip, last + 2, last + 3, tip, last + 3, last, tip);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  return geo;
+}
+const edge = new THREE.Mesh(sculptedBlade(), steel);
+const guard = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.028, 0.04), gold);
+guard.position.y = 0.06;
+const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.02, 0.16, 8), gripMat);
+handle.position.y = -0.05;
+const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 6), gold);
+pommel.position.y = -0.15;
+sword.add(edge, guard, handle, pommel);
 sword.scale.setScalar(1.05);
 sword.visible = false;
 sword.traverse((o) => { o.frustumCulled = false; });
@@ -359,7 +384,7 @@ const blade = createBlade((damage) => zones.launchNearest(damage, blade.locked),
 applyMood(readMood(), false);
 const gun = createGunner(scene, camera, world, zones);
 camera.layers.enable(9);
-let padCast = false, forceDraw = false;
+let padCast = false, forceDraw = false, chaseDist = 0;
 let free = null;
 let shaking = 0;
 const blastAt = new THREE.Vector3();
@@ -418,13 +443,17 @@ function tick(dt) {
   if (inp.any) sound?.wake();
   walker.update(dt, planted ? { ...inp, move: { x: 0, y: 0 }, jump: false, sprint: false } : inp);
   if (free) { camera.position.copy(free.position); camera.lookAt(free.target); } else walker.look(camera);
-  const chasing = !free && (settings.viewBack || walker.speed > 0.9) && !(settings.class === 'blade' && blade.drawn && blade.pad);
+  const bladeClose = settings.class === 'blade' && blade.drawn && blade.pad;
+  const wantChase = !free && !bladeClose && (settings.viewBack || walker.speed > 1.15);
+  const wantDist = settings.viewBack ? 4.4 : 2.5 + Math.min(2.1, Math.max(0, walker.speed - 1) * 0.32);
+  chaseDist += ((wantChase ? wantDist : 0) - chaseDist) * Math.min(1, dt * 3.2);
+  const chasing = chaseDist > 0.45;
   if (chasing) {
     const yaw = walker.yaw;
     const fx = Math.sin(yaw);
     const fz = Math.cos(yaw);
-    camera.position.set(walker.feet.x - fx * 3.6, walker.feet.y + 2.2, walker.feet.z - fz * 3.6);
-    camera.lookAt(walker.feet.x + fx * 2.4, walker.feet.y + 1.15, walker.feet.z + fz * 2.4);
+    camera.position.set(walker.feet.x - fx * chaseDist, walker.feet.y + 1.55 + chaseDist * 0.18, walker.feet.z - fz * chaseDist);
+    camera.lookAt(walker.feet.x + fx * 1.6, walker.feet.y + 1.15, walker.feet.z + fz * 1.6);
   }
   // (and shakes the eye)
   if (blast.shake + hole.shake + twister.shake > 0.002) { const s = blast.shake + hole.shake + twister.shake * 0.5; shaking += dt; camera.rotateX(Math.sin(shaking * 61) * Math.sin(shaking * 37 + 1) * 0.03 * s); camera.rotateY(Math.sin(shaking * 53 + 2) * Math.sin(shaking * 29) * 0.03 * s); camera.rotateZ(Math.sin(shaking * 47 + 4) * 0.018 * s); }
