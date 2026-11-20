@@ -158,8 +158,8 @@ export function createAR(scene, camera, world, zones) {
     const rz = -fx;
     anchored = [];
     pick.forEach((b, i) => {
-      const depth = 4.6 + i * 0.15;
-      const side = i === 0 ? 0.7 : -0.75;
+      const depth = 2.05 + i * 0.08;
+      const side = i === 0 ? 0.28 : -0.32;
       const x = walker.feet.x + fx * depth + rx * side;
       const z = walker.feet.z + fz * depth + rz * side;
       const y = world.ground(x, z);
@@ -175,12 +175,12 @@ export function createAR(scene, camera, world, zones) {
     const lead = anchored[0];
     goals = anchored.map((b) => {
       const prev = b.g.scale.x || 1;
-      b.g.scale.setScalar(0.72);
+      b.g.scale.setScalar(0.58);
       return { x: b.g.position.x, y: b.g.position.y, z: b.g.position.z, scale: prev };
     });
     if (lead) {
-      const depth = 2.7;
-      rift.position.set(walker.feet.x + fx * depth, walker.feet.y + 1.45, walker.feet.z + fz * depth);
+      const depth = 3.15;
+      rift.position.set(walker.feet.x + fx * depth, walker.feet.y + 1.35, walker.feet.z + fz * depth);
       rift.scale.setScalar(1.35);
       rift.lookAt(walker.feet.x, walker.feet.y + 1.45, walker.feet.z);
     }
@@ -287,13 +287,13 @@ export function createAR(scene, camera, world, zones) {
       arch.material.opacity = fade;
       inner.material.opacity = fade;
       glow.material.opacity = 0.75 * fade;
-      mouth.material.opacity = 0.7 * fade;
-      const stepU = Math.min(1, (3.4 - riftLife) / 0.9);
+      mouth.material.opacity = 0.4 * fade;
+      const stepU = Math.min(1, (3.4 - riftLife) / 1.1);
       anchored.forEach((b, i) => {
         const g = goals[i];
         if (!g) return;
-        b.g.position.x = g.x - fx * (1 - stepU) * 1.15;
-        b.g.position.z = g.z - fz * (1 - stepU) * 1.15;
+        b.g.position.x = g.x + fx * (1 - stepU) * 1.7;
+        b.g.position.z = g.z + fz * (1 - stepU) * 1.7;
       });
       arch.rotation.y += dt * 0.4;
       inner.rotation.y -= dt * 0.7;

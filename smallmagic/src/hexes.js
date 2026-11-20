@@ -51,7 +51,15 @@ function tierOf(xp) { return xp >= 110 ? 3 : xp >= 40 ? 2 : 1; }
 function need(tier) { return tier >= 3 ? 110 : tier === 2 ? 40 : 0; }
 function nextNeed(tier) { return tier >= 3 ? 110 : tier === 2 ? 110 : 40; }
 
-export function createHexes(scene, world, camera, walker) {
+const FIGHT = {
+  moss: ['boar', 'wolf'],
+  glen: ['wolf', 'boar'],
+  meadow: ['slime', 'goblin'],
+  bloom: ['slime', 'slime'],
+  shore: ['slime', 'boar'],
+};
+
+export function createHexes(scene, world, camera, walker, zones) {
   const group = new THREE.Group();
   group.name = 'super-hexes';
   scene.add(group);
@@ -91,12 +99,17 @@ export function createHexes(scene, world, camera, walker) {
     node.add(fill, edge, glow, outer, runes, beacon, aurora);
     if (water) node.add(water);
     if (stones) node.add(stones);
+    const dress = dressOf(def, at.x, at.z);
+    node.add(dress);
+    const chest = chestOf(def.accent);
+    chest.visible = false;
+    node.add(chest);
     const herb = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), new THREE.MeshBasicMaterial({ color: '#7dff9a' }));
     herb.position.set(1.4, 0.4, 0.6);
     herb.visible = def.theme === 'Forest Creek' || def.theme === 'Sunlit Meadow';
     node.add(herb);
     group.add(node);
-    return { ...def, ...at, node, fill, edge, glow, outer, aurora, runes, motes, water, beacon, herb, got: false };
+    return { ...def, ...at, node, fill, edge, glow, outer, aurora, runes, motes, water, beacon, herb, dress, chest, got: false, pulse: 0, chestT: 0, celebrated: tierOf(xp[def.id] || 0), waved: false, wave: null };
   });
 
   function fillMesh(cx, cz, color) {
@@ -179,6 +192,89 @@ export function createHexes(scene, world, camera, walker) {
     }
     return g;
   }
+  function dressOf(def, cx, cz) {
+    const g = new THREE.Group();
+    const yAt = (x, z) => world.ground(cx + x, cz + z);
+    if (def.theme === 'Forest Creek') {
+      for (let i = 0; i < 7; i++) {
+        const reed = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.035, 0.7, 5), new THREE.MeshBasicMaterial({ color: i % 2 ? '#1f6b45' : '#3d9a62' }));
+        const x = -2.4 + i * 0.55;
+        const z = 0.7 + Math.sin(i) * 0.2;
+        reed.position.set(x, yAt(x, z) + 0.35, z);
+        g.add(reed);
+      }
+      for (let i = 0; i < 2; i++) {
+        const frog = new THREE.Group();
+        const body = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color: '#3d8f4a' }));
+        body.scale.set(1.2, 0.7, 1);
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 5), new THREE.MeshBasicMaterial({ color: '#f4f0c8' }));
+        eye.position.set(0.05, 0.06, 0.08);
+        frog.add(body, eye);
+        const x = -0.4 + i * 1.3;
+        const z = 1.1;
+        frog.position.set(x, yAt(x, z) + 0.08, z);
+        g.add(frog);
+      }
+      for (let i = 0; i < 6; i++) {
+        const fly = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 5), new THREE.MeshBasicMaterial({ color: '#e8ff8a' }));
+        fly.userData.fly = i;
+        g.add(fly);
+      }
+    } else if (def.theme === 'Sunlit Meadow') {
+      for (let i = 0; i < 8; i++) {
+        const flower = new THREE.Mesh(new THREE.CircleGeometry(0.12, 6), new THREE.MeshBasicMaterial({ color: i % 2 ? '#f2d15a' : '#f08ab0', side: THREE.DoubleSide }));
+        const x = -2 + (i % 4) * 1.1;
+        const z = -1.2 + Math.floor(i / 4) * 1.4;
+        flower.position.set(x, yAt(x, z) + 0.08, z);
+        flower.rotation.x = -Math.PI / 2;
+        g.add(flower);
+      }
+      for (let i = 0; i < 3; i++) {
+        const wing = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.08), new THREE.MeshBasicMaterial({ color: '#fff6dc', side: THREE.DoubleSide, transparent: true, opacity: 0.85 }));
+        wing.userData.wing = i;
+        g.add(wing);
+      }
+    } else if (def.theme === 'Lakeshore') {
+      for (let i = 0; i < 4; i++) {
+        const mist = new THREE.Mesh(new THREE.SphereGeometry(0.7, 8, 6), new THREE.MeshBasicMaterial({ color: '#e7fff8', transparent: true, opacity: 0.22, depthWrite: false }));
+        mist.position.set(-1.5 + i * 0.9, 0.5, 0.2);
+        mist.userData.mist = i;
+        g.add(mist);
+      }
+      for (let i = 0; i < 5; i++) {
+        const reed = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.028, 0.85, 5), new THREE.MeshBasicMaterial({ color: '#c6d27a' }));
+        const x = -1.6 + i * 0.7;
+        reed.position.set(x, yAt(x, 1.2) + 0.4, 1.2);
+        g.add(reed);
+      }
+    } else {
+      for (let i = 0; i < 3; i++) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.9, 6), new THREE.MeshBasicMaterial({ color: '#6a4a32' }));
+        const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.18, 0.16), new THREE.MeshBasicMaterial({ color: '#ffd27a' }));
+        const x = -1.6 + i * 1.5;
+        post.position.set(x, yAt(x, 1.4) + 0.45, 1.4);
+        lamp.position.set(x, yAt(x, 1.4) + 1.0, 1.4);
+        g.add(post, lamp);
+      }
+      for (let i = 0; i < 4; i++) {
+        const s = new THREE.Mesh(new THREE.DodecahedronGeometry(0.22, 0), new THREE.MeshBasicMaterial({ color: '#c4b49a' }));
+        const x = -1.1 + i * 0.7;
+        s.position.set(x, yAt(x, -1.3) + 0.12, -1.3);
+        g.add(s);
+      }
+    }
+    return g;
+  }
+  function chestOf(color) {
+    const g = new THREE.Group();
+    const box = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.36, 0.4), new THREE.MeshBasicMaterial({ color: '#8a5a32' }));
+    const lid = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.12, 0.42), new THREE.MeshBasicMaterial({ color }));
+    lid.position.y = 0.22;
+    g.add(box, lid);
+    g.position.y = 1.35;
+    g.scale.setScalar(1.7);
+    return g;
+  }
   function stonesOf(color) {
     const g = new THREE.Group();
     for (let i = 0; i < 4; i++) {
@@ -249,10 +345,41 @@ export function createHexes(scene, world, camera, walker) {
     close();
   }
   function grant(id, n) {
+    const before = tierOf(xp[id] || 0);
     xp[id] = (xp[id] || 0) + n;
     saveXp(xp);
     const h = built.find((b) => b.id === id);
+    const after = tierOf(xp[id] || 0);
+    if (h && after > before) celebrateTier(h, after);
     if (h && openId === id) paint(h);
+  }
+  function celebrateTier(h, t) {
+    if ((h.celebrated || 0) >= t) return;
+    h.celebrated = t;
+    h.pulse = 1.4;
+    h.chestT = 6;
+    if (h.chest) h.chest.visible = true;
+    const label = t === 2 ? 'II' : 'III';
+    if (banner) {
+      banner.hidden = false;
+      banner.textContent = `${h.name} rises · Tier ${label}`;
+      bannerT = 3.4;
+    }
+    try {
+      if (h.theme === 'Lakeshore') {
+        const book = JSON.parse(localStorage.getItem('aro-long-lake') || '{}');
+        const prev = book.trout;
+        book.trout = { n: (prev?.n || 0) + 1, best: Math.max(prev?.best || 0, 28) };
+        localStorage.setItem('aro-long-lake', JSON.stringify(book));
+      } else {
+        localStorage.setItem('aro-herbs', String(Number(localStorage.getItem('aro-herbs') || 0) + 1));
+      }
+      if (h.theme === 'Hearth') {
+        const bag = JSON.parse(localStorage.getItem('aro-beast-drops') || '{}');
+        bag.wick = (bag.wick || 0) + 1;
+        localStorage.setItem('aro-beast-drops', JSON.stringify(bag));
+      }
+    } catch { /* private mode */ }
   }
 
   document.getElementById('hexX')?.addEventListener('pointerup', (e) => { close(); e.preventDefault(); e.stopPropagation(); });
@@ -309,6 +436,33 @@ export function createHexes(scene, world, camera, walker) {
           d.scale.setScalar(t >= 3 ? 1.15 : 1);
         });
       }
+      h.dress?.children.forEach((m) => {
+        if (m.userData.fly != null) {
+          const i = m.userData.fly;
+          m.position.set(-1 + Math.sin(time * 1.4 + i) * 1.4, 0.8 + Math.sin(time * 2 + i) * 0.25, Math.cos(time * 1.1 + i) * 1.1);
+        }
+        if (m.userData.wing != null) {
+          const i = m.userData.wing;
+          m.position.set(Math.sin(time * 0.8 + i) * 2, 1.1 + Math.sin(time * 3 + i) * 0.2, Math.cos(time * 0.7 + i) * 1.6);
+          m.rotation.z = Math.sin(time * 12 + i) * 0.6;
+        }
+        if (m.userData.mist != null) m.material.opacity = 0.14 + Math.sin(time + m.userData.mist) * 0.06;
+      });
+      if (h.pulse > 0) {
+        h.pulse = Math.max(0, h.pulse - dt);
+        const s = 1 + Math.sin((1.4 - h.pulse) * 10) * 0.12;
+        h.glow.scale.setScalar(s);
+        h.outer.visible = true;
+      }
+      if (h.chestT > 0) {
+        h.chestT -= dt;
+        if (h.chest) {
+          h.chest.visible = true;
+          h.chest.position.y = 1.35 + Math.sin(time * 3) * 0.1;
+          h.chest.rotation.y += dt * 0.8;
+          if (h.chestT <= 0) h.chest.visible = false;
+        }
+      }
       if (h.herb.visible && !h.got && Math.hypot(walker.feet.x - (h.x + 1.4), walker.feet.z - (h.z + 0.6)) < 1.3) {
         h.got = true;
         h.herb.visible = false;
@@ -318,6 +472,21 @@ export function createHexes(scene, world, camera, walker) {
           const n = Number(localStorage.getItem('aro-herbs') || 0) + 1;
           localStorage.setItem('aro-herbs', String(n));
         } catch { /* private mode */ }
+      }
+    }
+    for (const h of built) if (h !== here && h.wave?.done) h.waved = false;
+    if (here && FIGHT[here.id] && zones?.beginWave && !here.waved) {
+      here.waved = true;
+      const t = tier(here);
+      here.wave = zones.beginWave(here, FIGHT[here.id], t + 1, t === 1 ? 0.1 : t === 2 ? 0.35 : 0.6);
+    }
+    if (here?.wave && !here.wave.done && zones?.waveAlive) {
+      if (zones.waveAlive(here.wave) === 0 && here.wave.ids.length) {
+        here.wave.done = true;
+        const have = xp[here.id] || 0;
+        const t = tierOf(have);
+        if (t < 3) grant(here.id, Math.max(12, (t === 1 ? 40 : 110) - have));
+        else grant(here.id, 8);
       }
     }
     if (here) {

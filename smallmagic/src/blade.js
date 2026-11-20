@@ -38,7 +38,7 @@ export function createBlade(onLaunch, bits = {}) {
   let rush = null;
   const notes = [];
   const hold = new Map();
-  const { scene, camera, world, zones, walker, air, fx } = bits;
+  const { scene, camera, world, zones, walker, air, fx, sword } = bits;
   const shots = [];
   let blocking = false;
   let blockHeld = 99;
@@ -1617,15 +1617,16 @@ export function createBlade(onLaunch, bits = {}) {
     chainAt = now;
     swing = 1;
     const mesh = new THREE.Mesh(
-      new THREE.TorusGeometry(step === 2 ? 0.78 : 0.52, step === 2 ? 0.055 : 0.034, 8, 22, Math.PI * (step === 2 ? 1.2 : 0.82)),
+      new THREE.TorusGeometry(step === 2 ? 0.42 : 0.3, step === 2 ? 0.035 : 0.022, 6, 18, Math.PI * (step === 2 ? 1.15 : 0.8)),
       new THREE.MeshBasicMaterial({ color: step === 2 ? '#ffe7a4' : step === 1 ? '#fff6dc' : '#3ee0ff', side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false }),
     );
-    mesh.position.copy(camera.position).add(look.clone().multiplyScalar(2.15));
-    mesh.position.y += (step - 1) * 0.12;
-    mesh.quaternion.copy(camera.quaternion);
-    mesh.rotateZ(-1.05 + step * 0.72);
-    scene.add(mesh);
-    shots.push({ mesh, v: aim.multiplyScalar(3.2), life: 0.4, kind: 'slice', blew: false, chopped: false, dmg: [8, 14, 26][step], kick: step === 2 ? 0.12 : 0.04 });
+    mesh.position.set(0.04, 0.58, 0.03);
+    mesh.rotation.set(0.15, 0, -0.7 + step * 0.55);
+    (sword || scene).add(mesh);
+    const strike = camera.position.clone().add(look.clone().multiplyScalar(2.2));
+    const beast = zones?.beasts?.().find((b) => !b.dead && Math.hypot(b.x - strike.x, b.z - strike.z) < 2.4);
+    if (beast) zones.hurt([{ x: beast.x, z: beast.z, r: 1.3, d: [8, 14, 26][step], k: 'arcane', bleed: step === 2 ? 3.2 : 0 }]);
+    shots.push({ mesh, v: aim.multiplyScalar(0), life: 0.45, kind: 'slice', stuck: true, blew: true, chopped: true, dmg: [8, 14, 26][step], kick: 0 });
     say(step === 2 ? 'Heavy' : `Cut ${step + 1}`);
   }
 
@@ -1773,6 +1774,11 @@ export function createBlade(onLaunch, bits = {}) {
     for (let i = shots.length - 1; i >= 0; i--) {
       const shot = shots[i];
       shot.life -= dt;
+      if (shot.stuck) {
+        if (shot.mesh.material) shot.mesh.material.opacity = Math.max(0, shot.life / 0.45);
+        if (shot.life <= 0) { shot.mesh.parent?.remove(shot.mesh); shots.splice(i, 1); }
+        continue;
+      }
       if (shot.kind !== 'slice') shot.v.y -= GRAV * dt;
       shot.mesh.position.addScaledVector(shot.v, dt);
       if (shot.kind !== 'slice') {

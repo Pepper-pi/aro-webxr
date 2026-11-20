@@ -66,6 +66,7 @@ function state() {
     people: { ...base.people, ...(raw.people || {}) },
     boardSeed: raw.boardSeed || 1,
     done: raw.done || {},
+    need: raw.need || null,
   };
 }
 function rankName(fp) {
@@ -107,6 +108,17 @@ const REQUESTS = [
   { id: 'stroll', who: 'sable', title: 'Evening stroll', note: 'Walk the lake talk with Sable.', need: 1, get: (s) => s.people.sable?.hangs || 0, rewardF: 8, rewardR: 4 },
 ];
 
+const NEEDS = [
+  { item: 'herb', title: 'A moss sprig', note: 'One herb picked in a hex.', who: 'maren' },
+  { item: 'trout', title: 'One creek trout', note: 'A trout from Long Lake.', who: 'sable' },
+  { item: 'tusk', title: 'A boar tusk', note: 'A drop from a hex fight.', who: 'bram' },
+  { item: 'wick', title: 'A lantern wick', note: 'A crafted bit from a hearth hex.', who: 'lumen' },
+];
+function bagCount(item) {
+  if (item === 'herb') return herbs();
+  if (item === 'trout') return fishCount('trout');
+  try { return JSON.parse(localStorage.getItem('aro-beast-drops') || '{}')[item] || 0; } catch { return 0; }
+}
 function pickBoard(seed) {
   const fish = REQUESTS.filter((r) => r.id === 'trout' || r.id === 'anyfish' || r.id === 'lantern');
   const hang = REQUESTS.filter((r) => r.id === 'tea' || r.id === 'spar' || r.id === 'stroll');
@@ -224,13 +236,30 @@ export function createHub(hooks = {}) {
     renderHome();
   }
 
+  function ensureNeed() {
+    const now = Date.now();
+    if (!data.need || data.need.until < now) {
+      const pick = NEEDS[Math.floor(Math.random() * NEEDS.length)];
+      data.need = { item: pick.item, title: pick.title, note: pick.note, who: pick.who, until: now + 90000 };
+      persist();
+    }
+    return data.need;
+  }
   function renderBoard() {
     const list = document.getElementById('crewList');
     const rank = document.getElementById('crewRank');
     if (rank) rank.textContent = `Respect · ${crewName(data.respect)} · ${data.respect}`;
     if (!list) return;
+    const need = ensureNeed();
+    const left = Math.max(0, Math.ceil((need.until - Date.now()) / 1000));
+    const clock = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+    const haveNeed = bagCount(need.item);
+    const needPerson = PEOPLE.find((p) => p.id === need.who);
+    const needReady = haveNeed >= 1 && !data.done[`need:${need.until}`];
+    const needDone = !!data.done[`need:${need.until}`];
     const pins = pickBoard(data.boardSeed);
-    list.innerHTML = pins.map((pin) => {
+    const randomPin = `<div class="pin"><b>${need.title}</b><br>${needPerson.name} · ${need.note}<br>${Math.min(1, haveNeed)}/1 · ${clock} left · +10 respect · bonus +6<br>${needDone ? 'Turned in.' : `<button type="button" data-turn="random" ${needReady ? '' : 'disabled'}>${needReady ? 'Turn in' : 'In progress'}</button>`}</div>`;
+    list.innerHTML = randomPin + pins.map((pin) => {
       const person = PEOPLE.find((p) => p.id === pin.who);
       const have = Math.min(pin.need, pin.get(data));
       const ready = have >= pin.need && !data.done[`${data.boardSeed}:${pin.id}`];
@@ -245,6 +274,22 @@ export function createHub(hooks = {}) {
   }
 
   function turnIn(id) {
+    if (id === 'random') {
+      const need = ensureNeed();
+      const key = `need:${need.until}`;
+      if (data.done[key] || bagCount(need.item) < 1) return;
+      data.done[key] = true;
+      if (need.item !== 'herb' && need.item !== 'trout') {
+        try {
+          const bag = JSON.parse(localStorage.getItem('aro-beast-drops') || '{}');
+          bag[need.item] = Math.max(0, (bag[need.item] || 0) - 1);
+          localStorage.setItem('aro-beast-drops', JSON.stringify(bag));
+        } catch { /* private mode */ }
+      }
+      bump(need.who, 4, 16, 'proud');
+      renderBoard();
+      return;
+    }
     const pin = REQUESTS.find((r) => r.id === id);
     if (!pin) return;
     const key = `${data.boardSeed}:${pin.id}`;
@@ -269,6 +314,8 @@ export function createHub(hooks = {}) {
     document.getElementById('menu') && (document.getElementById('menu').hidden = true);
     document.getElementById('crew').hidden = false;
     document.getElementById('home').hidden = true;
+    const travel = document.getElementById('board');
+    if (travel) travel.hidden = true;
     hideQuest(true);
     renderBoard();
   }

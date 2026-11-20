@@ -113,7 +113,7 @@ scene.add(flames.mesh);
 const fire = createFire({ world, air, fx, flames });
 const zones = createZones({ scene, world, walker, camera, air });
 const ar = createAR(scene, camera, world, zones);
-const hexes = createHexes(scene, world, camera, walker);
+const hexes = createHexes(scene, world, camera, walker, zones);
 if (q.get('bond') === 'trusted') zones.setHearts(120);
 const hub = createHub({
   visit() {
@@ -414,7 +414,7 @@ sword.scale.setScalar(1.05);
 sword.visible = false;
 sword.traverse((o) => { o.frustumCulled = false; });
 scene.add(sword);
-const blade = createBlade((damage) => zones.launchNearest(damage, blade.locked), { scene, camera, world, zones, walker, air, fx });
+const blade = createBlade((damage) => zones.launchNearest(damage, blade.locked), { scene, camera, world, zones, walker, air, fx, sword });
 applyMood(readMood(), false);
 const gun = createGunner(scene, camera, world, zones);
 camera.layers.enable(9);
@@ -508,7 +508,7 @@ function tick(dt) {
   }
   camera.updateMatrixWorld(true);
   zones.stickRod?.();
-  const wheel = discOn && kit === 'mage' && !melee && !zones.rodOut && zones.name !== 'hub';
+  const wheel = discOn && kit === 'mage' && !melee && !zones.rodOut && zones.name !== 'hub' && !ar.on;
   const armCharge = (discCharge || spells?.cast?.holding) ? Math.max(0.14, spells?.cast?.charge || 0) : 0;
   castDisc?.update(dt, wheel, spells?.selected ?? 0, walker, camera, armCharge, !chasing && !free, wristPoint());
   ar.update(dt, walker);

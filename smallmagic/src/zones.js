@@ -175,6 +175,7 @@ export function createZones({ scene, world, walker, camera, air }) {
   const reel = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.01, 20), mat('#e7c48a'));
   reel.rotation.x = Math.PI / 2;
   reel.position.set(0, 0.12, 0.03);
+  reel.visible = false;
   rod.add(grip, blank, tipM, reel);
   rod.position.set(0.28, -0.22, -0.48);
   rod.rotation.set(0.82, -0.55, -0.35);
@@ -449,7 +450,7 @@ export function createZones({ scene, world, walker, camera, air }) {
       outdoors();
       world.root.visible = true;
       hub.visible = false;
-      meadowRing.visible = true;
+      meadowRing.visible = false;
       hold.visible = false;
       if (menu) menu.hidden = true;
       hideBoard();
@@ -823,6 +824,53 @@ export function createZones({ scene, world, walker, camera, air }) {
     shoveBeast(x, z, dx, dz, dist) { return beasts.shove(x, z, dx, dz, dist); },
     get blocksMagic() { return name !== 'meadow'; },
     showBoard, enter,
+    beginWave(hex, table, count, eliteChance) {
+      const live = beasts.live().filter((b) => !b.dead && b.where === 'meadow');
+      const used = new Set();
+      const ids = [];
+      const n = Math.max(1, Math.min(4, count));
+      for (let i = 0; i < n; i++) {
+        const kind = table[i % table.length];
+        const b = live.find((x) => x.kind === kind && !used.has(x.n)) || live.find((x) => !used.has(x.n));
+        if (!b) break;
+        used.add(b.n);
+        const ang = (i / n) * Math.PI * 2;
+        const x = hex.x + Math.cos(ang) * 2.4;
+        const z = hex.z + Math.sin(ang) * 2.4;
+        beasts.anchor(b.n, x, world.ground(x, z), z, Math.atan2(-Math.cos(ang), -Math.sin(ang)));
+        if (Math.random() < eliteChance) {
+          b.g.scale.setScalar(2.05);
+          if (!b.g.getObjectByName('elite')) {
+            const mark = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), new THREE.MeshBasicMaterial({ color: '#ffe27a' }));
+            mark.name = 'elite';
+            mark.position.y = 1.7;
+            b.g.add(mark);
+          }
+        }
+        ids.push(b.n);
+      }
+      return { ids, done: false, noted: new Set() };
+    },
+    waveAlive(wave) {
+      const dropName = { boar: 'tusk', wolf: 'ruff', slime: 'gel', goblin: 'bead' };
+      let left = 0;
+      const live = beasts.live();
+      for (const id of wave.ids) {
+        const b = live.find((x) => x.n === id);
+        if (!b || b.dead) {
+          if (b && !wave.noted.has(id)) {
+            wave.noted.add(id);
+            try {
+              const bag = JSON.parse(localStorage.getItem('aro-beast-drops') || '{}');
+              const key = dropName[b.kind] || 'bead';
+              bag[key] = (bag[key] || 0) + 1;
+              localStorage.setItem('aro-beast-drops', JSON.stringify(bag));
+            } catch { /* private mode */ }
+          }
+        } else left += 1;
+      }
+      return left;
+    },
     seatHexes(list) {
       const live = beasts.live().filter((b) => !b.dead && b.where === 'meadow');
       const take = (kind) => {
@@ -1063,9 +1111,9 @@ export function createZones({ scene, world, walker, camera, air }) {
         const bend = (phase === 'bite' ? 0.25 + tension * 0.7 : 0) + dip * 0.45;
         const framed = phase === 'bite' || phase === 'reel';
         if (framed) {
-          rod.scale.setScalar(0.7);
-          rod.position.set(0.24, -0.56, -0.6);
-          rod.rotation.set(-0.46, -0.16, 0.04);
+          rod.scale.setScalar(0.68);
+          rod.position.set(0.24, -0.4, -0.62);
+          rod.rotation.set(-0.58, -0.14, 0.04);
         } else {
           rod.scale.setScalar(1);
           rod.position.set(0.28, -0.22, -0.48);
