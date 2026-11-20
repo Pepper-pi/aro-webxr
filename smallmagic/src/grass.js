@@ -71,6 +71,9 @@ export function createGrass(air, { count, tile, segs, fade, size, seed }) {
     vertex: PLACE + LEAN + /* glsl */ `
   float gGrow = smoothstep(0.35, 0.6, gKind.a) * (1.0 - 0.82 * gState.r) * (1.0 + 1.1 * gState.a);
   float gH = uSize.y * (0.5 + 0.8 * seed.w * seed.w + 0.25 * seed.z) * gGrow * gKeep * (0.75 + 0.6 * aNoise(gW * 0.06 + 9.0));
+  float gFlat = 0.0;
+  for (int i = 0; i < 4; i++) { float fd = length(gW - uFlat[i].xy); gFlat = max(gFlat, (1.0 - smoothstep(uFlat[i].z * 0.2, uFlat[i].z, fd)) * uFlat[i].w); }
+  gH *= 1.0 - 0.88 * gFlat;
   float gWd = uSize.x * (0.7 + 0.6 * seed.z) * (1.0 + gDist * uSize.z) * step(0.001, gH);
   float gT = position.y;
   // (its width is turned mostly square to the eye: a blade is never seen edge-on)

@@ -38,7 +38,7 @@ export function createBlade(onLaunch, bits = {}) {
   let rush = null;
   const notes = [];
   const hold = new Map();
-  const { scene, camera, world, zones, walker, air, fx, sword } = bits;
+  const { scene, camera, world, zones, walker, air, fx, sword, sound } = bits;
   const shots = [];
   let blocking = false;
   let blockHeld = 99;
@@ -62,12 +62,24 @@ export function createBlade(onLaunch, bits = {}) {
   }
   function parryBurst() {
     flashParry();
+    freeze = 0.12;
+    hitShake = Math.max(hitShake, 0.7);
+    sound?.cue?.('parry');
     if (!scene || !walker || !camera) return;
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.07, 8, 28), new THREE.MeshBasicMaterial({ color: '#d8fbff', transparent: true, opacity: 0.95, depthWrite: false }));
-    ring.position.set(walker.feet.x, walker.feet.y + 1.15, walker.feet.z);
+    camera.getWorldDirection(look);
+    const at = camera.position.clone().add(look.clone().multiplyScalar(0.9));
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.05, 8, 24), new THREE.MeshBasicMaterial({ color: '#d8fbff', transparent: true, opacity: 0.95, depthWrite: false }));
+    ring.position.copy(at);
     ring.lookAt(camera.position);
     scene.add(ring);
     shots.push({ mesh: ring, v: new THREE.Vector3(), life: 0.32, kind: 'parry', stuck: true, blew: true, chopped: true });
+    for (let i = 0; i < 9; i++) {
+      const spark = new THREE.Mesh(new THREE.OctahedronGeometry(0.045, 0), new THREE.MeshBasicMaterial({ color: i % 2 ? '#ffffff' : '#9ff6ff', transparent: true, opacity: 1, depthWrite: false }));
+      spark.position.copy(at);
+      const v = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.6, Math.random() - 0.5).normalize().multiplyScalar(2.4 + Math.random());
+      scene.add(spark);
+      shots.push({ mesh: spark, v, life: 0.28, kind: 'spark' });
+    }
   }
 
   function flashParry() {
@@ -1632,24 +1644,31 @@ export function createBlade(onLaunch, bits = {}) {
     chain = (chain + 1) % 3;
     chainAt = now;
     swing = 1;
-    const mesh = new THREE.Mesh(
-      new THREE.TorusGeometry(step === 2 ? 0.72 : 0.5, step === 2 ? 0.07 : 0.045, 8, 24, Math.PI * (step === 2 ? 1.25 : 1)),
-      new THREE.MeshBasicMaterial({ color: step === 2 ? '#ffe7a4' : step === 1 ? '#fff6dc' : '#3ee0ff', side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false }),
-    );
-    mesh.position.set(0.12, 0.72, 0.25);
-    mesh.rotation.set(0.15, 0, -0.7 + step * 0.55);
-    const haze = new THREE.Mesh(
-      new THREE.TorusGeometry(step === 2 ? 0.95 : 0.7, 0.12, 8, 20, Math.PI),
-      new THREE.MeshBasicMaterial({ color: step === 2 ? '#ffb15a' : '#7ee0ff', side: THREE.DoubleSide, transparent: true, opacity: 0.35, depthWrite: false }),
-    );
-    haze.position.copy(mesh.position);
-    haze.rotation.copy(mesh.rotation);
-    (sword || scene).add(mesh, haze);
+    const arc = new THREE.Group();
+    const span = step === 2 ? 2.4 : 1.85;
+    const radius = step === 2 ? 1.7 : 1.35;
+    const color = step === 2 ? '#ffe7a4' : step === 1 ? '#fff6dc' : '#7ee0ff';
+    const up = new THREE.Vector3(0, 1, 0);
+    const origin = camera.position.clone().add(look.clone().multiplyScalar(1.25));
+    const count = 14;
+    for (let i = 0; i < count; i++) {
+      const u = i / (count - 1);
+      const a = (u - 0.5) * span;
+      const bit = new THREE.Mesh(
+        new THREE.SphereGeometry(step === 2 ? 0.09 : 0.065, 6, 5),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, depthWrite: false }),
+      );
+      bit.position.copy(origin)
+        .addScaledVector(right, Math.sin(a) * radius)
+        .addScaledVector(up, (Math.cos(a) - 0.55) * radius * 0.42)
+        .addScaledVector(look, (1 - Math.abs(u - 0.5)) * 0.35);
+      arc.add(bit);
+    }
+    scene.add(arc);
     const strike = camera.position.clone().add(look.clone().multiplyScalar(2.2));
     const beast = zones?.beasts?.().find((b) => !b.dead && Math.hypot(b.x - strike.x, b.z - strike.z) < 2.4);
     if (beast) zones.hurt([{ x: beast.x, z: beast.z, r: 1.3, d: [8, 14, 26][step], k: 'arcane', bleed: step === 2 ? 3.2 : 0 }]);
-    shots.push({ mesh, v: aim.multiplyScalar(0), life: 0.45, kind: 'slice', stuck: true, blew: true, chopped: true, dmg: [8, 14, 26][step], kick: 0 });
-    shots.push({ mesh: haze, v: new THREE.Vector3(), life: 0.45, kind: 'slice', stuck: true, blew: true, chopped: true });
+    shots.push({ mesh: arc, v: aim.multiplyScalar(0), life: 0.55, max: 0.55, kind: 'arc', stuck: true, blew: true, chopped: true });
     say(step === 2 ? 'Heavy' : `Cut ${step + 1}`);
   }
 
@@ -1798,7 +1817,15 @@ export function createBlade(onLaunch, bits = {}) {
       const shot = shots[i];
       shot.life -= dt;
       if (shot.stuck) {
-        if (shot.mesh.material) shot.mesh.material.opacity = Math.max(0, shot.life / 0.45);
+        if (shot.kind === 'arc') {
+          const age = (shot.max || 0.55) - Math.max(0, shot.life);
+          const u = Math.min(1, age / 0.2);
+          const fade = Math.max(0, shot.life / (shot.max || 0.55));
+          shot.mesh.children.forEach((c, n) => {
+            const t = n / Math.max(1, shot.mesh.children.length - 1);
+            c.material.opacity = t <= u + 0.2 ? fade : 0;
+          });
+        } else if (shot.mesh.material) shot.mesh.material.opacity = Math.max(0, shot.life / 0.45);
         if (shot.kind === 'parry') shot.mesh.scale.setScalar(1 + (0.32 - Math.max(0, shot.life)) * 4);
         if (shot.life <= 0) { shot.mesh.parent?.remove(shot.mesh); shots.splice(i, 1); }
         continue;
@@ -1813,6 +1840,8 @@ export function createBlade(onLaunch, bits = {}) {
         const near = Math.hypot(shot.mesh.position.x - eye.x, shot.mesh.position.z - eye.z) < 1.15 && Math.abs(shot.mesh.position.y - eye.y) < 1.5;
         if (near && blocking) reflect(shot);
         else if (near) { say('Hit'); zones?.nick?.(12); shot.life = 0; }
+      } else if (shot.kind === 'spark') {
+        shot.mesh.material.opacity = Math.max(0, shot.life / 0.28);
       } else if (shot.kind === 'slice') {
         const p = shot.mesh.position;
         const speed = Math.hypot(shot.v.x, shot.v.z) || 1;
@@ -2063,6 +2092,7 @@ export function createBlade(onLaunch, bits = {}) {
     get halves() { return shards.length; },
     get fighting() { return fightOn; },
     cut() { airSlice(0, -90); },
+    parry() { parryBurst(); },
     flashParry,
     tryRush() { if (!drawn || rush) return; startRush(); },
     get bend() {

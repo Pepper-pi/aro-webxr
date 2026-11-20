@@ -120,6 +120,16 @@ export function createAR(scene, camera, world, zones) {
     root.add(stone);
     life.push({ mesh: stone, a: i * 1.4 + 0.4, r: 2.1 + i * 0.25, bob: -1 });
   }
+  const lakeMotes = [];
+  for (let i = 0; i < 12; i++) {
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(0.025, 5, 4),
+      new THREE.MeshBasicMaterial({ color: i % 2 ? '#ffd7a8' : '#9fe7ff', transparent: true, opacity: 0.8, depthWrite: false }),
+    );
+    m.visible = false;
+    root.add(m);
+    lakeMotes.push(m);
+  }
   const motes = [];
   for (let i = 0; i < 22; i++) {
     const m = new THREE.Mesh(
@@ -153,7 +163,7 @@ export function createAR(scene, camera, world, zones) {
       new THREE.MeshBasicMaterial({ color: '#140e0a', transparent: true, opacity: 0.42, depthWrite: false }),
     );
     shadow.rotation.x = -Math.PI / 2;
-    shadow.position.y = 0.72;
+    shadow.position.y = 0.06;
     shadow.scale.setScalar(1.35);
     shadow.name = 'arshadow';
     const ring = new THREE.Mesh(
@@ -161,7 +171,7 @@ export function createAR(scene, camera, world, zones) {
       new THREE.MeshBasicMaterial({ color: '#f1d9a4', transparent: true, opacity: 0.92, side: THREE.DoubleSide, depthWrite: false }),
     );
     ring.rotation.x = Math.PI / 2;
-    ring.position.y = 0.92;
+    ring.position.y = 0.16;
     ring.name = 'arring';
     b.g.add(shadow, ring);
   }
@@ -283,7 +293,7 @@ export function createAR(scene, camera, world, zones) {
     plate.rotateZ(-gyro.roll);
     plate.rotateX(gyro.pitch);
     plate.material.map = videoTex || (zones.dusk ? duskMap : dayMap);
-    plate.material.color.set(zones.dusk ? '#ffd0c4' : '#fff3e0');
+    plate.material.color.set(zones.atLake ? '#f6e2c0' : zones.dusk ? '#ffd0c4' : '#fff3e0');
     grade?.classList.toggle('dusk', !!zones.dusk);
     const t = performance.now() * 0.001;
     life.forEach((p) => {
@@ -293,7 +303,17 @@ export function createAR(scene, camera, world, zones) {
       const z = walker.feet.z + fz * depth - fx * side;
       p.mesh.position.set(x, world.ground(x, z) + (p.bob < 0 ? 0.1 : 0.55 + Math.sin(t + p.bob) * 0.04), z);
     });
-    const tint = zones.dusk ? '#e7b0ff' : '#fff1c4';
+    const tint = zones.atLake ? '#ffe0b0' : zones.dusk ? '#e7b0ff' : '#fff1c4';
+    lakeMotes.forEach((m, i) => {
+      m.visible = !!zones.atLake;
+      if (!m.visible) return;
+      const a = t * 0.6 + i;
+      m.position.set(
+        walker.feet.x + fx * (2.2 + (i % 4) * 0.35) + Math.cos(a) * 0.8,
+        walker.feet.y + 0.35 + Math.sin(t * 1.4 + i) * 0.08,
+        walker.feet.z + fz * (2.2 + (i % 4) * 0.35) + Math.sin(a) * 0.45,
+      );
+    });
     motes.forEach((m, i) => {
       const a = t * 0.35 + i;
       const rad = 1.2 + (i % 4) * 0.45;

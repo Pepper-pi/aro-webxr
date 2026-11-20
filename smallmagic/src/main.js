@@ -431,7 +431,7 @@ sword.scale.setScalar(1.05);
 sword.visible = false;
 sword.traverse((o) => { o.frustumCulled = false; });
 scene.add(sword);
-const blade = createBlade((damage) => zones.launchNearest(damage, blade.locked), { scene, camera, world, zones, walker, air, fx, sword });
+const blade = createBlade((damage) => zones.launchNearest(damage, blade.locked), { scene, camera, world, zones, walker, air, fx, sword, sound });
 applyMood(readMood(), false);
 const gun = createGunner(scene, camera, world, zones);
 camera.layers.enable(9);
@@ -504,13 +504,26 @@ function tick(dt) {
     const yaw = walker.yaw;
     const fx = Math.sin(yaw);
     const fz = Math.cos(yaw);
-    camera.position.set(walker.feet.x - fx * chaseDist, walker.feet.y + 1.55 + chaseDist * 0.18, walker.feet.z - fz * chaseDist);
-    camera.lookAt(walker.feet.x + fx * 1.6, walker.feet.y + 1.15, walker.feet.z + fz * 1.6);
+    const side = inHub ? 1.35 : 0;
+    const rx = fz;
+    const rz = -fx;
+    camera.position.set(walker.feet.x - fx * chaseDist + rx * side, walker.feet.y + (inHub ? 1.28 : 1.55) + chaseDist * 0.12, walker.feet.z - fz * chaseDist + rz * side);
+    camera.lookAt(walker.feet.x + fx * (inHub ? 2.4 : 1.6) - rx * (inHub ? 0.35 : 0), walker.feet.y + (inHub ? 0.85 : 1.15), walker.feet.z + fz * (inHub ? 2.4 : 1.6) - rz * (inHub ? 0.35 : 0));
   }
   // (and shakes the eye)
   if (blast.shake + hole.shake + twister.shake > 0.002) { const s = blast.shake + hole.shake + twister.shake * 0.5; shaking += dt; camera.rotateX(Math.sin(shaking * 61) * Math.sin(shaking * 37 + 1) * 0.03 * s); camera.rotateY(Math.sin(shaking * 53 + 2) * Math.sin(shaking * 29) * 0.03 * s); camera.rotateZ(Math.sin(shaking * 47 + 4) * 0.018 * s); }
   camera.updateMatrixWorld(true);
   world.update(dt, walker.feet, camera, walker.speed);
+  const flats = air.uniforms.uFlat.value;
+  for (const f of flats) f.w = 0;
+  let flatN = 0;
+  const pal = zones.buddyAt?.();
+  if (pal) flats[flatN++].set(pal.x, pal.z, 0.95, 1);
+  for (const b of zones.beasts()) {
+    if (flatN >= 4 || b.dead) continue;
+    if (Math.hypot(b.x - walker.feet.x, b.z - walker.feet.z) > 12) continue;
+    flats[flatN++].set(b.x, b.z, 0.9, 1);
+  }
   staff?.update(dt, walker, camera, world.sunAt?.(camera.position) ?? 1);
   const fishPull = zones.fishZoom || 0;
   if (fishPull > 0.04 && !free && !chasing) {
@@ -526,9 +539,9 @@ function tick(dt) {
   }
   camera.updateMatrixWorld(true);
   zones.stickRod?.();
-  const wheel = discOn && kit === 'mage' && !melee && !zones.rodOut && zones.name !== 'hub' && !ar.on;
+  const wheel = discOn && kit === 'mage' && !melee && !zones.rodOut && zones.name !== 'hub';
   const armCharge = (discCharge || spells?.cast?.holding) ? Math.max(0.14, spells?.cast?.charge || 0) : 0;
-  castDisc?.update(dt, wheel, spells?.selected ?? 0, walker, camera, armCharge, !chasing && !free, wristPoint());
+  castDisc?.update(dt, wheel, spells?.selected ?? 0, walker, camera, armCharge, !chasing && !free, wristPoint(), ar.on);
   ar.update(dt, walker);
   hexes.update(dt);
   const spellBox = document.getElementById('spells');

@@ -864,6 +864,14 @@ export function createSound({ offline = 0 } = {}) {
       const he = G(0); env(he.gain, at, [[0, 0.0001], [0.04, 0.3], [0.6, 0.0001]], true); chain(noise('white', at, at + 0.65), F('highpass', 2500), he, push);
       const g = play('gusts', { at, loop: true, gain: 1.6, rate: 1.3, to: push, shape: [[0, 0.2], [0.12, 1], [1.8, 0.001]] }); g?.stop(at + 1.9);
       play('leaves', { at: at + 0.12, gain: 0.5, rate: 0.9, air: 0.3 });
+    } else if (what === 'parry') {
+      play('swoosh', { at, gain: 0.4, rate: 1.7, air: 0.08, shape: [[0, 1], [0.08, 0.25], [0.22, 0.001]] });
+      const ping = O('triangle', 740);
+      const pe = G(0);
+      env(pe.gain, at, [[0, 0.0001], [0.012, 0.32], [0.16, 0.0001]], true);
+      chain(ping, pe, mix);
+      ping.start(at);
+      ping.stop(at + 0.18);
     } else if (what === 'treeShake') {
       const h = hear(o), level = 0.35 + 0.65 * h.near;
       play('leaves', { at, gain: 0.7 * level, rate: 0.75 + 0.3 * R(), pan: h.pan, air: 0.3 });

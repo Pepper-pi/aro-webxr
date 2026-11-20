@@ -30,6 +30,7 @@ export function createAir() {
     uAirK: { value: 0.0044 },
     uWind: { value: new THREE.Vector4(0.86, 0.5, 0.55, 0) },
     uPush: { value: [new THREE.Vector4(0, 0, 1, 0), new THREE.Vector4(0, 0, 1, 0), new THREE.Vector4(0, 0, 1, 0), new THREE.Vector4(0, 0, 1, 0)] },
+    uFlat: { value: [0, 1, 2, 3].map(() => new THREE.Vector4(0, 0, 1, 0)) },
     tHeight: { value: null }, tKind: { value: null }, tState: { value: null }, tTrees: { value: null }, tRunes: { value: null },
     uLamp: { value: [0, 1, 2, 3].map(() => new THREE.Vector4(0, -999, 0, 1)) }, uLampCol: { value: [0, 1, 2, 3].map(() => new THREE.Vector3()) },
     uGust: { value: new THREE.Vector4(0, 0, 1, 0) }, uGustDir: { value: new THREE.Vector2(1, 0) }, uGustTail: { value: 0 }, uLampOn: { value: 0 }, uShock: { value: new THREE.Vector4(0, 0, 0, 0) }, uHole: { value: new THREE.Vector4(0, 0, 0, 0) }, uTwist: { value: new THREE.Vector4(0, 0, 1, 0) },
@@ -50,7 +51,7 @@ export function createAir() {
 
 export const AIR = /* glsl */ `
 uniform float uNow; uniform vec3 uSun; uniform vec3 uSunCol; uniform vec3 uSkyCol; uniform vec3 uHaze; uniform vec3 uHazeSun; uniform float uAirK;
-uniform vec4 uWind; uniform vec4 uPush[4]; uniform vec4 uGust; uniform vec2 uGustDir; uniform float uGustTail; uniform float uLampOn; uniform vec4 uShock; uniform vec4 uHole; uniform vec4 uTwist;
+uniform vec4 uWind; uniform vec4 uPush[4]; uniform vec4 uFlat[4]; uniform vec4 uGust; uniform vec2 uGustDir; uniform float uGustTail; uniform float uLampOn; uniform vec4 uShock; uniform vec4 uHole; uniform vec4 uTwist;
 uniform vec4 uLamp[4]; uniform vec3 uLampCol[4]; uniform sampler2D tTrees;
 // Parts of trees, which can be moved: for each, where it was grown, where it is now (and whether it has moved at all), and how it is turned. (0: no part.)
 uniform sampler2D tParts; uniform sampler2D tHeight; uniform vec4 uMap;

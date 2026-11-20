@@ -174,10 +174,13 @@ export function createZones({ scene, world, walker, camera, air }) {
   glow.rotation.x = -Math.PI / 2;
   glow.position.set(0, 0.03, 0.35);
   hearth.add(glow);
-  const roomLight = new THREE.HemisphereLight('#ffe6c8', '#5a3828', 0.72);
-  const fireLight = new THREE.PointLight('#ff7a2a', 22, 12, 2);
-  fireLight.position.set(-3.55, 1.2, -4.35);
-  hub.add(hearth, roomLight, fireLight);
+  const roomLight = new THREE.HemisphereLight('#ffe6c8', '#6a4030', 0.95);
+  const fillLight = new THREE.AmbientLight('#ffd0a6', 0.42);
+  const fireLight = new THREE.PointLight('#ff7a2a', 8, 11, 2);
+  fireLight.position.set(-3.55, 1.15, -4.2);
+  const sideLight = new THREE.PointLight('#ffc48a', 3.2, 10, 2);
+  sideLight.position.set(1.2, 1.7, -0.4);
+  hub.add(hearth, roomLight, fillLight, fireLight, sideLight);
   const plaques = new THREE.Group();
   plaques.position.set(5.28, 0, -1.35);
   plaques.rotation.y = -Math.PI / 2;
@@ -281,9 +284,9 @@ export function createZones({ scene, world, walker, camera, air }) {
   buddyTag.position.y = 2.25;
   buddyTag.scale.set(1.3, 0.55, 1);
   buddyBody.add(buddyTag);
-  const buddyRing = new THREE.Mesh(new THREE.TorusGeometry(0.58, 0.05, 8, 32), new THREE.MeshBasicMaterial({ color: '#fff1c4', side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false }));
+  const buddyRing = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.06, 8, 32), new THREE.MeshBasicMaterial({ color: '#fff1c4', side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false }));
   buddyRing.rotation.x = Math.PI / 2;
-  buddyRing.position.y = 1.05;
+  buddyRing.position.y = 0.2;
   buddyRing.renderOrder = 3;
   buddyRing.visible = false;
   buddyBody.add(buddyRing);
@@ -297,18 +300,27 @@ export function createZones({ scene, world, walker, camera, air }) {
     const fitted = new THREE.Box3().setFromObject(root);
     root.position.y -= fitted.min.y;
   }
-  function toBasic(root) {
+  function toBasic(root, warm) {
     root.traverse((o) => {
       if (!o.isMesh) return;
       const list = [].concat(o.material);
       const next = list.map((m) => {
-        const basic = new THREE.MeshBasicMaterial({
-          map: m.map || null,
-          color: m.color ? m.color.clone() : new THREE.Color('#ffffff'),
-          transparent: !!m.transparent,
-          opacity: m.opacity ?? 1,
-          side: THREE.DoubleSide,
-        });
+        const color = m.color ? m.color.clone() : new THREE.Color('#ffffff');
+        if (warm) {
+          const hsl = { h: 0, s: 0, l: 0 };
+          color.getHSL(hsl);
+          const pale = hsl.l > 0.55 || hsl.s < 0.18;
+          color.lerp(new THREE.Color(pale ? '#d4894a' : '#c4844a'), pale ? 0.86 : 0.35);
+        }
+        const basic = warm
+          ? new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide })
+          : new THREE.MeshBasicMaterial({
+            map: m.map || null,
+            color,
+            transparent: !!m.transparent,
+            opacity: m.opacity ?? 1,
+            side: THREE.DoubleSide,
+          });
         basic.name = m.name || '';
         return basic;
       });
@@ -384,7 +396,7 @@ export function createZones({ scene, world, walker, camera, air }) {
       }
       const put = (gltf, x, y, z, yaw, height) => {
         const model = gltf.scene.clone(true);
-        toBasic(model);
+        toBasic(model, true);
         fitModel(model, height);
         model.position.x += x;
         model.position.z += z;
@@ -1098,6 +1110,8 @@ export function createZones({ scene, world, walker, camera, air }) {
   let hearts = 100;
   return {
     get name() { return name; },
+    get atLake() { return atLake; },
+    buddyAt() { return buddyBody.visible ? buddyBody.position : null; },
     get hearts() { return hearts; },
     nick(n) { hearts = Math.max(0, hearts - n); },
     heal(n) {
@@ -1355,7 +1369,7 @@ export function createZones({ scene, world, walker, camera, air }) {
           e.material.opacity = (1 - u) * 0.9;
         });
         glow.material.opacity = 0.22 + Math.sin(flick * 9) * 0.1;
-        fireLight.intensity = 18 + Math.sin(flick * 11) * 5 + Math.sin(flick * 23) * 2.5;
+        fireLight.intensity = 7 + Math.sin(flick * 11) * 1.6 + Math.sin(flick * 23) * 0.8;
         refreshTrophies();
       }
       if (name === 'hub') {

@@ -269,7 +269,7 @@ export function createCastDisc(scene) {
      * First person: on the view, a little under the crosshair, sized to about a third of the screen.
      * Otherwise: upright at the caster's chest, a short step in front. Always face-on to the camera.
      */
-    update(dt, show, index, walker, camera, held, firstPerson, wrist) {
+    update(dt, show, index, walker, camera, held, firstPerson, wrist, warm) {
       if (held > 0.02) { armShown = held; armLinger = 0.28; }
       else armLinger = Math.max(0, armLinger - dt);
       const pose = held > 0.02 ? held : armShown * (armLinger / 0.28);
@@ -298,7 +298,8 @@ export function createCastDisc(scene) {
       innerRing.rotation.z += dt * 1.6;
       ticks.rotation.z -= dt * 0.45;
       const tint = new THREE.Color(SPELLS[index]?.colour || '#f1d9a4');
-      outerRing.material.color.copy(tint).lerp(new THREE.Color('#f1d9a4'), 0.45);
+      if (warm) tint.lerp(new THREE.Color('#ffd7a8'), 0.4);
+      outerRing.material.color.copy(tint).lerp(new THREE.Color(warm ? '#ffd2a2' : '#f1d9a4'), 0.45);
       sparks.forEach((spark, i) => {
         const a = spin * (1.2 + i * 0.07) + i;
         const rad = 0.1 + (i % 3) * 0.035;
