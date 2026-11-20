@@ -2079,6 +2079,7 @@ export function createBlade(onLaunch, bits = {}) {
     get chain() { return chain; },
     get song() { return song; },
     setBlock,
+    get blocking() { return blocking; },
     setDrawn(on) { drawn = !!on; padOn = true; if (drawn) frameHold(); if (!drawn) { song = 0; cursor = 0; clearNotes(); poundCancel(); dropOrbit(); } },
     setFight(on) { fightOn = on !== false; if (!fightOn) clearRails(); },
     disengage() { padOn = false; say('Run'); },

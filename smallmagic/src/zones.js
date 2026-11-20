@@ -833,6 +833,40 @@ export function createZones({ scene, world, walker, camera, air }) {
     e.stopPropagation();
   }));
   document.getElementById('menuX')?.addEventListener('pointerup', (e) => { if (menu) menu.hidden = true; e.preventDefault(); e.stopPropagation(); });
+  document.getElementById('menuHome')?.addEventListener('pointerup', (e) => { document.getElementById('openHome')?.dispatchEvent(new PointerEvent('pointerup', { bubbles: true })); e.preventDefault(); e.stopPropagation(); });
+  document.getElementById('openFish')?.addEventListener('pointerup', (e) => { showBook(); e.preventDefault(); e.stopPropagation(); });
+  const pickMenu = (id) => {
+    if (!menu) return;
+    menu.querySelectorAll('[data-menu]').forEach((t) => t.classList.toggle('on', t.getAttribute('data-menu') === id));
+    menu.querySelectorAll('[data-mpane]').forEach((p) => { p.hidden = p.getAttribute('data-mpane') !== id; });
+    if (id === 'bag') {
+      let herbs = '0';
+      let drops = '0';
+      try { herbs = localStorage.getItem('aro-herbs') || '0'; } catch { /* private */ }
+      try {
+        const bag = JSON.parse(localStorage.getItem('aro-beast-drops') || '{}');
+        drops = String(Object.values(bag).reduce((n, v) => n + Number(v || 0), 0));
+      } catch { /* private */ }
+      const h = document.getElementById('bagHerbs');
+      const d = document.getElementById('bagDrops');
+      if (h) h.textContent = herbs;
+      if (d) d.textContent = drops;
+    }
+    const foot = menu.querySelector('.glass-foot');
+    if (foot) foot.hidden = id === 'settings';
+    if (id === 'settings') {
+      const box = document.getElementById('settings');
+      if (box) box.hidden = false;
+    } else {
+      const box = document.getElementById('settings');
+      if (box) box.hidden = true;
+    }
+  };
+  menu?.querySelectorAll('[data-menu]').forEach((b) => b.addEventListener('pointerup', (e) => {
+    pickMenu(b.getAttribute('data-menu'));
+    e.preventDefault();
+    e.stopPropagation();
+  }));
   document.getElementById('menubtn')?.addEventListener('pointerup', (e) => { if (menu) menu.hidden = false; e.preventDefault(); e.stopPropagation(); });
   const atlas = document.getElementById('atlas');
   const mapCanvas = document.getElementById('lakemap');
@@ -1114,6 +1148,10 @@ export function createZones({ scene, world, walker, camera, air }) {
   enter('hub');
   markDest();
   let hearts = 100;
+  let arm = { fight: true };
+  let showMage = false;
+  let onClear = () => {};
+  let hexAt = () => null;
   function dressHexBeast(b, hex, elite) {
     const LOOK = {
       'Forest Creek': { color: '#8dff9a', scale: 1.12, tag: 'Creek', bit: 'reed' },
@@ -1181,6 +1219,11 @@ export function createZones({ scene, world, walker, camera, air }) {
       hearts = n ? Math.min(cap, hearts + n) : cap;
     },
     setHearts(n) { hearts = n; },
+    aim(next) { arm = { fight: true, ...next }; beasts.aim(arm); },
+    whenClear(fn) { onClear = fn; },
+    waveCleared() { onClear?.(); },
+    set hexOf(fn) { hexAt = fn; },
+    showMage(on) { showMage = !!on; },
     promote() { return beasts.promote(); },
     collect(x, z) { return beasts.collect(x, z); },
     get ring() { return meadowRing.position; },
@@ -1280,8 +1323,9 @@ export function createZones({ scene, world, walker, camera, air }) {
       const byId = (id) => list.find((h) => h.id === id);
       put(take('wolf'), byId('moss'), -1.2);
       put(take('boar'), byId('moss'), 1.4);
-      put(take('fox'), byId('glen'), -1.1);
-      put(take('bear'), byId('glen'), 1.3);
+      put(take('goblin'), byId('glen'), -1.2);
+      put(take('fox'), byId('glen'), 1.2);
+      put(take('bear'), byId('glen'), 0.2);
       put(take('bunny'), byId('meadow'), -1);
       put(take('oryx'), byId('meadow'), 1.2);
       put(take('pig'), byId('bloom'), -1);
@@ -1348,6 +1392,44 @@ export function createZones({ scene, world, walker, camera, air }) {
       for (const s of beasts.slams()) {
         if (Math.hypot(walker.feet.x - s.x, walker.feet.z - s.z) < s.r) this.nick(24);
       }
+      for (const hit of beasts.strikes()) {
+        let dmg = hit.d;
+        let word = 'Hit';
+        if (arm.dodge) { dmg = 0; word = 'Dodged'; }
+        else if (arm.block) { dmg = 0; word = 'Parry'; }
+        else if (arm.guard) { dmg = Math.max(1, Math.round(hit.d * 0.35)); word = 'Guarded'; }
+        else if (arm.sip) { dmg = Math.max(1, Math.round(hit.d * 0.5)); word = 'Sipped'; }
+        if (dmg > 0) this.nick(dmg);
+        if (dmg > 0) {
+          const dx = walker.feet.x - hit.x;
+          const dz = walker.feet.z - hit.z;
+          const len = Math.hypot(dx, dz) || 1;
+          const shove = arm.guard ? 0.28 : 0.85;
+          walker.place(walker.feet.x + (dx / len) * shove, walker.feet.z + (dz / len) * shove, walker.yaw);
+        }
+        const mark = document.getElementById('hitmark');
+        if (mark) {
+          mark.hidden = false;
+          mark.textContent = word;
+          clearTimeout(mark._t);
+          mark._t = setTimeout(() => { mark.hidden = true; }, 420);
+        }
+        const hp = document.getElementById('hp');
+        if (hp && dmg > 0) {
+          hp.classList.add('hurt');
+          clearTimeout(hp._t);
+          hp._t = setTimeout(() => hp.classList.remove('hurt'), 280);
+        }
+        if (word === 'Parry') arm.onParry?.();
+        if (hearts <= 0) {
+          const here = hexAt(walker.feet.x, walker.feet.z);
+          const x = here ? here.x + 8 : walker.feet.x;
+          const z = here ? here.z : walker.feet.z + 6;
+          hearts = 70;
+          walker.place(x, z, walker.yaw);
+          this.toast('Down. Back at the hex edge.');
+        }
+      }
       for (const s of pool) {
         if (s.userData.life <= 0) continue;
         s.userData.life -= dt;
@@ -1389,9 +1471,10 @@ export function createZones({ scene, world, walker, camera, air }) {
       const d = Math.hypot(walker.feet.x - gate.x, walker.feet.z - gate.z);
       if (d > 2.15) leftRing = true;
       if (leftRing && performance.now() >= armUntil && d < 0.95) enter(name === 'hub' ? dest : 'hub');
-      you.visible = name === 'hub' || buddyBody.visible;
+      you.visible = name === 'hub' || buddyBody.visible || (showMage && name === 'meadow');
       if (you.visible) {
-        you.position.set(walker.feet.x, 0, walker.feet.z);
+        const y = name === 'hub' ? 0 : world.ground(walker.feet.x, walker.feet.z);
+        you.position.set(walker.feet.x, y, walker.feet.z);
         you.rotation.y = walker.yaw;
       }
       buddyBody.visible = !!(buddy && name === 'meadow' && !atLake);

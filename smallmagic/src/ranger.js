@@ -20,6 +20,8 @@ export function createRanger({ scene, camera, world, zones, walker }) {
   let holding = false;
   let charge = 0;
   let marked = -1;
+  let iframe = 0;
+  let refill = 0;
 
   function nearest() {
     const here = walker.feet;
@@ -81,11 +83,26 @@ export function createRanger({ scene, camera, world, zones, walker }) {
     const yaw = walker.yaw;
     const side = Math.random() < 0.5 ? 1 : -1;
     walker.place(walker.feet.x + Math.cos(yaw) * 1.7 * side, walker.feet.z - Math.sin(yaw) * 1.7 * side, yaw);
+    iframe = 0.62;
     note = `Ranger preview · dodge · ${ammo} arrows`;
+  }
+
+  function restock(n = 6) {
+    ammo = Math.min(QUIVER, ammo + n);
+    note = `Ranger preview · quiver ${ammo}`;
   }
 
   function update(dt, on) {
     bow.visible = !!on;
+    if (iframe > 0) iframe = Math.max(0, iframe - dt);
+    if (on && ammo < QUIVER) {
+      refill += dt;
+      if (refill >= 5) {
+        refill = 0;
+        ammo += 1;
+        note = `Ranger preview · arrow back · ${ammo}`;
+      }
+    }
     if (holding && on) charge = Math.min(1, charge + dt / 0.85);
     if (!on) { holding = false; charge = 0; }
     if (on) {
@@ -128,9 +145,10 @@ export function createRanger({ scene, camera, world, zones, walker }) {
   }
 
   return {
-    chargeStart, chargeRelease, shoot, mark, dodge, update,
+    chargeStart, chargeRelease, shoot, mark, dodge, restock, update,
     get note() { return note; },
     get ammo() { return ammo; },
     get charge() { return charge; },
+    get iframe() { return iframe; },
   };
 }

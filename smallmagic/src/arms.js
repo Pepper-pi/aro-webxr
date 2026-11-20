@@ -50,19 +50,23 @@ export function createArms(scene) {
     bone.quaternion.copy(Q);
   }
 
+  let shown = 0;
   function update(dt, camera, state) {
     if (!vrm) return;
+    const want = state.rise == null ? (state.ready ? 1 : 0) : (state.rise ? 1 : 0);
+    shown += (want - shown) * Math.min(1, dt * 7);
     rig.position.copy(camera.position);
+    rig.position.y -= (1 - shown) * 0.72;
     rig.quaternion.copy(camera.quaternion);
-    const lift = state.ready ? 1 : 0;
+    const lift = shown;
     const run = state.speed > 5;
     const moving = state.speed > 0.4;
     const swing = Math.sin(state.stride * (run ? 7.2 : 3.5)) * (moving ? (run ? 0.16 : 0.08) : 0);
-    // Ready only tips the hands in from the lower corners. It does not lift them into the middle.
+    // Raised hands tip in from the lower corners. Lowered hands sit below the frame.
     const yaw = 1.34 + lift * 0.03;
-    const drop = -0.02 + swing;
-    bend('leftUpperArm', 0, yaw, drop);
-    bend('rightUpperArm', 0, -yaw, -drop);
+    const drop = -0.02 + swing + (1 - lift) * 1.25;
+    bend('leftUpperArm', (1 - lift) * 0.9, yaw, drop);
+    bend('rightUpperArm', (1 - lift) * 0.9, -yaw, -drop);
     bend('leftLowerArm', 0, 0.28, 0.1);
     bend('rightLowerArm', 0, -0.28, -0.1);
     vrm.update(dt);

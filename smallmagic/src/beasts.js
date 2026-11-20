@@ -317,7 +317,7 @@ async function dressMobs(all) {
       const model = SkeletonUtils.clone(gltf.scene);
       fitMob(model, MOB[b.kind].tall, MOB[b.kind].tint);
       for (const child of [...b.g.children]) {
-        if (child === b.bar || child.name === 'flame' || child.name === 'rime' || child.name === 'bleedtick' || child.name === 'siphonthread') continue;
+        if (child === b.bar || child.name === 'flame' || child.name === 'rime' || child.name === 'bleedtick' || child.name === 'siphonthread' || child.name === 'wind' || child.name === 'atktrack') continue;
         b.g.remove(child);
       }
       b.g.add(model);
@@ -395,7 +395,19 @@ function one(kind, x, z) {
   siphonthread.rotation.x = Math.PI / 2;
   siphonthread.position.y = 0.55;
   siphonthread.visible = false;
-  g.add(bar, flame, rime, bleedtick, siphonthread);
+  const wind = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8), new THREE.MeshBasicMaterial({ color: '#ffb15a', transparent: true, opacity: 0, depthWrite: false }));
+  wind.name = 'wind';
+  wind.position.y = 1.05;
+  const track = new THREE.Group();
+  track.name = 'atktrack';
+  track.position.y = 1.15;
+  track.visible = false;
+  for (let i = 0; i < 5; i++) {
+    const seg = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.07, 0.42), new THREE.MeshBasicMaterial({ color: i === 4 ? '#fff1c4' : '#ff5a45', transparent: true, opacity: 0.9, depthWrite: false }));
+    seg.position.z = 0.55 + i * 0.48;
+    track.add(seg);
+  }
+  g.add(bar, flame, rime, bleedtick, siphonthread, wind, track);
   g.position.set(x, 0, z);
   return { kind, g, bar, homeX: x, homeZ: z, x, z, hp: HP[kind], max: HP[kind], flash: 0, dead: false, back: 0, tx: x, tz: z, wait: 1, burn: 0, chill: 0 };
 }
@@ -426,6 +438,7 @@ export function createBeasts(scene, ground, world) {
   add(meadow, 'slime', -15.4, 21.4);
   add(meadow, 'crab', -8.8, 39.2);
   add(meadow, 'fish', -6.2, 37.4);
+  add(meadow, 'goblin', 12.8, 7.4);
   for (const b of all) b.g.scale.setScalar(1.4);
   scene.add(meadow, lake);
   dressMobs(all);
@@ -433,6 +446,9 @@ export function createBeasts(scene, ground, world) {
   const cube = new THREE.BoxGeometry(0.16, 0.16, 0.16);
   const drops = [];
   const slams = [];
+  const strikes = [];
+  let foe = null;
+  const STILL = new Set(['fox', 'bear', 'oryx', 'pig', 'crab', 'fish']);
   const ring = new THREE.Mesh(new THREE.RingGeometry(1.35, 1.7, 28), new THREE.MeshBasicMaterial({ color: '#ff5a45', side: THREE.DoubleSide, transparent: true, opacity: 0.9, depthWrite: false }));
   ring.rotation.x = -Math.PI / 2;
   ring.visible = false;
@@ -491,6 +507,8 @@ export function createBeasts(scene, ground, world) {
       return got;
     },
     slams() { const out = slams.splice(0, slams.length); return out; },
+    strikes() { const out = strikes.splice(0, strikes.length); return out; },
+    aim(next) { foe = next || null; },
     get mobsReady() { return mobsReady; },
     live() {
       return all.map((b, n) => ({ n, kind: b.kind, dead: b.dead, where: b.where, model: !!b.model, g: b.g }));
@@ -734,11 +752,20 @@ export function createBeasts(scene, ground, world) {
           continue;
         }
         if (b.model) b.g.getObjectByName('standin')?.removeFromParent();
-        if (b.busy) {
+        const fx = foe ? foe.x - b.g.position.x : 0;
+        const fz = foe ? foe.z - b.g.position.z : 0;
+        const fd = foe ? Math.hypot(fx, fz) : 99;
+        const aggro = !!(foe?.fight && fd < 9 && zone === 'meadow');
+        if (b.busy && !aggro) {
           b.g.position.y = ground(b.g.position.x, b.g.position.z);
           if (b.flinch > 0) { b.flinch -= dt; b.g.rotation.z = Math.sin(b.flinch * 40) * 0.25; }
           else b.g.rotation.z = 0;
           continue;
+        }
+        if (aggro && fd > 2.2) {
+          b.tx = foe.x - (fx / fd) * 2.05;
+          b.tz = foe.z - (fz / fd) * 2.05;
+          b.wait = 0.35;
         }
         if (b.slide) {
           b.slide.t += dt;
@@ -786,8 +813,9 @@ export function createBeasts(scene, ground, world) {
         }
         const dx = b.tx - b.g.position.x, dz = b.tz - b.g.position.z, dist = Math.hypot(dx, dz);
         if (dist > 0.15) {
-          b.g.position.x += (dx / dist) * 0.55 * slow * dt;
-          b.g.position.z += (dz / dist) * 0.55 * slow * dt;
+          const pace = aggro ? 1.8 : 0.55;
+          b.g.position.x += (dx / dist) * pace * slow * dt;
+          b.g.position.z += (dz / dist) * pace * slow * dt;
           b.g.rotation.y = Math.atan2(dx, dz);
         }
         if (b.burn > 0) { b.burn -= dt; b.hp -= 7 * dt; if (b.hp <= 0) { b.dead = true; b.g.visible = false; b.back = 12; b.burn = 0; dropAt(b); b.boss = false; } }
@@ -806,7 +834,7 @@ export function createBeasts(scene, ground, world) {
         b.g.traverse((o) => {
           if (!o.isMesh || !o.material) return;
           const tag = o.name || o.parent?.name;
-          if (tag === 'rime' || tag === 'bleedtick' || tag === 'siphonthread') return;
+          if (tag === 'rime' || tag === 'bleedtick' || tag === 'siphonthread' || tag === 'wind' || tag === 'atktrack' || o.parent?.name === 'atktrack') return;
           if (!o.material.color || o.name === 'flame') return;
           if (!o.userData.base) o.userData.base = o.material.color.getHex();
           const u = Math.min(1, b.chill / 6);
@@ -814,8 +842,41 @@ export function createBeasts(scene, ground, world) {
           if (b.bleed > 0.2) o.material.color.lerp(new THREE.Color('#c43838'), 0.35);
           if (b.siphon > 0.2) o.material.color.lerp(new THREE.Color('#7a4ad4'), 0.4);
         });
-        b.g.position.y = ground(b.g.position.x, b.g.position.z);
+        const still = STILL.has(b.kind) || (!b.clips?.walk && !b.clips?.run);
+        const moving = dist > 0.15 || (aggro && fd > 2.3);
+        const hop = still && moving ? Math.abs(Math.sin(performance.now() * 0.012 + b.homeX)) * 0.14 : 0;
+        b.g.position.y = ground(b.g.position.x, b.g.position.z) + hop;
+        if (still && (moving || aggro)) {
+          b.g.rotation.y = Math.atan2(aggro ? fx : dx, aggro ? fz : dz);
+          b.g.rotation.z = moving ? Math.sin(performance.now() * 0.014 + b.homeZ) * 0.1 : 0;
+        }
         if (b.model) plantFeet(b);
+        const wind = b.g.getObjectByName('wind');
+        const track = b.g.getObjectByName('atktrack');
+        if (aggro && fd < 3.5 && !b.swing && (b.atk ?? 0) <= 0) {
+          b.swing = 0.74;
+          b.atk = 2.5 + Math.random() * 0.6;
+          playClip(b, 'attack');
+        } else b.atk = (b.atk ?? 0.8) - dt;
+        if (b.swing > 0) {
+          b.swing -= dt;
+          const u = 1 - Math.max(0, b.swing) / 0.74;
+          b.g.rotation.y = Math.atan2(fx, fz);
+          if (wind) { wind.visible = true; wind.material.opacity = 0.2 + u * 0.7; wind.scale.setScalar(0.7 + u); }
+          if (track) {
+            track.visible = true;
+            for (const seg of track.children) if (seg.material) seg.material.opacity = 0.3 + u * 0.65;
+          }
+          if (b.swing <= 0) {
+            b.swing = 0;
+            if (wind) wind.material.opacity = 0;
+            if (track) track.visible = false;
+            if (fd < 2.9) strikes.push({ x: b.g.position.x, z: b.g.position.z, d: b.kind === 'bear' ? 16 : 12 });
+          }
+        } else {
+          if (wind) wind.material.opacity = 0;
+          if (track) track.visible = false;
+        }
         if ((b.flash > 0 || b.flinch > 0) && b.clips?.hit && b.clipName !== 'hit' && b.clipName !== 'attack') playClip(b, 'hit');
         else if (b.clipName === 'attack' || b.clipName === 'hit') { if (clipDone(b)) playClip(b, 'idle'); }
         else if (dist > 0.2) playClip(b, b.clips?.run ? 'run' : b.clips?.walk ? 'walk' : 'idle');

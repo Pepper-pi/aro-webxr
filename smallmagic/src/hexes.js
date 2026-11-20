@@ -20,7 +20,7 @@ const HEXES = [
     spawns: 'A shore crab and a fish.', features: 'A water edge, reeds, pebbles. Ties to Long Lake.',
     next: 'Tier II animates the shallows. Tier III adds a dusk glow and bonus catch XP.' },
   { id: 'glen', name: 'Fern Glen', theme: 'Forest Creek', q: 1, r: -1, tint: '#146b48', accent: '#9dffd2',
-    spawns: 'A glen fox and a bear.', features: 'Moss and a short rill.',
+    spawns: 'A glen goblin and a fox.', features: 'Moss and a short rill.',
     next: 'Same forest ladder as Moss Creek.' },
   { id: 'bloom', name: 'Buttercup Reach', theme: 'Sunlit Meadow', q: -1, r: 0, tint: '#e6d15a', accent: '#fff3c4',
     spawns: 'A buttercup pig and a slime.', features: 'Warm pasture tint.',
@@ -53,7 +53,7 @@ function nextNeed(tier) { return tier >= 3 ? 110 : tier === 2 ? 110 : 40; }
 
 const FIGHT = {
   moss: ['wolf', 'boar'],
-  glen: ['fox', 'bear'],
+  glen: ['goblin', 'fox'],
   meadow: ['bunny', 'oryx'],
   bloom: ['pig', 'slime'],
   shore: ['crab', 'fish'],
@@ -528,6 +528,7 @@ export function createHexes(scene, world, camera, walker, zones) {
         const rose = tierOf(xp[here.id] || 0) > t;
         const loot = rose ? (here.theme === 'Lakeshore' ? 'Trout' : here.theme === 'Hearth' ? 'Lantern wick' : 'Herb') : '';
         zones?.toast?.([`${here.name} clear`, `+${gained} resonance`, ...got, loot].filter(Boolean).join(' · '));
+        zones?.waveCleared?.();
       }
     }
     if (here) {

@@ -89,7 +89,7 @@ if (q.get('bond') === 'trusted') {
 }
 lap('world');
 
-say('Taking up the staff');
+say('Warming the hands');
 await turn();
 const walker = new Walker(world);
 const staff = q.has('nostaff') ? null : createStaff({ air, atlas: world.atlas });
@@ -299,18 +299,37 @@ if (sound && spells) spells.hear = (what, o) => sound.cue(what, o);
 // The one clock. Everything that moves is a function of it; `pace` is how fast it runs (1 as a rule).
 const clock = { pace: 1 };
 const settings = { hands: false, class: 'mage', blade: false, gunner: false, gfx: 'high', viewBack: false };
+function chaseLabel() {
+  const b = document.getElementById('chase');
+  if (!b) return;
+  b.textContent = settings.class === 'mage' ? (settings.viewBack ? 'Eyes' : 'Zoom') : (settings.viewBack ? 'Far' : 'Near');
+  b.classList.toggle('on', settings.viewBack);
+}
 document.getElementById('chase')?.addEventListener('pointerup', (e) => {
   settings.viewBack = !settings.viewBack;
-  e.currentTarget.textContent = settings.viewBack ? 'Far' : 'Near';
-  e.currentTarget.classList.toggle('on', settings.viewBack);
+  chaseLabel();
   e.preventDefault();
   e.stopPropagation();
 });
+chaseLabel();
 const handsEl = document.getElementById('hands');
 const gear = document.getElementById('gear');
 const settingsEl = document.getElementById('settings');
-gear?.addEventListener('pointerup', (e) => { if (settingsEl) settingsEl.hidden = false; e.preventDefault(); e.stopPropagation(); });
-document.getElementById('setX')?.addEventListener('pointerup', (e) => { if (settingsEl) settingsEl.hidden = true; e.preventDefault(); e.stopPropagation(); });
+gear?.addEventListener('pointerup', (e) => {
+  const menu = document.getElementById('menu');
+  if (menu) menu.hidden = false;
+  document.querySelector('[data-menu="settings"]')?.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+  if (settingsEl) settingsEl.hidden = false;
+  e.preventDefault();
+  e.stopPropagation();
+});
+document.getElementById('setX')?.addEventListener('pointerup', (e) => {
+  const menu = document.getElementById('menu');
+  if (menu) menu.hidden = true;
+  if (settingsEl) settingsEl.hidden = true;
+  e.preventDefault();
+  e.stopPropagation();
+});
 settingsEl?.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('pointerup', (e) => {
   settingsEl.querySelectorAll('[data-tab]').forEach((t) => t.classList.toggle('on', t === b));
   const tab = b.getAttribute('data-tab');
@@ -328,7 +347,8 @@ function pickClass(name) {
   settings.class = name === 'blade' || name === 'gunner' || name === 'ranger' || name === 'warden' || name === 'alchemist' ? name : 'mage';
   settings.blade = settings.class === 'blade';
   settings.gunner = settings.class === 'gunner';
-  if (settings.class !== 'mage') arms.load();
+  arms.load();
+  chaseLabel();
   if (settings.class !== 'blade') blade.setDrawn(false);
   showClass();
 }
@@ -425,6 +445,7 @@ document.getElementById('gunFire')?.addEventListener('pointerup', (e) => { gun.f
 document.getElementById('gunNade')?.addEventListener('pointerup', (e) => { gun.toss(); e.preventDefault(); e.stopPropagation(); });
 document.getElementById('vol')?.addEventListener('input', (e) => { if (sound) sound.volume = Number(e.target.value) / 100; });
 const arms = createArms(scene);
+arms.load();
 const sword = new THREE.Group();
 const steel = new THREE.MeshBasicMaterial({ color: '#e7eef6' });
 const gripMat = new THREE.MeshBasicMaterial({ color: '#6b3a22' });
@@ -467,6 +488,8 @@ const blade = createBlade((damage) => zones.launchNearest(damage, blade.locked),
 applyMood(readMood(), false);
 const gun = createGunner(scene, camera, world, zones);
 const ranger = createRanger({ scene, camera, world, zones, walker });
+zones.whenClear(() => ranger.restock());
+zones.hexOf = (x, z) => hexes.at(x, z);
 const warden = createWarden({ scene, camera, world, zones, walker });
 const alchemist = createAlchemist({ scene, camera, world, zones, walker });
 camera.layers.enable(9);
@@ -532,6 +555,17 @@ function tick(dt) {
     if (inp.cast !== null && inp.cast !== padCast) { padCast = inp.cast; if (padCast) spells.press(); else spells.release(); }
     if (inp.spell) spells.select(spells.selected + inp.spell);
   }
+  zones.showMage(settings.class === 'mage' && settings.viewBack && zones.name !== 'hub');
+  zones.aim({
+    x: walker.feet.x,
+    z: walker.feet.z,
+    fight: settings.monsters !== 'passive',
+    block: settings.class === 'blade' && !!blade.blocking,
+    guard: settings.class === 'warden' && warden.guard > 0,
+    dodge: settings.class === 'ranger' && ranger.iframe > 0,
+    sip: settings.class === 'alchemist' && alchemist.hot > 0,
+    onParry: () => blade.parry(),
+  });
   zones.update(dt);
   quest?.update();
   if (inp.any) sound?.wake();
@@ -539,7 +573,7 @@ function tick(dt) {
   if (free) { camera.position.copy(free.position); camera.lookAt(free.target); } else walker.look(camera);
   const bladeClose = settings.class === 'blade' && blade.drawn && blade.pad;
   const inHub = zones.name === 'hub';
-  const wantChase = !free && !bladeClose && (inHub || settings.viewBack || walker.speed > 1.15);
+  const wantChase = !free && !bladeClose && (inHub || (settings.class === 'mage' ? settings.viewBack : (settings.viewBack || walker.speed > 1.15)));
   const wantDist = inHub ? 2.6 : settings.viewBack ? 4.4 : 2.5 + Math.min(2.1, Math.max(0, walker.speed - 1) * 0.32);
   chaseDist += ((wantChase ? wantDist : 0) - chaseDist) * Math.min(1, dt * 3.2);
   const chasing = chaseDist > 0.45;
@@ -649,11 +683,14 @@ function tick(dt) {
   if (moodBtn) moodBtn.hidden = zones.name === 'hub';
   blade.update(dt, klass === 'blade', zones.nearBeast < 14);
   gun.update(dt, klass === 'gunner');
-  const armsOn = (settings.hands || klass === 'gunner') && zones.name !== 'hub' && arms.loaded;
+  const casting = !!(inp.cast || spells?.cast?.holding || spells?.cast?.pour || (spells?.cast?.charge || 0) > 0.04);
+  const mageEyes = klass === 'mage' && !chasing && !free && zones.name !== 'hub';
+  const armsOn = zones.name !== 'hub' && arms.loaded && (klass === 'gunner' || settings.hands || mageEyes);
   arms.rig.visible = !!armsOn;
   if (arms.rig.visible) {
-    const ready = !!(klass === 'blade' || klass === 'gunner' || inp.cast || spells?.cast?.holding || spells?.cast?.pour || zones.rodOut || zones.nearBeast < 7);
-    arms.update(dt, camera, { ready, speed: walker.speed, stride: walker.stride });
+    const rise = klass === 'mage' ? !!(casting || (wheel && castDisc?.ready)) : undefined;
+    const ready = !!(klass === 'blade' || klass === 'gunner' || casting || zones.rodOut || zones.nearBeast < 7);
+    arms.update(dt, camera, { ready, rise, speed: walker.speed, stride: walker.stride });
   }
   sword.visible = klass === 'blade' && blade.drawn;
   if (sword.parent !== scene) scene.add(sword);
@@ -674,7 +711,7 @@ function tick(dt) {
     sword.matrix.premultiply(camera.matrixWorld);
     sword.matrix.decompose(sword.position, sword.quaternion, sword.scale);
   }
-  const hideStaff = !!(free || ar.on || zones.name === 'hub' || settings.hands || zones.rodOut || klass === 'blade' || klass === 'gunner' || (klass === 'mage' && spells?.cast?.holding));
+  const hideStaff = true;
   const hpEl = document.getElementById('hp');
   if (hpEl) hpEl.textContent = `HP ${Math.round(zones.hearts)}`;
   const questEl = document.getElementById('quest');
