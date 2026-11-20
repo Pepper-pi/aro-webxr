@@ -29,6 +29,9 @@ export function createGunner(scene, camera, world, zones) {
   let ammo = 8;
   let reload = 0;
   let armed = 0;
+  let markT = 0;
+  let rollT = 0;
+  let rollDir = 1;
   const bolts = [];
   const nades = [];
   const boltGeo = new THREE.SphereGeometry(0.07, 8, 6);
@@ -70,17 +73,21 @@ export function createGunner(scene, camera, world, zones) {
     ammo -= cost;
     assist();
     const mat = new THREE.MeshBasicMaterial({ color: charged ? '#ffd27a' : '#7ef0ff' });
-    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(charged ? 0.045 : 0.02, charged ? 0.02 : 0.012, charged ? 0.7 : 0.38, 6), mat);
-    mesh.add(new THREE.Mesh(new THREE.SphereGeometry(charged ? 0.16 : 0.1, 8, 6), mat));
-    mesh.position.copy(camera.position).addScaledVector(dir, 0.85);
-    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+    const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+    const up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+    const from = camera.position.clone().addScaledVector(right, 0.2).addScaledVector(up, -0.14).addScaledVector(dir, 0.45);
+    const to = camera.position.clone().addScaledVector(dir, charged ? 4.4 : 3.4);
+    const span = to.clone().sub(from);
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(charged ? 0.055 : 0.03, charged ? 0.02 : 0.012, span.length(), 6), mat);
+    mesh.position.copy(from).addScaledVector(span, 0.5);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), span.clone().normalize());
     scene.add(mesh);
     const muzzle = new THREE.Mesh(flashGeo, flashMat.clone());
-    muzzle.scale.setScalar(charged ? 0.08 : 0.05);
-    muzzle.position.copy(camera.position).addScaledVector(dir, 0.55);
+    muzzle.scale.setScalar(charged ? 0.04 : 0.028);
+    muzzle.position.copy(from);
     scene.add(muzzle);
-    flashes.push({ mesh: muzzle, life: 0.08, max: 0.08 });
-    bolts.push({ mesh, velocity: dir.clone().multiplyScalar(charged ? 26 : 38), life: 0.9, dmg: charged ? 22 : 10, charged });
+    flashes.push({ mesh: muzzle, life: 0.22, max: 0.22 });
+    bolts.push({ mesh, velocity: dir.clone().multiplyScalar(charged ? 14 : 20), life: 0.9, dmg: charged ? 22 : 10, charged });
   }
 
   function explode(n) {
@@ -155,6 +162,10 @@ export function createGunner(scene, camera, world, zones) {
       gun.quaternion.copy(camera.quaternion);
     }
     if (reload > 0) { reload -= dt; if (reload <= 0) { reload = 0; ammo = 8; } }
+    const hitEl = document.getElementById('hitmark');
+    if (markT > 0) { markT -= dt; if (hitEl) hitEl.hidden = false; }
+    else if (hitEl) hitEl.hidden = true;
+    if (rollT > 0) rollT -= dt;
     for (let i = bolts.length - 1; i >= 0; i--) {
       const b = bolts[i];
       b.life -= dt;
@@ -168,6 +179,7 @@ export function createGunner(scene, camera, world, zones) {
         spark.position.set(hit.x, hit.y + 0.7, hit.z);
         scene.add(spark);
         flashes.push({ mesh: spark, life: 0.22, max: 0.22 });
+        markT = 0.45;
       }
       if (hit || b.life <= 0) { scene.remove(b.mesh); bolts.splice(i, 1); }
     }
@@ -198,5 +210,6 @@ export function createGunner(scene, camera, world, zones) {
     }
   }
 
-  return { fire, arm, release, toss, update, get ammo() { return ammo; } };
+  function roll(dir = 1) { rollT = 0.34; rollDir = dir < 0 ? -1 : 1; }
+  return { fire, arm, release, toss, roll, update, get ammo() { return ammo; }, get lean() { return rollT > 0 ? rollDir * Math.sin((1 - rollT / 0.34) * Math.PI) * 0.85 : 0; } };
 }

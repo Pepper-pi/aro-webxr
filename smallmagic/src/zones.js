@@ -787,11 +787,17 @@ export function createZones({ scene, world, walker, camera, air }) {
     get name() { return name; },
     get hearts() { return hearts; },
     nick(n) { hearts = Math.max(0, hearts - n); },
-    heal(n) { hearts = n ? Math.min(100, hearts + n) : 100; },
+    heal(n) {
+      let cap = 100;
+      try { if ((JSON.parse(localStorage.getItem('aro-hub') || '{}').people?.maren?.fp || 0) >= 90) cap = 120; } catch { /* cap stays 100 */ }
+      hearts = n ? Math.min(cap, hearts + n) : cap;
+    },
+    setHearts(n) { hearts = n; },
     promote() { return beasts.promote(); },
     collect(x, z) { return beasts.collect(x, z); },
     get ring() { return meadowRing.position; },
     get rodOut() { return hold.visible; },
+    get tipAt() { return tipW; },
     get nearBeast() { return beasts.near(walker.feet.x, walker.feet.z); },
     beasts() { return beasts.probe(); },
     live() { return beasts.live(); },
@@ -802,6 +808,11 @@ export function createZones({ scene, world, walker, camera, air }) {
     get fishZoom() { return fishZoom; },
     setDusk,
     showBook,
+    stickRod() {
+      if (!hold.visible) return;
+      hold.position.copy(camera.position);
+      hold.quaternion.copy(camera.quaternion);
+    },
     celebrate,
     set onLand(fn) { onLand = fn; },
     cueBeast(x, z, name) { beasts.act(x, z, name); },
@@ -1039,6 +1050,7 @@ export function createZones({ scene, world, walker, camera, air }) {
         hold.visible = true;
         hold.position.copy(camera.position);
         hold.quaternion.copy(camera.quaternion);
+        hold.translateY(-0.12);
         if (phase === 'aim') cock = Math.min(1, cock + dt * 2.6);
         else if (flicking <= 0) cock = Math.max(0, cock - dt * 3);
         let pose = cock;
@@ -1049,10 +1061,18 @@ export function createZones({ scene, world, walker, camera, air }) {
         }
         if (dip > 0) dip = Math.max(0, dip - dt * 1.6);
         const bend = (phase === 'bite' ? 0.25 + tension * 0.7 : 0) + dip * 0.45;
-        rod.rotation.x = 0.78 + pose * 0.4 + bend * 0.22;
-        rod.rotation.z = -0.55 - Math.max(0, pose) * 0.15 - bend * 0.2;
-        blank.rotation.z = -bend * 0.8;
-        tipM.rotation.z = -bend * 1.3;
+        const framed = phase === 'bite' || phase === 'reel';
+        if (framed) {
+          rod.scale.setScalar(0.7);
+          rod.position.set(0.24, -0.56, -0.6);
+          rod.rotation.set(-0.46, -0.16, 0.04);
+        } else {
+          rod.scale.setScalar(1);
+          rod.position.set(0.28, -0.22, -0.48);
+          rod.rotation.set(0.55 + pose * 0.2, -0.4, -0.22 - Math.max(0, pose) * 0.1);
+        }
+        blank.rotation.z = framed ? -bend * 0.1 : -bend * 0.8;
+        tipM.rotation.z = framed ? -bend * 0.16 : -bend * 1.3;
         if (line.visible) {
           const hot = phase === 'bite' && tension > 0.72;
           line.material.color.set(hot ? '#ff5a4a' : phase === 'bite' ? '#9af6ff' : '#d8fbff');

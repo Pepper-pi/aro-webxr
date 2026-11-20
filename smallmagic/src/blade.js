@@ -60,6 +60,13 @@ export function createBlade(onLaunch, bits = {}) {
     const el = document.getElementById('bladeSay');
     if (el) el.textContent = text;
   }
+  function flashParry() {
+    const el = document.getElementById('parry');
+    if (!el) return;
+    el.classList.add('on');
+    clearTimeout(flashParry.t);
+    flashParry.t = setTimeout(() => el.classList.remove('on'), 280);
+  }
 
   const glows = [0, 1, 2].map(() => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.04, 1), new THREE.MeshBasicMaterial({ color: '#7ec8ff', transparent: true, opacity: 0.34, depthWrite: false }));
@@ -1609,13 +1616,17 @@ export function createBlade(onLaunch, bits = {}) {
     chain = (chain + 1) % 3;
     chainAt = now;
     swing = 1;
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(step === 2 ? 2.3 : 1.6, 0.28), new THREE.MeshBasicMaterial({ color: step === 2 ? '#ffe7a4' : step === 1 ? '#fff6dc' : '#3ee0ff', side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));
-    mesh.position.copy(camera.position);
-    mesh.position.y -= 0.35;
-    mesh.lookAt(mesh.position.x + aim.x, mesh.position.y, mesh.position.z + aim.z);
+    const mesh = new THREE.Mesh(
+      new THREE.TorusGeometry(step === 2 ? 0.78 : 0.52, step === 2 ? 0.055 : 0.034, 8, 22, Math.PI * (step === 2 ? 1.2 : 0.82)),
+      new THREE.MeshBasicMaterial({ color: step === 2 ? '#ffe7a4' : step === 1 ? '#fff6dc' : '#3ee0ff', side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false }),
+    );
+    mesh.position.copy(camera.position).add(look.clone().multiplyScalar(2.15));
+    mesh.position.y += (step - 1) * 0.12;
+    mesh.quaternion.copy(camera.quaternion);
+    mesh.rotateZ(-1.05 + step * 0.72);
     scene.add(mesh);
-    shots.push({ mesh, v: aim.multiplyScalar(step === 2 ? 22 : 18), life: 0.5, kind: 'slice', blew: false, chopped: false, dmg: [8, 14, 26][step], kick: step === 2 ? 0.12 : 0.04 });
-    say('Slice');
+    shots.push({ mesh, v: aim.multiplyScalar(3.2), life: 0.4, kind: 'slice', blew: false, chopped: false, dmg: [8, 14, 26][step], kick: step === 2 ? 0.12 : 0.04 });
+    say(step === 2 ? 'Heavy' : `Cut ${step + 1}`);
   }
 
   function spawnLob() {
@@ -1674,8 +1685,8 @@ export function createBlade(onLaunch, bits = {}) {
   function meet(blockingNow) {
     if (!blockingNow) { say('Hit'); zones?.nick?.(12); return; }
     const perfect = blocking && blockHeld <= 0.2;
-    say(perfect ? 'Taunt' : 'Blocked');
-    if (perfect) showTaunt();
+    say(perfect ? 'Parry' : 'Blocked');
+    if (perfect) { showTaunt(); flashParry(); }
   }
 
   function spawnBoar() {
@@ -2022,6 +2033,7 @@ export function createBlade(onLaunch, bits = {}) {
     get halves() { return shards.length; },
     get fighting() { return fightOn; },
     cut() { airSlice(0, -90); },
+    flashParry,
     tryRush() { if (!drawn || rush) return; startRush(); },
     get bend() {
       const note = notes.find((n) => !n.resolved && n.launch && n.kind !== 'back');

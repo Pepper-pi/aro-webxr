@@ -73,25 +73,27 @@ export function createAR(scene, camera, world, zones) {
   const rift = new THREE.Group();
   rift.name = 'ar-rift';
   const arch = new THREE.Mesh(
-    new THREE.TorusGeometry(1.25, 0.07, 8, 36, Math.PI),
-    new THREE.MeshBasicMaterial({ color: '#ffe7a4', transparent: true, opacity: 0.95, side: THREE.DoubleSide }),
+    new THREE.TorusGeometry(1.15, 0.11, 10, 48),
+    new THREE.MeshBasicMaterial({ color: '#ffd36a', transparent: true, opacity: 1, side: THREE.DoubleSide, depthWrite: false }),
   );
-  arch.rotation.z = Math.PI;
   const inner = new THREE.Mesh(
-    new THREE.TorusGeometry(0.95, 0.035, 6, 32, Math.PI),
-    new THREE.MeshBasicMaterial({ color: '#7ee0ff', transparent: true, opacity: 0.9, side: THREE.DoubleSide }),
+    new THREE.TorusGeometry(0.82, 0.045, 8, 40),
+    new THREE.MeshBasicMaterial({ color: '#7ee0ff', transparent: true, opacity: 1, side: THREE.DoubleSide, depthWrite: false }),
   );
-  inner.rotation.z = Math.PI;
   const glow = new THREE.Mesh(
-    new THREE.CircleGeometry(0.7, 20),
-    new THREE.MeshBasicMaterial({ color: '#ffe7a8', transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false }),
+    new THREE.RingGeometry(0.42, 1.2, 40),
+    new THREE.MeshBasicMaterial({ color: '#fff1c4', transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false }),
   );
-  rift.add(glow, arch, inner);
-  for (let i = 0; i < 14; i++) {
-    const tick = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.03), new THREE.MeshBasicMaterial({ color: i % 2 ? '#fff6dc' : '#9af6ff' }));
-    const a = Math.PI + (i / 13) * Math.PI;
-    tick.position.set(Math.cos(a) * 1.25, Math.sin(a) * 1.25, 0.02);
-    tick.rotation.z = a - Math.PI / 2;
+  const mouth = new THREE.Mesh(
+    new THREE.CircleGeometry(0.62, 28),
+    new THREE.MeshBasicMaterial({ color: '#140c28', transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false }),
+  );
+  rift.add(mouth, glow, arch, inner);
+  for (let i = 0; i < 16; i++) {
+    const tick = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.2, 0.04), new THREE.MeshBasicMaterial({ color: i % 2 ? '#fff6dc' : '#9af6ff' }));
+    const a = (i / 16) * Math.PI * 2;
+    tick.position.set(Math.cos(a) * 1.15, Math.sin(a) * 1.15, 0.04);
+    tick.rotation.z = a + Math.PI / 2;
     rift.add(tick);
   }
   const riftSparks = [];
@@ -114,6 +116,7 @@ export function createAR(scene, camera, world, zones) {
   const button = document.getElementById('ar');
   let on = false;
   let riftLife = 0;
+  let goals = [];
   let video = null;
   let videoTex = null;
   let gyro = { pitch: 0, roll: 0 };
@@ -155,8 +158,8 @@ export function createAR(scene, camera, world, zones) {
     const rz = -fx;
     anchored = [];
     pick.forEach((b, i) => {
-      const depth = 4.15 + i * 0.2;
-      const side = i === 0 ? 0.95 : -1.05;
+      const depth = 4.6 + i * 0.15;
+      const side = i === 0 ? 0.7 : -0.75;
       const x = walker.feet.x + fx * depth + rx * side;
       const z = walker.feet.z + fz * depth + rz * side;
       const y = world.ground(x, z);
@@ -170,14 +173,16 @@ export function createAR(scene, camera, world, zones) {
       anchored.push(b);
     });
     const lead = anchored[0];
-    const other = anchored[1];
+    goals = anchored.map((b) => {
+      const prev = b.g.scale.x || 1;
+      b.g.scale.setScalar(0.72);
+      return { x: b.g.position.x, y: b.g.position.y, z: b.g.position.z, scale: prev };
+    });
     if (lead) {
-      const ax = other ? (lead.g.position.x + other.g.position.x) * 0.5 : lead.g.position.x;
-      const az = other ? (lead.g.position.z + other.g.position.z) * 0.5 : lead.g.position.z;
-      const ay = Math.max(lead.g.position.y, other ? other.g.position.y : lead.g.position.y);
-      rift.position.set(ax + fx * 0.35, ay + 1.85, az + fz * 0.35);
-      rift.scale.setScalar(1.15);
-      rift.lookAt(walker.feet.x, walker.feet.y + 1.3, walker.feet.z);
+      const depth = 2.7;
+      rift.position.set(walker.feet.x + fx * depth, walker.feet.y + 1.45, walker.feet.z + fz * depth);
+      rift.scale.setScalar(1.35);
+      rift.lookAt(walker.feet.x, walker.feet.y + 1.45, walker.feet.z);
     }
   }
 
@@ -185,9 +190,12 @@ export function createAR(scene, camera, world, zones) {
     for (const b of anchored) {
       b.g.getObjectByName('arshadow') && (b.g.getObjectByName('arshadow').visible = false);
       b.g.getObjectByName('arring') && (b.g.getObjectByName('arring').visible = false);
+      const g = goals[anchored.indexOf(b)];
+      if (g?.scale) b.g.scale.setScalar(g.scale);
       zones.releaseAnchor(b.n);
     }
     anchored = [];
+    goals = [];
     saved.clear();
   }
 
@@ -276,9 +284,17 @@ export function createAR(scene, camera, world, zones) {
       rift.scale.setScalar((0.4 + open * 0.7) * 1.7);
       const fade = riftLife < 0.7 ? riftLife / 0.7 : 1;
       rift.visible = fade > 0.02;
-      arch.material.opacity = 0.95 * fade;
-      inner.material.opacity = 0.8 * fade;
-      glow.material.opacity = 0.28 * fade;
+      arch.material.opacity = fade;
+      inner.material.opacity = fade;
+      glow.material.opacity = 0.75 * fade;
+      mouth.material.opacity = 0.7 * fade;
+      const stepU = Math.min(1, (3.4 - riftLife) / 0.9);
+      anchored.forEach((b, i) => {
+        const g = goals[i];
+        if (!g) return;
+        b.g.position.x = g.x - fx * (1 - stepU) * 1.15;
+        b.g.position.z = g.z - fz * (1 - stepU) * 1.15;
+      });
       arch.rotation.y += dt * 0.4;
       inner.rotation.y -= dt * 0.7;
       riftSparks.forEach((s, i) => {

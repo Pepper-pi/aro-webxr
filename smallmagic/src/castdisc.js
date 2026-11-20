@@ -100,6 +100,21 @@ export function createCastDisc(scene) {
   }
   mandala.add(outerRing, midRing, innerRing, ticks);
   const along = (t) => -0.46 + t * 0.74;
+  const wrap = new THREE.Mesh(new THREE.CylinderGeometry(0.078, 0.1, 1, 14), ringMat('#ff7a1c', 0.45));
+  wrap.rotation.x = Math.PI / 2;
+  arm.add(wrap);
+  const sleeveBands = [0.05, 0.22, 0.4, 0.58, 0.76, 0.92].map((t) => {
+    const band = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.028, 8, 24), ringMat('#fff6dc', 0.95));
+    band.userData.t = t;
+    band.frustumCulled = false;
+    arm.add(band);
+    return band;
+  });
+  const palm = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 8), ringMat('#fff6dc', 0.95));
+  palm.position.z = -0.5;
+  palm.frustumCulled = false;
+  arm.add(palm);
+  arm.frustumCulled = false;
   const ribbons = [];
   for (let i = 0; i < 10; i++) {
     const bit = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.035, 0.07), ringMat('#ffb15a', 0.95));
@@ -314,14 +329,33 @@ export function createCastDisc(scene) {
       const frostOn = key === 'frost';
       const windOn = key === 'wind' || key === 'tornado';
       const siphonOn = key === 'singularity';
-      const lit = (t) => pose >= t * 0.9;
+      const lit = (t) => pose >= t * 0.92;
+      const tier = pose > 0.72 ? 3 : pose > 0.38 ? 2 : 1;
+      const fat = tier === 3 ? 1.05 : tier === 2 ? 0.85 : 0.6;
+      wrap.visible = arm.visible;
+      wrap.material.color.copy(tint);
+      wrap.material.opacity = 0.22 + pose * (tier === 3 ? 0.28 : 0.16);
+      wrap.scale.set(fat, Math.max(0.1, pose * (tier === 1 ? 0.62 : 1)), fat);
+      wrap.position.z = -0.46 + wrap.scale.y * 0.5;
+      palm.visible = arm.visible && pose > 0.08;
+      palm.material.color.copy(tint).lerp(new THREE.Color('#fff6dc'), 0.25);
+      palm.scale.setScalar(0.35 + pose * (tier === 3 ? 0.55 : 0.25));
+      sleeveBands.forEach((band, i) => {
+        const show = arm.visible && lit(band.userData.t);
+        band.visible = show;
+        const spin = sparkT * 0.6 + i * 0.55;
+        band.position.set(0, 0, along(band.userData.t));
+        band.material.color.copy(tint);
+        band.rotation.z = spin;
+        band.scale.setScalar(show ? (tier === 1 ? 0.7 : tier === 2 ? 0.9 : 1.05) : 1);
+      });
       ribbons.forEach((bit, i) => {
         const t = bit.userData.t;
-        bit.visible = arm.visible && fireOn && lit(t);
+        bit.visible = false;
         const a = sparkT * 3.2 + t * 8;
-        bit.position.set(Math.cos(a) * 0.16, Math.sin(a) * 0.16, along(t));
+        bit.position.set(Math.cos(a) * 0.1, Math.sin(a) * 0.1, along(t));
         bit.rotation.z = a;
-        bit.scale.setScalar(bit.visible ? 0.7 + pose * 0.5 : 1);
+        bit.scale.setScalar(bit.visible ? 0.12 + pose * 0.06 : 1);
       });
       fireBands.forEach((band) => {
         band.visible = arm.visible && fireOn && lit(band.userData.t);
@@ -372,12 +406,12 @@ export function createCastDisc(scene) {
       thread.material.opacity = 0.35 + pose * 0.55;
       if (arm.visible) {
         const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
-        const from = wrist
+        const elbow = wrist
           ? wrist.clone()
-          : camera.position.clone().addScaledVector(up, -0.42).addScaledVector(right, 0.38).addScaledVector(fwd, 0.42);
-        const reach = root.position.clone().addScaledVector(right, 0.05);
-        arm.position.lerpVectors(from, reach, wrist ? 0.2 + pose * 0.35 : 0.12 + pose * 0.22);
-        arm.lookAt(root.position.x, root.position.y, root.position.z);
+          : camera.position.clone().addScaledVector(right, 0.58).addScaledVector(up, -0.42).addScaledVector(fwd, 1.25);
+        const hand = camera.position.clone().addScaledVector(right, -0.08).addScaledVector(up, -0.16).addScaledVector(fwd, 1.4);
+        arm.position.copy(elbow);
+        arm.lookAt(hand.x, hand.y, hand.z);
       }
     },
   };

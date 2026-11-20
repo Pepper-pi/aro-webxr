@@ -79,6 +79,11 @@ const camera = new THREE.PerspectiveCamera(world.fov, innerWidth / innerHeight, 
 fitting.push(() => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
 // ?marks: a burnt patch and a frozen one by the start, to see that the ground takes what magic will write to it
 if (q.has('marks')) { world.mark(-5, 27, 4.5, 0, 1); world.mark(5.5, 26, 4.5, 1, 1); }
+if (q.get('bond') === 'trusted') {
+  const people = {};
+  for (const id of ['maren', 'sable', 'bram', 'lumen']) people[id] = { fp: 100, mood: 'glad', notes: 2, hangs: 1 };
+  try { localStorage.setItem('aro-hub', JSON.stringify({ respect: 80, people, boardSeed: 1, done: {} })); } catch { /* private mode */ }
+}
 lap('world');
 
 say('Taking up the staff');
@@ -109,6 +114,7 @@ const fire = createFire({ world, air, fx, flames });
 const zones = createZones({ scene, world, walker, camera, air });
 const ar = createAR(scene, camera, world, zones);
 const hexes = createHexes(scene, world, camera, walker);
+if (q.get('bond') === 'trusted') zones.setHearts(120);
 const hub = createHub({
   visit() {
     zones.enter('hub');
@@ -491,10 +497,17 @@ function tick(dt) {
   const fishPull = zones.fishZoom || 0;
   if (fishPull > 0.04 && !free && !chasing) {
     const yaw = walker.yaw;
-    camera.position.x -= Math.sin(yaw) * fishPull;
-    camera.position.y += fishPull * 0.32;
-    camera.position.z -= Math.cos(yaw) * fishPull;
+    camera.position.x -= Math.sin(yaw) * fishPull * 0.35;
+    camera.position.y += fishPull * 0.08;
+    camera.position.z -= Math.cos(yaw) * fishPull * 0.35;
   }
+  const lean = gun?.lean || 0;
+  if (lean) {
+    const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+    camera.position.addScaledVector(right, lean);
+  }
+  camera.updateMatrixWorld(true);
+  zones.stickRod?.();
   const wheel = discOn && kit === 'mage' && !melee && !zones.rodOut && zones.name !== 'hub';
   const armCharge = (discCharge || spells?.cast?.holding) ? Math.max(0.14, spells?.cast?.charge || 0) : 0;
   castDisc?.update(dt, wheel, spells?.selected ?? 0, walker, camera, armCharge, !chasing && !free, wristPoint());
@@ -559,7 +572,9 @@ function tick(dt) {
     sword.matrix.premultiply(camera.matrixWorld);
     sword.matrix.decompose(sword.position, sword.quaternion, sword.scale);
   }
-  const hideStaff = !!(free || ar.on || zones.name === 'hub' || settings.hands || zones.rodOut || klass === 'blade' || klass === 'gunner');
+  const hideStaff = !!(free || ar.on || zones.name === 'hub' || settings.hands || zones.rodOut || klass === 'blade' || klass === 'gunner' || (klass === 'mage' && spells?.cast?.holding));
+  const hpEl = document.getElementById('hp');
+  if (hpEl) hpEl.textContent = `HP ${Math.round(zones.hearts)}`;
   const questEl = document.getElementById('quest');
   if (questEl) {
     const open = ['catch', 'book', 'hexcard', 'home', 'crew', 'menu', 'settings', 'atlas', 'board'].some((id) => {
