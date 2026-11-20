@@ -5,8 +5,9 @@ import { TUNE } from './rider.js';
 import { buildVillage } from './cabins.js';
 
 const mat = (color) => new THREE.MeshBasicMaterial({ color });
+const lit = (color) => new THREE.MeshLambertMaterial({ color });
 const box = (w, h, d, color, x, y, z) => {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color));
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), lit(color));
   m.position.set(x, y, z);
   return m;
 };
@@ -138,14 +139,49 @@ export function createZones({ scene, world, walker, camera, air }) {
     g.rotation.y = yaw;
     return g;
   };
-  const flame = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.42, 6), new THREE.MeshBasicMaterial({ color: '#ffb15a', transparent: true, opacity: 0.9 }));
-  flame.position.set(-3.4, 0.55, -4.6);
-  const glow = new THREE.Mesh(new THREE.CircleGeometry(1.1, 16), new THREE.MeshBasicMaterial({ color: '#ff9a3c', transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide }));
+  const hearth = new THREE.Group();
+  hearth.position.set(-3.55, 0, -4.75);
+  const stone = (w, h, d, color, x, y, z) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), lit(color));
+    m.position.set(x, y, z);
+    return m;
+  };
+  hearth.add(
+    stone(2.05, 0.28, 1.05, '#6d5646', 0, 0.14, 0.22),
+    stone(1.85, 1.25, 0.28, '#4a3428', 0, 0.95, -0.22),
+    stone(0.26, 1.2, 0.62, '#5c4334', -0.86, 0.9, 0.08),
+    stone(0.26, 1.2, 0.62, '#5c4334', 0.86, 0.9, 0.08),
+    stone(2.15, 0.18, 0.5, '#3a2a22', 0, 1.58, 0.02),
+    stone(0.12, 0.42, 0.12, '#2a2018', -0.42, 0.42, 0.18),
+    stone(0.12, 0.42, 0.12, '#2a2018', 0.42, 0.42, 0.18),
+  );
+  const flameMat = (color, opacity) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending });
+  const flames = [0.22, 0.15, 0.08].map((r, i) => {
+    const f = new THREE.Mesh(new THREE.ConeGeometry(r, 0.55 - i * 0.1, 7), flameMat(i === 2 ? '#fff1c4' : i === 1 ? '#ffb15a' : '#ff6a1a', 0.75 - i * 0.08));
+    f.position.set(0, 0.7 + i * 0.12, 0.48);
+    hearth.add(f);
+    return f;
+  });
+  const embers = [];
+  for (let i = 0; i < 10; i++) {
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.028, 5, 4), flameMat('#ffc56a', 0.9));
+    e.userData.p = i / 10;
+    e.userData.x = (i - 4.5) * 0.06;
+    hearth.add(e);
+    embers.push(e);
+  }
+  const glow = new THREE.Mesh(new THREE.CircleGeometry(1.15, 18), new THREE.MeshBasicMaterial({ color: '#ff9a3c', transparent: true, opacity: 0.34, depthWrite: false, side: THREE.DoubleSide }));
   glow.rotation.x = -Math.PI / 2;
-  glow.position.set(-3.4, 0.04, -4.2);
+  glow.position.set(0, 0.03, 0.35);
+  hearth.add(glow);
+  const roomLight = new THREE.HemisphereLight('#ffe6c8', '#5a3828', 0.72);
+  const fireLight = new THREE.PointLight('#ff7a2a', 22, 12, 2);
+  fireLight.position.set(-3.55, 1.2, -4.35);
+  hub.add(hearth, roomLight, fireLight);
   const plaques = new THREE.Group();
-  plaques.position.set(4.55, 0, -1.6);
-  hub.add(flame, glow, plaques);
+  plaques.position.set(5.28, 0, -1.35);
+  plaques.rotation.y = -Math.PI / 2;
+  hub.add(plaques);
   const emote = (text) => {
     const c = document.createElement('canvas');
     c.width = 128; c.height = 64;
@@ -245,9 +281,10 @@ export function createZones({ scene, world, walker, camera, air }) {
   buddyTag.position.y = 2.25;
   buddyTag.scale.set(1.3, 0.55, 1);
   buddyBody.add(buddyTag);
-  const buddyRing = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.58, 28), new THREE.MeshBasicMaterial({ color: '#fff1c4', side: THREE.DoubleSide, transparent: true, opacity: 0.9, depthWrite: false }));
-  buddyRing.rotation.x = -Math.PI / 2;
-  buddyRing.position.y = 0.04;
+  const buddyRing = new THREE.Mesh(new THREE.TorusGeometry(0.58, 0.05, 8, 32), new THREE.MeshBasicMaterial({ color: '#fff1c4', side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false }));
+  buddyRing.rotation.x = Math.PI / 2;
+  buddyRing.position.y = 1.05;
+  buddyRing.renderOrder = 3;
   buddyRing.visible = false;
   buddyBody.add(buddyRing);
   function fitModel(root, height) {
@@ -342,7 +379,7 @@ export function createZones({ scene, world, walker, camera, air }) {
         buddyRing.material.color.set(pal.color);
       };
       const furn = {};
-      for (const name of ['bed', 'chair', 'table', 'rug', 'shelves', 'stove', 'lamp']) {
+      for (const name of ['bed', 'chair', 'table', 'rug', 'shelves', 'lamp', 'fire', 'pot']) {
         furn[name] = await file(`hearth/furniture/${name}.glb`);
       }
       const put = (gltf, x, y, z, yaw, height) => {
@@ -358,16 +395,14 @@ export function createZones({ scene, world, walker, camera, air }) {
       };
       put(furn.rug, 0.2, 0, -0.4, 0, 0.04);
       put(furn.rug, -3.4, 0, 3.0, 0.2, 0.03);
-      put(furn.stove, -3.5, 0, -4.7, 0, 1.15);
+      put(furn.fire, -3.55, 0.3, -4.82, 0.2, 0.36);
       put(furn.table, 1.5, 0, -0.8, 0.3, 0.75);
       put(furn.chair, 0.7, 0, -0.5, 0.8, 0.9);
       put(furn.chair, 2.2, 0, -1.3, -2.2, 0.9);
       put(furn.bed, -3.6, 0, 3.3, Math.PI / 2, 0.7);
       put(furn.shelves, 4.7, 0, -1.6, -Math.PI / 2, 1.7);
       put(furn.lamp, -1.0, 0, -3.4, 0, 1.35);
-      const potMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.14, 0.22, 8), mat('#2a2420'));
-      potMesh.position.set(-2.5, 0.14, -4.15);
-      hub.add(potMesh);
+      put(furn.pot, -2.35, 0, -4.15, 0.6, 0.46);
       for (const p of pals) {
         const gltf = people[p.file];
         if (!gltf) continue;
@@ -598,15 +633,18 @@ export function createZones({ scene, world, walker, camera, air }) {
     if (key === trophyKey) return;
     trophyKey = key;
     for (const child of [...plaques.children]) plaques.remove(child);
+    const board = new THREE.Mesh(new THREE.BoxGeometry(2.05, 0.78, 0.04), lit('#3a2a22'));
+    board.position.set(0.05, 0.98, 0);
+    plaques.add(board);
     caught.forEach((s, i) => {
       const col = i % 3;
       const row = Math.floor(i / 3);
-      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.36, 0.05), mat('#e7c56a'));
-      plate.position.set(0, 1.85 - row * 0.48, -0.85 + col * 0.85);
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.18, 0.025), mat('#e7c56a'));
+      plate.position.set(-0.55 + col * 0.58, 1.12 - row * 0.26, 0.04);
       const tag = emote(s.name.split(' ')[0]);
       tag.visible = true;
-      tag.position.set(0, 1.85 - row * 0.48, -0.72 + col * 0.85);
-      tag.scale.set(1.05, 0.42, 1);
+      tag.position.set(-0.55 + col * 0.58, 1.12 - row * 0.26, 0.1);
+      tag.scale.set(0.55, 0.22, 1);
       plaques.add(plate, tag);
     });
   }
@@ -1307,8 +1345,17 @@ export function createZones({ scene, world, walker, camera, air }) {
       for (const mixer of hearthMixers) mixer.update(dt);
       if (name === 'hub') {
         const flick = performance.now() * 0.001;
-        flame.scale.y = 0.85 + Math.sin(flick * 11) * 0.14 + Math.sin(flick * 23) * 0.06;
-        glow.material.opacity = 0.16 + Math.sin(flick * 9) * 0.08;
+        flames.forEach((f, i) => {
+          f.scale.y = 0.78 + Math.sin(flick * (9 + i * 4)) * 0.22 + Math.sin(flick * 21) * 0.06;
+          f.scale.x = f.scale.z = 0.9 + Math.sin(flick * (7 + i)) * 0.16;
+        });
+        embers.forEach((e) => {
+          const u = (flick * 0.42 + e.userData.p) % 1;
+          e.position.set(e.userData.x + Math.sin(flick * 3 + e.userData.p * 6) * 0.04, 0.4 + u * 1.15, 0.16);
+          e.material.opacity = (1 - u) * 0.9;
+        });
+        glow.material.opacity = 0.22 + Math.sin(flick * 9) * 0.1;
+        fireLight.intensity = 18 + Math.sin(flick * 11) * 5 + Math.sin(flick * 23) * 2.5;
         refreshTrophies();
       }
       if (name === 'hub') {

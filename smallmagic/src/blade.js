@@ -60,6 +60,16 @@ export function createBlade(onLaunch, bits = {}) {
     const el = document.getElementById('bladeSay');
     if (el) el.textContent = text;
   }
+  function parryBurst() {
+    flashParry();
+    if (!scene || !walker || !camera) return;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.07, 8, 28), new THREE.MeshBasicMaterial({ color: '#d8fbff', transparent: true, opacity: 0.95, depthWrite: false }));
+    ring.position.set(walker.feet.x, walker.feet.y + 1.15, walker.feet.z);
+    ring.lookAt(camera.position);
+    scene.add(ring);
+    shots.push({ mesh: ring, v: new THREE.Vector3(), life: 0.32, kind: 'parry', stuck: true, blew: true, chopped: true });
+  }
+
   function flashParry() {
     const el = document.getElementById('parry');
     if (!el) return;
@@ -626,13 +636,19 @@ export function createBlade(onLaunch, bits = {}) {
     setTimeout(() => el.classList.remove('on'), 90);
   }
 
-  function trail(x0, y0, x1, y1) {
+  function trail(x0, y0, x1, y1, heavy) {
     const len = Math.hypot(x1 - x0, y1 - y0);
     if (len < 12) return;
-    const el = document.createElement('div');
-    el.style.cssText = `position:fixed;left:${x0}px;top:${y0}px;width:${len}px;height:10px;margin-top:-5px;border-radius:6px;background:linear-gradient(90deg,#fff,#3ee0ff);transform-origin:0 50%;transform:rotate(${Math.atan2(y1 - y0, x1 - x0)}rad);z-index:12;pointer-events:none;`;
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 160);
+    const ang = Math.atan2(y1 - y0, x1 - x0);
+    const paint = (h, bg) => {
+      const el = document.createElement('div');
+      el.style.cssText = `position:fixed;left:${x0}px;top:${y0}px;width:${len}px;height:${h}px;margin-top:-${h / 2}px;border-radius:${h}px;background:${bg};box-shadow:0 0 16px ${heavy ? '#ffb15a' : '#7ee0ff'};transform-origin:0 50%;transform:rotate(${ang}rad);z-index:12;pointer-events:none;opacity:0.95;transition:opacity .32s linear;`;
+      document.body.appendChild(el);
+      requestAnimationFrame(() => { el.style.opacity = '0'; });
+      setTimeout(() => el.remove(), 340);
+    };
+    paint(heavy ? 22 : 16, heavy ? 'linear-gradient(90deg,transparent,#fff6c8,#ffb15a)' : 'linear-gradient(90deg,transparent,#fff,#7ee0ff)');
+    paint(heavy ? 7 : 5, '#fff');
   }
 
   function endRush() {
@@ -1424,7 +1440,7 @@ export function createBlade(onLaunch, bits = {}) {
     if (!h) return;
     if (performance.now() - h.t > 220) h.held = true;
     const swipe = dirOf(h.dx || 0, h.dy || 0);
-    if (swipe) trail(h.x, h.y, h.x + (h.dx || 0), h.y + (h.dy || 0));
+    if (swipe) trail(h.x, h.y, h.x + (h.dx || 0), h.y + (h.dy || 0), Math.hypot(h.dx || 0, h.dy || 0) > 150);
     if (tryTarget(h)) return;
     if (tryLock(h)) return;
     if (h.held && swipe) airSlice(h.dx || 0, h.dy || 0);
@@ -1617,16 +1633,23 @@ export function createBlade(onLaunch, bits = {}) {
     chainAt = now;
     swing = 1;
     const mesh = new THREE.Mesh(
-      new THREE.TorusGeometry(step === 2 ? 0.42 : 0.3, step === 2 ? 0.035 : 0.022, 6, 18, Math.PI * (step === 2 ? 1.15 : 0.8)),
+      new THREE.TorusGeometry(step === 2 ? 0.72 : 0.5, step === 2 ? 0.07 : 0.045, 8, 24, Math.PI * (step === 2 ? 1.25 : 1)),
       new THREE.MeshBasicMaterial({ color: step === 2 ? '#ffe7a4' : step === 1 ? '#fff6dc' : '#3ee0ff', side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false }),
     );
-    mesh.position.set(0.04, 0.58, 0.03);
+    mesh.position.set(0.12, 0.72, 0.25);
     mesh.rotation.set(0.15, 0, -0.7 + step * 0.55);
-    (sword || scene).add(mesh);
+    const haze = new THREE.Mesh(
+      new THREE.TorusGeometry(step === 2 ? 0.95 : 0.7, 0.12, 8, 20, Math.PI),
+      new THREE.MeshBasicMaterial({ color: step === 2 ? '#ffb15a' : '#7ee0ff', side: THREE.DoubleSide, transparent: true, opacity: 0.35, depthWrite: false }),
+    );
+    haze.position.copy(mesh.position);
+    haze.rotation.copy(mesh.rotation);
+    (sword || scene).add(mesh, haze);
     const strike = camera.position.clone().add(look.clone().multiplyScalar(2.2));
     const beast = zones?.beasts?.().find((b) => !b.dead && Math.hypot(b.x - strike.x, b.z - strike.z) < 2.4);
     if (beast) zones.hurt([{ x: beast.x, z: beast.z, r: 1.3, d: [8, 14, 26][step], k: 'arcane', bleed: step === 2 ? 3.2 : 0 }]);
     shots.push({ mesh, v: aim.multiplyScalar(0), life: 0.45, kind: 'slice', stuck: true, blew: true, chopped: true, dmg: [8, 14, 26][step], kick: 0 });
+    shots.push({ mesh: haze, v: new THREE.Vector3(), life: 0.45, kind: 'slice', stuck: true, blew: true, chopped: true });
     say(step === 2 ? 'Heavy' : `Cut ${step + 1}`);
   }
 
@@ -1687,7 +1710,7 @@ export function createBlade(onLaunch, bits = {}) {
     if (!blockingNow) { say('Hit'); zones?.nick?.(12); return; }
     const perfect = blocking && blockHeld <= 0.2;
     say(perfect ? 'Parry' : 'Blocked');
-    if (perfect) { showTaunt(); flashParry(); }
+    if (perfect) { showTaunt(); parryBurst(); }
   }
 
   function spawnBoar() {
@@ -1776,6 +1799,7 @@ export function createBlade(onLaunch, bits = {}) {
       shot.life -= dt;
       if (shot.stuck) {
         if (shot.mesh.material) shot.mesh.material.opacity = Math.max(0, shot.life / 0.45);
+        if (shot.kind === 'parry') shot.mesh.scale.setScalar(1 + (0.32 - Math.max(0, shot.life)) * 4);
         if (shot.life <= 0) { shot.mesh.parent?.remove(shot.mesh); shots.splice(i, 1); }
         continue;
       }

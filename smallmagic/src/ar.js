@@ -103,8 +103,25 @@ export function createAR(scene, camera, world, zones) {
     riftSparks.push(s);
   }
   root.add(rift);
+  const life = [];
+  for (let i = 0; i < 10; i++) {
+    const flower = new THREE.Mesh(
+      new THREE.SphereGeometry(0.055, 6, 5),
+      new THREE.MeshBasicMaterial({ color: i % 2 ? '#f2c14e' : '#e07a9a' }),
+    );
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.22, 5), new THREE.MeshBasicMaterial({ color: '#3e8a4a' }));
+    stem.position.y = -0.12;
+    flower.add(stem);
+    root.add(flower);
+    life.push({ mesh: flower, a: i * 0.7, r: 1.3 + (i % 4) * 0.45, bob: i });
+  }
+  for (let i = 0; i < 4; i++) {
+    const stone = new THREE.Mesh(new THREE.DodecahedronGeometry(0.12 + (i % 2) * 0.05, 0), new THREE.MeshBasicMaterial({ color: '#c4b49a' }));
+    root.add(stone);
+    life.push({ mesh: stone, a: i * 1.4 + 0.4, r: 2.1 + i * 0.25, bob: -1 });
+  }
   const motes = [];
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 22; i++) {
     const m = new THREE.Mesh(
       new THREE.OctahedronGeometry(0.03, 0),
       new THREE.MeshBasicMaterial({ color: '#fff1c4', transparent: true, opacity: 0.85 }),
@@ -136,14 +153,15 @@ export function createAR(scene, camera, world, zones) {
       new THREE.MeshBasicMaterial({ color: '#140e0a', transparent: true, opacity: 0.42, depthWrite: false }),
     );
     shadow.rotation.x = -Math.PI / 2;
-    shadow.position.y = 0.03;
+    shadow.position.y = 0.72;
+    shadow.scale.setScalar(1.35);
     shadow.name = 'arshadow';
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(0.46, 0.64, 28),
-      new THREE.MeshBasicMaterial({ color: '#f1d9a4', transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false }),
+      new THREE.TorusGeometry(0.62, 0.045, 8, 28),
+      new THREE.MeshBasicMaterial({ color: '#f1d9a4', transparent: true, opacity: 0.92, side: THREE.DoubleSide, depthWrite: false }),
     );
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.y = 0.045;
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.92;
     ring.name = 'arring';
     b.g.add(shadow, ring);
   }
@@ -265,9 +283,17 @@ export function createAR(scene, camera, world, zones) {
     plate.rotateZ(-gyro.roll);
     plate.rotateX(gyro.pitch);
     plate.material.map = videoTex || (zones.dusk ? duskMap : dayMap);
+    plate.material.color.set(zones.dusk ? '#ffd0c4' : '#fff3e0');
     grade?.classList.toggle('dusk', !!zones.dusk);
-    const tint = zones.dusk ? '#e7b0ff' : '#fff1c4';
     const t = performance.now() * 0.001;
+    life.forEach((p) => {
+      const depth = 2.4 + p.r;
+      const side = Math.sin(p.a) * p.r;
+      const x = walker.feet.x + fx * depth + fz * side;
+      const z = walker.feet.z + fz * depth - fx * side;
+      p.mesh.position.set(x, world.ground(x, z) + (p.bob < 0 ? 0.1 : 0.55 + Math.sin(t + p.bob) * 0.04), z);
+    });
+    const tint = zones.dusk ? '#e7b0ff' : '#fff1c4';
     motes.forEach((m, i) => {
       const a = t * 0.35 + i;
       const rad = 1.2 + (i % 4) * 0.45;

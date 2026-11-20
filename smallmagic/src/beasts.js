@@ -314,7 +314,12 @@ function one(kind, x, z) {
   const g = new THREE.Group();
   const standin = MAKE[kind]();
   standin.name = 'standin';
-  g.add(standin);
+  const spot = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.045, 8, 28), new THREE.MeshBasicMaterial({ color: '#fff1c4', transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
+  spot.rotation.x = Math.PI / 2;
+  spot.position.y = 0.82;
+  spot.name = 'spot';
+  spot.renderOrder = 2;
+  g.add(standin, spot);
   const bar = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xe23b32 }));
   bar.position.y = kind === 'slime' ? 0.85 : 1.15;
   bar.scale.set(0.7, 0.07, 1);

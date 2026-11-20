@@ -267,17 +267,20 @@ export function createHexes(scene, world, camera, walker, zones) {
   }
   function chestOf(color) {
     const g = new THREE.Group();
-    const box = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.36, 0.4), new THREE.MeshBasicMaterial({ color: '#8a5a32' }));
-    const lid = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.12, 0.42), new THREE.MeshBasicMaterial({ color }));
-    lid.position.y = 0.22;
-    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.22, 3.6, 8), new THREE.MeshBasicMaterial({ color: '#fff3c4', transparent: true, opacity: 0.8, depthWrite: false }));
+    const box = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.46, 0.5), new THREE.MeshBasicMaterial({ color: '#c48a48' }));
+    const lid = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.16, 0.54), new THREE.MeshBasicMaterial({ color }));
+    lid.position.y = 0.3;
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.04, 6, 20), new THREE.MeshBasicMaterial({ color: '#ffe7a4' }));
+    rim.rotation.x = Math.PI / 2;
+    rim.position.y = 0.08;
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.28, 4.2, 8), new THREE.MeshBasicMaterial({ color: '#fff3c4', transparent: true, opacity: 0.9, depthWrite: false }));
     beam.position.y = 2.1;
     beam.name = 'beam';
     const icon = lootTag('Herb');
     icon.position.set(1.25, 1.2, 0);
-    g.add(box, lid, beam, icon);
-    g.position.y = 1.35;
-    g.scale.setScalar(1.7);
+    g.add(box, lid, rim, beam, icon);
+    g.position.y = 0.55;
+    g.scale.setScalar(2.35);
     return g;
   }
   function lootTag(text) {
@@ -490,7 +493,7 @@ export function createHexes(scene, world, camera, walker, zones) {
         h.chestT -= dt;
         if (h.chest) {
           h.chest.visible = true;
-          h.chest.position.y = 1.35 + Math.sin(time * 3) * 0.1;
+          h.chest.position.y = 0.62 + Math.sin(time * 3) * 0.08;
           h.chest.rotation.y += dt * 0.8;
           if (h.chestT <= 0) h.chest.visible = false;
         }
