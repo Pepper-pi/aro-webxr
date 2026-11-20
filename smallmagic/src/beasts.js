@@ -210,11 +210,42 @@ function fitMob(root, height) {
   }
 }
 
+// iOS Safari 17+ has createImageBitmap, so GLTFLoader decodes the embedded JPEG with
+// ImageBitmapLoader. That call passes colorSpaceConversion:'none', which WebKit rejects
+// (NotSupportedError). The rejection fails the whole GLB, and the stand-in shape stays.
+function patchWebKitImageBitmap() {
+  if (typeof createImageBitmap !== 'function' || window.__aroBitmap) return;
+  const ua = navigator.userAgent || '';
+  const apple = /Safari\//.test(ua) && !/Chrom(e|ium)|CriOS|FxiOS|EdgiOS|Android/.test(ua);
+  const ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (!apple && !ios) return;
+  window.__aroBitmap = true;
+  const native = createImageBitmap.bind(window);
+  window.createImageBitmap = (source, ...args) => {
+    const opt = args.find((a) => a && typeof a === 'object' && !ArrayBuffer.isView(a) && !(a instanceof Blob));
+    const bare = args.filter((a) => a !== opt);
+    const attempt = (options) => {
+      try {
+        const pending = options ? native(source, ...bare, options) : native(source, ...bare);
+        return Promise.resolve(pending);
+      } catch (err) {
+        return Promise.reject(err);
+      }
+    };
+    if (!opt) return attempt();
+    const safe = { ...opt };
+    delete safe.colorSpaceConversion;
+    return attempt(Object.keys(safe).length ? safe : undefined).catch(() => attempt());
+  };
+}
+
 async function dressMobs(all) {
   let GLTFLoader;
   try {
+    patchWebKitImageBitmap();
     ({ GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js'));
-  } catch {
+  } catch (err) {
+    console.warn('mob loader', err);
     return;
   }
   const loader = new GLTFLoader();
@@ -245,8 +276,8 @@ async function dressMobs(all) {
       mobMixers.push(mixer);
       playClip(b, 'idle');
       snapFace(model, b.kind);
-    } catch {
-      /* keep the coded stand-in if a file is missing */
+    } catch (err) {
+      console.warn('mob', b.kind, err);
     }
   }
 }
