@@ -140,8 +140,8 @@ function applyKit(next) {
 }
 function useAttack(which, index, down) {
   if (which === 'gunner') {
-    if (!down) return;
-    if (index === 1) gun.toss(); else gun.fire();
+    if (index === 1) { if (down) gun.toss(); return; }
+    if (down) gun.arm(); else gun.release();
     return;
   }
   const key = BLADE_ATK[index]?.key;
@@ -461,7 +461,8 @@ function tick(dt) {
   world.update(dt, walker.feet, camera, walker.speed);
   staff?.update(dt, walker, camera, world.sunAt?.(camera.position) ?? 1);
   const wheel = discOn && kit === 'mage' && !melee;
-  castDisc?.update(dt, wheel, spells?.selected ?? 0, walker, camera, discCharge ? (spells?.cast?.charge || 0) : 0, !chasing && !free);
+  const armCharge = (discCharge || spells?.cast?.holding) ? Math.max(0.14, spells?.cast?.charge || 0) : 0;
+  castDisc?.update(dt, wheel, spells?.selected ?? 0, walker, camera, armCharge, !chasing && !free);
   const spellBox = document.getElementById('spells');
   if (spellBox) spellBox.hidden = !!(wheel && castDisc?.ready);
   if (spells) {

@@ -5,13 +5,31 @@ const mat = (color) => new THREE.MeshBasicMaterial({ color });
 
 function wolf() {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.42, 0.38), mat('#5c534c'));
-  body.position.y = 0.48;
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.28, 0.28), mat('#6a6158'));
-  head.position.set(0.5, 0.62, 0);
-  const ear = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.16, 4), mat('#3e3834'));
-  ear.position.set(0.48, 0.84, 0.08);
-  g.add(body, head, ear);
+  const fur = mat('#6d645c');
+  const dark = mat('#3e3834');
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.32, 0.28), fur);
+  body.position.set(0, 0.42, 0);
+  const chest = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.26, 0.24), fur);
+  chest.position.set(0.28, 0.5, 0);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.22, 0.22), mat('#7a7168'));
+  head.position.set(0.52, 0.62, 0);
+  const snout = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.12), dark);
+  snout.position.set(0.7, 0.56, 0);
+  const earL = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.14, 4), dark);
+  earL.position.set(0.48, 0.8, 0.07);
+  const earR = earL.clone();
+  earR.position.z = -0.07;
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.28, 5), dark);
+  tail.rotation.z = Math.PI / 2.4;
+  tail.position.set(-0.42, 0.52, 0);
+  const leg = () => new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.28, 0.08), dark);
+  const hips = [[0.18, 0.08], [0.18, -0.08], [-0.18, 0.08], [-0.18, -0.08]];
+  for (const [x, z] of hips) {
+    const l = leg();
+    l.position.set(x, 0.16, z);
+    g.add(l);
+  }
+  g.add(body, chest, head, snout, earL, earR, tail);
   return g;
 }
 function boar() {
@@ -259,7 +277,7 @@ async function dressMobs(all) {
       const model = SkeletonUtils.clone(gltf.scene);
       fitMob(model, TALL[b.kind]);
       for (const child of [...b.g.children]) {
-        if (child === b.bar || child.name === 'flame') continue;
+        if (child === b.bar || child.name === 'flame' || child.name === 'rime' || child.name === 'bleedtick' || child.name === 'siphonthread') continue;
         b.g.remove(child);
       }
       b.g.add(model);
@@ -291,7 +309,31 @@ function one(kind, x, z) {
   flame.position.y = kind === 'slime' ? 0.7 : 1.05;
   flame.name = 'flame';
   flame.visible = false;
-  g.add(bar, flame);
+  const rime = new THREE.Group();
+  rime.name = 'rime';
+  rime.visible = false;
+  for (let i = 0; i < 4; i++) {
+    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.05, 0), new THREE.MeshBasicMaterial({ color: '#d7f4ff', transparent: true, opacity: 0.85 }));
+    crystal.position.set(Math.sin(i * 1.6) * 0.28, 0.5 + (i % 2) * 0.28, Math.cos(i * 1.6) * 0.22);
+    rime.add(crystal);
+  }
+  const bleedtick = new THREE.Group();
+  bleedtick.name = 'bleedtick';
+  bleedtick.visible = false;
+  for (let i = 0; i < 3; i++) {
+    const drop = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 5), new THREE.MeshBasicMaterial({ color: '#c43838' }));
+    drop.position.set((i - 1) * 0.12, 0.38 + i * 0.16, 0.22);
+    bleedtick.add(drop);
+  }
+  const siphonthread = new THREE.Mesh(
+    new THREE.TorusGeometry(0.22, 0.012, 6, 18),
+    new THREE.MeshBasicMaterial({ color: '#7a4ad4', transparent: true, opacity: 0.85 }),
+  );
+  siphonthread.name = 'siphonthread';
+  siphonthread.rotation.x = Math.PI / 2;
+  siphonthread.position.y = 0.55;
+  siphonthread.visible = false;
+  g.add(bar, flame, rime, bleedtick, siphonthread);
   g.position.set(x, 0, z);
   return { kind, g, bar, homeX: x, homeZ: z, x, z, hp: HP[kind], max: HP[kind], flash: 0, dead: false, back: 0, tx: x, tz: z, wait: 1, burn: 0, chill: 0 };
 }
@@ -506,6 +548,8 @@ export function createBeasts(scene, ground, world) {
             }
           }
           if (m.status === 'chill') b.chill = Math.min(8, b.chill + (m.chill != null ? m.chill : 1.4));
+          if (m.bleed) b.bleed = Math.max(b.bleed || 0, m.bleed);
+          if (m.siphon) b.siphon = Math.max(b.siphon || 0, m.siphon);
           if (m.radial) {
             let ox = b.g.position.x - m.x, oz = b.g.position.z - m.z;
             const len = Math.hypot(ox, oz) || 0.4;
@@ -629,19 +673,26 @@ export function createBeasts(scene, ground, world) {
         if (b.burn > 0) { b.burn -= dt; b.hp -= 7 * dt; if (b.hp <= 0) { b.dead = true; b.g.visible = false; b.back = 12; b.burn = 0; dropAt(b); b.boss = false; } }
         else b.burn = 0;
         if (b.chill > 0) b.chill -= dt; else b.chill = 0;
+        if (b.bleed > 0) { b.bleed -= dt; b.hp -= 5 * dt; if (b.hp <= 0) { b.dead = true; b.g.visible = false; b.back = 12; b.bleed = 0; dropAt(b); } }
+        if (b.siphon > 0) { b.siphon -= dt; b.hp -= 3.5 * dt; }
         const flame = b.g.getObjectByName('flame');
         if (flame) { flame.visible = b.burn > 0; flame.scale.y = 0.7 + Math.sin(performance.now() * 0.02) * 0.35; }
+        const rime = b.g.getObjectByName('rime');
+        if (rime) rime.visible = b.chill > 0.2;
+        const bleedG = b.g.getObjectByName('bleedtick');
+        if (bleedG) bleedG.visible = b.bleed > 0.2;
+        const sip = b.g.getObjectByName('siphonthread');
+        if (sip) { sip.visible = b.siphon > 0.2; sip.rotation.z += dt * 2; }
         b.g.traverse((o) => {
           if (!o.isMesh || !o.material) return;
-          if (o.name === 'rime') {
-            const u = Math.min(1, b.chill / 2.2);
-            o.visible = u > 0.08;
-            return;
-          }
+          const tag = o.name || o.parent?.name;
+          if (tag === 'rime' || tag === 'bleedtick' || tag === 'siphonthread') return;
           if (!o.material.color || o.name === 'flame') return;
           if (!o.userData.base) o.userData.base = o.material.color.getHex();
           const u = Math.min(1, b.chill / 6);
           o.material.color.setHex(o.userData.base).lerp(frostTint, u * 0.9);
+          if (b.bleed > 0.2) o.material.color.lerp(new THREE.Color('#c43838'), 0.35);
+          if (b.siphon > 0.2) o.material.color.lerp(new THREE.Color('#7a4ad4'), 0.4);
         });
         b.g.position.y = ground(b.g.position.x, b.g.position.z);
         if (b.model) plantFeet(b);

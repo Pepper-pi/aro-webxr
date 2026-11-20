@@ -510,7 +510,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
       if (stormMark <= 0 && hole.phase !== 'idle') {
         stormMark = 0.3;
         const hx = hole.ground?.x ?? hole.centre.x, hz = hole.ground?.z ?? hole.centre.z;
-        marks.push({ x: hx, z: hz, r: 5, d: 14, k: 'arcane', kx: 0, kz: 0 });
+        marks.push({ x: hx, z: hz, r: 5, d: 14, k: 'arcane', siphon: 2.4, kx: 0, kz: 0 });
       }
       const hl = hole.light.power >= twister.light.power ? hole.light : twister.light, bl = blast.light.power >= hl.power ? blast.light : hl;
       if (bl.power > flash.power * flash.power) lamp(1, bl.x, bl.y, bl.z, bl.r, bl.c, bl.power); else lamp(1, flash.x, flash.y, flash.z, flash.r, flash.c, flash.power * flash.power);

@@ -72,6 +72,72 @@ export function createCastDisc(scene) {
   fist.position.z = -0.24;
   arm.add(fore, fist);
   scene.add(arm);
+  const mandala = new THREE.Group();
+  root.add(mandala);
+  const ringMat = (color, opacity) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false });
+  const rune = (radius, tube, color, opacity) => {
+    const mesh = new THREE.Mesh(new THREE.TorusGeometry(radius, tube, 6, 56), ringMat(color, opacity));
+    mesh.rotation.x = Math.PI / 2;
+    return mesh;
+  };
+  const outerRing = rune(0.2, 0.007, '#f1d9a4', 0.85);
+  const midRing = rune(0.145, 0.004, '#7ee0ff', 0.7);
+  const innerRing = rune(0.09, 0.0035, '#e6c27a', 0.8);
+  const ticks = new THREE.Group();
+  for (let i = 0; i < 12; i++) {
+    const tick = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.028, 0.004), ringMat('#fff6dc', 0.8));
+    const a = (i / 12) * TAU;
+    tick.position.set(Math.sin(a) * 0.2, Math.cos(a) * 0.2, -0.01);
+    tick.rotation.z = -a;
+    ticks.add(tick);
+  }
+  const sparks = [];
+  for (let i = 0; i < 10; i++) {
+    const spark = new THREE.Mesh(new THREE.OctahedronGeometry(0.012, 0), ringMat('#ffd27a', 0.9));
+    mandala.add(spark);
+    sparks.push(spark);
+  }
+  mandala.add(outerRing, midRing, innerRing, ticks);
+  const coils = [0, 1, 2].map((i) => {
+    const mesh = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.007, 6, 18), ringMat('#ff7a1c', 0.9));
+    mesh.rotation.y = Math.PI / 2;
+    mesh.position.z = -0.02 - i * 0.11;
+    arm.add(mesh);
+    return mesh;
+  });
+  const embers = [];
+  for (let i = 0; i < 6; i++) {
+    const ember = new THREE.Mesh(new THREE.OctahedronGeometry(0.012, 0), ringMat('#ff7a1c', 0.95));
+    ember.position.set(i % 2 ? 0.03 : -0.03, 0.02, -0.02 - i * 0.038);
+    arm.add(ember);
+    embers.push(ember);
+  }
+  const ribbon = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.006, 5, 16, Math.PI * 1.5), ringMat('#ffb15a', 0.85));
+  ribbon.rotation.y = Math.PI / 2;
+  ribbon.position.z = -0.12;
+  arm.add(ribbon);
+  const crystals = [];
+  for (let i = 0; i < 5; i++) {
+    const crystal = new THREE.Mesh(new THREE.ConeGeometry(0.012, 0.05, 4), ringMat('#d8f6ff', 0.9));
+    crystal.position.set(i % 2 ? 0.028 : -0.028, 0.012, -0.04 - i * 0.04);
+    crystal.rotation.z = i % 2 ? 0.7 : -0.7;
+    arm.add(crystal);
+    crystals.push(crystal);
+  }
+  const mist = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), ringMat('#bfefff', 0.28));
+  mist.position.z = -0.1;
+  arm.add(mist);
+  const thread = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.36, 6), ringMat('#7a4ad4', 0.9));
+  thread.rotation.x = Math.PI / 2;
+  thread.position.z = -0.1;
+  arm.add(thread);
+  const beads = [];
+  for (let i = 0; i < 4; i++) {
+    const bead = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 5), ringMat(i % 2 ? '#3ddea0' : '#c9a0ff', 0.95));
+    bead.position.z = -0.02 - i * 0.07;
+    arm.add(bead);
+    beads.push(bead);
+  }
   const charge = new THREE.Mesh(
     new THREE.RingGeometry(0.045, 0.11, 40),
     new THREE.MeshBasicMaterial({ color: '#ff7a1c', transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }),
@@ -97,6 +163,9 @@ export function createCastDisc(scene) {
   const icons = [];
   let ready = false;
   let shown = 0;
+  let sparkT = 0;
+  let armLinger = 0;
+  let armShown = 0;
   let named = -1;
   const screen = { x: 0, y: 0, r: 48, on: false };
   const muzzle = new THREE.Vector3();
@@ -162,9 +231,12 @@ export function createCastDisc(scene) {
      * Otherwise: upright at the caster's chest, a short step in front. Always face-on to the camera.
      */
     update(dt, show, index, walker, camera, held, firstPerson) {
+      if (held > 0.02) { armShown = held; armLinger = 0.28; }
+      else armLinger = Math.max(0, armLinger - dt);
+      const pose = held > 0.02 ? held : armShown * (armLinger / 0.28);
       root.visible = !!(show && ready);
-      arm.visible = !!(root.visible && firstPerson && held > 0.02);
-      charge.visible = !!(root.visible && held > 0.02);
+      arm.visible = !!(root.visible && firstPerson && pose > 0.02);
+      charge.visible = !!(root.visible && pose > 0.02);
       screen.on = root.visible;
       if (!root.visible || !walker || !camera) return;
       camera.getWorldDirection(fwd);
@@ -180,6 +252,21 @@ export function createCastDisc(scene) {
         root.position.set(walker.feet.x + fx * 0.95, walker.feet.y + 1.28, walker.feet.z + fz * 0.95);
       }
       root.lookAt(camera.position);
+      sparkT += dt;
+      const spin = sparkT;
+      outerRing.rotation.z += dt * 0.7;
+      midRing.rotation.z -= dt * 1.15;
+      innerRing.rotation.z += dt * 1.6;
+      ticks.rotation.z -= dt * 0.45;
+      const tint = new THREE.Color(SPELLS[index]?.colour || '#f1d9a4');
+      outerRing.material.color.copy(tint).lerp(new THREE.Color('#f1d9a4'), 0.45);
+      sparks.forEach((spark, i) => {
+        const a = spin * (1.2 + i * 0.07) + i;
+        const rad = 0.1 + (i % 3) * 0.035;
+        spark.position.set(Math.sin(a) * rad, Math.cos(a) * rad, -0.02);
+        spark.material.color.copy(tint);
+        spark.visible = root.visible;
+      });
       const want = -index * (TAU / N);
       shown += (want - shown) * Math.min(1, dt * 10);
       inner.rotation.y = shown;
@@ -195,7 +282,7 @@ export function createCastDisc(scene) {
         name.material.map = namePlate(SPELLS[index]);
         charge.material.color.set(SPELLS[index]?.colour || '#ff7a1c');
       }
-      const fill = Math.max(0, Math.min(1, held));
+      const fill = Math.max(0, Math.min(1, pose));
       charge.scale.setScalar(0.55 + fill * 1.7);
       charge.material.opacity = 0.35 + fill * 0.6;
       muzzle.copy(root.position).addScaledVector(fwd, 0.08);
@@ -206,10 +293,47 @@ export function createCastDisc(scene) {
       const fov = (camera.fov * Math.PI) / 180;
       screen.r = ((DIAM * 0.5) / dist) / Math.tan(fov / 2) * (innerHeight * 0.5);
       screen.on = ndc.z < 1;
+      const key = SPELLS[index]?.key;
+      const fireOn = key === 'fire' || key === 'explosion';
+      const frostOn = key === 'frost';
+      const siphonOn = key === 'singularity';
+      const coilOn = !fireOn && !frostOn && !siphonOn;
+      coils.forEach((coil, i) => {
+        coil.visible = arm.visible && coilOn;
+        coil.material.color.copy(tint);
+        coil.scale.setScalar(0.45 + pose * (0.7 + i * 0.15));
+        coil.rotation.x += dt * (1.4 + i) * (i % 2 ? -1 : 1);
+        coil.material.opacity = 0.35 + pose * 0.6;
+      });
+      ribbon.visible = arm.visible && fireOn;
+      ribbon.material.opacity = 0.35 + pose * 0.55;
+      ribbon.rotation.z += dt * 2.2;
+      embers.forEach((ember, i) => {
+        ember.visible = arm.visible && fireOn;
+        const a = sparkT * 3 + i;
+        ember.position.x = Math.sin(a) * 0.035;
+        ember.position.y = Math.cos(a * 1.3) * 0.03;
+        ember.scale.setScalar(0.6 + pose * (0.8 + (i % 3) * 0.25));
+      });
+      crystals.forEach((crystal, i) => {
+        crystal.visible = arm.visible && frostOn;
+        crystal.scale.setScalar(0.5 + pose * (0.7 + i * 0.12));
+      });
+      mist.visible = arm.visible && frostOn;
+      mist.material.opacity = 0.12 + pose * 0.4;
+      mist.scale.setScalar(0.6 + pose * 1.3);
+      thread.visible = arm.visible && siphonOn;
+      thread.material.opacity = 0.4 + pose * 0.55;
+      thread.scale.set(1, 1, 0.5 + pose);
+      beads.forEach((bead, i) => {
+        bead.visible = arm.visible && siphonOn;
+        bead.position.x = Math.sin(sparkT * 4 + i) * 0.02;
+        bead.scale.setScalar(0.6 + pose);
+      });
       if (arm.visible) {
-        const past = root.position.clone().addScaledVector(fwd, -0.05 + held * 0.45);
+        const past = root.position.clone().addScaledVector(fwd, -0.05 + pose * 0.45);
         const from = camera.position.clone().addScaledVector(up, -0.22).addScaledVector(fwd, 0.2);
-        arm.position.lerpVectors(from, past, 0.2 + held * 0.75);
+        arm.position.lerpVectors(from, past, 0.2 + pose * 0.75);
         arm.lookAt(root.position.x + fwd.x * 0.6, root.position.y + fwd.y * 0.6, root.position.z + fwd.z * 0.6);
       }
     },

@@ -1779,7 +1779,7 @@ export function createBlade(onLaunch, bits = {}) {
         if (!shot.chopped) { shot.chopped = true; world.chop?.(p.x, p.z, shot.v.x, shot.v.z, TUNE.chopReach); }
         const beast = zones.beasts().find((b) => !b.dead && Math.hypot(b.x - shot.mesh.position.x, b.z - shot.mesh.position.z) < 2.2);
         if (beast) {
-          zones.hurt([{ x: beast.x, z: beast.z, r: 1.3, d: shot.dmg || 6, k: 'arcane', kx: shot.v.x * (shot.kick || 0.04), kz: shot.v.z * (shot.kick || 0.04) }]);
+          zones.hurt([{ x: beast.x, z: beast.z, r: 1.3, d: shot.dmg || 6, k: 'arcane', bleed: (shot.dmg || 0) >= 20 ? 3.2 : 0, kx: shot.v.x * (shot.kick || 0.04), kz: shot.v.z * (shot.kick || 0.04) }]);
           shot.life = 0;
         }
       } else {

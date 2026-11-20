@@ -10,6 +10,25 @@ const to = new THREE.Vector3();
 const up = new THREE.Vector3(0, 1, 0);
 
 export function createGunner(scene, camera, world, zones) {
+  const gun = new THREE.Group();
+  const steel = new THREE.MeshBasicMaterial({ color: '#d5dee6' });
+  const dark = new THREE.MeshBasicMaterial({ color: '#2c343c' });
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.034, 0.42, 8), steel);
+  barrel.rotation.x = Math.PI / 2;
+  barrel.position.set(0.16, -0.16, -0.48);
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.22), dark);
+  body.position.set(0.16, -0.2, -0.34);
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.12, 0.05), new THREE.MeshBasicMaterial({ color: '#6b3a22' }));
+  grip.position.set(0.16, -0.28, -0.28);
+  grip.rotation.x = 0.4;
+  gun.add(barrel, body, grip);
+  gun.scale.setScalar(1.45);
+  gun.visible = false;
+  gun.traverse((o) => { o.frustumCulled = false; });
+  scene.add(gun);
+  let ammo = 8;
+  let reload = 0;
+  let armed = 0;
   const bolts = [];
   const nades = [];
   const boltGeo = new THREE.SphereGeometry(0.07, 8, 6);
@@ -38,17 +57,30 @@ export function createGunner(scene, camera, world, zones) {
     if (best) dir.lerp(best, 0.35).normalize();
   }
 
-  function fire() {
-    const mesh = new THREE.Mesh(boltGeo, boltMat);
-    mesh.position.copy(camera.position);
+  function arm() { armed = performance.now(); }
+  function release() {
+    const held = armed ? (performance.now() - armed) / 1000 : 0;
+    armed = 0;
+    fire(held > 0.45);
+  }
+  function fire(charged) {
+    if (reload > 0) return;
+    const cost = charged ? 2 : 1;
+    if (ammo < cost) { reload = 1.15; return; }
+    ammo -= cost;
     assist();
+    const mat = new THREE.MeshBasicMaterial({ color: charged ? '#ffd27a' : '#7ef0ff' });
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(charged ? 0.045 : 0.02, charged ? 0.02 : 0.012, charged ? 0.7 : 0.38, 6), mat);
+    mesh.add(new THREE.Mesh(new THREE.SphereGeometry(charged ? 0.16 : 0.1, 8, 6), mat));
+    mesh.position.copy(camera.position).addScaledVector(dir, 0.85);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
     scene.add(mesh);
     const muzzle = new THREE.Mesh(flashGeo, flashMat.clone());
-    muzzle.scale.setScalar(0.16);
-    muzzle.position.copy(camera.position).addScaledVector(dir, 0.45);
+    muzzle.scale.setScalar(charged ? 0.08 : 0.05);
+    muzzle.position.copy(camera.position).addScaledVector(dir, 0.55);
     scene.add(muzzle);
     flashes.push({ mesh: muzzle, life: 0.08, max: 0.08 });
-    bolts.push({ mesh, velocity: dir.clone().multiplyScalar(32), life: 0.9 });
+    bolts.push({ mesh, velocity: dir.clone().multiplyScalar(charged ? 26 : 38), life: 0.9, dmg: charged ? 22 : 10, charged });
   }
 
   function explode(n) {
@@ -114,14 +146,23 @@ export function createGunner(scene, camera, world, zones) {
     const cross = document.getElementById('cross');
     if (bar) bar.hidden = !active;
     if (cross) cross.hidden = !active;
+    gun.visible = !!active;
+    const ammoEl = document.getElementById('gunAmmo');
+    if (ammoEl) ammoEl.textContent = reload > 0 ? 'REL' : String(ammo);
     if (!active) return;
+    if (gun.visible) {
+      gun.position.copy(camera.position);
+      gun.quaternion.copy(camera.quaternion);
+    }
+    if (reload > 0) { reload -= dt; if (reload <= 0) { reload = 0; ammo = 8; } }
     for (let i = bolts.length - 1; i >= 0; i--) {
       const b = bolts[i];
       b.life -= dt;
       b.mesh.position.addScaledVector(b.velocity, dt);
+      b.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.velocity.clone().normalize());
       const hit = zones.beasts().find((beast) => !beast.dead && Math.hypot(beast.x - b.mesh.position.x, beast.z - b.mesh.position.z) < 1.15 && Math.abs(beast.y + 0.7 - b.mesh.position.y) < 1.5);
       if (hit) {
-        zones.hurt([{ x: hit.x, z: hit.z, r: 1.2, d: 10, k: 'arcane' }]);
+        zones.hurt([{ x: hit.x, z: hit.z, r: 1.2, d: b.dmg || 10, k: 'arcane', burn: b.charged ? 2.2 : 0 }]);
         const spark = new THREE.Mesh(flashGeo, sparkMat);
         spark.scale.setScalar(0.35);
         spark.position.set(hit.x, hit.y + 0.7, hit.z);
@@ -157,5 +198,5 @@ export function createGunner(scene, camera, world, zones) {
     }
   }
 
-  return { fire, toss, update };
+  return { fire, arm, release, toss, update, get ammo() { return ammo; } };
 }
