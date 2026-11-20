@@ -848,6 +848,7 @@ export function createZones({ scene, world, walker, camera, air }) {
     { name: PACKS[2].name, x: PACKS[2].x, z: PACKS[2].z, tx: 12, ty: -18 },
   ];
   let pin = null;
+  let onHexTap = null;
   const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 2.4, 70, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false }));
   const beamCore = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.35, 70, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff6dc, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }));
   beam.add(beamCore);
@@ -918,6 +919,11 @@ export function createZones({ scene, world, walker, camera, air }) {
     for (const s of spots) {
       const p = toMap(s.x, s.z);
       if (Math.hypot(p.sx - sx, p.sy - sy) < 36) hit = s;
+    }
+    if (walker.feet.z > 5 && onHexTap?.(sx, sy)) {
+      if (atlas) atlas.hidden = true;
+      e.preventDefault(); e.stopPropagation();
+      return;
     }
     const at = hit || fromMap(sx, sy);
     setPin(at.x, at.z);
@@ -1108,6 +1114,61 @@ export function createZones({ scene, world, walker, camera, air }) {
   enter('hub');
   markDest();
   let hearts = 100;
+  function dressHexBeast(b, hex, elite) {
+    const LOOK = {
+      'Forest Creek': { color: '#8dff9a', scale: 1.12, tag: 'Creek', bit: 'reed' },
+      'Sunlit Meadow': { color: '#ffe27a', scale: 0.92, tag: 'Pollen', bit: 'bloom' },
+      'Lakeshore': { color: '#7ee7ff', scale: 1.05, tag: 'Tide', bit: 'shell' },
+      Hearth: { color: '#ffb15a', scale: 1.08, tag: 'Lantern', bit: 'lamp' },
+    };
+    const who = { boar: 'Boar', wolf: 'Wolf', slime: 'Slime', goblin: 'Goblin' };
+    const look = LOOK[hex.theme] || LOOK['Forest Creek'];
+    b.g.getObjectByName('hexkit')?.removeFromParent();
+    const kit = new THREE.Group();
+    kit.name = 'hexkit';
+    if (look.bit === 'reed') {
+      const reed = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.55, 5), new THREE.MeshBasicMaterial({ color: '#3e8a4a' }));
+      reed.position.set(0.2, 1.15, 0);
+      kit.add(reed);
+    } else if (look.bit === 'bloom') {
+      const flower = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 5), new THREE.MeshBasicMaterial({ color: '#fff3a0' }));
+      flower.position.set(0, 1.35, 0.1);
+      kit.add(flower);
+    } else if (look.bit === 'shell') {
+      const shell = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.04, 6, 12), new THREE.MeshBasicMaterial({ color: '#d8fff8' }));
+      shell.rotation.x = Math.PI / 2;
+      shell.position.y = 0.35;
+      kit.add(shell);
+    } else {
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.12), new THREE.MeshBasicMaterial({ color: '#ffd27a' }));
+      lamp.position.set(-0.15, 1.4, 0);
+      kit.add(lamp);
+    }
+    const title = `${look.tag} ${who[b.kind] || 'Beast'}`;
+    b.hexTitle = title;
+    const canvas = document.createElement('canvas');
+    canvas.width = 256; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.font = 'bold 36px Georgia';
+    ctx.fillStyle = '#fff6dc';
+    ctx.textAlign = 'center';
+    ctx.fillText(title, 128, 46);
+    const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, depthWrite: false }));
+    tag.position.y = 1.55;
+    tag.scale.set(1.4, 0.36, 1);
+    kit.add(tag);
+    b.g.add(kit);
+    b.g.scale.setScalar((look.scale || 1) * (elite ? 1.35 : 1));
+    const tint = new THREE.Color(look.color);
+    b.g.traverse((o) => {
+      if (!o.isMesh || o.parent === kit || !o.material?.color) return;
+      if (o.name === 'spot' || o.name === 'elite') return;
+      for (const m of [].concat(o.material)) {
+        if (!m.userData.base) m.userData.base = m.color.clone();
+        m.color.copy(m.userData.base).lerp(tint, 0.62);
+      }
+    });
+  }
   return {
     toast(text) {
       const el = document.getElementById('toast');
@@ -1117,6 +1178,7 @@ export function createZones({ scene, world, walker, camera, air }) {
       clearTimeout(el._t);
       el._t = setTimeout(() => { el.hidden = true; }, 3200);
     },
+    set onHexTap(fn) { onHexTap = fn; },
     get name() { return name; },
     get atLake() { return atLake; },
     buddyAt() { return buddyBody.visible ? buddyBody.position : null; },
@@ -1175,14 +1237,13 @@ export function createZones({ scene, world, walker, camera, air }) {
         const x = hex.x + Math.cos(ang) * 2.4;
         const z = hex.z + Math.sin(ang) * 2.4;
         beasts.anchor(b.n, x, world.ground(x, z), z, Math.atan2(-Math.cos(ang), -Math.sin(ang)));
-        if (Math.random() < eliteChance) {
-          b.g.scale.setScalar(2.05);
-          if (!b.g.getObjectByName('elite')) {
-            const mark = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), new THREE.MeshBasicMaterial({ color: '#ffe27a' }));
-            mark.name = 'elite';
-            mark.position.y = 1.7;
-            b.g.add(mark);
-          }
+        const elite = Math.random() < eliteChance;
+        dressHexBeast(b, hex, elite);
+        if (elite && !b.g.getObjectByName('elite')) {
+          const mark = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), new THREE.MeshBasicMaterial({ color: '#ffe27a' }));
+          mark.name = 'elite';
+          mark.position.y = 1.9;
+          b.g.add(mark);
         }
         ids.push(b.n);
       }
@@ -1202,7 +1263,7 @@ export function createZones({ scene, world, walker, camera, air }) {
               const key = dropName[b.kind] || 'bead';
               bag[key] = (bag[key] || 0) + 1;
               localStorage.setItem('aro-beast-drops', JSON.stringify(bag));
-              wave.drops?.push(key);
+              wave.drops?.push(b.hexTitle || key);
             } catch { /* private mode */ }
           }
         } else left += 1;

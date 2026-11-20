@@ -35,6 +35,7 @@ import { TUNE } from './rider.js';
 import { createBlade } from './blade.js';
 import { attachFells } from './fells.js';
 import { createGunner } from './gunner.js';
+import { createRanger } from './ranger.js';
 
 const q = new URLSearchParams(location.search);
 const capture = q.has('capture'), testing = q.has('patch-test');
@@ -129,6 +130,15 @@ const hub = createHub({
 });
 zones.onLand = () => { const shore = hexes.at(walker.feet.x, walker.feet.z); hexes.grant(shore?.id || 'shore', shore ? 16 : 8); };
 zones.seatHexes(hexes.list);
+zones.onHexTap = (sx, sy) => {
+  const h = hexes.hit(sx, sy);
+  if (!h) return false;
+  if (zones.name !== 'meadow') zones.enter('meadow');
+  hexes.enter(h);
+  return true;
+};
+document.getElementById('rangerShoot')?.addEventListener('pointerup', (e) => { ranger.shoot(); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('rangerDodge')?.addEventListener('pointerup', (e) => { ranger.dodge(); e.preventDefault(); e.stopPropagation(); });
 const wrist = new THREE.Vector3();
 function wristPoint() {
   if (!tracked.on) return null;
@@ -306,7 +316,7 @@ function showClass() {
   if (gunBtn) { gunBtn.textContent = settings.class === 'gunner' ? 'Gunner: on' : 'Gunner: off'; gunBtn.classList.toggle('on', settings.class === 'gunner'); }
 }
 function pickClass(name) {
-  settings.class = name === 'blade' || name === 'gunner' ? name : 'mage';
+  settings.class = name === 'blade' || name === 'gunner' || name === 'ranger' ? name : 'mage';
   settings.blade = settings.class === 'blade';
   settings.gunner = settings.class === 'gunner';
   if (settings.class !== 'mage') arms.load();
@@ -447,6 +457,7 @@ scene.add(sword);
 const blade = createBlade((damage) => zones.launchNearest(damage, blade.locked), { scene, camera, world, zones, walker, air, fx, sword, sound });
 applyMood(readMood(), false);
 const gun = createGunner(scene, camera, world, zones);
+const ranger = createRanger({ scene, camera, world, zones, walker });
 camera.layers.enable(9);
 let padCast = false, forceDraw = false, chaseDist = 0;
 let free = null;
@@ -487,7 +498,9 @@ function tick(dt) {
   const inp = input.read(dt);
   const planted = zones.name !== 'hub' && settings.class === 'blade' && blade.pad;
   const melee = zones.name !== 'hub' && (settings.class === 'blade' || settings.class === 'gunner');
-  applyKit(melee ? settings.class : 'mage');
+  const rangerOn = zones.name !== 'hub' && settings.class === 'ranger';
+  if (rangerOn) kit = 'ranger';
+  else applyKit(melee ? settings.class : 'mage');
   if (discToggle) discToggle.hidden = kit !== 'mage';
   if (zones.blocksMagic) {
     zones.castHeld(!!inp.cast, !padCast && !!inp.cast, padCast && !inp.cast);
@@ -552,7 +565,10 @@ function tick(dt) {
   }
   camera.updateMatrixWorld(true);
   zones.stickRod?.();
-  const wheel = discOn && kit === 'mage' && !melee && !zones.rodOut && zones.name !== 'hub';
+  const wheel = discOn && kit === 'mage' && !rangerOn && !melee && !zones.rodOut && zones.name !== 'hub';
+  const rangerBar = document.getElementById('rangerBar');
+  if (rangerBar) rangerBar.hidden = !rangerOn;
+  ranger?.update(dt, rangerOn);
   const armCharge = (discCharge || spells?.cast?.holding) ? Math.max(0.14, spells?.cast?.charge || 0) : 0;
   const handDisc = !!(ar.on || settings.hands);
   castDisc?.update(dt, wheel, spells?.selected ?? 0, walker, camera, armCharge, !chasing && !free, wristPoint(), ar.on, handDisc);
@@ -577,7 +593,7 @@ function tick(dt) {
   ar.update(dt, walker);
   hexes.update(dt);
   const spellBox = document.getElementById('spells');
-  if (spellBox) spellBox.hidden = !!(zones.name === 'hub' || zones.rodOut || (wheel && castDisc?.ready));
+  if (spellBox) spellBox.hidden = !!(rangerOn || zones.name === 'hub' || zones.rodOut || (wheel && castDisc?.ready));
   if (spells) {
     const on = !!(wheel && castDisc?.ready);
     spells.hideMark = on;
@@ -652,7 +668,7 @@ function tick(dt) {
 
 // (the measuring tools were written for a figure seen from behind: these are the same handles on one seen from within)
 const head = new THREE.Vector3();
-const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar, hexes, hub,
+const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar, hexes, hub, ranger,
   THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, arms, blade, gun, tune: TUNE, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
   player: walker,
   follow: { get yaw() { return walker.yaw; }, set yaw(v) { walker.yaw = v; }, get pitch() { return walker.pitch; }, set pitch(v) { walker.pitch = v; }, want: 0, distance: 0, pivot: new THREE.Vector3() },

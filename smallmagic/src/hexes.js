@@ -581,6 +581,7 @@ export function createHexes(scene, world, camera, walker, zones) {
       g.textAlign = 'center';
       g.fillText(h.name, c.sx, c.sy);
     }
+    mapFrame = { cx, cz, span, W, H };
     const you = px(walker.feet.x, walker.feet.z);
     g.fillStyle = '#fff6dc';
     g.beginPath();
@@ -588,8 +589,23 @@ export function createHexes(scene, world, camera, walker, zones) {
     g.fill();
   }
 
+  let mapFrame = null;
+  function hit(sx, sy) {
+    if (!mapFrame) return null;
+    const { cx, cz, span, W, H } = mapFrame;
+    const x = (cx - span) + (sx / W) * span * 2;
+    const z = (cz - span) + (1 - sy / H) * span * 2;
+    let best = null;
+    let bestD = SIZE * 1.05;
+    for (const h of built) {
+      const d = Math.hypot(h.x - x, h.z - z);
+      if (d < bestD) { best = h; bestD = d; }
+    }
+    return best;
+  }
+
   return {
-    list: built, at, tier, grant, paint, enter, update, close,
+    list: built, at, tier, grant, paint, enter, update, close, hit,
     root: ROOT,
   };
 }

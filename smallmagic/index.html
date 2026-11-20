@@ -74,6 +74,9 @@
       #toast { position: fixed; left: 50%; top: 28%; transform: translateX(-50%); z-index: 16; max-width: min(420px, 86vw); padding: 12px 16px; border-radius: 14px; border: 2px solid #f1d9a4; background: rgba(28, 16, 12, 0.92); color: #fff6dc; font: 18px Georgia, serif; text-align: center; pointer-events: none; }
       #discActs { position: fixed; inset: 0; z-index: 8; pointer-events: none; }
       #discActs button { position: absolute; transform: translate(-50%, -50%); pointer-events: auto; min-width: 72px; min-height: 44px; border-radius: 999px; border: 2px solid #f1d9a4; background: rgba(20, 12, 28, 0.82); color: #fff6dc; font: 15px Georgia, serif; }
+      #rangerBar { position: fixed; right: 16px; bottom: 18%; z-index: 8; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+      #rangerBar button { min-width: 88px; min-height: 44px; border-radius: 999px; border: 2px solid #c4a574; background: rgba(20, 12, 28, 0.82); color: #fff6dc; font: 16px Georgia, serif; }
+      #rangerNote { margin: 0; color: #ffe7a4; font: 14px Georgia, serif; text-shadow: 0 1px 2px #000; }
       #home, #crew { position: fixed; left: max(10px, env(safe-area-inset-left)); top: max(10px, env(safe-area-inset-top)); transform: none; z-index: 20; width: min(400px, 92vw); max-height: calc(100vh - 20px); overflow: hidden; display: flex; flex-direction: column; padding: 0; border: 2px solid #f1d9a4; border-radius: 16px; background: rgba(16, 10, 24, 0.9); color: #f6ead0; text-align: left; font: 15px/1.35 Georgia, serif; }
       #home[hidden], #crew[hidden] { display: none; }
       #home .sheetBody, #crew .sheetBody { overflow: auto; padding: 10px 12px 16px; }
@@ -384,6 +387,11 @@
     </div>
     <div id="hexbanner" hidden></div>
     <div id="toast" hidden></div>
+    <div id="rangerBar" hidden>
+      <button id="rangerShoot" type="button">Shoot</button>
+      <button id="rangerDodge" type="button">Dodge</button>
+      <p id="rangerNote">Ranger preview</p>
+    </div>
     <div id="discActs" hidden>
       <button id="discPrev" type="button">Prev</button>
       <button id="discNext" type="button">Next</button>
@@ -406,12 +414,12 @@
           <button type="button" data-class="mage" class="on">Mage</button>
           <button type="button" data-class="blade">Warrior</button>
           <button type="button" data-class="gunner">Gunner</button>
+          <button type="button" data-class="ranger">Ranger preview</button>
         </div>
-        <p class="note">Three live kits. Mage casts from the disc. Warrior draws the sword. Gunner fires the blaster.</p>
+        <p class="note">Three live kits. Mage casts from the disc. Warrior draws the sword. Gunner fires the blaster. Ranger is a preview: a bow shot and a dodge.</p>
         <p class="deck">On deck</p>
         <div class="deck-row">
           <span>Warden — holds the line</span>
-          <span>Ranger — marks and shoots</span>
           <span>Alchemist — bottles and bursts</span>
         </div>
         <p>Staff is the usual way to cast.</p>

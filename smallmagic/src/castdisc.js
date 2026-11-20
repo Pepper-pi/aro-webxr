@@ -21,10 +21,10 @@ function medal(spell, hot) {
   g.strokeStyle = hot ? '#fff6dc' : spell.colour;
   g.stroke();
   g.fillStyle = hot ? '#1a1020' : spell.colour;
-  g.font = '700 22px Georgia, serif';
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  const word = spell.name.split(' ')[0].slice(0, 6).toUpperCase();
+  const word = spell.name.split(' ')[0].toUpperCase();
+  g.font = `700 ${word.length > 8 ? 16 : 22}px Georgia, serif`;
   g.fillText(word, 64, 66);
   const t = new THREE.CanvasTexture(c);
   if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace;
@@ -200,6 +200,12 @@ export function createCastDisc(scene) {
   name.renderOrder = 4;
   root.add(name);
   const icons = [];
+  let iconReach = 0.6;
+  const upright = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(
+    new THREE.Vector3(-1, 0, 0),
+    new THREE.Vector3(0, 0, 1),
+    new THREE.Vector3(0, 1, 0),
+  ));
   let ready = false;
   let shown = 0;
   let sparkT = 0;
@@ -235,13 +241,11 @@ export function createCastDisc(scene) {
       const n = child.name || '';
       if (/^rim_outer|^hub_|^preview_glass/.test(n)) holder.add(child);
       else inner.add(child);
+      if (/^slot_/.test(n)) child.visible = false;
     }
-    const reach = Math.max(size.x, size.z) * 0.30;
+    iconReach = Math.max(size.x, size.z) * 0.30;
     const face = 0.07;
-    const right = new THREE.Vector3();
     const radial = new THREE.Vector3();
-    const front = new THREE.Vector3(0, 1, 0);
-    const basis = new THREE.Matrix4();
     for (let i = 0; i < N; i++) {
       const a = i * (TAU / N);
       const mesh = new THREE.Mesh(
@@ -249,15 +253,15 @@ export function createCastDisc(scene) {
         new THREE.MeshBasicMaterial({ map: medal(SPELLS[i], false), transparent: true, depthWrite: false, side: THREE.DoubleSide }),
       );
       radial.set(Math.sin(a), 0, Math.cos(a));
-      right.set(-Math.cos(a), 0, Math.sin(a));
-      mesh.position.copy(radial).multiplyScalar(reach);
+      mesh.position.copy(radial).multiplyScalar(iconReach);
       mesh.position.y = face;
-      mesh.quaternion.setFromRotationMatrix(basis.makeBasis(right, radial, front));
+      mesh.quaternion.copy(upright);
       mesh.frustumCulled = false;
       mesh.renderOrder = 4;
       mesh.userData.hot = medal(SPELLS[i], true);
       mesh.userData.cold = mesh.material.map;
-      inner.add(mesh);
+      mesh.userData.slot = i;
+      holder.add(mesh);
       icons.push(mesh);
     }
     ready = true;
@@ -317,7 +321,10 @@ export function createCastDisc(scene) {
       for (let i = 0; i < icons.length; i++) {
         const on = i === index;
         const mesh = icons[i];
-        mesh.scale.setScalar(hand ? (on ? 2.5 : 2.05) : (on ? 1.28 : 1));
+        const a = i * (TAU / N) + shown;
+        mesh.position.set(Math.sin(a) * iconReach, 0.07, Math.cos(a) * iconReach);
+        mesh.quaternion.copy(upright);
+        mesh.scale.setScalar(hand ? (on ? 2.5 : 2.05) : (on ? 1.35 : 1));
         if (mesh.material.map !== (on ? mesh.userData.hot : mesh.userData.cold)) mesh.material.map = on ? mesh.userData.hot : mesh.userData.cold;
       }
       if (named !== index) {
