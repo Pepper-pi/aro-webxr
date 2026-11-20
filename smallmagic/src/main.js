@@ -98,6 +98,9 @@ const input = new Input(renderer.domElement, { pads: !capture && !testing && !q.
 const touchUi = document.getElementById('touch');
 if (touchUi && (phone || navigator.maxTouchPoints > 0)) { touchUi.hidden = false; input.bindTouch(touchUi); }
 const post = createPage(renderer);
+let painted = true;
+try { painted = localStorage.getItem('aro-paint') !== '0'; } catch { /* keep the warm grade */ }
+post.paint = painted;
 // magic: what is seen of it in the air, the fire that spreads by itself, and the spells
 const fx = createFx(air);
 scene.add(fx.group);
@@ -314,6 +317,7 @@ document.getElementById('handsToggle')?.addEventListener('pointerup', (e) => {
 });
 settingsEl?.querySelectorAll('[data-gfx]').forEach((b) => b.addEventListener('pointerup', (e) => {
   settings.gfx = b.getAttribute('data-gfx');
+  try { localStorage.setItem('aro-gfx', settings.gfx); } catch { /* private mode */ }
   settingsEl.querySelectorAll('[data-gfx]').forEach((t) => t.classList.toggle('on', t === b));
   const low = settings.gfx === 'low';
   renderer.setPixelRatio(low ? 1 : Math.min(devicePixelRatio, phone ? 1.5 : 2));
@@ -321,6 +325,19 @@ settingsEl?.querySelectorAll('[data-gfx]').forEach((b) => b.addEventListener('po
   fitView();
   e.preventDefault(); e.stopPropagation();
 }));
+const paintBtn = document.getElementById('paintToggle');
+if (paintBtn) {
+  paintBtn.textContent = painted ? 'Painted: on' : 'Painted: off';
+  paintBtn.classList.toggle('on', painted);
+  paintBtn.addEventListener('pointerup', (e) => {
+    painted = !painted;
+    post.paint = painted;
+    paintBtn.textContent = painted ? 'Painted: on' : 'Painted: off';
+    paintBtn.classList.toggle('on', painted);
+    try { localStorage.setItem('aro-paint', painted ? '1' : '0'); } catch { /* private mode */ }
+    e.preventDefault(); e.stopPropagation();
+  });
+}
 document.getElementById('bladeToggle')?.addEventListener('pointerup', (e) => {
   pickClass(settings.class === 'blade' ? 'mage' : 'blade');
   e.preventDefault(); e.stopPropagation();
@@ -478,8 +495,9 @@ function tick(dt) {
   walker.update(dt, planted ? { ...inp, move: { x: 0, y: 0 }, jump: false, sprint: false } : inp);
   if (free) { camera.position.copy(free.position); camera.lookAt(free.target); } else walker.look(camera);
   const bladeClose = settings.class === 'blade' && blade.drawn && blade.pad;
-  const wantChase = !free && !bladeClose && (settings.viewBack || walker.speed > 1.15);
-  const wantDist = settings.viewBack ? 4.4 : 2.5 + Math.min(2.1, Math.max(0, walker.speed - 1) * 0.32);
+  const inHub = zones.name === 'hub';
+  const wantChase = !free && !bladeClose && (inHub || settings.viewBack || walker.speed > 1.15);
+  const wantDist = inHub ? 2.6 : settings.viewBack ? 4.4 : 2.5 + Math.min(2.1, Math.max(0, walker.speed - 1) * 0.32);
   chaseDist += ((wantChase ? wantDist : 0) - chaseDist) * Math.min(1, dt * 3.2);
   const chasing = chaseDist > 0.45;
   if (chasing) {

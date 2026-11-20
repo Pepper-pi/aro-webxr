@@ -162,8 +162,8 @@ export function createHexes(scene, world, camera, walker, zones) {
       const rad = SIZE * hexRadius(a) * 0.98;
       const x = Math.cos(a) * rad;
       const z = Math.sin(a) * rad;
-      const slab = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.07, 0.28), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.82 }));
-      slab.position.set(x, world.ground(cx + x, cz + z) + 0.1, z);
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.32, 0.42), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 }));
+      slab.position.set(x, world.ground(cx + x, cz + z) + 0.28, z);
       slab.rotation.y = -a;
       g.add(slab);
     }
@@ -270,10 +270,29 @@ export function createHexes(scene, world, camera, walker, zones) {
     const box = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.36, 0.4), new THREE.MeshBasicMaterial({ color: '#8a5a32' }));
     const lid = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.12, 0.42), new THREE.MeshBasicMaterial({ color }));
     lid.position.y = 0.22;
-    g.add(box, lid);
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.22, 3.6, 8), new THREE.MeshBasicMaterial({ color: '#fff3c4', transparent: true, opacity: 0.8, depthWrite: false }));
+    beam.position.y = 2.1;
+    beam.name = 'beam';
+    const icon = lootTag('Herb');
+    icon.position.y = 2.6;
+    g.add(box, lid, beam, icon);
     g.position.y = 1.35;
     g.scale.setScalar(1.7);
     return g;
+  }
+  function lootTag(text) {
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 64;
+    const ctx = c.getContext('2d');
+    ctx.font = 'bold 36px Georgia';
+    ctx.fillStyle = '#fff6dc';
+    ctx.textAlign = 'center';
+    ctx.fillText(text, 128, 44);
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+    s.scale.set(1.5, 0.38, 1);
+    s.name = 'loot';
+    s.userData.canvas = c;
+    return s;
   }
   function stonesOf(color) {
     const g = new THREE.Group();
@@ -358,7 +377,20 @@ export function createHexes(scene, world, camera, walker, zones) {
     h.celebrated = t;
     h.pulse = 1.4;
     h.chestT = 6;
-    if (h.chest) h.chest.visible = true;
+    if (h.chest) {
+      h.chest.visible = true;
+      const loot = h.theme === 'Lakeshore' ? 'Trout' : h.theme === 'Hearth' ? 'Wick' : 'Herb';
+      const icon = h.chest.getObjectByName('loot');
+      if (icon?.userData.canvas) {
+        const ctx = icon.userData.canvas.getContext('2d');
+        ctx.clearRect(0, 0, 256, 64);
+        ctx.font = 'bold 36px Georgia';
+        ctx.fillStyle = '#fff6dc';
+        ctx.textAlign = 'center';
+        ctx.fillText(loot, 128, 44);
+        icon.material.map.needsUpdate = true;
+      }
+    }
     const label = t === 2 ? 'II' : 'III';
     if (banner) {
       banner.hidden = false;

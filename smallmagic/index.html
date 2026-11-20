@@ -94,6 +94,9 @@
       #lures button, #bookBtn, #eve { pointer-events: auto; border-radius: 999px; border: 2px solid rgba(241, 217, 164, 0.7); background: rgba(20, 12, 36, 0.55); color: #f6ead0; font: 12px/1.1 Georgia, serif; letter-spacing: 0.04em; padding: 7px 10px; }
       #lures button.on, #eve.on { background: #f1d9a4; color: #24160c; }
       #hp { position: fixed; left: max(12px, env(safe-area-inset-left)); top: max(12px, env(safe-area-inset-top)); z-index: 7; color: #fff6dc; font: 700 16px Georgia, serif; text-shadow: 0 1px 2px #000; pointer-events: none; }
+      #hearthUse { position: fixed; left: 50%; bottom: 18%; transform: translateX(-50%); z-index: 8; }
+      #buddySay { position: fixed; left: 50%; top: 18%; transform: translateX(-50%); z-index: 8; color: #fff6dc; font: 600 16px Georgia, serif; text-shadow: 0 1px 2px #000; pointer-events: none; }
+      #cards { position: fixed; left: 50%; top: 30%; transform: translateX(-50%); z-index: 9; display: flex; gap: 8px; }
       #parry { position: fixed; inset: 0; z-index: 6; pointer-events: none; }
       #parry.on { box-shadow: inset 0 0 90px 24px rgba(126, 224, 255, 0.85); }
       #hitmark { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); z-index: 8; color: #fff6c8; font: 700 28px Georgia, serif; letter-spacing: 0.14em; text-shadow: 0 0 12px #ffb15a; pointer-events: none; }
@@ -279,6 +282,13 @@
     <div id="hp">HP 100</div>
     <div id="parry"></div>
     <div id="hitmark" hidden>HIT</div>
+    <button id="hearthUse" type="button" hidden>Use</button>
+    <div id="buddySay" hidden></div>
+    <div id="cards" hidden>
+      <button type="button" data-card="0">Card</button>
+      <button type="button" data-card="1">Card</button>
+      <button type="button" data-card="2">Card</button>
+    </div>
     <div id="title">
       <div id="sigil">
         <svg id="outer" viewBox="-100 -100 200 200"></svg>
@@ -407,6 +417,8 @@
       <div data-pane="graphics" hidden>
         <div class="row"><button type="button" data-gfx="low">Low</button><button type="button" data-gfx="high" class="on">High</button></div>
         <p class="note">Low is a softer picture, easier on a phone.</p>
+        <div class="row"><button id="paintToggle" type="button">Painted: on</button></div>
+        <p class="note">A warm grade, a soft glow, and a light painted step. It stays cheap on a phone.</p>
       </div>
       <div data-pane="audio" hidden>
         <p>Volume</p>

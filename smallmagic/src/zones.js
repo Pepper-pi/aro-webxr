@@ -141,10 +141,127 @@ export function createZones({ scene, world, walker, camera, air }) {
     g.rotation.y = yaw;
     return g;
   };
-  hub.add(friend('#c45a4a', -1.4, 1.2, 0.4));
-  hub.add(friend('#3d7a8c', 1.5, 0.4, -0.6));
-  hub.add(friend('#6a8f4a', -0.2, -0.8, 0.2));
-  hub.add(friend('#c9a15b', 0.8, 2.2, 2.4));
+  const fire = new THREE.Group();
+  fire.add(box(0.9, 0.18, 0.9, '#3a2418', -2.5, 0.1, -1.4));
+  fire.add(box(0.22, 0.5, 0.22, '#ff7a1c', -2.5, 0.45, -1.4));
+  fire.add(box(1.3, 0.22, 0.4, '#6a4328', -2.5, 0.16, -0.45));
+  const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.16, 0.28, 8), mat('#2a2420'));
+  pot.position.set(-1.35, 0.28, -1.5);
+  const stew = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.06, 8), mat('#c45a2a'));
+  stew.position.set(-1.35, 0.42, -1.5);
+  const table = new THREE.Group();
+  table.add(box(1.4, 0.08, 0.9, '#8a5a32', 2.1, 0.7, -1.2));
+  table.add(box(0.08, 0.7, 0.08, '#5c3a24', 1.6, 0.35, -0.9));
+  table.add(box(0.08, 0.7, 0.08, '#5c3a24', 2.6, 0.35, -1.5));
+  for (let i = 0; i < 3; i++) table.add(box(0.18, 0.01, 0.26, i === 1 ? '#f2efe4' : '#8c3a3a', 1.7 + i * 0.28, 0.75, -1.2));
+  const bed = new THREE.Group();
+  bed.add(box(1.5, 0.28, 2.2, '#8d4a3a', -3.5, 0.2, 3.4));
+  bed.add(box(0.55, 0.1, 0.36, '#f3e6d0', -3.5, 0.38, 2.5));
+  const trophy = new THREE.Group();
+  trophy.add(box(0.08, 1.5, 2.4, '#4a3428', 5.28, 1.45, -2.2));
+  for (let i = 0; i < 4; i++) trophy.add(box(0.04, 0.28, 0.5, '#e7c56a', 5.2, 1.2 + (i % 2) * 0.45, -2.9 + i * 0.45));
+  hub.add(fire, pot, stew, table, bed, trophy);
+  const emote = (text) => {
+    const c = document.createElement('canvas');
+    c.width = 128; c.height = 64;
+    const g = c.getContext('2d');
+    g.font = 'bold 40px Georgia';
+    g.fillStyle = '#fff6dc';
+    g.textAlign = 'center';
+    g.fillText(text, 64, 46);
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+    s.scale.set(0.7, 0.35, 1);
+    s.position.y = 1.45;
+    s.visible = false;
+    return s;
+  };
+  const pals = [
+    { id: 'maren', name: 'Maren', color: '#c45a4a', home: [-1.6, 0, -0.5], yaw: 0.8, line: 'The fire is the good seat.' },
+    { id: 'sable', name: 'Sable', color: '#3d7a8c', home: [3.2, 0, -2.2], yaw: -1.2, line: 'Your fish are on the wall.' },
+    { id: 'bram', name: 'Bram', color: '#6a8f4a', home: [2.1, 0, 0.2], yaw: 2.4, line: 'One hand. No stakes.' },
+    { id: 'lumen', name: 'Lumen', color: '#c9a15b', home: [-1.2, 0, 2.4], yaw: -0.4, line: 'Rest if the day was long.' },
+  ].map((p) => {
+    const g = friend(p.color, p.home[0], p.home[2], p.yaw);
+    const mark = emote('!');
+    g.add(mark);
+    hub.add(g);
+    return { ...p, g, mark, mood: 0 };
+  });
+  const you = friend('#6a8fbf', 0, 0, 0);
+  you.visible = false;
+  scene.add(you);
+  const buddyBody = friend('#c45a4a', 0, 0, 0);
+  buddyBody.visible = false;
+  scene.add(buddyBody);
+  const hearthSpots = [
+    { id: 'fire', name: 'Sit by the fire', x: -2.5, z: -0.45 },
+    { id: 'trophy', name: 'Fish trophies', x: 4.4, z: -2.2 },
+    { id: 'pot', name: 'Cook a meal', x: -1.35, z: -1.5 },
+    { id: 'table', name: 'Play a hand', x: 2.1, z: -1.2 },
+    { id: 'bed', name: 'Rest', x: -3.5, z: 3.4 },
+  ];
+  let buddy = null;
+  let buddyT = 0;
+  let nearSpot = null;
+  const useBtn = document.getElementById('hearthUse');
+  const buddySay = document.getElementById('buddySay');
+  const cardBox = document.getElementById('cards');
+  function note(text) {
+    if (!buddySay) return;
+    buddySay.hidden = false;
+    buddySay.textContent = text;
+    clearTimeout(buddySay._t);
+    buddySay._t = setTimeout(() => { buddySay.hidden = true; }, 2200);
+  }
+  function useHearth() {
+    const who = useBtn?.dataset.who;
+    if (who) {
+      buddy = who;
+      const pal = pals.find((p) => p.id === who);
+      if (pal) {
+        buddyBody.children[1].material.color.set(pal.color);
+        note(`${pal.name} comes with you.`);
+      }
+      buddyBody.position.copy(walker.feet);
+      return;
+    }
+    if (!nearSpot) return;
+    if (nearSpot.id === 'fire') {
+      walker.place(-2.5, -0.5, 0.6);
+      note('You sit by the fire. The room goes quiet.');
+    } else if (nearSpot.id === 'trophy') {
+      showBook();
+      note('The wall keeps every fish you have landed.');
+    } else if (nearSpot.id === 'pot') {
+      let herbs = 0;
+      let book = {};
+      try { herbs = Number(localStorage.getItem('aro-herbs') || 0); book = JSON.parse(localStorage.getItem('aro-long-lake') || '{}'); } catch { /* empty */ }
+      const species = Object.keys(book).find((id) => (book[id]?.n || 0) > 0);
+      if (herbs < 1 || !species) { note('The pot wants one fish and one herb.'); return; }
+      book[species].n -= 1;
+      try {
+        localStorage.setItem('aro-herbs', String(herbs - 1));
+        localStorage.setItem('aro-long-lake', JSON.stringify(book));
+        localStorage.setItem('aro-meal', String(Date.now() + 60000));
+      } catch { /* private mode */ }
+      hearts = Math.min(120, hearts + 25);
+      note('A warm meal. You feel steadier.');
+    } else if (nearSpot.id === 'table') {
+      if (cardBox) cardBox.hidden = false;
+      note('Bram deals three cards.');
+    } else if (nearSpot.id === 'bed') {
+      hearts = Math.max(hearts, 100);
+      note('You rest. The day can start again.');
+    }
+  }
+  useBtn?.addEventListener('pointerup', (e) => { useHearth(); e.preventDefault(); e.stopPropagation(); });
+  cardBox?.querySelectorAll('[data-card]').forEach((b) => b.addEventListener('pointerup', (e) => {
+    const win = Math.random() < 0.5;
+    note(win ? 'Your card matches. Bram nods.' : 'Bram takes the hand, kindly.');
+    cardBox.hidden = true;
+    e.preventDefault();
+    e.stopPropagation();
+  }));
 
   const target = new THREE.Mesh(new THREE.RingGeometry(0.45, 0.58, 24), new THREE.MeshBasicMaterial({ color: 0xffe7a8, side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));
   target.rotation.x = -Math.PI / 2;
@@ -489,9 +606,9 @@ export function createZones({ scene, world, walker, camera, air }) {
       world.blockers = null;
       world.walk = () => 0;
       place(0, -2.2, 0);
-      walker.pitch = 0.42;
-      boardHeld = false;
-      showBoard();
+      walker.pitch = 0.12;
+      boardHeld = true;
+      hideBoard();
     }
   }
   panel?.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('pointerup', (e) => {
@@ -824,6 +941,8 @@ export function createZones({ scene, world, walker, camera, air }) {
     shoveBeast(x, z, dx, dz, dist) { return beasts.shove(x, z, dx, dz, dist); },
     get blocksMagic() { return name !== 'meadow'; },
     showBoard, enter,
+    useHearth,
+    get buddy() { return buddy; },
     beginWave(hex, table, count, eliteChance) {
       const live = beasts.live().filter((b) => !b.dead && b.where === 'meadow');
       const used = new Set();
@@ -992,11 +1111,68 @@ export function createZones({ scene, world, walker, camera, air }) {
       const d = Math.hypot(walker.feet.x - gate.x, walker.feet.z - gate.z);
       if (d > 2.15) leftRing = true;
       if (leftRing && performance.now() >= armUntil && d < 0.95) enter(name === 'hub' ? dest : 'hub');
+      you.visible = name === 'hub' || buddyBody.visible;
+      if (you.visible) {
+        you.position.set(walker.feet.x, 0, walker.feet.z);
+        you.rotation.y = walker.yaw;
+      }
+      buddyBody.visible = !!(buddy && name === 'meadow' && !atLake);
+      if (buddyBody.visible) {
+        const pal = pals.find((p) => p.id === buddy);
+        const backX = walker.feet.x - Math.sin(walker.yaw) * 1.5;
+        const backZ = walker.feet.z - Math.cos(walker.yaw) * 1.5;
+        buddyBody.position.x += (backX - buddyBody.position.x) * Math.min(1, dt * 3);
+        buddyBody.position.z += (backZ - buddyBody.position.z) * Math.min(1, dt * 3);
+        buddyBody.position.y = world.ground(buddyBody.position.x, buddyBody.position.z);
+        buddyBody.lookAt(walker.feet.x, buddyBody.position.y, walker.feet.z);
+        buddyT -= dt;
+        if (buddyT <= 0 && buddySay) {
+          buddyT = 7;
+          buddySay.hidden = false;
+          buddySay.textContent = pal ? `${pal.name}: ${pal.line}` : '';
+          clearTimeout(buddySay._t);
+          buddySay._t = setTimeout(() => { buddySay.hidden = true; }, 2400);
+        }
+        if (buddy === 'maren') {
+          const cap = 100;
+          if (hearts < cap) hearts = Math.min(cap, hearts + dt * 2);
+        }
+      } else if (buddySay) buddySay.hidden = true;
       if (name === 'hub') {
+        const time = performance.now() * 0.001;
+        nearSpot = null;
+        let best = 1.5;
+        for (const s of hearthSpots) {
+          const d = Math.hypot(walker.feet.x - s.x, walker.feet.z - s.z);
+          if (d < best) { best = d; nearSpot = s; }
+        }
+        let nearPal = null;
+        for (const p of pals) {
+          const home = p.home;
+          const bob = Math.sin(time * 1.6 + home[0]) * 0.03;
+          const d = Math.hypot(walker.feet.x - p.g.position.x, walker.feet.z - p.g.position.z);
+          if (d < 2.2) {
+            p.g.lookAt(walker.feet.x, 0, walker.feet.z);
+            p.mark.visible = true;
+            nearPal = p;
+          } else {
+            p.g.position.x += (home[0] - p.g.position.x) * 0.05;
+            p.g.position.z += (home[2] - p.g.position.z) * 0.05;
+            p.g.rotation.y += (p.yaw - p.g.rotation.y) * 0.05;
+            p.mark.visible = false;
+          }
+          p.g.position.y = bob;
+        }
+        if (useBtn) {
+          const label = nearSpot ? nearSpot.name : nearPal ? `Invite ${nearPal.name}` : '';
+          useBtn.hidden = !label;
+          useBtn.textContent = label;
+          useBtn.dataset.who = nearPal && !nearSpot ? nearPal.id : '';
+        }
         const bd = Math.hypot(walker.feet.x - screen.position.x, walker.feet.z - screen.position.z);
         if (bd > 2.1) boardHeld = false;
         if (!boardHeld && bd < 1.7 && panel?.hidden) showBoard();
-      }
+      } else if (useBtn) useBtn.hidden = true;
       const fishing = name === 'meadow' && (byWater() || phase !== 'idle');
       const showFish = name === 'meadow' && (byWater() || phase === 'aim') && phase !== 'bite' && phase !== 'reel';
       if (fishBtn) { fishBtn.hidden = !showFish; fishBtn.textContent = 'Cast'; }
@@ -1111,9 +1287,9 @@ export function createZones({ scene, world, walker, camera, air }) {
         const bend = (phase === 'bite' ? 0.25 + tension * 0.7 : 0) + dip * 0.45;
         const framed = phase === 'bite' || phase === 'reel';
         if (framed) {
-          rod.scale.setScalar(0.68);
-          rod.position.set(0.24, -0.4, -0.62);
-          rod.rotation.set(-0.58, -0.14, 0.04);
+          rod.scale.setScalar(0.58);
+          rod.position.set(0.3, -0.18, -0.55);
+          rod.rotation.set(-0.78, -0.28, 0.1);
         } else {
           rod.scale.setScalar(1);
           rod.position.set(0.28, -0.22, -0.48);

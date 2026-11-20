@@ -13,11 +13,11 @@ export function createPage(renderer) {
   scene.depthTexture = new THREE.DepthTexture(size.x, size.y, THREE.UnsignedIntType);
   const print = new THREE.ShaderMaterial({
     glslVersion: THREE.GLSL3, depthTest: false, depthWrite: false,
-    uniforms: { tDrawn: { value: scene.texture }, tDepth: { value: scene.depthTexture }, uSize: { value: size.clone() }, uSunUv: { value: new THREE.Vector3() }, uSunCol: { value: new THREE.Color('#fff0d2') }, uHeat: { value: 0 }, uDoom: { value: 0 }, uInk: { value: 0 }, uWhite: { value: 0 }, uBlaze: { value: 0 }, uShock: { value: new THREE.Vector4(0.5, 0.5, 0, 0) }, uHole: { value: new THREE.Vector4(0.5, 0.5, 0, 0) }, uHoleB: { value: new THREE.Vector4(0, 0, 0, 0) }, uHoleC: { value: new THREE.Vector4(0.1, 1000, 1, 1) }, uDoomCol: { value: new THREE.Vector3(0.5, 0.06, 0.05) }, uDoomKeep: { value: 0.05 } },
+    uniforms: { tDrawn: { value: scene.texture }, tDepth: { value: scene.depthTexture }, uSize: { value: size.clone() }, uSunUv: { value: new THREE.Vector3() }, uSunCol: { value: new THREE.Color('#fff0d2') }, uHeat: { value: 0 }, uDoom: { value: 0 }, uInk: { value: 0 }, uWhite: { value: 0 }, uBlaze: { value: 0 }, uPaint: { value: 1 }, uShock: { value: new THREE.Vector4(0.5, 0.5, 0, 0) }, uHole: { value: new THREE.Vector4(0.5, 0.5, 0, 0) }, uHoleB: { value: new THREE.Vector4(0, 0, 0, 0) }, uHoleC: { value: new THREE.Vector4(0.1, 1000, 1, 1) }, uDoomCol: { value: new THREE.Vector3(0.5, 0.06, 0.05) }, uDoomKeep: { value: 0.05 } },
     vertexShader: QUAD,
     fragmentShader: /* glsl */ `
       precision highp float;
-      uniform sampler2D tDrawn; uniform sampler2D tDepth; uniform vec2 uSize; uniform vec3 uSunUv; uniform vec3 uSunCol; uniform float uHeat; uniform float uDoom; uniform float uInk; uniform float uWhite; uniform float uBlaze; uniform vec4 uShock; uniform vec4 uHole; uniform vec4 uHoleB; uniform vec4 uHoleC; uniform vec3 uDoomCol; uniform float uDoomKeep;
+      uniform sampler2D tDrawn; uniform sampler2D tDepth; uniform vec2 uSize; uniform vec3 uSunUv; uniform vec3 uSunCol; uniform float uHeat; uniform float uDoom; uniform float uInk; uniform float uWhite; uniform float uBlaze; uniform float uPaint; uniform vec4 uShock; uniform vec4 uHole; uniform vec4 uHoleB; uniform vec4 uHoleC; uniform vec3 uDoomCol; uniform float uDoomKeep;
       in vec2 vUv;
       layout(location = 0) out vec4 outC;
       float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -54,7 +54,7 @@ export function createPage(renderer) {
         // --- glow ---
         vec3 glow = vec3(0.0);
         for (int i = 2; i <= 6; i++) glow += max(textureLod(tDrawn, vUv, float(i)).rgb - 0.95, 0.0) * (i < 4 ? 0.14 : 0.22);
-        c += glow * (0.55 + 0.3 * uHeat);
+        c += glow * (0.55 + 0.3 * uHeat) * (1.0 + 0.5 * uPaint);
         // the hole itself: nothing; with the last light that gets round it as a thin bright ring at its edge
         if (hback > 0.5) {
           float hpx = 1.5 / uSize.y, ho = (hl - uHoleB.x * 1.07) / (uHoleB.x * 0.04 + hpx);
@@ -87,7 +87,11 @@ export function createPage(renderer) {
           k = mix(k, 1.0 - k, ray);
           c = uInk > 0.0 ? vec3(k) : vec3(1.0 - k);
         } else c = mix(c, vec3(1.0, 0.97, 0.9), uWhite);
-        c *= 1.0 - (0.3 + 0.25 * uDoom) * pow(length(vUv - 0.5) * 1.25, 3.0);
+        if (uPaint > 0.5) {
+          c = vec3(c.r * 1.16 + 0.04, c.g * 1.02, c.b * 0.76);
+          c = mix(c, floor(c * 7.0) / 7.0, 0.38);
+        }
+        c *= 1.0 - (0.3 + 0.25 * uDoom + 0.22 * uPaint) * pow(length(vUv - 0.5) * 1.25, 2.4);
         outC = vec4(c, 1.0);
       }`,
   });
@@ -116,6 +120,7 @@ export function createPage(renderer) {
     set ink(v) { print.uniforms.uInk.value = v; },
     set white(v) { print.uniforms.uWhite.value = v; },
     set blaze(v) { print.uniforms.uBlaze.value = v; },
+    set paint(v) { print.uniforms.uPaint.value = v ? 1 : 0; },
     /** The ring a blast sends out, as the eye sees it: round a place in the world, so far out, so strong. */
     shock(camera, place, radius, power) {
       const u = print.uniforms.uShock.value, d = camera.position.distanceTo(place);
