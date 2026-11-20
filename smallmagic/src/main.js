@@ -10,6 +10,7 @@ import { createWorld } from './meadow/world.js';
 import { createStaff } from './staff.js';
 import { createCastDisc } from './castdisc.js';
 import { createAR } from './ar.js';
+import { createHexes } from './hexes.js';
 import { tracked } from './handtrack.js';
 import { createPage } from './page.js';
 import { Walker } from './player.js';
@@ -106,6 +107,8 @@ scene.add(flames.mesh);
 const fire = createFire({ world, air, fx, flames });
 const zones = createZones({ scene, world, walker, camera, air });
 const ar = createAR(scene, camera, world, zones);
+const hexes = createHexes(scene, world, camera, walker);
+zones.onLand = () => { const shore = hexes.at(walker.feet.x, walker.feet.z); hexes.grant(shore?.id || 'shore', shore ? 16 : 8); };
 const wrist = new THREE.Vector3();
 function wristPoint() {
   if (!tracked.on) return null;
@@ -486,6 +489,7 @@ function tick(dt) {
   const armCharge = (discCharge || spells?.cast?.holding) ? Math.max(0.14, spells?.cast?.charge || 0) : 0;
   castDisc?.update(dt, wheel, spells?.selected ?? 0, walker, camera, armCharge, !chasing && !free, wristPoint());
   ar.update(dt, walker);
+  hexes.update(dt);
   const spellBox = document.getElementById('spells');
   if (spellBox) spellBox.hidden = !!(zones.rodOut || (wheel && castDisc?.ready));
   if (spells) {
@@ -552,7 +556,7 @@ function tick(dt) {
 
 // (the measuring tools were written for a figure seen from behind: these are the same handles on one seen from within)
 const head = new THREE.Vector3();
-const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar,
+const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar, hexes,
   THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, arms, blade, gun, tune: TUNE, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
   player: walker,
   follow: { get yaw() { return walker.yaw; }, set yaw(v) { walker.yaw = v; }, get pitch() { return walker.pitch; }, set pitch(v) { walker.pitch = v; }, want: 0, distance: 0, pivot: new THREE.Vector3() },

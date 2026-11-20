@@ -336,7 +336,9 @@ export function createZones({ scene, world, walker, camera, air }) {
     if (flavor) flavor.textContent = species.flavor;
     if (badge) badge.hidden = !record;
     if (catchEl) catchEl.hidden = false;
+    onLand?.(species);
   }
+  let onLand = null;
 
   const panel = document.getElementById('board');
   const menu = document.getElementById('menu');
@@ -733,6 +735,7 @@ export function createZones({ scene, world, walker, camera, air }) {
     setDusk,
     showBook,
     celebrate,
+    set onLand(fn) { onLand = fn; },
     cueBeast(x, z, name) { beasts.act(x, z, name); },
     face(kind) { return beasts.face(kind); },
     clip(kind) { return beasts.clip(kind); },

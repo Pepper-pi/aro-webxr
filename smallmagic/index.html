@@ -61,6 +61,14 @@
       #cast:active, #spell:active { background: rgba(241, 217, 164, 0.35); }
       #board, #menu, #catch, #book, #atlas { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); z-index: 8; width: min(320px, 90vw); padding: 22px 16px 16px; border: 2px solid #f1d9a4; border-radius: 16px; background: rgba(20, 12, 28, 0.94); color: #f6ead0; text-align: center; font: 18px/1.3 Georgia, serif; touch-action: none; user-select: none; }
       #book { width: min(420px, 94vw); max-height: 78vh; overflow: auto; }
+      #hexcard { position: fixed; left: 50%; top: 46%; transform: translate(-50%, -50%); z-index: 20; width: min(360px, 92vw); padding: 18px 16px 14px; border: 2px solid #f1d9a4; border-radius: 16px; background: rgba(16, 10, 24, 0.98); color: #f6ead0; text-align: center; font: 16px/1.35 Georgia, serif; }
+      #hexcard h2 { margin: 4px 0 8px; font-size: 26px; }
+      #hexcard .meta { letter-spacing: 0.12em; text-transform: uppercase; color: #e6c27a; font-size: 13px; }
+      #hexbar { height: 12px; border-radius: 999px; border: 1px solid #f1d9a4; overflow: hidden; margin: 8px 0; background: rgba(241, 217, 164, 0.12); }
+      #hexbar i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #7ee0c0, #f1d9a4); }
+      #hexcard button { margin-top: 10px; min-height: 48px; width: 100%; border-radius: 12px; border: 2px solid #f1d9a4; background: rgba(241, 217, 164, 0.2); color: #f6ead0; font: 18px Georgia, serif; }
+      #hexX { position: absolute; right: 8px; top: 8px; width: 36px; min-height: 36px; }
+      #hexbanner { position: fixed; left: 50%; top: 18%; transform: translateX(-50%); z-index: 15; padding: 8px 14px; border-radius: 999px; border: 1px solid #f1d9a4; background: rgba(16, 10, 24, 0.9); color: #fff6dc; font: 16px Georgia, serif; letter-spacing: 0.04em; }
       #catch .meta, #book .meta { font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; color: #e6c27a; }
       #catch .flavor { font-size: 15px; font-style: italic; opacity: 0.9; }
       #catch .record { display: inline-block; margin-top: 6px; padding: 2px 8px; border-radius: 999px; background: #f1d9a4; color: #24160c; font-size: 13px; letter-spacing: 0.08em; }
@@ -325,6 +333,17 @@
     <div id="atlas" hidden><button id="mapX" type="button">×</button><p>Long Lake</p><canvas id="lakemap" width="560" height="720"></canvas><p class="note">Tap a marker or a place. Tap it again to clear the beam.</p></div>
     <div id="catch" hidden><p class="meta" id="catchRare">Common</p><h2 id="catchName">Creek Trout</h2><p id="catchSize">28 cm</p><p class="flavor" id="catchFlavor"></p><p id="catchRecord" hidden class="record">New record</p><button id="catchOk" type="button">Keep</button></div>
     <div id="book" hidden><button id="bookX" type="button">×</button><p>Long Lake Fish Book</p><p class="meta" id="bookCount">0 caught</p><div id="bookList"></div></div>
+    <div id="hexcard" hidden>
+      <button id="hexX" type="button">×</button>
+      <p class="meta" id="hexTheme">Forest Creek</p>
+      <h2 id="hexName">Moss Creek</h2>
+      <p id="hexTier">Tier I · Wild</p>
+      <div id="hexbar"><i></i></div>
+      <p id="hexSpawns"></p>
+      <p id="hexNext"></p>
+      <button id="hexEnter" type="button">Enter Zone</button>
+    </div>
+    <div id="hexbanner" hidden></div>
     <button id="gear" type="button" aria-label="Settings">⚙</button>
     <button id="discToggle" type="button">Disc</button>
     <div id="settings" hidden>
