@@ -11,7 +11,7 @@ const HEXES = [
     spawns: 'No beasts. A safe square.', features: 'Lantern cobbles and a warm rim.',
     next: 'Tier II brightens the lanterns. Tier III raises a gold beacon.' },
   { id: 'meadow', name: 'Wildflower Pasture', theme: 'Sunlit Meadow', q: 1, r: 0, tint: '#d2e27a', accent: '#fff6b0',
-    spawns: 'A pasture bunny and an oryx.', features: 'Pollen and flower knots.',
+    spawns: 'A pasture bunny and a deer.', features: 'Pollen and flower knots.',
     next: 'Tier II thickens the pollen. Tier III adds a golden wisp ring.' },
   { id: 'moss', name: 'Moss Creek', theme: 'Forest Creek', q: 0, r: 1, tint: '#1f8f62', accent: '#b6ffe0',
     spawns: 'A creek wolf and a boar. Herb nodes.', features: 'A creek, moss stones, forest motes.',
@@ -23,7 +23,7 @@ const HEXES = [
     spawns: 'A glen goblin and a fox.', features: 'Moss and a short rill.',
     next: 'Same forest ladder as Moss Creek.' },
   { id: 'bloom', name: 'Buttercup Reach', theme: 'Sunlit Meadow', q: -1, r: 0, tint: '#e6d15a', accent: '#fff3c4',
-    spawns: 'A buttercup pig and a slime.', features: 'Warm pasture tint.',
+    spawns: 'A buttercup cow and a slime.', features: 'Warm pasture tint.',
     next: 'Same meadow ladder as Wildflower Pasture.' },
   { id: 'landing', name: 'Lantern Gate', theme: 'Hearth', q: 0, r: -1, tint: '#f0b45a', accent: '#ffe7b0',
     spawns: 'Safe ground. No fight.', features: 'A gate of warm stones.',
@@ -54,8 +54,8 @@ function nextNeed(tier) { return tier >= 3 ? 110 : tier === 2 ? 110 : 40; }
 const FIGHT = {
   moss: ['wolf', 'boar'],
   glen: ['goblin', 'fox'],
-  meadow: ['bunny', 'oryx'],
-  bloom: ['pig', 'slime'],
+  meadow: ['bunny', 'deer'],
+  bloom: ['cow', 'slime'],
   shore: ['crab', 'fish'],
 };
 

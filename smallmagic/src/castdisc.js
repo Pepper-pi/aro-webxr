@@ -278,7 +278,7 @@ export function createCastDisc(scene) {
       else armLinger = Math.max(0, armLinger - dt);
       const pose = held > 0.02 ? held : armShown * (armLinger / 0.28);
       root.visible = !!(show && ready);
-      arm.visible = !!(root.visible && firstPerson && pose > 0.02);
+      arm.visible = !!(pose > 0.02 && (show || hand || warm));
       charge.visible = !!(root.visible && pose > 0.02);
       screen.on = root.visible;
       if (!root.visible || !walker || !camera) return;
@@ -374,11 +374,14 @@ export function createCastDisc(scene) {
       });
       ribbons.forEach((bit, i) => {
         const t = bit.userData.t;
-        bit.visible = false;
-        const a = sparkT * 3.2 + t * 8;
-        bit.position.set(Math.cos(a) * 0.1, Math.sin(a) * 0.1, along(t));
+        const showBit = arm.visible && lit(t);
+        bit.visible = showBit;
+        const a = sparkT * 2.6 + t * 11 + i * 0.4;
+        const rad = 0.085 + pose * 0.03;
+        bit.position.set(Math.cos(a) * rad, Math.sin(a) * rad, along(t));
+        bit.material.color.copy(tint);
         bit.rotation.z = a;
-        bit.scale.setScalar(bit.visible ? 0.12 + pose * 0.06 : 1);
+        bit.scale.setScalar(showBit ? 0.55 + pose * 0.5 : 1);
       });
       fireBands.forEach((band) => {
         band.visible = arm.visible && fireOn && lit(band.userData.t);
@@ -433,12 +436,16 @@ export function createCastDisc(scene) {
       thread.material.opacity = 0.35 + pose * 0.55;
       if (arm.visible) {
         const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
-        const elbow = wrist
-          ? wrist.clone()
-          : camera.position.clone().addScaledVector(right, 0.72).addScaledVector(up, -0.55).addScaledVector(fwd, 0.95);
-        const hand = camera.position.clone().addScaledVector(right, 0.38).addScaledVector(up, -0.36).addScaledVector(fwd, 1.12);
+        const elbow = (firstPerson || hand || warm)
+          ? (wrist
+            ? wrist.clone()
+            : camera.position.clone().addScaledVector(right, 0.72).addScaledVector(up, -0.55).addScaledVector(fwd, 0.95))
+          : new THREE.Vector3(walker.feet.x + fx * 0.28 + fz * 0.22, walker.feet.y + 1.15, walker.feet.z + fz * 0.28 - fx * 0.22);
+        const palmAt = (firstPerson || hand || warm)
+          ? camera.position.clone().addScaledVector(right, 0.38).addScaledVector(up, -0.36).addScaledVector(fwd, 1.12)
+          : elbow.clone().add(new THREE.Vector3(fx, 0.2, fz));
         arm.position.copy(elbow);
-        arm.lookAt(hand.x, hand.y, hand.z);
+        arm.lookAt(palmAt.x, palmAt.y, palmAt.z);
       }
     },
   };

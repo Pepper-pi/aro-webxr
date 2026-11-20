@@ -73,19 +73,19 @@ const MAKE = {
   fox: () => lump('#c46a2a'),
   bear: () => lump('#d8d2c8'),
   bunny: () => lump('#f3efe6'),
-  oryx: () => lump('#c4a574'),
-  pig: () => lump('#e7a0b0'),
+  deer: () => lump('#c4a574'),
+  cow: () => lump('#8a5a32'),
   crab: () => lump('#e23b32'),
   fish: () => lump('#7ee7ff'),
 };
-const HP = { wolf: 36, boar: 48, slime: 22, goblin: 30, fox: 28, bear: 64, bunny: 18, oryx: 40, pig: 34, crab: 26, fish: 16 };
+const HP = { wolf: 36, boar: 48, slime: 22, goblin: 30, fox: 28, bear: 64, bunny: 18, deer: 40, cow: 46, crab: 26, fish: 16 };
 const MOB = {
-  wolf: { file: 'mobs/cc0/wolf.glb', tall: 1.25, tint: '#6d645c' },
-  fox: { file: 'mobs/cc0/fox.glb', tall: 0.95, tint: '#d27a3a' },
+  wolf: { file: 'mobs/cc0/wolf.glb', tall: 1.15 },
+  fox: { file: 'mobs/cc0/fox.glb', tall: 1.05 },
   bear: { file: 'mobs/cc0/bear.glb', tall: 1.55, tint: '#efe8dc' },
   bunny: { file: 'mobs/cc0/bunny.glb', tall: 0.85, tint: '#f4efe6' },
-  oryx: { file: 'mobs/cc0/oryx.glb', tall: 1.35, tint: '#c4a574' },
-  pig: { file: 'mobs/cc0/pig.glb', tall: 0.9 },
+  deer: { file: 'mobs/cc0/deer.glb', tall: 1.35 },
+  cow: { file: 'mobs/cc0/cow.glb', tall: 1.3 },
   crab: { file: 'mobs/cc0/crab.glb', tall: 0.72, tint: '#e07a62' },
   fish: { file: 'mobs/cc0/fish.glb', tall: 0.55 },
   boar: { file: 'mobs/overaction/boar.glb', tall: 1.65 },
@@ -243,15 +243,24 @@ function fitMob(root, height, tint) {
     const src = Array.isArray(o.material) ? o.material[0] : o.material;
     if (!src || src.type === 'MeshBasicMaterial') return;
     const color = src.color ? src.color.clone() : new THREE.Color('#ffffff');
+    const hasVC = !!o.geometry?.attributes?.color;
     const blank = !src.map && color.r > 0.93 && color.g > 0.93 && color.b > 0.93;
-    const paint = !src.map ? ((blank && tint) ? tint : `#${color.getHexString()}`) : null;
-    if (paint) color.set('#ffffff');
+    const maxc = Math.max(color.r, color.g, color.b);
     const mat = new THREE.MeshBasicMaterial({
-      map: src.map || (paint ? toonTex(paint) : null),
+      map: src.map || null,
       color,
       side: THREE.DoubleSide,
       alphaTest: src.alphaTest || 0,
     });
+    if (hasVC) {
+      mat.vertexColors = true;
+      mat.color.set('#ffffff');
+    } else if (!src.map && tint && (blank || (maxc > 0.55 && Math.abs(color.r - color.b) < 0.05))) {
+      mat.map = toonTex(tint);
+      mat.color.set('#ffffff');
+    } else if (!src.map && maxc > 0.04 && maxc < 0.75) {
+      mat.color.multiplyScalar(0.82 / maxc);
+    }
     // The boar albedo is nearly black, so the body disappears into the grass at the hold distance.
     if (/boar/i.test(o.name || '')) mat.color.multiplyScalar(2.4);
     o.material = mat;
@@ -373,7 +382,7 @@ function clipSlot(name) {
   if (/death|die|dead/.test(key)) return 'death';
   if (/hitrecieve|flinch|hurt/.test(key) || key === 'hit') return 'hit';
   if (/attack|bite/.test(key)) return 'attack';
-  if (/walk|run|roam|swim/.test(key)) return 'walk';
+  if (/walk|run|roam|swim/.test(key) && !/gallop/.test(key)) return 'walk';
   if (/idle|stand/.test(key)) return 'idle';
   return '';
 }
@@ -457,8 +466,8 @@ export function createBeasts(scene, ground, world) {
   add(meadow, 'fox', 10.2, 6.2);
   add(meadow, 'bear', 13.2, 5.2);
   add(meadow, 'bunny', 19.6, 22.4);
-  add(meadow, 'oryx', 22.6, 21.2);
-  add(meadow, 'pig', -18.4, 22.6);
+  add(meadow, 'deer', 22.6, 21.2);
+  add(meadow, 'cow', -18.4, 22.6);
   add(meadow, 'slime', -15.4, 21.4);
   add(meadow, 'crab', -8.8, 39.2);
   add(meadow, 'fish', -6.2, 37.4);
@@ -897,7 +906,6 @@ export function createBeasts(scene, ground, world) {
             track.visible = true;
             for (const seg of track.children) if (seg.material) seg.material.opacity = 0.3 + u * 0.65;
           }
-          if (b.kind === 'wolf' && b.model) b.model.rotation.x = -0.55 * u;
           if (b.swing <= 0) {
             b.swing = 0;
             if (b.model) b.model.rotation.x = 0;

@@ -1159,7 +1159,7 @@ export function createZones({ scene, world, walker, camera, air }) {
       'Lakeshore': { color: '#7ee7ff', scale: 1.05, tag: 'Tide', bit: 'shell' },
       Hearth: { color: '#ffb15a', scale: 1.08, tag: 'Lantern', bit: 'lamp' },
     };
-    const who = { boar: 'Boar', wolf: 'Wolf', slime: 'Slime', goblin: 'Goblin', fox: 'Fox', bear: 'Bear', bunny: 'Bunny', oryx: 'Oryx', pig: 'Pig', crab: 'Crab', fish: 'Fish' };
+    const who = { boar: 'Boar', wolf: 'Wolf', slime: 'Slime', goblin: 'Goblin', fox: 'Fox', bear: 'Bear', bunny: 'Bunny', deer: 'Deer', cow: 'Cow', crab: 'Crab', fish: 'Fish' };
     const look = LOOK[hex.theme] || LOOK['Forest Creek'];
     b.g.getObjectByName('hexkit')?.removeFromParent();
     const kit = new THREE.Group();
@@ -1286,7 +1286,7 @@ export function createZones({ scene, world, walker, camera, air }) {
       return { ids, done: false, noted: new Set(), drops: [] };
     },
     waveAlive(wave) {
-      const dropName = { boar: 'tusk', wolf: 'ruff', slime: 'gel', goblin: 'bead', fox: 'brush', bear: 'claw', bunny: 'fluff', oryx: 'horn', pig: 'bristle', crab: 'shell', fish: 'scale' };
+      const dropName = { boar: 'tusk', wolf: 'ruff', slime: 'gel', goblin: 'bead', fox: 'brush', bear: 'claw', bunny: 'fluff', deer: 'horn', cow: 'hide', crab: 'shell', fish: 'scale' };
       let left = 0;
       const live = beasts.live();
       for (const id of wave.ids) {
@@ -1327,8 +1327,8 @@ export function createZones({ scene, world, walker, camera, air }) {
       put(take('fox'), byId('glen'), 1.2);
       put(take('bear'), byId('glen'), 0.2);
       put(take('bunny'), byId('meadow'), -1);
-      put(take('oryx'), byId('meadow'), 1.2);
-      put(take('pig'), byId('bloom'), -1);
+      put(take('deer'), byId('meadow'), 1.2);
+      put(take('cow'), byId('bloom'), -1);
       put(take('slime'), byId('bloom'), 1.1);
       put(take('crab'), byId('shore'), -1.1);
       put(take('fish'), byId('shore'), 1.2);

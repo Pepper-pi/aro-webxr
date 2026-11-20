@@ -130,6 +130,23 @@ export function createAR(scene, camera, world, zones) {
     root.add(m);
     lakeMotes.push(m);
   }
+  const butterflies = [];
+  for (let i = 0; i < 5; i++) {
+    const g = new THREE.Group();
+    const wing = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.1), new THREE.MeshBasicMaterial({ color: i % 2 ? '#f2c14e' : '#e7f6ff', side: THREE.DoubleSide, transparent: true, opacity: 0.85 }));
+    const wingR = wing.clone();
+    wing.position.x = 0.08;
+    wingR.position.x = -0.08;
+    g.add(wing, wingR);
+    root.add(g);
+    butterflies.push({ g, wing, wingR, a: i * 1.3, r: 1.4 + i * 0.35 });
+  }
+  const groundGlow = new THREE.Mesh(
+    new THREE.CircleGeometry(1.35, 24),
+    new THREE.MeshBasicMaterial({ color: '#ffe7b0', transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide }),
+  );
+  groundGlow.rotation.x = -Math.PI / 2;
+  root.add(groundGlow);
   const motes = [];
   for (let i = 0; i < 22; i++) {
     const m = new THREE.Mesh(
@@ -314,6 +331,17 @@ export function createAR(scene, camera, world, zones) {
         walker.feet.z + fz * (2.2 + (i % 4) * 0.35) + Math.sin(a) * 0.45,
       );
     });
+    butterflies.forEach((b, i) => {
+      const a = t * 0.7 + b.a;
+      const x = walker.feet.x + fx * 1.6 + Math.cos(a) * b.r;
+      const z = walker.feet.z + fz * 1.6 + Math.sin(a) * b.r * 0.6;
+      b.g.position.set(x, world.ground(x, z) + 0.7 + Math.sin(t * 3 + i) * 0.18, z);
+      const flap = Math.sin(t * 14 + i);
+      b.wing.rotation.y = flap * 0.8;
+      b.wingR.rotation.y = -flap * 0.8;
+    });
+    groundGlow.position.set(walker.feet.x + fx * 2.1, world.ground(walker.feet.x + fx * 2.1, walker.feet.z + fz * 2.1) + 0.05, walker.feet.z + fz * 2.1);
+    groundGlow.material.opacity = 0.18 + Math.sin(t * 2) * 0.08;
     motes.forEach((m, i) => {
       const a = t * 0.35 + i;
       const rad = 1.2 + (i % 4) * 0.45;
