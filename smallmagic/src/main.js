@@ -475,12 +475,19 @@ function tick(dt) {
   camera.updateMatrixWorld(true);
   world.update(dt, walker.feet, camera, walker.speed);
   staff?.update(dt, walker, camera, world.sunAt?.(camera.position) ?? 1);
-  const wheel = discOn && kit === 'mage' && !melee;
+  const fishPull = zones.fishZoom || 0;
+  if (fishPull > 0.04 && !free && !chasing) {
+    const yaw = walker.yaw;
+    camera.position.x -= Math.sin(yaw) * fishPull;
+    camera.position.y += fishPull * 0.32;
+    camera.position.z -= Math.cos(yaw) * fishPull;
+  }
+  const wheel = discOn && kit === 'mage' && !melee && !zones.rodOut;
   const armCharge = (discCharge || spells?.cast?.holding) ? Math.max(0.14, spells?.cast?.charge || 0) : 0;
   castDisc?.update(dt, wheel, spells?.selected ?? 0, walker, camera, armCharge, !chasing && !free, wristPoint());
   ar.update(dt, walker);
   const spellBox = document.getElementById('spells');
-  if (spellBox) spellBox.hidden = !!(wheel && castDisc?.ready);
+  if (spellBox) spellBox.hidden = !!(zones.rodOut || (wheel && castDisc?.ready));
   if (spells) {
     const on = !!(wheel && castDisc?.ready);
     spells.hideMark = on;

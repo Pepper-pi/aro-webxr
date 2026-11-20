@@ -245,10 +245,10 @@ export async function createWorld({ air, scene, say, turn }) {
   // ============================================================================================================= water
   {
     const water = new THREE.Mesh(new THREE.CircleGeometry(190, 96).rotateX(-Math.PI / 2).translate(0, WATER, 0), new THREE.ShaderMaterial({
-      uniforms: { ...Object.fromEntries(Object.keys(U).map((k) => [k, U[k]])), uDeep: { value: C('#2a78a4') }, uShallow: { value: C('#6fd0c4') }, uSkyLow: { value: C('#b9e2ff') }, uSkyHigh: { value: C('#3f86ea') } },
+      uniforms: { ...Object.fromEntries(Object.keys(U).map((k) => [k, U[k]])), uDeep: { value: C('#2a78a4') }, uShallow: { value: C('#6fd0c4') }, uSkyLow: { value: C('#b9e2ff') }, uSkyHigh: { value: C('#3f86ea') }, uBio: { value: 0 } },
       vertexShader: /* glsl */ `varying vec3 vWorld; void main() { vWorld = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
       fragmentShader: AIR + GROUND + /* glsl */ `
-        varying vec3 vWorld; uniform vec3 uDeep; uniform vec3 uShallow; uniform vec3 uSkyLow; uniform vec3 uSkyHigh;
+        varying vec3 vWorld; uniform vec3 uDeep; uniform vec3 uShallow; uniform vec3 uSkyLow; uniform vec3 uSkyHigh; uniform float uBio;
         // Cracks in ice: long and nearly straight, running a few ways, each there for a stretch and then not, some
         // broad and some no more than a hair.
         float cracks(vec2 p) {
@@ -308,6 +308,17 @@ export async function createWorld({ air, scene, say, turn }) {
             col = mix(col, iced, ice);
           }
           col += (mix(bed, vec3(1.0), 0.3) * lamps(vWorld)) + uSealCol * seal(xz) * 0.9;
+          if (uBio > 0.01 && ice < 0.2) {
+            float ridge = 1.0 - smoothstep(0.0, 0.035, abs(r1 - 0.62));
+            float tw = 0.35 + 0.65 * sin(uNow * 3.4 + aHash(floor(xz * 5.0)) * 40.0);
+            vec2 cell = floor(xz * 18.0);
+            float dotp = step(0.972, aHash(cell)) * tw;
+            vec2 fine = floor(xz * 36.0 + vec2(uNow * 0.2, 0.0));
+            float spark = step(0.984, aHash(fine)) * (0.35 + 0.65 * sin(uNow * 6.0 + aHash(fine) * 24.0));
+            vec3 cyan = vec3(0.3, 1.0, 0.95) * (ridge * 0.9 + spark * 1.3);
+            vec3 mag = vec3(0.9, 0.22, 1.0) * foam * dotp * 2.0;
+            col = mix(col * vec3(0.1, 0.12, 0.22), col * vec3(0.1, 0.12, 0.22) + cyan + mag, uBio);
+          }
           gl_FragColor = vec4(air(col, vWorld), 1.0);
         }`,
     }));

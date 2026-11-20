@@ -139,6 +139,7 @@ export function createZones({ scene, world, walker, camera, air }) {
   const rip = new THREE.Mesh(new THREE.RingGeometry(0.22, 0.3, 20), new THREE.MeshBasicMaterial({ color: 0xdff6ff, transparent: true, opacity: 0.7, side: THREE.DoubleSide }));
   rip.rotation.x = -Math.PI / 2;
   bobber.add(ball, cap, rip);
+  bobber.scale.setScalar(0.55);
   bobber.visible = false;
   scene.add(bobber);
 
@@ -157,8 +158,8 @@ export function createZones({ scene, world, walker, camera, air }) {
   reel.rotation.x = Math.PI / 2;
   reel.position.set(0, 0.12, 0.03);
   rod.add(grip, blank, tipM, reel);
-  rod.position.set(0, -0.22, -0.72);
-  rod.rotation.set(0.5, 0.12, -0.18);
+  rod.position.set(0.32, -0.42, -0.62);
+  rod.rotation.set(1.15, -0.4, -0.62);
   hold.add(rod);
   scene.add(hold);
   const lineGeo = new THREE.BufferGeometry();
@@ -170,6 +171,172 @@ export function createZones({ scene, world, walker, camera, air }) {
   const splash = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), mat('#e7f6ff'));
   splash.visible = false;
   scene.add(splash);
+  const ripples = [0, 1, 2].map(() => {
+    const m = new THREE.Mesh(new THREE.RingGeometry(0.18, 0.26, 24), new THREE.MeshBasicMaterial({ color: '#dff6ff', transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+    m.rotation.x = -Math.PI / 2;
+    m.visible = false;
+    scene.add(m);
+    m.userData.life = 0;
+    return m;
+  });
+  function splashAt(x, z, cyan) {
+    const m = ripples.find((r) => r.userData.life <= 0) || ripples[0];
+    m.visible = true;
+    m.userData.life = 1;
+    m.userData.x = x;
+    m.userData.z = z;
+    m.material.color.set(cyan ? '#5dfff0' : '#dff6ff');
+    m.position.set(x, world.water + 0.04, z);
+  }
+  const pads = [];
+  for (let i = 0; i < 6; i++) {
+    const pad = new THREE.Mesh(new THREE.CircleGeometry(0.34 + (i % 3) * 0.08, 8), new THREE.MeshBasicMaterial({ color: i % 2 ? '#2f8a45' : '#3eaf58', side: THREE.DoubleSide }));
+    const a = -0.8 + i * 0.28;
+    pad.position.set(-50 + Math.sin(a) * (6 + (i % 2)), world.water + 0.03, -38 + Math.cos(a) * 2.2);
+    pad.rotation.x = -Math.PI / 2;
+    pad.rotation.z = i;
+    scene.add(pad);
+    pads.push(pad);
+  }
+  const fishShade = [];
+  for (let i = 0; i < 5; i++) {
+    const s = new THREE.Mesh(new THREE.CircleGeometry(0.28 + (i % 2) * 0.12, 7), new THREE.MeshBasicMaterial({ color: '#07141c', transparent: true, opacity: 0.55, depthWrite: false }));
+    s.rotation.x = -Math.PI / 2;
+    s.position.y = world.water - 0.18;
+    scene.add(s);
+    fishShade.push(s);
+  }
+  const fly = new THREE.Group();
+  const wing = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.06), new THREE.MeshBasicMaterial({ color: '#e7fbff', side: THREE.DoubleSide, transparent: true, opacity: 0.75 }));
+  fly.add(wing);
+  scene.add(fly);
+  const wisps = [];
+  for (let i = 0; i < 5; i++) {
+    const w = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.02), new THREE.MeshBasicMaterial({ color: '#f6ead0', transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }));
+    scene.add(w);
+    wisps.push(w);
+  }
+  const bioGeo = new THREE.BufferGeometry();
+  const bioN = 280;
+  const bioPos = new Float32Array(bioN * 3);
+  const bioCol = new Float32Array(bioN * 3);
+  const bioId = new Float32Array(bioN);
+  for (let i = 0; i < bioN; i++) {
+    const a = (i / bioN) * Math.PI * 2;
+    const edge = 0.82 + (i % 5) * 0.04;
+    bioPos[i * 3] = -50 + Math.cos(a) * 14 * edge;
+    bioPos[i * 3 + 1] = world.water + 0.05;
+    bioPos[i * 3 + 2] = -46 + Math.sin(a) * 9 * edge;
+    const mag = i % 3 === 0;
+    bioCol[i * 3] = mag ? 0.85 : 0.25;
+    bioCol[i * 3 + 1] = mag ? 0.25 : 1;
+    bioCol[i * 3 + 2] = mag ? 0.95 : 0.9;
+    bioId[i] = i * 1.7;
+  }
+  bioGeo.setAttribute('position', new THREE.BufferAttribute(bioPos, 3));
+  bioGeo.setAttribute('color', new THREE.BufferAttribute(bioCol, 3));
+  bioGeo.setAttribute('aId', new THREE.BufferAttribute(bioId, 1));
+  const bio = new THREE.Points(bioGeo, new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    uniforms: { uNow: { value: 0 } },
+    vertexShader: `attribute float aId; attribute vec3 color; varying vec3 vCol; varying float vTw; uniform float uNow;
+      void main() { vCol = color; vTw = 0.25 + 0.75 * abs(sin(uNow * 2.4 + aId)); gl_PointSize = 3.4 + vTw * 6.0; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `varying vec3 vCol; varying float vTw; void main() { float d = length(gl_PointCoord - 0.5); if (d > 0.5) discard; gl_FragColor = vec4(vCol, vTw * (1.0 - d * 1.4)); }`,
+    vertexColors: true,
+  }));
+  bio.visible = false;
+  bio.frustumCulled = false;
+  scene.add(bio);
+  const stars = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ color: '#f4f0ff', size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0.85 }));
+  {
+    const n = 180;
+    const p = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      const a = i * 2.4;
+      const e = 0.2 + (i % 9) * 0.08;
+      const r = 28;
+      p[i * 3] = Math.cos(a) * Math.cos(e) * r;
+      p[i * 3 + 1] = Math.sin(e) * r * 0.7 + 8;
+      p[i * 3 + 2] = Math.sin(a) * Math.cos(e) * r;
+    }
+    stars.geometry.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  }
+  stars.visible = false;
+  stars.frustumCulled = false;
+  scene.add(stars);
+  const shot = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.03), new THREE.MeshBasicMaterial({ color: '#fff6e8', transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+  shot.visible = false;
+  scene.add(shot);
+  let shotT = -1;
+  const SPECIES = [
+    { id: 'trout', name: 'Creek Trout', rarity: 'Common', min: 18, max: 34, flavor: 'A silver flash under the pines.', w: 5 },
+    { id: 'bass', name: 'Reed Bass', rarity: 'Common', min: 22, max: 41, flavor: 'It sulks in the reeds, then surges.', w: 5 },
+    { id: 'perch', name: 'Sun Perch', rarity: 'Common', min: 12, max: 24, flavor: 'Striped gold, fond of the warm shallows.', w: 5 },
+    { id: 'bluegill', name: 'Bluegill', rarity: 'Common', min: 10, max: 20, flavor: 'Small, round, and quick to a fly.', w: 4 },
+    { id: 'shiner', name: 'Golden Shiner', rarity: 'Uncommon', min: 8, max: 16, flavor: 'A coin of a fish, bright as a lure.', w: 3 },
+    { id: 'char', name: 'Pine Char', rarity: 'Uncommon', min: 20, max: 38, flavor: 'Cold-water spots, pale as birch bark.', w: 3 },
+    { id: 'cat', name: 'Moss Catfish', rarity: 'Uncommon', min: 24, max: 48, flavor: 'Whiskers full of lake moss.', w: 2 },
+    { id: 'lantern', name: 'Dusk Lantern', rarity: 'Rare', min: 16, max: 28, flavor: 'Its belly lamp lights the evening weeds.', dusk: true, w: 2 },
+    { id: 'eel', name: 'Violet Eel', rarity: 'Rare', min: 30, max: 62, flavor: 'A purple ribbon that rises only after sunset.', dusk: true, w: 1 },
+    { id: 'minnow', name: 'Star Minnow', rarity: 'Rare', min: 6, max: 12, flavor: 'Tiny lights, as if the sky fell into the shallows.', dusk: true, lure: 'glow', w: 1 },
+  ];
+  const BOOK_KEY = 'aro-long-lake';
+  let lure = 'bobber';
+  let fight = 0;
+  let tension = 0.3;
+  let biteIn = 0;
+  let biteLeft = 0;
+  let dip = 0;
+  const readBook = () => { try { return JSON.parse(localStorage.getItem(BOOK_KEY) || '{}'); } catch { return {}; } };
+  const writeBook = (data) => { try { localStorage.setItem(BOOK_KEY, JSON.stringify(data)); } catch { /* private mode */ } };
+  function pickFish() {
+    const rows = SPECIES.filter((s) => (!s.dusk || dusk) && (!s.lure || s.lure === lure));
+    let bag = [];
+    for (const s of rows) {
+      let w = s.w;
+      if (lure === 'fly' && s.max < 26) w += 3;
+      if (lure === 'glow' && s.dusk && dusk) w += 4;
+      for (let i = 0; i < w; i++) bag.push(s);
+    }
+    if (!bag.length) bag = SPECIES.filter((s) => !s.dusk);
+    return bag[Math.floor(Math.random() * bag.length)];
+  }
+  function showBook() {
+    const box = document.getElementById('book');
+    const list = document.getElementById('bookList');
+    const data = readBook();
+    const caught = Object.values(data).reduce((n, r) => n + (r.n || 0), 0);
+    const count = document.getElementById('bookCount');
+    if (count) count.textContent = `${caught} caught`;
+    if (list) {
+      list.innerHTML = SPECIES.map((s) => {
+        const row = data[s.id];
+        if (!row) return `<div class="rowfish lost"><b>▬▬▬▬</b><span>not yet</span></div>`;
+        return `<div class="rowfish"><b>${s.name}</b><span>${s.rarity} · best ${row.best} cm · ${row.n}</span></div>`;
+      }).join('');
+    }
+    if (box) box.hidden = false;
+  }
+  function celebrate(species) {
+    const cm = Math.round(species.min + Math.random() * (species.max - species.min));
+    const data = readBook();
+    const prev = data[species.id];
+    const record = !prev || cm > prev.best;
+    data[species.id] = { n: (prev?.n || 0) + 1, best: Math.max(prev?.best || 0, cm) };
+    writeBook(data);
+    const title = document.getElementById('catchName');
+    const size = document.getElementById('catchSize');
+    const rare = document.getElementById('catchRare');
+    const flavor = document.getElementById('catchFlavor');
+    const badge = document.getElementById('catchRecord');
+    if (title) title.textContent = species.name;
+    if (size) size.textContent = `${cm} cm`;
+    if (rare) rare.textContent = species.rarity;
+    if (flavor) flavor.textContent = species.flavor;
+    if (badge) badge.hidden = !record;
+    if (catchEl) catchEl.hidden = false;
+  }
 
   const panel = document.getElementById('board');
   const menu = document.getElementById('menu');
@@ -180,6 +347,8 @@ export function createZones({ scene, world, walker, camera, air }) {
   const catchEl = document.getElementById('catch');
   const FISH = ['Bluegill', 'Sunperch', 'Reed carp', 'Golden shiner', 'Creek trout'];
   let name = 'hub';
+  let atLake = false;
+  let fishZoom = 0;
   let dest = 'meadow';
   let armUntil = 0;
   let leftRing = false;
@@ -225,7 +394,26 @@ export function createZones({ scene, world, walker, camera, air }) {
     world.wade = null;
   }
   function enter(next) {
-    if (next === 'lake') next = 'plot';
+    if (next === 'lake') {
+      atLake = true;
+      name = 'meadow';
+      outdoors();
+      world.root.visible = true;
+      hub.visible = false;
+      meadowRing.visible = true;
+      hold.visible = false;
+      if (menu) menu.hidden = true;
+      hideBoard();
+      resetFish();
+      const x = -50;
+      const z = -33.2;
+      meadowRing.position.set(x, world.ground(x, z) + 0.2, z - 1.6);
+      place(x, z, Math.PI);
+      if (back) { back.hidden = false; back.textContent = 'Field'; }
+      return;
+    }
+    atLake = false;
+    if (back) back.textContent = 'Back';
     const outside = next === 'meadow' || next === 'plot';
     name = outside ? 'meadow' : 'hub';
     world.root.visible = outside;
@@ -361,7 +549,12 @@ export function createZones({ scene, world, walker, camera, air }) {
     setPin(at.x, at.z);
     e.preventDefault(); e.stopPropagation();
   });
-  back?.addEventListener('pointerup', (e) => { if (menu) menu.hidden = false; e.preventDefault(); e.stopPropagation(); });
+  back?.addEventListener('pointerup', (e) => {
+    if (atLake) enter('meadow');
+    else if (menu) menu.hidden = false;
+    e.preventDefault();
+    e.stopPropagation();
+  });
   document.getElementById('catchOk')?.addEventListener('pointerup', (e) => { if (catchEl) catchEl.hidden = true; resetFish(); e.preventDefault(); e.stopPropagation(); });
   document.querySelectorAll('button').forEach((b) => {
     b.addEventListener('pointerdown', (e) => e.preventDefault());
@@ -408,7 +601,9 @@ export function createZones({ scene, world, walker, camera, air }) {
     bobber.position.set(spot.x, world.water + 0.16, spot.z);
     line.visible = true;
     flicking = 1;
-    biteAt = performance.now() + 2200 + Math.random() * 2500;
+    const quick = lure === 'fly' ? 0.7 : lure === 'glow' ? 0.4 : 0;
+    biteIn = 1.5 + Math.random() * 2.1 - quick;
+    splashAt(spot.x, spot.z, dusk);
   }
   let fishDown = false;
   let reelHold = 0;
@@ -448,14 +643,42 @@ export function createZones({ scene, world, walker, camera, air }) {
   const dayZenith = skyMesh?.material.uniforms.uZenith.value.clone();
   const dayHorizon = skyMesh?.material.uniforms.uHorizon.value.clone();
   let dusk = false;
+  let waterMat = null;
+  world.root.traverse((o) => { if (!waterMat && o.material?.uniforms?.uBio) waterMat = o.material; });
   function setDusk(on) {
     dusk = on;
     if (duskBtn) duskBtn.textContent = on ? 'Day' : 'Dusk';
-    if (!skyMesh) return;
-    skyMesh.material.uniforms.uZenith.value.set(on ? '#24315f' : dayZenith);
-    skyMesh.material.uniforms.uHorizon.value.set(on ? '#e7a06a' : dayHorizon);
+    const eve = document.getElementById('eve');
+    if (eve) { eve.textContent = on ? 'Day' : 'Evening'; eve.classList.toggle('on', on); }
+    if (skyMesh) {
+      const u = skyMesh.material.uniforms;
+      if (!skyMesh.userData.dayCloud && u.uCloud) {
+        skyMesh.userData.dayCloud = u.uCloud.value.clone();
+        skyMesh.userData.dayMid = u.uCloudMid.value.clone();
+        skyMesh.userData.dayShade = u.uCloudShade.value.clone();
+      }
+      u.uZenith.value.set(on ? '#070d24' : dayZenith);
+      u.uHorizon.value.set(on ? '#3a2458' : dayHorizon);
+      if (u.uCloud && skyMesh.userData.dayCloud) {
+        u.uCloud.value.copy(on ? new THREE.Color('#14183a') : skyMesh.userData.dayCloud);
+        u.uCloudMid.value.copy(on ? new THREE.Color('#2a2048') : skyMesh.userData.dayMid);
+        u.uCloudShade.value.copy(on ? new THREE.Color('#0c1028') : skyMesh.userData.dayShade);
+      }
+    }
+    if (waterMat) waterMat.uniforms.uBio.value = on ? 1 : 0;
+    bio.visible = on;
+    stars.visible = on;
   }
   duskBtn?.addEventListener('pointerup', (e) => { setDusk(!dusk); e.preventDefault(); e.stopPropagation(); });
+  document.getElementById('eve')?.addEventListener('pointerup', (e) => { setDusk(!dusk); e.preventDefault(); e.stopPropagation(); });
+  document.getElementById('bookBtn')?.addEventListener('pointerup', (e) => { showBook(); e.preventDefault(); e.stopPropagation(); });
+  document.getElementById('bookX')?.addEventListener('pointerup', (e) => { const box = document.getElementById('book'); if (box) box.hidden = true; e.preventDefault(); e.stopPropagation(); });
+  document.querySelectorAll('#lures button').forEach((b) => b.addEventListener('pointerup', (e) => {
+    lure = b.getAttribute('data-lure') || 'bobber';
+    document.querySelectorAll('#lures button').forEach((t) => t.classList.toggle('on', t === b));
+    e.preventDefault();
+    e.stopPropagation();
+  }));
   addEventListener('keydown', (e) => { if (e.code === 'KeyK' && name === 'meadow') setDusk(!dusk); });
   const life = new THREE.Group();
   const motes = [];
@@ -506,6 +729,10 @@ export function createZones({ scene, world, walker, camera, air }) {
     releaseAnchor(n) { beasts.releaseAnchor(n); },
     get mobsReady() { return beasts.mobsReady; },
     get dusk() { return dusk; },
+    get fishZoom() { return fishZoom; },
+    setDusk,
+    showBook,
+    celebrate,
     cueBeast(x, z, name) { beasts.act(x, z, name); },
     face(kind) { return beasts.face(kind); },
     clip(kind) { return beasts.clip(kind); },
@@ -618,38 +845,96 @@ export function createZones({ scene, world, walker, camera, air }) {
       }
       const fishing = name === 'meadow' && (byWater() || phase !== 'idle');
       const showFish = name === 'meadow' && (byWater() || phase === 'aim') && phase !== 'bite' && phase !== 'reel';
-      if (fishBtn) fishBtn.hidden = !showFish;
+      if (fishBtn) { fishBtn.hidden = !showFish; fishBtn.textContent = 'Cast'; }
       const cue = document.getElementById('fishcue');
-      if (cue) cue.hidden = !showFish;
+      if (cue) { cue.hidden = !showFish; cue.textContent = phase === 'aim' ? 'Release to cast' : 'Hold to cast'; }
+      const bar = document.getElementById('castbar');
+      if (bar) { bar.hidden = phase !== 'aim'; const fill = bar.querySelector('i'); if (fill) fill.style.width = `${Math.round(power * 100)}%`; }
+      const ten = document.getElementById('tension');
+      const luresEl = document.getElementById('lures');
+      const bookBtn = document.getElementById('bookBtn');
+      const eveBtn = document.getElementById('eve');
+      if (luresEl) luresEl.hidden = !atLake;
+      if (bookBtn) bookBtn.hidden = !atLake;
+      if (eveBtn) eveBtn.hidden = !atLake;
+      pads.forEach((p) => { p.visible = atLake; });
+      if (atLake) {
+        const tt = performance.now() * 0.001;
+        fishShade.forEach((s, i) => {
+          const a = tt * 0.35 + i * 1.3;
+          s.visible = true;
+          s.position.set(-50 + Math.cos(a) * (4 + i), world.water - 0.2, -40 + Math.sin(a * 0.8) * 3);
+        });
+        fly.visible = true;
+        fly.position.set(-48 + Math.sin(tt * 0.6) * 6, world.water + 0.55 + Math.sin(tt * 3) * 0.08, -36 + Math.cos(tt * 0.5) * 2);
+        wing.rotation.y = Math.sin(tt * 18) * 0.8;
+        wisps.forEach((w, i) => {
+          w.visible = true;
+          w.position.set(-52 + i * 1.4 + Math.sin(tt + i) * 0.4, world.water + 0.8, -35.5);
+          w.lookAt(camera.position);
+        });
+        if (dusk && shotT < 0 && Math.random() < dt * 0.08) { shotT = 0; shot.visible = true; }
+        if (shotT >= 0) {
+          shotT += dt;
+          const u = shotT / 1.1;
+          shot.position.set(-62 + u * 28, 14 - u * 6, -50);
+          shot.lookAt(camera.position);
+          shot.material.opacity = u < 0.8 ? 0.8 : (1 - u) * 4;
+          if (shotT > 1.1) { shotT = -1; shot.visible = false; }
+        }
+        stars.position.copy(camera.position);
+        bio.material.uniforms.uNow.value = tt;
+      } else {
+        fishShade.forEach((s) => { s.visible = false; });
+        fly.visible = false;
+        wisps.forEach((w) => { w.visible = false; });
+      }
+      const wantZ = phase === 'aim' ? 0.55 : (phase === 'bite' || phase === 'reel') ? 1.15 : (fishing ? 0.12 : 0);
+      fishZoom += (wantZ - fishZoom) * Math.min(1, dt * 2.4);
       if (name === 'meadow' && fishing) {
-        if (fishDown && phase === 'aim') power = Math.min(1, power + 0.012);
+        if (fishDown && phase === 'aim') power = Math.min(1, power + dt * 0.55);
         if (phase === 'aim') { const spot = waterSpot(); target.position.set(spot.x, world.water + 0.05, spot.z); }
-        if (phase === 'wait' && performance.now() >= biteAt) {
-          phase = 'bite';
-          biteUntil = performance.now() + 1700;
-          if (reelBtn) reelBtn.hidden = false;
+        if (phase === 'wait') {
+          biteIn -= dt;
+          if (biteIn < 0.8) bobber.position.y = world.water + Math.sin(performance.now() * 0.012) * 0.04;
+          if (biteIn < 0.45 && Math.random() < dt * 3) splashAt(bobber.position.x, bobber.position.z, dusk);
+          if (biteIn <= 0) {
+            phase = 'bite';
+            biteLeft = 5.2;
+            fight = 0.08;
+            dip = 1;
+            splashAt(bobber.position.x, bobber.position.z, dusk);
+            if (reelBtn) { reelBtn.hidden = false; reelBtn.textContent = 'Hook'; }
+          }
         }
         if (phase === 'bite') {
+          biteLeft -= dt;
+          tension = 0.28 + 0.62 * (0.5 + 0.5 * Math.sin(performance.now() * 0.004 + biteLeft));
+          const hot = tension > 0.72;
+          if (ten) {
+            ten.hidden = false;
+            const fill = ten.querySelector('i');
+            if (fill) { fill.style.width = `${Math.round(tension * 100)}%`; fill.classList.toggle('hot', hot); }
+          }
           if (reelHold > 0) {
             reelHold += dt;
-            reelProg += dt * 1.15;
-            reel.rotation.x += dt * (8 + reelHold * 10);
-            if (reelProg >= 1) { phase = 'reel'; reelT = 0; reelHold = 0; reelProg = 0; if (reelBtn) reelBtn.hidden = true; }
+            reel.rotation.x += dt * 8;
+            if (hot) fight = Math.max(0, fight - dt * 0.42);
+            else fight = Math.min(1, fight + dt * 0.5);
+            if (reelBtn) reelBtn.textContent = hot ? 'Ease' : (fight < 0.25 ? 'Hook' : 'Reel');
           }
-          bobber.position.y = world.water + Math.sin(performance.now() * 0.02) * 0.08;
-          splash.visible = true;
+          bobber.position.y = world.water + (hot ? -0.12 : Math.sin(performance.now() * 0.02) * 0.06);
+          splash.visible = hot;
           splash.position.copy(bobber.position);
-          splash.scale.setScalar(1 + Math.sin(performance.now() * 0.03));
-          if (performance.now() > biteUntil) resetFish();
-        }
+          if (fight >= 1) { phase = 'reel'; reelT = 0; reelHold = 0; if (reelBtn) reelBtn.hidden = true; if (ten) ten.hidden = true; }
+          if (biteLeft <= 0 && fight < 1) { if (ten) ten.hidden = true; resetFish(); }
+        } else if (ten) ten.hidden = true;
         if (phase === 'reel') {
           reelT += dt;
-          bobber.position.lerp(walker.feet, Math.min(1, dt * 3));
+          bobber.position.lerp(walker.feet, Math.min(1, dt * 2.2));
           bobber.position.y = walker.feet.y + 1.1;
-          if (reelT > 0.7) {
-            const title = document.getElementById('catchName');
-            if (title) title.textContent = FISH[Math.floor(Math.random() * FISH.length)];
-            if (catchEl) catchEl.hidden = false;
+          if (reelT > 0.65) {
+            celebrate(pickFish());
             phase = 'caught';
             line.visible = false;
             bobber.visible = false;
@@ -667,15 +952,22 @@ export function createZones({ scene, world, walker, camera, air }) {
           pose = flicking > 0.5 ? (flicking - 0.5) / 0.5 : (flicking / 0.5) * -0.45;
           if (flicking <= 0) { flicking = 0; cock = 0; }
         }
-        rod.rotation.x = 0.4 + pose * 0.95;
-        rod.rotation.z = -0.1 - Math.max(0, pose) * 0.3;
+        if (dip > 0) dip = Math.max(0, dip - dt * 1.6);
+        const bend = (phase === 'bite' ? 0.25 + tension * 0.7 : 0) + dip * 0.45;
+        rod.rotation.x = 1.05 + pose * 0.55 + bend * 0.45;
+        rod.rotation.z = -0.55 - Math.max(0, pose) * 0.15 - bend * 0.2;
+        blank.rotation.z = -bend * 0.8;
+        tipM.rotation.z = -bend * 1.3;
         if (line.visible) {
+          const hot = phase === 'bite' && tension > 0.72;
+          line.material.color.set(hot ? '#ff5a4a' : phase === 'bite' ? '#9af6ff' : '#d8fbff');
           tipM.getWorldPosition(tipW);
           const pos = lineGeo.attributes.position;
           const end = bobber.position;
+          const slack = phase === 'bite' ? (hot ? 0.04 : 0.1) : 0.28;
           for (let i = 0; i < 8; i++) {
             const t = i / 7;
-            const sag = Math.sin(t * Math.PI) * 0.22;
+            const sag = Math.sin(t * Math.PI) * slack;
             pos.setXYZ(i, tipW.x + (end.x - tipW.x) * t, tipW.y + (end.y - tipW.y) * t - sag, tipW.z + (end.z - tipW.z) * t);
           }
           pos.needsUpdate = true;
@@ -684,6 +976,15 @@ export function createZones({ scene, world, walker, camera, air }) {
           const u = (performance.now() * 0.0007) % 1;
           rip.scale.setScalar(0.8 + u * 1.3);
           rip.material.opacity = (1 - u) * 0.7;
+        }
+        for (const m of ripples) {
+          if (m.userData.life <= 0) continue;
+          m.userData.life -= dt * 0.7;
+          const u = 1 - m.userData.life;
+          m.scale.setScalar(0.6 + u * 4.2);
+          m.material.opacity = Math.max(0, m.userData.life) * 0.75;
+          m.position.y = world.water + 0.04;
+          if (m.userData.life <= 0) m.visible = false;
         }
         const t = performance.now() * 0.001;
         motes.forEach((s, i) => s.position.set(-46 + Math.sin(t * 0.25 + i) * 16, 2 + (i % 4) * 0.45, -22 + Math.cos(t * 0.18 + i * 0.7) * 10));

@@ -59,7 +59,22 @@
       #cast { bottom: max(22px, env(safe-area-inset-bottom)); }
       #spell { bottom: calc(max(22px, env(safe-area-inset-bottom)) + 90px); }
       #cast:active, #spell:active { background: rgba(241, 217, 164, 0.35); }
-      #board, #menu, #catch, #atlas { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); z-index: 8; width: min(320px, 90vw); padding: 22px 16px 16px; border: 2px solid #f1d9a4; border-radius: 16px; background: rgba(20, 12, 28, 0.94); color: #f6ead0; text-align: center; font: 18px/1.3 Georgia, serif; touch-action: none; user-select: none; }
+      #board, #menu, #catch, #book, #atlas { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); z-index: 8; width: min(320px, 90vw); padding: 22px 16px 16px; border: 2px solid #f1d9a4; border-radius: 16px; background: rgba(20, 12, 28, 0.94); color: #f6ead0; text-align: center; font: 18px/1.3 Georgia, serif; touch-action: none; user-select: none; }
+      #book { width: min(420px, 94vw); max-height: 78vh; overflow: auto; }
+      #catch .meta, #book .meta { font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; color: #e6c27a; }
+      #catch .flavor { font-size: 15px; font-style: italic; opacity: 0.9; }
+      #catch .record { display: inline-block; margin-top: 6px; padding: 2px 8px; border-radius: 999px; background: #f1d9a4; color: #24160c; font-size: 13px; letter-spacing: 0.08em; }
+      #book .rowfish { display: flex; justify-content: space-between; gap: 8px; padding: 8px 4px; border-bottom: 1px solid rgba(241, 217, 164, 0.25); text-align: left; font-size: 15px; }
+      #book .rowfish.lost { opacity: 0.45; }
+      #book .rowfish b { font-weight: 600; }
+      #castbar, #tension { position: fixed; left: 50%; bottom: calc(max(22px, env(safe-area-inset-bottom)) + 168px); transform: translateX(-50%); z-index: 7; width: min(220px, 60vw); height: 14px; border-radius: 999px; border: 2px solid #f1d9a4; background: rgba(20, 12, 28, 0.7); overflow: hidden; }
+      #castbar i, #tension i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #7ee0ff, #f1d9a4); }
+      #tension i.hot { background: linear-gradient(90deg, #ffb15a, #e23b32); }
+      #lures { position: fixed; left: max(12px, env(safe-area-inset-left)); bottom: calc(max(22px, env(safe-area-inset-bottom)) + 210px); z-index: 7; display: flex; flex-direction: column; gap: 6px; }
+      #lures button, #bookBtn, #eve { pointer-events: auto; border-radius: 999px; border: 2px solid rgba(241, 217, 164, 0.7); background: rgba(20, 12, 36, 0.55); color: #f6ead0; font: 12px/1.1 Georgia, serif; letter-spacing: 0.04em; padding: 7px 10px; }
+      #lures button.on, #eve.on { background: #f1d9a4; color: #24160c; }
+      #bookBtn { position: fixed; left: max(12px, env(safe-area-inset-left)); top: calc(max(12px, env(safe-area-inset-top)) + 96px); z-index: 7; }
+      #eve { position: fixed; left: max(12px, env(safe-area-inset-left)); top: calc(max(12px, env(safe-area-inset-top)) + 138px); z-index: 7; }
       #atlas canvas { width: 100%; height: auto; touch-action: none; border-radius: 8px; background: #1c3a28; }
       #board button, #menu button, #catch button, #back, #menubtn, #reel { touch-action: none; }
       #board button, #menu button, #catch button { display: block; width: 100%; margin: 12px 0 0; min-height: 64px; padding: 14px; border-radius: 14px; border: 2px solid #f1d9a4; background: rgba(241, 217, 164, 0.16); color: #f6ead0; font: 22px Georgia, serif; }
@@ -308,7 +323,8 @@
     <div id="board" hidden><button id="boardX" type="button">×</button><p>Where to</p><button type="button" data-go="meadow">Meadow</button><button type="button" data-go="lake">Long Lake</button></div>
     <div id="menu" hidden><button id="menuX" type="button">×</button><p>Travel</p><button type="button" data-trip="hub">Ship</button><button type="button" data-trip="meadow">Meadow</button><button type="button" data-trip="lake">Long Lake</button><button type="button" id="openMap">Map</button></div>
     <div id="atlas" hidden><button id="mapX" type="button">×</button><p>Long Lake</p><canvas id="lakemap" width="560" height="720"></canvas><p class="note">Tap a marker or a place. Tap it again to clear the beam.</p></div>
-    <div id="catch" hidden><p>Caught</p><h2 id="catchName">Bluegill</h2><button id="catchOk" type="button">Nice</button></div>
+    <div id="catch" hidden><p class="meta" id="catchRare">Common</p><h2 id="catchName">Creek Trout</h2><p id="catchSize">28 cm</p><p class="flavor" id="catchFlavor"></p><p id="catchRecord" hidden class="record">New record</p><button id="catchOk" type="button">Keep</button></div>
+    <div id="book" hidden><button id="bookX" type="button">×</button><p>Long Lake Fish Book</p><p class="meta" id="bookCount">0 caught</p><div id="bookList"></div></div>
     <button id="gear" type="button" aria-label="Settings">⚙</button>
     <button id="discToggle" type="button">Disc</button>
     <div id="settings" hidden>
@@ -354,9 +370,18 @@
     </div>
     <button id="menubtn" type="button">Menu</button>
     <button id="back" type="button" hidden>Back</button>
-    <button id="reel" type="button" hidden>Reel</button>
-    <div id="fishcue" hidden>Hold to fish</div>
-    <button id="fish" type="button" hidden>Fish</button>
+    <button id="reel" type="button" hidden>Hook</button>
+    <div id="fishcue" hidden>Hold to cast</div>
+    <button id="fish" type="button" hidden>Cast</button>
+    <div id="castbar" hidden><i></i></div>
+    <div id="tension" hidden><i></i></div>
+    <div id="lures" hidden>
+      <button type="button" data-lure="bobber" class="on">Bobber</button>
+      <button type="button" data-lure="fly">Pine Fly</button>
+      <button type="button" data-lure="glow">Night Glow</button>
+    </div>
+    <button id="bookBtn" type="button" hidden>Book</button>
+    <button id="eve" type="button" hidden>Evening</button>
     <button id="dusk" type="button">Dusk</button>
     <button id="ar" type="button">AR</button>
     <div id="arGrade"></div>
