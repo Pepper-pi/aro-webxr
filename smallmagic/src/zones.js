@@ -309,8 +309,8 @@ export function createZones({ scene, world, walker, camera, air }) {
         if (warm) {
           const hsl = { h: 0, s: 0, l: 0 };
           color.getHSL(hsl);
-          const pale = hsl.l > 0.55 || hsl.s < 0.18;
-          color.lerp(new THREE.Color(pale ? '#d4894a' : '#c4844a'), pale ? 0.86 : 0.35);
+          if (hsl.l > 0.5 || hsl.s < 0.2) color.set('#b86a32');
+          else color.lerp(new THREE.Color('#a86838'), 0.45);
         }
         const basic = warm
           ? new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide })
@@ -705,7 +705,7 @@ export function createZones({ scene, world, walker, camera, air }) {
     if (title) title.textContent = species.name;
     if (size) size.textContent = `${cm} cm`;
     if (rare) rare.textContent = species.rarity;
-    if (flavor) flavor.textContent = species.flavor;
+    if (flavor) flavor.textContent = `${species.flavor} The board can count this catch.`;
     if (badge) badge.hidden = !record;
     if (catchEl) catchEl.hidden = false;
     onLand?.(species);
@@ -1109,6 +1109,14 @@ export function createZones({ scene, world, walker, camera, air }) {
   markDest();
   let hearts = 100;
   return {
+    toast(text) {
+      const el = document.getElementById('toast');
+      if (!el) return;
+      el.hidden = false;
+      el.textContent = text;
+      clearTimeout(el._t);
+      el._t = setTimeout(() => { el.hidden = true; }, 3200);
+    },
     get name() { return name; },
     get atLake() { return atLake; },
     buddyAt() { return buddyBody.visible ? buddyBody.position : null; },
@@ -1178,7 +1186,7 @@ export function createZones({ scene, world, walker, camera, air }) {
         }
         ids.push(b.n);
       }
-      return { ids, done: false, noted: new Set() };
+      return { ids, done: false, noted: new Set(), drops: [] };
     },
     waveAlive(wave) {
       const dropName = { boar: 'tusk', wolf: 'ruff', slime: 'gel', goblin: 'bead' };
@@ -1194,6 +1202,7 @@ export function createZones({ scene, world, walker, camera, air }) {
               const key = dropName[b.kind] || 'bead';
               bag[key] = (bag[key] || 0) + 1;
               localStorage.setItem('aro-beast-drops', JSON.stringify(bag));
+              wave.drops?.push(key);
             } catch { /* private mode */ }
           }
         } else left += 1;

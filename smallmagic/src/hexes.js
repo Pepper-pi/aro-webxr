@@ -507,6 +507,7 @@ export function createHexes(scene, world, camera, walker, zones) {
           const n = Number(localStorage.getItem('aro-herbs') || 0) + 1;
           localStorage.setItem('aro-herbs', String(n));
         } catch { /* private mode */ }
+        zones?.toast?.(`Herb kept · +${bonus ? 18 : 12} resonance`);
       }
     }
     for (const h of built) if (h !== here && h.wave?.done) h.waved = false;
@@ -520,8 +521,13 @@ export function createHexes(scene, world, camera, walker, zones) {
         here.wave.done = true;
         const have = xp[here.id] || 0;
         const t = tierOf(have);
-        if (t < 3) grant(here.id, Math.max(12, (t === 1 ? 40 : 110) - have));
-        else grant(here.id, 8);
+        const gained = t < 3 ? Math.max(12, (t === 1 ? 40 : 110) - have) : 8;
+        grant(here.id, gained);
+        const names = { tusk: 'Boar tusk', ruff: 'Wolf ruff', gel: 'Slime gel', bead: 'Goblin bead' };
+        const got = (here.wave.drops || []).map((k) => names[k] || k);
+        const rose = tierOf(xp[here.id] || 0) > t;
+        const loot = rose ? (here.theme === 'Lakeshore' ? 'Trout' : here.theme === 'Hearth' ? 'Lantern wick' : 'Herb') : '';
+        zones?.toast?.([`${here.name} clear`, `+${gained} resonance`, ...got, loot].filter(Boolean).join(' · '));
       }
     }
     if (here) {

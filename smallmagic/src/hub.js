@@ -287,6 +287,8 @@ export function createHub(hooks = {}) {
         } catch { /* private mode */ }
       }
       bump(need.who, 4, 16, 'proud');
+      const who = PEOPLE.find((p) => p.id === need.who);
+      hooks.toast?.(`${who?.name || 'Crew'} · +16 respect · +4 bond`);
       renderBoard();
       return;
     }
@@ -297,6 +299,8 @@ export function createHub(hooks = {}) {
     if (pin.get(data) < pin.need) return;
     data.done[key] = true;
     bump(pin.who, pin.rewardF, pin.rewardR, 'proud');
+    const person = PEOPLE.find((p) => p.id === pin.who);
+    hooks.toast?.(`${person?.name || 'Crew'} · +${pin.rewardR} respect · +${pin.rewardF} bond`);
     renderBoard();
   }
 

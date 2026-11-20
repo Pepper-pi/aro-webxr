@@ -269,7 +269,7 @@ export function createCastDisc(scene) {
      * First person: on the view, a little under the crosshair, sized to about a third of the screen.
      * Otherwise: upright at the caster's chest, a short step in front. Always face-on to the camera.
      */
-    update(dt, show, index, walker, camera, held, firstPerson, wrist, warm) {
+    update(dt, show, index, walker, camera, held, firstPerson, wrist, warm, hand) {
       if (held > 0.02) { armShown = held; armLinger = 0.28; }
       else armLinger = Math.max(0, armLinger - dt);
       const pose = held > 0.02 ? held : armShown * (armLinger / 0.28);
@@ -282,13 +282,17 @@ export function createCastDisc(scene) {
       up.setFromMatrixColumn(camera.matrixWorld, 1);
       const yaw = walker.yaw;
       const fx = Math.sin(yaw), fz = Math.cos(yaw);
-      if (firstPerson) {
-        const tanV = Math.tan((camera.fov * Math.PI) / 360);
-        const dist = (DIAM * innerHeight * 0.5) / (tanV * (innerWidth / 3));
-        const d = Math.min(2.0, Math.max(1.05, dist));
-        root.position.set(walker.feet.x + fx * d, walker.feet.y + 1.25, walker.feet.z + fz * d);
+      // AR and the camera hand hold a 33 cm wheel half a metre out, so the hole is fist-sized.
+      // In the world the same wheel is smaller, about the width of the chest.
+      const diam = hand ? 0.33 : 0.22;
+      const reach = hand ? 0.5 : (firstPerson ? 0.62 : 0.55);
+      root.scale.setScalar(diam / DIAM);
+      if (hand) {
+        camera.getWorldDirection(fwd);
+        root.position.copy(camera.position).addScaledVector(fwd, 0.5);
+        root.position.y -= 0.06;
       } else {
-        root.position.set(walker.feet.x + fx * 0.95, walker.feet.y + 1.28, walker.feet.z + fz * 0.95);
+        root.position.set(walker.feet.x + fx * reach, walker.feet.y + 1.22, walker.feet.z + fz * reach);
       }
       root.lookAt(camera.position);
       sparkT += dt;
@@ -313,7 +317,7 @@ export function createCastDisc(scene) {
       for (let i = 0; i < icons.length; i++) {
         const on = i === index;
         const mesh = icons[i];
-        mesh.scale.setScalar(on ? 1.28 : 1);
+        mesh.scale.setScalar(hand ? (on ? 2.5 : 2.05) : (on ? 1.28 : 1));
         if (mesh.material.map !== (on ? mesh.userData.hot : mesh.userData.cold)) mesh.material.map = on ? mesh.userData.hot : mesh.userData.cold;
       }
       if (named !== index) {
@@ -331,7 +335,10 @@ export function createCastDisc(scene) {
       screen.y = (-ndc.y * 0.5 + 0.5) * innerHeight;
       const dist = Math.max(0.35, camera.position.distanceTo(root.position));
       const fov = (camera.fov * Math.PI) / 180;
-      screen.r = ((DIAM * 0.5) / dist) / Math.tan(fov / 2) * (innerHeight * 0.5);
+      screen.r = ((diam * 0.5) / dist) / Math.tan(fov / 2) * (innerHeight * 0.5);
+      screen.hole = hand ? 0.46 : 0.36;
+      screen.grab = hand ? 1.45 : 1.2;
+      screen.hand = !!hand;
       screen.on = ndc.z < 1;
       const key = SPELLS[index]?.key;
       const fireOn = key === 'fire' || key === 'explosion';

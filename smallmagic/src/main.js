@@ -125,6 +125,7 @@ const hub = createHub({
     const board = document.getElementById('board');
     if (board) board.hidden = true;
   },
+  toast(text) { zones.toast(text); },
 });
 zones.onLand = () => { const shore = hexes.at(walker.feet.x, walker.feet.z); hexes.grant(shore?.id || 'shore', shore ? 16 : 8); };
 zones.seatHexes(hexes.list);
@@ -197,6 +198,17 @@ const spells = staff ? createSpells({ world, air, fx, fire, staff, beam, ruin, b
 const quest = createQuest({ walker, zones, spells });
 spellsBar.select(spells?.selected ?? 0);
 const discToggle = document.getElementById('discToggle');
+document.getElementById('discPrev')?.addEventListener('pointerup', (e) => { spells?.select((spells.selected || 0) - 1); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('discNext')?.addEventListener('pointerup', (e) => { spells?.select((spells.selected || 0) + 1); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('discCharge')?.addEventListener('pointerdown', (e) => { spells?.press(); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('discCharge')?.addEventListener('pointerup', (e) => { spells?.release(); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('discCharge')?.addEventListener('pointercancel', (e) => { spells?.release(); e.preventDefault(); });
+document.getElementById('discFire')?.addEventListener('pointerup', (e) => {
+  spells?.press();
+  setTimeout(() => spells?.release(), 40);
+  e.preventDefault();
+  e.stopPropagation();
+});
 discToggle?.addEventListener('pointerup', (e) => {
   discOn = !discOn;
   discToggle.textContent = discOn ? 'Disc' : 'List';
@@ -209,16 +221,17 @@ const discAt = (e) => {
   const s = castDisc?.screen;
   if (!s?.on) return { dx: 0, dy: 0, r: 1, R: 1, hit: false };
   const dx = e.clientX - s.x, dy = e.clientY - s.y, r = Math.hypot(dx, dy);
-  return { dx, dy, r, R: s.r, hit: r <= s.r * 1.15 };
+  return { dx, dy, r, R: s.r, hit: r <= s.r * (s.grab || 1.15), hole: s.hole || 0.38 };
 };
 addEventListener('pointerdown', (e) => {
   if (!discOn || kit !== 'mage' || !spells) return;
+  if (e.target.closest && e.target.closest('#discActs')) return;
   const at = discAt(e);
   if (!at.hit) return;
   e.preventDefault();
   e.stopPropagation();
   discX = e.clientX;
-  if (at.r > at.R * 0.38) {
+  if (at.r > at.R * at.hole) {
     discSpin = { a: Math.atan2(at.dy, at.dx), i: spells.selected };
   } else {
     discCharge = true;
@@ -541,7 +554,26 @@ function tick(dt) {
   zones.stickRod?.();
   const wheel = discOn && kit === 'mage' && !melee && !zones.rodOut && zones.name !== 'hub';
   const armCharge = (discCharge || spells?.cast?.holding) ? Math.max(0.14, spells?.cast?.charge || 0) : 0;
-  castDisc?.update(dt, wheel, spells?.selected ?? 0, walker, camera, armCharge, !chasing && !free, wristPoint(), ar.on);
+  const handDisc = !!(ar.on || settings.hands);
+  castDisc?.update(dt, wheel, spells?.selected ?? 0, walker, camera, armCharge, !chasing && !free, wristPoint(), ar.on, handDisc);
+  const acts = document.getElementById('discActs');
+  if (acts) {
+    const showActs = !!(wheel && castDisc?.ready && !handDisc);
+    acts.hidden = !showActs;
+    if (showActs && castDisc.screen?.on) {
+      const s = castDisc.screen;
+      const put = (id, x, y) => {
+        const b = document.getElementById(id);
+        if (!b) return;
+        b.style.left = `${x}px`;
+        b.style.top = `${y}px`;
+      };
+      put('discPrev', s.x - s.r * 1.55, s.y);
+      put('discNext', s.x + s.r * 1.55, s.y);
+      put('discCharge', s.x, s.y + s.r * 1.45);
+      put('discFire', s.x, s.y - s.r * 1.35);
+    }
+  }
   ar.update(dt, walker);
   hexes.update(dt);
   const spellBox = document.getElementById('spells');

@@ -71,6 +71,9 @@
       #hexcard .sheetHead, #home .sheetHead, #crew .sheetHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #140e1c; border-bottom: 1px solid rgba(241, 217, 164, 0.45); }
       #hexX, #homeClose, #crewClose { position: static; width: auto; min-height: 36px; margin: 0; padding: 6px 12px; }
       #hexbanner { position: fixed; left: 50%; top: 18%; transform: translateX(-50%); z-index: 15; padding: 8px 14px; border-radius: 999px; border: 1px solid #f1d9a4; background: rgba(16, 10, 24, 0.9); color: #fff6dc; font: 16px Georgia, serif; letter-spacing: 0.04em; }
+      #toast { position: fixed; left: 50%; top: 28%; transform: translateX(-50%); z-index: 16; max-width: min(420px, 86vw); padding: 12px 16px; border-radius: 14px; border: 2px solid #f1d9a4; background: rgba(28, 16, 12, 0.92); color: #fff6dc; font: 18px Georgia, serif; text-align: center; pointer-events: none; }
+      #discActs { position: fixed; inset: 0; z-index: 8; pointer-events: none; }
+      #discActs button { position: absolute; transform: translate(-50%, -50%); pointer-events: auto; min-width: 72px; min-height: 44px; border-radius: 999px; border: 2px solid #f1d9a4; background: rgba(20, 12, 28, 0.82); color: #fff6dc; font: 15px Georgia, serif; }
       #home, #crew { position: fixed; left: max(10px, env(safe-area-inset-left)); top: max(10px, env(safe-area-inset-top)); transform: none; z-index: 20; width: min(400px, 92vw); max-height: calc(100vh - 20px); overflow: hidden; display: flex; flex-direction: column; padding: 0; border: 2px solid #f1d9a4; border-radius: 16px; background: rgba(16, 10, 24, 0.9); color: #f6ead0; text-align: left; font: 15px/1.35 Georgia, serif; }
       #home[hidden], #crew[hidden] { display: none; }
       #home .sheetBody, #crew .sheetBody { overflow: auto; padding: 10px 12px 16px; }
@@ -380,6 +383,13 @@
       <button id="hexEnter" type="button">Enter Zone</button>
     </div>
     <div id="hexbanner" hidden></div>
+    <div id="toast" hidden></div>
+    <div id="discActs" hidden>
+      <button id="discPrev" type="button">Prev</button>
+      <button id="discNext" type="button">Next</button>
+      <button id="discCharge" type="button">Charge</button>
+      <button id="discFire" type="button">Fire</button>
+    </div>
     <button id="gear" type="button" aria-label="Settings">⚙</button>
     <button id="discToggle" type="button">Disc</button>
     <div id="settings" hidden>
