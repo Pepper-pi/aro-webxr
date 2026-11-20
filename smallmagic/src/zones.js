@@ -127,6 +127,24 @@ export function createZones({ scene, world, walker, camera, air }) {
   const lamp = new THREE.PointLight(0xffc56a, 1.4, 8);
   lamp.position.set(0, 2, 0.6);
   hub.add(lamp);
+  const friend = (tunic, x, z, yaw) => {
+    const g = new THREE.Group();
+    const cloth = mat(tunic);
+    const legs = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.42, 0.16), mat('#3a342c'));
+    legs.position.y = 0.28;
+    const shirt = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.42, 0.2), cloth);
+    shirt.position.y = 0.68;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), mat('#f0c2a0'));
+    head.position.y = 1.02;
+    g.add(legs, shirt, head);
+    g.position.set(x, 0, z);
+    g.rotation.y = yaw;
+    return g;
+  };
+  hub.add(friend('#c45a4a', -1.4, 1.2, 0.4));
+  hub.add(friend('#3d7a8c', 1.5, 0.4, -0.6));
+  hub.add(friend('#6a8f4a', -0.2, -0.8, 0.2));
+  hub.add(friend('#c9a15b', 0.8, 2.2, 2.4));
 
   const target = new THREE.Mesh(new THREE.RingGeometry(0.45, 0.58, 24), new THREE.MeshBasicMaterial({ color: 0xffe7a8, side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));
   target.rotation.x = -Math.PI / 2;

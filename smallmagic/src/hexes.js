@@ -281,6 +281,10 @@ export function createHexes(scene, world, camera, walker) {
         h.got = true;
         h.herb.visible = false;
         grant(h.id, 12);
+        try {
+          const n = Number(localStorage.getItem('aro-herbs') || 0) + 1;
+          localStorage.setItem('aro-herbs', String(n));
+        } catch { /* private mode */ }
       }
     }
     if (here) {

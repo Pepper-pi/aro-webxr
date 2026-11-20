@@ -69,6 +69,14 @@
       #hexcard button { margin-top: 10px; min-height: 48px; width: 100%; border-radius: 12px; border: 2px solid #f1d9a4; background: rgba(241, 217, 164, 0.2); color: #f6ead0; font: 18px Georgia, serif; }
       #hexX { position: absolute; right: 8px; top: 8px; width: 36px; min-height: 36px; }
       #hexbanner { position: fixed; left: 50%; top: 18%; transform: translateX(-50%); z-index: 15; padding: 8px 14px; border-radius: 999px; border: 1px solid #f1d9a4; background: rgba(16, 10, 24, 0.9); color: #fff6dc; font: 16px Georgia, serif; letter-spacing: 0.04em; }
+      #home, #crew { position: fixed; left: 50%; top: 48%; transform: translate(-50%, -50%); z-index: 20; width: min(420px, 94vw); max-height: 86vh; overflow: auto; padding: 16px 14px 14px; border: 2px solid #f1d9a4; border-radius: 16px; background: rgba(16, 10, 24, 0.98); color: #f6ead0; text-align: left; font: 15px/1.35 Georgia, serif; }
+      #home h2, #crew h2 { text-align: center; margin: 0 0 10px; }
+      #home .meta, #crew .meta { text-align: center; letter-spacing: 0.12em; text-transform: uppercase; color: #e6c27a; font-size: 12px; }
+      #home .pal, #crew .pin { border: 1px solid rgba(241, 217, 164, 0.4); border-radius: 12px; padding: 8px 10px; margin: 6px 0; background: rgba(241, 217, 164, 0.06); }
+      #home .pal.on { border-color: #f1d9a4; background: rgba(241, 217, 164, 0.16); }
+      #home button, #crew button { margin-top: 8px; min-height: 40px; border-radius: 12px; border: 2px solid #f1d9a4; background: rgba(241, 217, 164, 0.16); color: #f6ead0; font: 15px Georgia, serif; }
+      #home .meter, #crew .meter { height: 8px; border-radius: 999px; background: rgba(241, 217, 164, 0.15); overflow: hidden; margin-top: 4px; }
+      #home .meter i, #crew .meter i { display: block; height: 100%; background: linear-gradient(90deg, #7ee0c0, #f1d9a4); }
       #catch .meta, #book .meta { font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; color: #e6c27a; }
       #catch .flavor { font-size: 15px; font-style: italic; opacity: 0.9; }
       #catch .record { display: inline-block; margin-top: 6px; padding: 2px 8px; border-radius: 999px; background: #f1d9a4; color: #24160c; font-size: 13px; letter-spacing: 0.08em; }
@@ -329,7 +337,21 @@
     <div id="spells"></div>
     <div id="hint">WASD move &middot; Shift sprint &middot; Space jump &middot; Left button casts, hold for more<br>1 to 7 or the wheel changes spell &middot; P pauses &middot; H hides this</div>
     <div id="board" hidden><button id="boardX" type="button">×</button><p>Where to</p><button type="button" data-go="meadow">Meadow</button><button type="button" data-go="lake">Long Lake</button></div>
-    <div id="menu" hidden><button id="menuX" type="button">×</button><p>Travel</p><button type="button" data-trip="hub">Ship</button><button type="button" data-trip="meadow">Meadow</button><button type="button" data-trip="lake">Long Lake</button><button type="button" id="openMap">Map</button></div>
+    <div id="menu" hidden><button id="menuX" type="button">×</button><p>Travel</p><button type="button" id="openHome">Home</button><button type="button" id="openCrew">Command Board</button><button type="button" data-trip="hub">Ship</button><button type="button" data-trip="meadow">Field</button><button type="button" data-trip="lake">Long Lake</button><button type="button" id="openMap">Map</button><button type="button" id="openAR">AR</button></div>
+    <div id="home" hidden>
+      <p class="meta">Home hub</p>
+      <h2>The hearth</h2>
+      <div id="homeCrew"></div>
+      <div id="homeCard" hidden></div>
+      <button id="homeClose" type="button">Close</button>
+    </div>
+    <div id="crew" hidden>
+      <p class="meta" id="crewRank">Respect · New</p>
+      <h2>Command board</h2>
+      <div id="crewList"></div>
+      <button id="crewRefresh" type="button">Refresh board</button>
+      <button id="crewClose" type="button">Close</button>
+    </div>
     <div id="atlas" hidden><button id="mapX" type="button">×</button><p>Long Lake</p><canvas id="lakemap" width="560" height="720"></canvas><p class="note">Tap a marker or a place. Tap it again to clear the beam.</p></div>
     <div id="catch" hidden><p class="meta" id="catchRare">Common</p><h2 id="catchName">Creek Trout</h2><p id="catchSize">28 cm</p><p class="flavor" id="catchFlavor"></p><p id="catchRecord" hidden class="record">New record</p><button id="catchOk" type="button">Keep</button></div>
     <div id="book" hidden><button id="bookX" type="button">×</button><p>Long Lake Fish Book</p><p class="meta" id="bookCount">0 caught</p><div id="bookList"></div></div>
