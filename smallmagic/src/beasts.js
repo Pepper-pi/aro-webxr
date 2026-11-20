@@ -231,7 +231,7 @@ function fitMob(root, height) {
 // iOS Safari 17+ has createImageBitmap, so GLTFLoader decodes the embedded JPEG with
 // ImageBitmapLoader. That call passes colorSpaceConversion:'none', which WebKit rejects
 // (NotSupportedError). The rejection fails the whole GLB, and the stand-in shape stays.
-function patchWebKitImageBitmap() {
+export function patchWebKitImageBitmap() {
   if (typeof createImageBitmap !== 'function' || window.__aroBitmap) return;
   const ua = navigator.userAgent || '';
   const apple = /Safari\//.test(ua) && !/Chrom(e|ium)|CriOS|FxiOS|EdgiOS|Android/.test(ua);

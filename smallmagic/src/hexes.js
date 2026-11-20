@@ -274,7 +274,7 @@ export function createHexes(scene, world, camera, walker, zones) {
     beam.position.y = 2.1;
     beam.name = 'beam';
     const icon = lootTag('Herb');
-    icon.position.y = 2.6;
+    icon.position.set(1.25, 1.2, 0);
     g.add(box, lid, beam, icon);
     g.position.y = 1.35;
     g.scale.setScalar(1.7);

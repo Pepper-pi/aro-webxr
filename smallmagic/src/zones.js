@@ -1,6 +1,6 @@
 // The ship, the meadow, and Long Lake. All of it is drawn in code. Nothing here is a picture or a recording.
 import * as THREE from 'three';
-import { createBeasts, PACKS } from './beasts.js';
+import { createBeasts, PACKS, patchWebKitImageBitmap } from './beasts.js';
 import { TUNE } from './rider.js';
 import { buildVillage } from './cabins.js';
 
@@ -124,9 +124,6 @@ export function createZones({ scene, world, walker, camera, air }) {
   destTag.position.y = 0.7;
   hubRing.add(destTag);
   hub.add(hubRing);
-  const lamp = new THREE.PointLight(0xffc56a, 1.4, 8);
-  lamp.position.set(0, 2, 0.6);
-  hub.add(lamp);
   const friend = (tunic, x, z, yaw) => {
     const g = new THREE.Group();
     const cloth = mat(tunic);
@@ -141,26 +138,14 @@ export function createZones({ scene, world, walker, camera, air }) {
     g.rotation.y = yaw;
     return g;
   };
-  const fire = new THREE.Group();
-  fire.add(box(0.9, 0.18, 0.9, '#3a2418', -2.5, 0.1, -1.4));
-  fire.add(box(0.22, 0.5, 0.22, '#ff7a1c', -2.5, 0.45, -1.4));
-  fire.add(box(1.3, 0.22, 0.4, '#6a4328', -2.5, 0.16, -0.45));
-  const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.16, 0.28, 8), mat('#2a2420'));
-  pot.position.set(-1.35, 0.28, -1.5);
-  const stew = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.06, 8), mat('#c45a2a'));
-  stew.position.set(-1.35, 0.42, -1.5);
-  const table = new THREE.Group();
-  table.add(box(1.4, 0.08, 0.9, '#8a5a32', 2.1, 0.7, -1.2));
-  table.add(box(0.08, 0.7, 0.08, '#5c3a24', 1.6, 0.35, -0.9));
-  table.add(box(0.08, 0.7, 0.08, '#5c3a24', 2.6, 0.35, -1.5));
-  for (let i = 0; i < 3; i++) table.add(box(0.18, 0.01, 0.26, i === 1 ? '#f2efe4' : '#8c3a3a', 1.7 + i * 0.28, 0.75, -1.2));
-  const bed = new THREE.Group();
-  bed.add(box(1.5, 0.28, 2.2, '#8d4a3a', -3.5, 0.2, 3.4));
-  bed.add(box(0.55, 0.1, 0.36, '#f3e6d0', -3.5, 0.38, 2.5));
-  const trophy = new THREE.Group();
-  trophy.add(box(0.08, 1.5, 2.4, '#4a3428', 5.28, 1.45, -2.2));
-  for (let i = 0; i < 4; i++) trophy.add(box(0.04, 0.28, 0.5, '#e7c56a', 5.2, 1.2 + (i % 2) * 0.45, -2.9 + i * 0.45));
-  hub.add(fire, pot, stew, table, bed, trophy);
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.42, 6), new THREE.MeshBasicMaterial({ color: '#ffb15a', transparent: true, opacity: 0.9 }));
+  flame.position.set(-3.4, 0.55, -4.6);
+  const glow = new THREE.Mesh(new THREE.CircleGeometry(1.1, 16), new THREE.MeshBasicMaterial({ color: '#ff9a3c', transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide }));
+  glow.rotation.x = -Math.PI / 2;
+  glow.position.set(-3.4, 0.04, -4.2);
+  const plaques = new THREE.Group();
+  plaques.position.set(4.55, 0, -1.6);
+  hub.add(flame, glow, plaques);
   const emote = (text) => {
     const c = document.createElement('canvas');
     c.width = 128; c.height = 64;
@@ -176,10 +161,10 @@ export function createZones({ scene, world, walker, camera, air }) {
     return s;
   };
   const pals = [
-    { id: 'maren', name: 'Maren', color: '#c45a4a', home: [-1.6, 0, -0.5], yaw: 0.8, line: 'The fire is the good seat.' },
-    { id: 'sable', name: 'Sable', color: '#3d7a8c', home: [3.2, 0, -2.2], yaw: -1.2, line: 'Your fish are on the wall.' },
-    { id: 'bram', name: 'Bram', color: '#6a8f4a', home: [2.1, 0, 0.2], yaw: 2.4, line: 'One hand. No stakes.' },
-    { id: 'lumen', name: 'Lumen', color: '#c9a15b', home: [-1.2, 0, 2.4], yaw: -0.4, line: 'Rest if the day was long.' },
+    { id: 'maren', name: 'Maren', color: '#c45a4a', home: [-2.0, 0, -3.0], yaw: -0.4, line: 'The fire is the good seat.', file: 'maren' },
+    { id: 'sable', name: 'Sable', color: '#3d7a8c', home: [2.6, 0, -0.2], yaw: 1.4, line: 'Your fish are on the wall.', file: 'sable' },
+    { id: 'bram', name: 'Bram', color: '#6a8f4a', home: [1.2, 0, 1.2], yaw: 2.6, line: 'One hand. No stakes.', file: 'bram' },
+    { id: 'lumen', name: 'Lumen', color: '#c9a15b', home: [-1.8, 0, 2.2], yaw: -0.2, line: 'Rest if the day was long.', file: 'lumen' },
   ].map((p) => {
     const g = friend(p.color, p.home[0], p.home[2], p.yaw);
     const mark = emote('!');
@@ -194,11 +179,11 @@ export function createZones({ scene, world, walker, camera, air }) {
   buddyBody.visible = false;
   scene.add(buddyBody);
   const hearthSpots = [
-    { id: 'fire', name: 'Sit by the fire', x: -2.5, z: -0.45 },
-    { id: 'trophy', name: 'Fish trophies', x: 4.4, z: -2.2 },
-    { id: 'pot', name: 'Cook a meal', x: -1.35, z: -1.5 },
-    { id: 'table', name: 'Play a hand', x: 2.1, z: -1.2 },
-    { id: 'bed', name: 'Rest', x: -3.5, z: 3.4 },
+    { id: 'fire', name: 'Sit by the fire', x: -2.6, z: -3.5 },
+    { id: 'trophy', name: 'Fish trophies', x: 3.4, z: -1.6 },
+    { id: 'pot', name: 'Cook a meal', x: -2.2, z: -4.3 },
+    { id: 'table', name: 'Play a hand', x: 1.4, z: 0.4 },
+    { id: 'bed', name: 'Rest', x: -3.4, z: 2.4 },
   ];
   let buddy = null;
   let buddyT = 0;
@@ -219,7 +204,7 @@ export function createZones({ scene, world, walker, camera, air }) {
       buddy = who;
       const pal = pals.find((p) => p.id === who);
       if (pal) {
-        buddyBody.children[1].material.color.set(pal.color);
+        dressBuddy(pal);
         note(`${pal.name} comes with you.`);
       }
       buddyBody.position.copy(walker.feet);
@@ -227,7 +212,7 @@ export function createZones({ scene, world, walker, camera, air }) {
     }
     if (!nearSpot) return;
     if (nearSpot.id === 'fire') {
-      walker.place(-2.5, -0.5, 0.6);
+      walker.place(-2.6, -3.2, -0.2);
       note('You sit by the fire. The room goes quiet.');
     } else if (nearSpot.id === 'trophy') {
       showBook();
@@ -254,6 +239,158 @@ export function createZones({ scene, world, walker, camera, air }) {
       note('You rest. The day can start again.');
     }
   }
+  const hearthMixers = [];
+  const buddyTag = emote('Friend');
+  buddyTag.visible = false;
+  buddyTag.position.y = 2.25;
+  buddyTag.scale.set(1.3, 0.55, 1);
+  buddyBody.add(buddyTag);
+  const buddyRing = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.58, 28), new THREE.MeshBasicMaterial({ color: '#fff1c4', side: THREE.DoubleSide, transparent: true, opacity: 0.9, depthWrite: false }));
+  buddyRing.rotation.x = -Math.PI / 2;
+  buddyRing.position.y = 0.04;
+  buddyRing.visible = false;
+  buddyBody.add(buddyRing);
+  function fitModel(root, height) {
+    root.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(root);
+    const size = box.getSize(new THREE.Vector3());
+    const s = height / (size.y || 1);
+    root.scale.multiplyScalar(s);
+    root.updateMatrixWorld(true);
+    const fitted = new THREE.Box3().setFromObject(root);
+    root.position.y -= fitted.min.y;
+  }
+  function toBasic(root) {
+    root.traverse((o) => {
+      if (!o.isMesh) return;
+      const list = [].concat(o.material);
+      const next = list.map((m) => {
+        const basic = new THREE.MeshBasicMaterial({
+          map: m.map || null,
+          color: m.color ? m.color.clone() : new THREE.Color('#ffffff'),
+          transparent: !!m.transparent,
+          opacity: m.opacity ?? 1,
+          side: THREE.DoubleSide,
+        });
+        basic.name = m.name || '';
+        return basic;
+      });
+      o.material = next.length === 1 ? next[0] : next;
+      o.frustumCulled = false;
+    });
+  }
+  function tintCloth(root, hex) {
+    const dye = new THREE.Color(hex);
+    root.traverse((o) => {
+      if (!o.isMesh) return;
+      for (const m of [].concat(o.material)) {
+        if (/shirt|pants|cloth|kimono|apron|hat/i.test(m.name || '')) m.color.lerp(dye, 0.35);
+      }
+    });
+  }
+  function playIdle(gltf, model) {
+    const mixer = new THREE.AnimationMixer(model);
+    const clip = gltf.animations.find((a) => /idle/i.test(a.name)) || gltf.animations[0];
+    if (clip) mixer.clipAction(clip).play();
+    hearthMixers.push(mixer);
+  }
+  function stripBlocks(host) {
+    for (const child of [...host.children]) if (child.isMesh) host.remove(child);
+  }
+  let loadedPeople = null;
+  let dressBuddy = () => {};
+  let hearthReady = Promise.resolve(false);
+  function loadHearth() {
+    let done = () => {};
+    hearthReady = new Promise((resolve) => { done = resolve; });
+    (async () => {
+      patchWebKitImageBitmap();
+      const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+      const { clone } = await import('three/addons/utils/SkeletonUtils.js');
+      const loader = new GLTFLoader();
+      const file = (path) => loader.loadAsync(new URL(path, document.baseURI).href);
+      loadedPeople = {
+        maren: null, sable: null, bram: null, lumen: null, you: null,
+      };
+      const people = loadedPeople;
+      Object.assign(people, {
+        maren: await file('hearth/people/maren.glb'),
+        sable: await file('hearth/people/sable.glb'),
+        bram: await file('hearth/people/bram.glb'),
+        lumen: await file('hearth/people/lumen.glb'),
+        you: await file('hearth/people/you.glb'),
+      });
+      dressBuddy = (pal) => {
+        stripBlocks(buddyBody);
+        const gltf = loadedPeople[pal.file];
+        if (!gltf) return;
+        const model = clone(gltf.scene);
+        toBasic(model);
+        tintCloth(model, pal.color);
+        fitModel(model, 1.7);
+        buddyBody.add(model);
+        playIdle(gltf, model);
+        buddyTag.visible = true;
+        const canvas = buddyTag.material.map.image;
+        const g = canvas.getContext('2d');
+        g.clearRect(0, 0, canvas.width, canvas.height);
+        g.font = 'bold 36px Georgia';
+        g.fillStyle = '#fff6dc';
+        g.textAlign = 'center';
+        g.fillText(pal.name, canvas.width / 2, 46);
+        buddyTag.material.map.needsUpdate = true;
+        buddyRing.material.color.set(pal.color);
+      };
+      const furn = {};
+      for (const name of ['bed', 'chair', 'table', 'rug', 'shelves', 'stove', 'lamp']) {
+        furn[name] = await file(`hearth/furniture/${name}.glb`);
+      }
+      const put = (gltf, x, y, z, yaw, height) => {
+        const model = gltf.scene.clone(true);
+        toBasic(model);
+        fitModel(model, height);
+        model.position.x += x;
+        model.position.z += z;
+        model.position.y += y;
+        model.rotation.y = yaw;
+        hub.add(model);
+        return model;
+      };
+      put(furn.rug, 0.2, 0, -0.4, 0, 0.04);
+      put(furn.rug, -3.4, 0, 3.0, 0.2, 0.03);
+      put(furn.stove, -3.5, 0, -4.7, 0, 1.15);
+      put(furn.table, 1.5, 0, -0.8, 0.3, 0.75);
+      put(furn.chair, 0.7, 0, -0.5, 0.8, 0.9);
+      put(furn.chair, 2.2, 0, -1.3, -2.2, 0.9);
+      put(furn.bed, -3.6, 0, 3.3, Math.PI / 2, 0.7);
+      put(furn.shelves, 4.7, 0, -1.6, -Math.PI / 2, 1.7);
+      put(furn.lamp, -1.0, 0, -3.4, 0, 1.35);
+      const potMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.14, 0.22, 8), mat('#2a2420'));
+      potMesh.position.set(-2.5, 0.14, -4.15);
+      hub.add(potMesh);
+      for (const p of pals) {
+        const gltf = people[p.file];
+        if (!gltf) continue;
+        stripBlocks(p.g);
+        const model = clone(gltf.scene);
+        toBasic(model);
+        tintCloth(model, p.color);
+        fitModel(model, 1.65);
+        p.g.add(model);
+        playIdle(gltf, model);
+        p.mark.position.y = 1.85;
+      }
+      stripBlocks(you);
+      const youModel = clone(people.you.scene);
+      toBasic(youModel);
+      tintCloth(youModel, '#6a8fbf');
+      fitModel(youModel, 1.65);
+      you.add(youModel);
+      playIdle(people.you, youModel);
+      done(true);
+    })().catch((err) => { console.warn('hearth models', err); done(false); });
+  }
+  loadHearth();
   useBtn?.addEventListener('pointerup', (e) => { useHearth(); e.preventDefault(); e.stopPropagation(); });
   cardBox?.querySelectorAll('[data-card]').forEach((b) => b.addEventListener('pointerup', (e) => {
     const win = Math.random() < 0.5;
@@ -453,6 +590,26 @@ export function createZones({ scene, world, walker, camera, air }) {
   let biteLeft = 0;
   let dip = 0;
   const readBook = () => { try { return JSON.parse(localStorage.getItem(BOOK_KEY) || '{}'); } catch { return {}; } };
+  let trophyKey = '';
+  function refreshTrophies() {
+    const book = readBook();
+    const caught = SPECIES.filter((s) => (book[s.id]?.n || 0) > 0);
+    const key = caught.map((s) => s.id).join(',');
+    if (key === trophyKey) return;
+    trophyKey = key;
+    for (const child of [...plaques.children]) plaques.remove(child);
+    caught.forEach((s, i) => {
+      const col = i % 3;
+      const row = Math.floor(i / 3);
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.36, 0.05), mat('#e7c56a'));
+      plate.position.set(0, 1.85 - row * 0.48, -0.85 + col * 0.85);
+      const tag = emote(s.name.split(' ')[0]);
+      tag.visible = true;
+      tag.position.set(0, 1.85 - row * 0.48, -0.72 + col * 0.85);
+      tag.scale.set(1.05, 0.42, 1);
+      plaques.add(plate, tag);
+    });
+  }
   const writeBook = (data) => { try { localStorage.setItem(BOOK_KEY, JSON.stringify(data)); } catch { /* private mode */ } };
   function pickFish() {
     const rows = SPECIES.filter((s) => (!s.dusk || dusk) && (!s.lure || s.lure === lure));
@@ -943,6 +1100,7 @@ export function createZones({ scene, world, walker, camera, air }) {
     showBoard, enter,
     useHearth,
     get buddy() { return buddy; },
+    get hearthReady() { return hearthReady; },
     beginWave(hex, table, count, eliteChance) {
       const live = beasts.live().filter((b) => !b.dead && b.where === 'meadow');
       const used = new Set();
@@ -1119,8 +1277,12 @@ export function createZones({ scene, world, walker, camera, air }) {
       buddyBody.visible = !!(buddy && name === 'meadow' && !atLake);
       if (buddyBody.visible) {
         const pal = pals.find((p) => p.id === buddy);
-        const backX = walker.feet.x - Math.sin(walker.yaw) * 1.5;
-        const backZ = walker.feet.z - Math.cos(walker.yaw) * 1.5;
+        const fx = Math.sin(walker.yaw);
+        const fz = Math.cos(walker.yaw);
+        const backX = walker.feet.x + fx * 1.6 + fz * 1.35;
+        const backZ = walker.feet.z + fz * 1.6 - fx * 1.35;
+        buddyTag.visible = true;
+        buddyRing.visible = true;
         buddyBody.position.x += (backX - buddyBody.position.x) * Math.min(1, dt * 3);
         buddyBody.position.z += (backZ - buddyBody.position.z) * Math.min(1, dt * 3);
         buddyBody.position.y = world.ground(buddyBody.position.x, buddyBody.position.z);
@@ -1137,7 +1299,18 @@ export function createZones({ scene, world, walker, camera, air }) {
           const cap = 100;
           if (hearts < cap) hearts = Math.min(cap, hearts + dt * 2);
         }
-      } else if (buddySay) buddySay.hidden = true;
+      } else {
+        if (buddySay && name !== 'hub') buddySay.hidden = true;
+        buddyTag.visible = false;
+        buddyRing.visible = false;
+      }
+      for (const mixer of hearthMixers) mixer.update(dt);
+      if (name === 'hub') {
+        const flick = performance.now() * 0.001;
+        flame.scale.y = 0.85 + Math.sin(flick * 11) * 0.14 + Math.sin(flick * 23) * 0.06;
+        glow.material.opacity = 0.16 + Math.sin(flick * 9) * 0.08;
+        refreshTrophies();
+      }
       if (name === 'hub') {
         const time = performance.now() * 0.001;
         nearSpot = null;
