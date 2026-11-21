@@ -1678,7 +1678,9 @@ export function createBlade(onLaunch, bits = {}) {
     cuts.push({ mesh: gouge, x: strike.x, z: strike.z, r: step === 2 ? 2.3 : 1.35, life: step === 2 ? 2.6 : 0.85, max: step === 2 ? 2.6 : 0.85 });
     world.mark?.(strike.x, strike.z, step === 2 ? 1.6 : 0.8, 0, step === 2 ? 0.28 : 0.06);
     const beast = zones?.beasts?.().find((b) => !b.dead && Math.hypot(b.x - strike.x, b.z - strike.z) < 2.4);
-    if (beast) zones.hurt([{ x: beast.x, z: beast.z, r: 1.3, d: [8, 14, 26][step], k: 'arcane', bleed: step === 2 ? 3.2 : 0 }]);
+    let dmg = [8, 14, 26][step];
+    try { if ((JSON.parse(localStorage.getItem('aro-hub') || '{}').people?.bram?.fp || 0) >= 90) dmg = Math.round(dmg * 1.25); } catch { /* ordinary cut */ }
+    if (beast) zones.hurt([{ x: beast.x, z: beast.z, r: 1.3, d: dmg, k: 'arcane', bleed: step === 2 ? 3.2 : 0 }]);
     shots.push({ mesh: arc, v: aim.multiplyScalar(0), life: 0.55, max: 0.55, kind: 'arc', stuck: true, blew: true, chopped: true });
     say(step === 2 ? 'Heavy' : `Cut ${step + 1}`);
   }

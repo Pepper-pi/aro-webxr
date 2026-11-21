@@ -324,7 +324,7 @@ export function createCastDisc(scene) {
       const fx = Math.sin(yaw), fz = Math.cos(yaw);
       // AR and the camera hand hold a 33 cm wheel half a metre out, so the hole is fist-sized.
       // In the world the same wheel is smaller, about the width of the chest.
-      const diam = hand ? 0.33 : 0.22;
+      const diam = hand ? 0.36 : 0.22;
       const reach = hand ? 0.5 : (firstPerson ? 0.62 : 0.55);
       root.scale.setScalar(diam / DIAM);
       if (hand) {
@@ -363,7 +363,7 @@ export function createCastDisc(scene) {
         const a = i * (TAU / N) + shown;
         mesh.position.set(Math.sin(a) * iconReach, 0.07, Math.cos(a) * iconReach);
         mesh.quaternion.copy(upright);
-        mesh.scale.setScalar(hand ? (on ? 2.5 : 2.05) : (on ? 1.35 : 1));
+        mesh.scale.setScalar(hand ? (on ? 2.85 : 2.35) : (on ? 1.35 : 1));
         if (mesh.material.map !== (on ? mesh.userData.hot : mesh.userData.cold)) mesh.material.map = on ? mesh.userData.hot : mesh.userData.cold;
       }
       if (named !== index) {

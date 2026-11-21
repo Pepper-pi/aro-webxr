@@ -701,6 +701,7 @@ export function createZones({ scene, world, walker, camera, air }) {
       let w = s.w;
       if (lure === 'fly' && s.max < 26) w += 3;
       if (dusk && s.dusk) w += 3;
+      try { if (s.rarity === 'Rare' && (JSON.parse(localStorage.getItem('aro-hub') || '{}').people?.maren?.fp || 0) >= 90) w += 4; } catch { /* ordinary odds */ }
       if (lure === 'glow' && s.dusk && dusk) w += 5;
       try { if (s.dusk && (JSON.parse(localStorage.getItem('aro-hub') || '{}').people?.sable?.fp || 0) >= 90) w += 3; } catch { /* ordinary odds */ }
       for (let i = 0; i < w; i++) bag.push(s);

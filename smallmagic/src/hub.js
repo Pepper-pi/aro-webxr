@@ -159,10 +159,17 @@ export function createHub(hooks = {}) {
     const box = document.getElementById('homeCrew');
     const card = document.getElementById('homeCard');
     if (!box) return;
+    const perkLine = {
+      maren: 'Perk: rarer fish at Long Lake.',
+      bram: 'Perk: harder Warrior cuts.',
+      sable: 'Perk: more evening fish.',
+      lumen: 'Perk: faster spell gather.',
+    };
     box.innerHTML = PEOPLE.map((p) => {
       const row = data.people[p.id] || { fp: 0, mood: 'calm' };
       const m = meter(row.fp);
-      return `<button type="button" class="pal${who === p.id ? ' on' : ''}" data-who="${p.id}"><b style="color:${p.color}">${p.name}</b><br>${p.role} · ${row.mood} · ${m.label}<div class="meter"><i style="width:${m.width}%"></i></div></button>`;
+      const perk = row.fp >= 90 ? (perkLine[p.id] || '') : '';
+      return `<button type="button" class="pal${who === p.id ? ' on' : ''}" data-who="${p.id}"><b style="color:${p.color}">${p.name}</b><br>${p.role} · ${row.mood} · ${m.label}<div class="meter"><i style="width:${m.width}%"></i></div>${perk ? `<br>${perk}` : ''}</button>`;
     }).join('');
     box.querySelectorAll('[data-who]').forEach((b) => b.addEventListener('pointerup', (e) => {
       who = b.getAttribute('data-who');
@@ -175,7 +182,13 @@ export function createHub(hooks = {}) {
     const p = PEOPLE.find((x) => x.id === who);
     const row = data.people[p.id];
     const m = meter(row.fp);
-    const perk = row.fp >= 90 ? 'Perk: a little extra luck in their craft.' : row.fp >= 50 ? 'A longer note is unlocked.' : 'Keep talking. Notes open as you grow close.';
+    const perks = {
+      maren: 'Perk: rare fish come easier at Long Lake.',
+      bram: 'Perk: Warrior cuts hit harder.',
+      sable: 'Perk: evening fish rise more often.',
+      lumen: 'Perk: spells gather faster.',
+    };
+    const perk = row.fp >= 90 ? (perks[p.id] || 'Perk: a little extra luck in their craft.') : row.fp >= 50 ? 'A longer note is unlocked.' : 'Keep talking. Notes open as you grow close.';
     card.hidden = false;
     card.innerHTML = `<p class="meta">${p.role}</p><h2>${p.name}</h2><p>Mood ${row.mood} · ${m.label} · ${row.fp} bond</p><div class="meter"><i style="width:${m.width}%"></i></div><p>${p.lines[Math.min(p.lines.length - 1, row.notes || 0)]}</p><p>${perk}</p><p>${lastLine}</p>${p.chats.map((c, i) => `<button type="button" data-chat="${i}">${c.q}</button>`).join('')}<button type="button" data-act="tea">Share tea at the hearth</button><button type="button" data-act="stroll">Evening stroll by Long Lake</button><button type="button" data-act="spar">Friendly spar</button><button type="button" data-act="gift">Give a found gift</button>`;
     card.querySelectorAll('[data-chat]').forEach((b) => b.addEventListener('pointerup', (e) => {

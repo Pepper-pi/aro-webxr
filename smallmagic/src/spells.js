@@ -98,8 +98,11 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     bolts.push({ p: tip.clone(), v: v.clone(), life: 0, big, ice: true });
     kick = 0.35 + 0.4 * big; wait(0.3);
   }
+  function host() {
+    return api.placeAr && world.root.parent ? world.root.parent : world.root;
+  }
   function rememberIce(g, life, cols) {
-    world.root.add(g);
+    host().add(g);
     ices.push({ g, life, max: life, cols });
     world.iceCols = ices.flatMap((i) => i.cols);
   }
@@ -257,17 +260,28 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     mesh.rotation.x = -Math.PI / 2;
     const y = world.ground(x, z) + 0.06;
     mesh.position.set(x, y, z);
-    world.root.add(mesh);
+    host().add(mesh);
+    let pad = null;
+    if (api.placeAr && key === 'fire') {
+      pad = new THREE.Mesh(
+        new THREE.CircleGeometry(spec[2] * scale * 0.86, 28),
+        new THREE.MeshBasicMaterial({ color: '#2a140c', transparent: true, opacity: 0.94, side: THREE.DoubleSide, depthWrite: false }),
+      );
+      pad.rotation.x = -Math.PI / 2;
+      pad.position.set(x, y - 0.02, z);
+      mesh.material.color.set('#ff7a2a');
+      host().add(pad);
+    }
     const embers = [];
     if (key === 'fire') {
       for (let i = 0; i < 7; i++) {
         const e = new THREE.Mesh(new THREE.SphereGeometry(0.055, 5, 4), new THREE.MeshBasicMaterial({ color: i % 2 ? '#ffb15a' : '#ff6a1a', transparent: true, opacity: 0.95 }));
         e.position.set(x + (Math.random() - 0.5) * 1.4, y + 0.08, z + (Math.random() - 0.5) * 1.4);
-        world.root.add(e);
+        host().add(e);
         embers.push(e);
       }
     }
-    brands.push({ mesh, embers, life: spec[1], max: spec[1] });
+    brands.push({ mesh, embers, pad, life: spec[1], max: spec[1] });
   }
   const api = {
     get selected() { return selected; }, select,
@@ -275,7 +289,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     press() { down = true; }, release() { down = false; },
     cancel() { down = false; hold = 0; },
     refresh() { cooldown = 0; },
-    from: null, hideMark: false,
+    from: null, hideMark: false, placeAr: false,
     get busy() { return bolts.length + gusts.length; },
     get ice() { return ices.map((i) => ({ life: +i.life.toFixed(2), cols: i.cols.length })); },
     marks,
@@ -292,6 +306,16 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
       // (a block of the ruin may stand nearer than the ground or a tree)
       const block = ruin ? ruin.ray(camera.position, dir, hit.dist) : null;
       if (block !== null) { hit.point.copy(camera.position).addScaledVector(dir, block); hit.dist = block; hit.ground = hit.water = hit.none = false; hit.tree = null; }
+      if (api.placeAr) {
+        const px = walker.feet.x + Math.sin(walker.yaw) * 2.3;
+        const pz = walker.feet.z + Math.cos(walker.yaw) * 2.3;
+        hit.point.set(px, Math.max(world.ground(px, pz), world.water), pz);
+        hit.dist = 2.3;
+        hit.ground = true;
+        hit.none = false;
+        hit.tree = null;
+        hit.water = hit.point.y <= world.water + 0.05;
+      }
       cooldown = Math.max(0, cooldown - dt);
       let power = 1, circle = 0, seal = 0, target = null;
       if (down && cooldown <= 0) hold += dt;
@@ -305,7 +329,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
           flat.set(dir.x, 0, dir.z).normalize();
           // (looking up at it, at the sky, leaves it where it is)
           const p = leash && hit.none ? tmp.copy(twister.base) : hit.none || hit.tree ? tmp.copy(camera.position).addScaledVector(flat, hit.tree ? hit.dist : 40) : tmp.copy(hit.point);
-          if (!leash && Math.hypot(p.x - camera.position.x, p.z - camera.position.z) < 16) { p.x = camera.position.x + flat.x * 16; p.z = camera.position.z + flat.z * 16; }
+          if (!api.placeAr && !leash && Math.hypot(p.x - camera.position.x, p.z - camera.position.z) < 16) { p.x = camera.position.x + flat.x * 16; p.z = camera.position.z + flat.z * 16; }
           p.y = Math.max(world.ground(p.x, p.z), world.water);
           if (!leash) { leash = true; twister.begin(p); }
           if (twister.steer(p, dt)) { twister.release(); leash = false; wait(2.5); }
@@ -576,10 +600,13 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
         b.life -= dt;
         const fade = Math.max(0, b.life / b.max);
         b.mesh.material.opacity = fade * 0.82;
+        if (b.pad) b.pad.material.opacity = fade * 0.94;
         b.embers.forEach((e, n) => { e.material.opacity = fade; e.position.y += dt * 0.12; e.position.x += Math.sin((b.max - b.life) * 3 + n) * dt * 0.04; });
         if (b.life <= 0) {
-          world.root.remove(b.mesh); b.mesh.geometry.dispose(); b.mesh.material.dispose();
-          b.embers.forEach((e) => { world.root.remove(e); e.geometry.dispose(); e.material.dispose(); });
+          const drop = (m) => { m.parent?.remove(m); m.geometry.dispose(); m.material.dispose(); };
+          drop(b.mesh);
+          if (b.pad) drop(b.pad);
+          b.embers.forEach(drop);
           brands.splice(i, 1);
         }
       }

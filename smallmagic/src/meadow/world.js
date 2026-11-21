@@ -621,6 +621,11 @@ export async function createWorld({ air, scene, say, turn }) {
   lamp.shadow.normalBias = 0.05;
   lamp.shadow.radius = 1.4;
   scene.add(lamp, lamp.target);
+  // A warm edge on characters, from the side the sun does not face. Painted surfaces
+  // ignore this lamp; skinned figures and the walker's clothes take it.
+  const warmRim = new THREE.DirectionalLight('#ffb07a', 1.55);
+  warmRim.position.set(90, 42, 110);
+  scene.add(warmRim);
 
   const [sx, sz] = WAY[0];
   return Object.assign(world_, {

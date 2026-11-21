@@ -23,10 +23,10 @@ export function createAir() {
   const uniforms = {
     uNow: { value: 0 },
     uSun: { value: SUN.clone() },
-    uSunCol: { value: lin('#fff0d2', 1.22) },
-    uSkyCol: { value: lin('#7c92ff', 0.72) },
-    uHaze: { value: lin('#8fbdf6') },
-    uHazeSun: { value: lin('#e9e2d2') },
+    uSunCol: { value: lin('#ffe6c0', 1.16) },
+    uSkyCol: { value: lin('#9eb0ea', 0.55) },
+    uHaze: { value: lin('#c9b6e0') },
+    uHazeSun: { value: lin('#f3ddc0') },
     uAirK: { value: 0.0044 },
     uWind: { value: new THREE.Vector4(0.86, 0.5, 0.55, 0) },
     uPush: { value: [new THREE.Vector4(0, 0, 1, 0), new THREE.Vector4(0, 0, 1, 0), new THREE.Vector4(0, 0, 1, 0), new THREE.Vector4(0, 0, 1, 0)] },
@@ -37,7 +37,7 @@ export function createAir() {
     uSeal: { value: new THREE.Vector4(0, 0, 1, 0) }, uSealCol: { value: new THREE.Vector3(1, 1, 1) }, uSealSides: { value: 3 },
     uMap: { value: new THREE.Vector4(MAP.x0, MAP.z0, 1 / MAP.size, MAP.size) },
     // the meadow's greens: fresh, yellow, straw, lush
-    uG1: { value: lin('#56b23a') }, uG2: { value: lin('#8cc63a') }, uG3: { value: lin('#cfd058') }, uG4: { value: lin('#2a8c46') },
+    uG1: { value: lin('#6cb84a') }, uG2: { value: lin('#b4c85a') }, uG3: { value: lin('#e0c878') }, uG4: { value: lin('#3d9a58') },
     uEarth: { value: lin('#d4a468') }, uSand: { value: lin('#d9c896') }, uAsh: { value: lin('#2a2622') }, uFrost: { value: lin('#dff2ff') },
   };
   // (the parts of trees: 512 of them at most, three rows: rest, now, turn)
@@ -91,7 +91,10 @@ vec3 lamps(vec3 world) {
   return s;
 }
 // a thing's colour under so much sun (0 to 1) and so much open sky (0 to 1)
-vec3 lit(vec3 albedo, float sun, float sky) { return albedo * (uSunCol * sun + uSkyCol * (0.42 + 0.58 * sky)); }
+vec3 lit(vec3 albedo, float sun, float sky) {
+  float wrap = sun * 0.88 + 0.12;
+  return albedo * (uSunCol * wrap + uSkyCol * (0.48 + 0.45 * sky));
+}
 `;
 
 export const GROUND = /* glsl */ `

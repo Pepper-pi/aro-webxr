@@ -158,7 +158,13 @@ function wristPoint() {
   return wrist.applyMatrix4(camera.matrixWorld);
 }
 document.getElementById('ar')?.addEventListener('pointerup', (e) => {
-  ar.set(!ar.on, walker, renderer);
+  // Both calls have to start inside this tap. iPhone Safari drops the camera and the
+  // tilt permission if either waits for the other.
+  const next = !ar.on;
+  if (next && typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission().catch(() => 'denied');
+  }
+  ar.set(next, walker, renderer);
   if (ar.on) import('./handtrack.js').then((m) => m.startHandTrack(() => {})).catch(() => {});
   e.preventDefault();
   e.stopPropagation();
@@ -576,6 +582,7 @@ function tick(dt) {
   if (inp.any) sound?.wake();
   walker.update(dt, planted ? { ...inp, move: { x: 0, y: 0 }, jump: false, sprint: false } : inp);
   if (free) { camera.position.copy(free.position); camera.lookAt(free.target); } else walker.look(camera);
+  if (ar.on && !free) { camera.rotateX(ar.gyro.pitch); camera.rotateZ(-ar.gyro.roll); }
   const bladeClose = settings.class === 'blade' && blade.drawn && blade.pad;
   const inHub = zones.name === 'hub';
   const wantChase = !free && !bladeClose && (inHub || (settings.class === 'mage' ? settings.viewBack : (settings.viewBack || walker.speed > 1.15)));
@@ -638,6 +645,7 @@ function tick(dt) {
   summoner?.update(dt, summonerOn);
   const armCharge = (discCharge || spells?.cast?.holding) ? Math.max(0.14, spells?.cast?.charge || 0) : 0;
   const handDisc = !!(ar.on || settings.hands);
+  if (spells) spells.placeAr = !!ar.on;
   castDisc?.update(dt, wheel, spells?.selected ?? 0, walker, camera, armCharge, !chasing && !free, wristPoint(), ar.on, handDisc);
   const acts = document.getElementById('discActs');
   if (acts) {

@@ -54,7 +54,7 @@ export function createPage(renderer) {
         // --- glow ---
         vec3 glow = vec3(0.0);
         for (int i = 2; i <= 6; i++) glow += max(textureLod(tDrawn, vUv, float(i)).rgb - 0.95, 0.0) * (i < 4 ? 0.14 : 0.22);
-        c += glow * (0.55 + 0.3 * uHeat) * (1.0 + 0.5 * uPaint);
+        c += glow * (0.7 + 0.4 * uHeat) * (1.0 + 0.85 * uPaint);
         // the hole itself: nothing; with the last light that gets round it as a thin bright ring at its edge
         if (hback > 0.5) {
           float hpx = 1.5 / uSize.y, ho = (hl - uHoleB.x * 1.07) / (uHoleB.x * 0.04 + hpx);
@@ -88,8 +88,10 @@ export function createPage(renderer) {
           c = uInk > 0.0 ? vec3(k) : vec3(1.0 - k);
         } else c = mix(c, vec3(1.0, 0.97, 0.9), uWhite);
         if (uPaint > 0.5) {
-          c = vec3(c.r * 1.16 + 0.04, c.g * 1.02, c.b * 0.76);
-          c = mix(c, floor(c * 7.0) / 7.0, 0.38);
+          c = vec3(c.r * 1.06 + 0.045, c.g * 0.98 + 0.03, c.b * 0.86 + 0.02);
+          c = mix(c, floor(c * 11.0) / 11.0, 0.2);
+          float edge = smoothstep(0.0012, 0.009, abs(textureLod(tDepth, vUv, 0.0).r - textureLod(tDepth, vUv + vec2(2.0 / uSize.x, 1.5 / uSize.y), 0.0).r));
+          c += vec3(1.0, 0.74, 0.42) * edge * 0.38;
         }
         c *= 1.0 - (0.3 + 0.25 * uDoom + 0.22 * uPaint) * pow(length(vUv - 0.5) * 1.25, 2.4);
         outC = vec4(c, 1.0);
