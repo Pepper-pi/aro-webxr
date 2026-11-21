@@ -542,6 +542,12 @@ export function createHexes(scene, world, camera, walker, zones) {
       here.waved = true;
       const t = tier(here);
       here.wave = zones.beginWave(here, FIGHT[here.id], t + 1, t === 1 ? 0.1 : t === 2 ? 0.35 : 0.6);
+      if (watch) {
+        for (const kind of FIGHT[here.id]) {
+          const rolled = watch.roll('beast', { ...watch.context(here.id), hex: here.id });
+          watch.sight(kind, { where: here.id, tier: rolled.tier, shimmer: rolled.shimmer, drop: t > 1 });
+        }
+      }
     }
     if (here?.wave && !here.wave.done && zones?.waveAlive) {
       if (zones.waveAlive(here.wave) === 0 && here.wave.ids.length) {
@@ -618,6 +624,7 @@ export function createHexes(scene, world, camera, walker, zones) {
   }
 
   let mapFrame = null;
+  let watch = null;
   function hit(sx, sy) {
     if (!mapFrame) return null;
     const { cx, cz, span, W, H } = mapFrame;
@@ -635,5 +642,6 @@ export function createHexes(scene, world, camera, walker, zones) {
   return {
     list: built, at, tier, grant, paint, enter, update, close, hit,
     root: ROOT,
+    set watch(v) { watch = v; },
   };
 }

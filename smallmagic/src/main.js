@@ -11,6 +11,8 @@ import { createStaff } from './staff.js';
 import { createCastDisc } from './castdisc.js';
 import { createAR } from './ar.js';
 import { createWander } from './wander.js';
+import { createLiving } from './living.js';
+import { createWeather } from './weather.js';
 import { createHexes } from './hexes.js';
 import { createHub } from './hub.js';
 import { tracked } from './handtrack.js';
@@ -121,11 +123,15 @@ scene.add(flames.mesh);
 const fire = createFire({ world, air, fx, flames });
 const zones = createZones({ scene, world, walker, camera, air });
 const ar = createAR(scene, camera, world, zones);
+const living = createLiving({ zones });
+const street = createWeather(scene, world);
 const wander = createWander({
   scene, world, zones, sound,
+  living,
   leave() { ar.set(false, walker, renderer); zones.enter('meadow'); },
 });
 const hexes = createHexes(scene, world, camera, walker, zones);
+hexes.watch = living;
 if (q.get('bond') === 'trusted') zones.setHearts(120);
 const hub = createHub({
   visit() {
@@ -135,6 +141,7 @@ const hub = createHub({
     if (board) board.hidden = true;
   },
   toast(text) { zones.toast(text); },
+  living,
 });
 zones.onLand = () => { const shore = hexes.at(walker.feet.x, walker.feet.z); hexes.grant(shore?.id || 'shore', shore ? 16 : 8); };
 zones.seatHexes(hexes.list);
@@ -310,6 +317,7 @@ if (sound && !capture) {
 }
 
 if (sound && spells) spells.hear = (what, o) => sound.cue(what, o);
+if (sound) living.hear = () => sound.chime();
 
 // The one clock. Everything that moves is a function of it; `pace` is how fast it runs (1 as a rule).
 const clock = { pace: 1 };
@@ -673,6 +681,8 @@ function tick(dt) {
   }
   ar.update(dt, walker);
   wander.update(dt, walker, camera, ar.on);
+  street.sky = living.weather;
+  street.update(dt, walker, ar.on || zones.name === 'hub');
   hexes.update(dt);
   const spellBox = document.getElementById('spells');
   if (spellBox) spellBox.hidden = !!(previewOn || zones.name === 'hub' || zones.rodOut || (wheel && castDisc?.ready));
@@ -753,7 +763,7 @@ function tick(dt) {
 
 // (the measuring tools were written for a figure seen from behind: these are the same handles on one seen from within)
 const head = new THREE.Vector3();
-const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar, wander, hexes, hub, ranger, warden, alchemist,
+const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar, wander, living, street, hexes, hub, ranger, warden, alchemist,
   THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, arms, blade, gun, summoner, tune: TUNE, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
   player: walker,
   follow: { get yaw() { return walker.yaw; }, set yaw(v) { walker.yaw = v; }, get pitch() { return walker.pitch; }, set pitch(v) { walker.pitch = v; }, want: 0, distance: 0, pivot: new THREE.Vector3() },

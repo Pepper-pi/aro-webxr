@@ -1,0 +1,25 @@
+{
+  "title": "ARO living bestiary",
+  "note": "Player progress lives in localStorage under aro-bestiary. This file is the shape an AI helper can read. The species catalog is species.json. Entries grow: first sight records name and tier; later sights unlock drops, rare drops, best time/weather/season, then a vanity and a pet.",
+  "book": {
+    "version": 1,
+    "seen": {
+      "fox": {
+        "id": "fox",
+        "name": "Fern fox",
+        "kind": "beast",
+        "tier": "uncommon",
+        "seen": 1,
+        "first": "2026-11-21",
+        "where": ["glen"],
+        "drops": [],
+        "rareDrops": [],
+        "best": null,
+        "vanity": null,
+        "pet": null,
+        "known": { "drop": false, "rare": false, "best": false, "vanity": false, "pet": false },
+        "notes": ["First seen at dusk, in fog."]
+      }
+    }
+  }
+}

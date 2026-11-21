@@ -1,0 +1,43 @@
+{
+  "givers": {
+    "maren": { "name": "Maren", "personality": "warm", "specialty": "herbalist" },
+    "sable": { "name": "Sable", "personality": "dry", "specialty": "fisher" },
+    "bram": { "name": "Bram", "personality": "plain", "specialty": "raider" },
+    "lumen": { "name": "Lumen", "personality": "bright", "specialty": "trader" }
+  },
+  "mannerisms": {
+    "warm": ["warms both hands on the mug", "smooths the hearth rug with a boot", "sets an extra cup without asking"],
+    "dry": ["squints at the water", "rewinds the line once", "does not look up from the reel"],
+    "plain": ["taps the board twice", "checks the edge of the hex", "stands with arms folded"],
+    "bright": ["turns a coin of light over", "leans in as if sharing a secret", "writes in the margin and smiles"]
+  },
+  "needs": [
+    { "id": "herb", "item": "herb", "ask": "A moss sprig from a hex would settle the kettle.", "weather": ["clear", "rain", "fog", "wind"], "specialty": "herbalist" },
+    { "id": "trout", "item": "trout", "ask": "One creek trout, if the lake is willing.", "weather": ["clear", "wind"], "specialty": "fisher" },
+    { "id": "eel", "item": "eel", "ask": "A violet eel, only if the water is already glowing.", "weather": ["fog", "clear"], "specialty": "fisher" },
+    { "id": "tusk", "item": "tusk", "ask": "A boar tusk. Blunt is fine. I am not decorating.", "weather": ["clear", "wind"], "specialty": "raider" },
+    { "id": "wick", "item": "wick", "ask": "A lantern wick. The short one burns too fast.", "weather": ["fog", "clear", "wind"], "specialty": "trader" },
+    { "id": "oilcloth", "item": "herb", "ask": "Anything dry from under the trees. The rain found the lintel.", "weather": ["rain"], "specialty": "herbalist" },
+    { "id": "petal", "item": "herb", "ask": "A rain petal, if the puddles brought one up.", "weather": ["rain"], "specialty": "herbalist" },
+    { "id": "lantern", "item": "eel", "ask": "A dusk fish. Fog like this, they rise.", "weather": ["fog"], "specialty": "fisher" },
+    { "id": "ribbon", "item": "tusk", "ask": "Something that holds in a wind. A wrap, a tusk, a pin.", "weather": ["wind"], "specialty": "raider" },
+    { "id": "bun", "item": "wick", "ask": "A wick or a bun for the pop-up. Whichever you pass first.", "weather": ["clear"], "specialty": "trader" }
+  ],
+  "weatherLines": {
+    "clear": ["The day is open.", "Nothing in the sky but light."],
+    "rain": ["The rain is soft and not done.", "Puddles are already keeping people."],
+    "fog": ["The fog sits on the reeds.", "You can hear the path better than see it."],
+    "wind": ["The wind wants every loose hat.", "Even the awnings are thinking about it."]
+  },
+  "timeLines": {
+    "day": "Daylight is enough.",
+    "dusk": "Dusk makes it easier, if you can wait.",
+    "night": "After dark it shows itself."
+  },
+  "closings": {
+    "warm": ["I'll have the kettle on.", "Come back warm."],
+    "dry": ["No rush. Fish keep their own hours.", "Bring it if it comes."],
+    "plain": ["That is the ask.", "One thing. Then the board can rest."],
+    "bright": ["I left a margin for whatever you find.", "Surprise me, within reason."]
+  }
+}

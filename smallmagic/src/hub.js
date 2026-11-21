@@ -274,7 +274,17 @@ export function createHub(hooks = {}) {
     const needDone = !!data.done[`need:${need.until}`];
     const pins = pickBoard(data.boardSeed);
     const randomPin = `<div class="pin"><b>${need.title}</b><br>${needPerson.name} · ${need.note}<br>${Math.min(1, haveNeed)}/1 · ${clock} left · +10 respect · bonus +6<br>${needDone ? 'Turned in.' : `<button type="button" data-turn="random" ${needReady ? '' : 'disabled'}>${needReady ? 'Turn in' : 'In progress'}</button>`}</div>`;
-    list.innerHTML = randomPin + pins.map((pin) => {
+    const living = hooks.living;
+    let today = '';
+    if (living) {
+      const ctx = living.context();
+      const quest = living.issueQuest();
+      const aid = living.help(quest.item);
+      const stalls = living.stalls();
+      const net = living.roster();
+      today = `<div class="pin"><b>${ctx.weather} · ${ctx.season} · ${ctx.time}</b><br>${quest.line}${aid ? `<br>${aid.line}` : ''}<br>${stalls.map((s) => s.line).join('<br>')}<br>${net.map((n) => n.line).join(' · ')}</div>`;
+    }
+    list.innerHTML = today + randomPin + pins.map((pin) => {
       const person = PEOPLE.find((p) => p.id === pin.who);
       const have = Math.min(pin.need, pin.get(data));
       const ready = have >= pin.need && !data.done[`${data.boardSeed}:${pin.id}`];
@@ -328,6 +338,23 @@ export function createHub(hooks = {}) {
     hideQuest(true);
     renderHome();
   }
+  function openBook() {
+    const sheet = document.getElementById('bestiary');
+    const list = document.getElementById('bestiaryList');
+    const raw = document.getElementById('bestiaryJson');
+    if (!sheet || !hooks.living) return;
+    document.getElementById('crew').hidden = true;
+    document.getElementById('home').hidden = true;
+    sheet.hidden = false;
+    const data = hooks.living.book();
+    const rows = Object.values(data.seen || {});
+    if (list) {
+      list.innerHTML = rows.length
+        ? rows.map((e) => `<p><b>${e.name}</b> · ${e.tier} · seen ${e.seen}<br>${(e.notes || []).join(' ')}${e.vanity ? `<br>Vanity · ${e.vanity}` : ''}${e.pet ? `<br>Pet · ${e.pet}` : ''}</p>`).join('')
+        : '<p>Nothing seen yet. The book opens when something does.</p>';
+    }
+    if (raw) raw.textContent = JSON.stringify(data, null, 2);
+  }
   function openBoard() {
     data = state();
     document.getElementById('menu') && (document.getElementById('menu').hidden = true);
@@ -341,6 +368,8 @@ export function createHub(hooks = {}) {
   function closeAll() {
     document.getElementById('home').hidden = true;
     document.getElementById('crew').hidden = true;
+    const book = document.getElementById('bestiary');
+    if (book) book.hidden = true;
     hideQuest(false);
   }
 
@@ -355,6 +384,12 @@ export function createHub(hooks = {}) {
   document.getElementById('openCrew')?.addEventListener('pointerup', (e) => { openBoard(); e.preventDefault(); e.stopPropagation(); });
   document.getElementById('homeClose')?.addEventListener('pointerup', (e) => { closeAll(); e.preventDefault(); e.stopPropagation(); });
   document.getElementById('crewClose')?.addEventListener('pointerup', (e) => { closeAll(); e.preventDefault(); e.stopPropagation(); });
+  document.getElementById('openBook')?.addEventListener('pointerup', (e) => { openBook(); e.preventDefault(); e.stopPropagation(); });
+  document.getElementById('bookClose')?.addEventListener('pointerup', (e) => {
+    document.getElementById('bestiary').hidden = true;
+    e.preventDefault();
+    e.stopPropagation();
+  });
   document.getElementById('crewRefresh')?.addEventListener('pointerup', (e) => {
     data.boardSeed += 1;
     persist();
@@ -363,5 +398,5 @@ export function createHub(hooks = {}) {
     e.stopPropagation();
   });
 
-  return { openHome, openBoard, reply, act, turnIn, closeAll, get who() { return who; }, set who(v) { who = v; }, get lastLine() { return lastLine; }, people: PEOPLE };
+  return { openHome, openBoard, openBook, reply, act, turnIn, closeAll, get who() { return who; }, set who(v) { who = v; }, get lastLine() { return lastLine; }, people: PEOPLE };
 }

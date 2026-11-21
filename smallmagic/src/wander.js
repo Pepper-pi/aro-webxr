@@ -253,7 +253,7 @@ function shadeMesh() {
 
 const MAKERS = { deer: deerMesh, fox: foxMesh, chest: chestMesh, herb: herbMesh, friend: friendMesh, shade: shadeMesh };
 
-export function createWander({ scene, world, zones, sound, leave }) {
+export function createWander({ scene, world, zones, sound, leave, living }) {
   const root = new THREE.Group();
   root.name = 'ar-wander';
   root.visible = false;
@@ -391,7 +391,9 @@ export function createWander({ scene, world, zones, sound, leave }) {
       passBtn.hidden = false;
       meetBtn.hidden = false;
     }
-    try { sound?.chime?.(); } catch { /* the bed can be quiet */ }
+    if (spec.shimmer) {
+      try { sound?.chime?.(); } catch { /* the bed can be quiet */ }
+    }
   }
   function hideFind() {
     if (active) finds[active].visible = false;
@@ -399,13 +401,32 @@ export function createWander({ scene, world, zones, sound, leave }) {
     if (passBtn) passBtn.hidden = true;
     if (meetBtn) meetBtn.hidden = true;
   }
-  function show(id) {
-    const spec = FINDS.find((f) => f.id === id) || FINDS[0];
+  function shimmerOf(mesh, on) {
+    let ring = mesh.getObjectByName('shimmer');
+    if (!ring && on) {
+      ring = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.03, 6, 20), new THREE.MeshBasicMaterial({ color: '#fff6c8', transparent: true, opacity: 0.88, depthWrite: false }));
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.06;
+      ring.name = 'shimmer';
+      mesh.add(ring);
+    }
+    if (ring) ring.visible = !!on;
+  }
+  function show(id, tier) {
+    const spec = { ...(FINDS.find((f) => f.id === id) || FINDS[0]) };
+    const mapped = living?.findId?.[spec.id] || spec.id;
+    const cat = living?.species?.[mapped];
+    const rolled = tier || cat?.tier || 'common';
+    spec.shimmer = ['rare', 'epic', 'mythic'].includes(rolled);
+    spec.tier = rolled;
+    if (spec.shimmer) spec.text = `${spec.text} A ${rolled} shimmer.`;
     hideFind();
     active = spec.id;
     activeLife = spec.fight ? 14 : 9;
     finds[spec.id].visible = true;
     finds[spec.id].scale.setScalar(spec.id === 'deer' || spec.id === 'friend' ? 1.65 : spec.id === 'fox' ? 1.8 : 1);
+    shimmerOf(finds[spec.id], spec.shimmer);
+    if (living) living.sight(mapped, { where: 'meadow', shimmer: spec.shimmer, ctx: living.context('meadow') });
     note(spec);
   }
   function placeFind(walker) {
@@ -577,14 +598,22 @@ export function createWander({ scene, world, zones, sound, leave }) {
 
     if (metres >= nextAt && !active) {
       nextAt = metres + 80 + Math.random() * 40;
-      const bag = FINDS.filter((f) => !f.fight || entries.length % 5 === 4);
-      show(bag[Math.floor(Math.random() * bag.length)].id);
+      if (living) {
+        const rolled = living.roll('find', living.context('meadow'));
+        const mesh = { 'spirit-deer': 'deer', 'spirit-fox': 'fox', 'warm-chest': 'chest', moonherb: 'herb', 'cloaked-traveler': 'friend', puddleimp: 'fox', glowwisp: 'deer', lanternmoth: 'friend' }[rolled.id] || 'deer';
+        show(mesh, rolled.tier);
+      } else {
+        const bag = FINDS.filter((f) => !f.fight || entries.length % 5 === 4);
+        show(bag[Math.floor(Math.random() * bag.length)].id);
+      }
     }
     if (active) {
       activeLife -= dt;
       placeFind(walker);
       const mesh = finds[active];
       mesh.position.y += Math.sin(t * 1.4) * dt * 0.15;
+      const ring = mesh.getObjectByName('shimmer');
+      if (ring?.visible) ring.scale.setScalar(0.9 + Math.sin(t * 3) * 0.08);
       if (!FINDS.find((f) => f.id === active)?.fight && activeLife <= 0) hideFind();
       if (FINDS.find((f) => f.id === active)?.fight && activeLife <= 0) hideFind();
     }

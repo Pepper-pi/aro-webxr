@@ -1,0 +1,14 @@
+{
+  "specialties": {
+    "fisher": { "label": "Fisher", "helps": ["trout", "eel", "lantern", "glowfin"], "line": "keeps a creel ready for what you are fishing" },
+    "herbalist": { "label": "Herbalist", "helps": ["herb", "sprig", "petal", "oilcloth"], "line": "dries a sprig before you ask" },
+    "raider": { "label": "Raider", "helps": ["tusk", "ruff", "bead", "gel", "ribbon"], "line": "walks the hex you keep returning to" },
+    "trader": { "label": "Trader", "helps": ["wick", "bun", "oilcloth", "ribbon"], "line": "sets one aside from today's stall" }
+  },
+  "starts": {
+    "maren": "herbalist",
+    "sable": "fisher",
+    "bram": "raider",
+    "lumen": "trader"
+  }
+}
