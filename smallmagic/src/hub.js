@@ -238,6 +238,7 @@ export function createHub(hooks = {}) {
         try { localStorage.setItem('aro-herbs', String(herbN - 1)); } catch { /* ignore */ }
       }
       bump(p.id, 12, 6, 'touched');
+      hooks.mind?.remember(p.id, 'You gave a found gift.');
       p && (data.people[p.id].hangs += 1);
       persist();
       lastLine = `${p.name} takes the gift. +12 friendship, +6 respect.`;
@@ -246,6 +247,7 @@ export function createHub(hooks = {}) {
     }
     const word = kind === 'tea' ? 'The tea is shared. The room goes quiet in a good way.' : kind === 'stroll' ? 'You walk the long way by the water and talk little.' : 'A short spar. Neither of you is showing off.';
     data.people[p.id].hangs += 1;
+    hooks.mind?.remember(p.id, kind === 'tea' ? 'You shared tea at the hearth.' : kind === 'spar' ? 'You sparred, kindly.' : 'You walked the lake together.');
     bump(p.id, kind === 'spar' ? 4 : 8, kind === 'spar' ? 7 : 4, kind === 'spar' ? 'keen' : 'cozy');
     lastLine = `${word} +friendship, +respect.`;
     renderHome();

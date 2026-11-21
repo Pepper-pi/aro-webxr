@@ -1,6 +1,7 @@
 // The ship, the meadow, and Long Lake. All of it is drawn in code. Nothing here is a picture or a recording.
 import * as THREE from 'three';
 import { createBeasts, PACKS, patchWebKitImageBitmap } from './beasts.js';
+import { createHearthShell } from './hearthroom.js';
 import { TUNE } from './rider.js';
 import { buildVillage } from './cabins.js';
 
@@ -106,14 +107,9 @@ export function createZones({ scene, world, walker, camera, air }) {
   const priorBlock = world.blockers;
   const blockFeet = (f) => { priorBlock?.(f); village.block(f); };
   hub.add(sky('#3a2a1c', '#c4a07a'));
-  hub.add(box(11, 0.14, 14, '#a67c52', 0, -0.07, 0));
-  hub.add(box(11, 2.6, 0.16, '#6b4a32', 0, 1.3, 6.9));
-  hub.add(box(0.16, 2.6, 14, '#7a5538', -5.5, 1.3, 0));
-  hub.add(box(0.16, 2.6, 14, '#7a5538', 5.5, 1.3, 0));
-  hub.add(box(11, 2.6, 0.16, '#5c4030', 0, 1.3, -6.9));
-  hub.add(box(11, 0.12, 14, '#4a3428', 0, 2.6, 0));
-  hub.add(box(1.6, 0.08, 0.8, '#c4a574', 2.4, 0.74, 1.2));
-  hub.add(box(2.4, 2.5, 0.08, '#e7d3a8', 0, 1.35, 6.72));
+  const shell = createHearthShell();
+  hub.add(shell.root);
+  let roomWeather = 'clear';
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.7), new THREE.MeshBasicMaterial({ map: boardTexture() }));
   screen.position.set(0, 1.35, 6.8);
   screen.scale.set(1.2, 1.2, 1);
@@ -139,48 +135,7 @@ export function createZones({ scene, world, walker, camera, air }) {
     g.rotation.y = yaw;
     return g;
   };
-  const hearth = new THREE.Group();
-  hearth.position.set(-3.55, 0, -4.75);
-  const stone = (w, h, d, color, x, y, z) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), lit(color));
-    m.position.set(x, y, z);
-    return m;
-  };
-  hearth.add(
-    stone(2.05, 0.28, 1.05, '#6d5646', 0, 0.14, 0.22),
-    stone(1.85, 1.25, 0.28, '#4a3428', 0, 0.95, -0.22),
-    stone(0.26, 1.2, 0.62, '#5c4334', -0.86, 0.9, 0.08),
-    stone(0.26, 1.2, 0.62, '#5c4334', 0.86, 0.9, 0.08),
-    stone(2.15, 0.18, 0.5, '#3a2a22', 0, 1.58, 0.02),
-    stone(0.12, 0.42, 0.12, '#2a2018', -0.42, 0.42, 0.18),
-    stone(0.12, 0.42, 0.12, '#2a2018', 0.42, 0.42, 0.18),
-  );
-  const flameMat = (color, opacity) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending });
-  const flames = [0.22, 0.15, 0.08].map((r, i) => {
-    const f = new THREE.Mesh(new THREE.ConeGeometry(r, 0.55 - i * 0.1, 7), flameMat(i === 2 ? '#fff1c4' : i === 1 ? '#ffb15a' : '#ff6a1a', 0.75 - i * 0.08));
-    f.position.set(0, 0.7 + i * 0.12, 0.48);
-    hearth.add(f);
-    return f;
-  });
-  const embers = [];
-  for (let i = 0; i < 10; i++) {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.028, 5, 4), flameMat('#ffc56a', 0.9));
-    e.userData.p = i / 10;
-    e.userData.x = (i - 4.5) * 0.06;
-    hearth.add(e);
-    embers.push(e);
-  }
-  const glow = new THREE.Mesh(new THREE.CircleGeometry(1.15, 18), new THREE.MeshBasicMaterial({ color: '#ff9a3c', transparent: true, opacity: 0.34, depthWrite: false, side: THREE.DoubleSide }));
-  glow.rotation.x = -Math.PI / 2;
-  glow.position.set(0, 0.03, 0.35);
-  hearth.add(glow);
-  const roomLight = new THREE.HemisphereLight('#ffe6c8', '#6a4030', 0.95);
-  const fillLight = new THREE.AmbientLight('#ffd0a6', 0.42);
-  const fireLight = new THREE.PointLight('#ff7a2a', 8, 11, 2);
-  fireLight.position.set(-3.55, 1.15, -4.2);
-  const sideLight = new THREE.PointLight('#ffc48a', 3.2, 10, 2);
-  sideLight.position.set(1.2, 1.7, -0.4);
-  hub.add(hearth, roomLight, fillLight, fireLight, sideLight);
+  let nearId = null;
   const plaques = new THREE.Group();
   plaques.position.set(5.28, 0, -1.35);
   plaques.rotation.y = -Math.PI / 2;
@@ -1286,6 +1241,8 @@ export function createZones({ scene, world, walker, camera, air }) {
     get dusk() { return dusk; },
     get fishZoom() { return fishZoom; },
     setDusk,
+    set roomWeather(v) { roomWeather = v || 'clear'; },
+    get nearFriend() { return nearId; },
     showBook,
     stickRod() {
       if (!hold.visible) return;
@@ -1558,17 +1515,8 @@ export function createZones({ scene, world, walker, camera, air }) {
       for (const mixer of hearthMixers) mixer.update(dt);
       if (name === 'hub') {
         const flick = performance.now() * 0.001;
-        flames.forEach((f, i) => {
-          f.scale.y = 0.78 + Math.sin(flick * (9 + i * 4)) * 0.22 + Math.sin(flick * 21) * 0.06;
-          f.scale.x = f.scale.z = 0.9 + Math.sin(flick * (7 + i)) * 0.16;
-        });
-        embers.forEach((e) => {
-          const u = (flick * 0.42 + e.userData.p) % 1;
-          e.position.set(e.userData.x + Math.sin(flick * 3 + e.userData.p * 6) * 0.04, 0.4 + u * 1.15, 0.16);
-          e.material.opacity = (1 - u) * 0.9;
-        });
-        glow.material.opacity = 0.22 + Math.sin(flick * 9) * 0.1;
-        fireLight.intensity = 7 + Math.sin(flick * 11) * 1.6 + Math.sin(flick * 23) * 0.8;
+        shell.flicker(flick);
+        shell.paintWindow(dusk, roomWeather);
         refreshTrophies();
       }
       if (name === 'hub') {
@@ -1580,6 +1528,7 @@ export function createZones({ scene, world, walker, camera, air }) {
           if (d < best) { best = d; nearSpot = s; }
         }
         let nearPal = null;
+        nearId = null;
         for (const p of pals) {
           const home = p.home;
           const bob = Math.sin(time * 1.6 + home[0]) * 0.03;
@@ -1588,6 +1537,7 @@ export function createZones({ scene, world, walker, camera, air }) {
             p.g.lookAt(walker.feet.x, 0, walker.feet.z);
             p.mark.visible = true;
             nearPal = p;
+            nearId = p.id;
           } else {
             p.g.position.x += (home[0] - p.g.position.x) * 0.05;
             p.g.position.z += (home[2] - p.g.position.z) * 0.05;

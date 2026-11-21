@@ -66,6 +66,7 @@ function dayRoll() {
 export function createAppeal(scene, world) {
   const springs = [];
   const poses = [];
+  const locks = [];
   let quality = 1;
   let pending = 6;
   const tmp = new THREE.Vector3();
@@ -94,48 +95,51 @@ export function createAppeal(scene, world) {
     });
     if (quality > 0) toonize(model);
     const count = quality > 0 ? 3 : 2;
-    const anchor = head || model;
-    anchor.updateWorldMatrix(true, true);
-    anchor.getWorldScale(tmp);
-    const inv = 1 / Math.max(0.02, tmp.y);
+    const follow = (bone) => {
+      const g = new THREE.Group();
+      scene.add(g);
+      locks.push({ g, bone });
+      return g;
+    };
+    const hair = follow(head || model);
     for (let i = 0; i < count; i++) {
-      const strand = new THREE.Mesh(new THREE.PlaneGeometry(0.045, 0.14), clothMat(look.hair));
+      const strand = new THREE.Mesh(new THREE.PlaneGeometry(0.035, 0.1), clothMat(look.hair));
       strand.userData.appealPart = true;
-      strand.geometry.translate(0, -0.07, 0);
-      strand.position.set((i - (count - 1) / 2) * 0.04 * inv, 0.12 * inv, -0.03 * inv);
-      strand.scale.setScalar(inv);
-      anchor.add(strand);
-      spring(strand, 'x', 0.35, 11);
+      strand.geometry.translate(0, -0.05, 0);
+      strand.position.set((i - (count - 1) / 2) * 0.04, 0.16, 0.05);
+      hair.add(strand);
+      spring(strand, 'x', 0.2, 11);
     }
     if (hips && quality > 0) {
-      hips.getWorldScale(tmp);
-      const hi = 1 / Math.max(0.02, tmp.y);
+      const skirt = follow(hips);
       for (let i = 0; i < 4; i++) {
-        const hem = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.12), clothMat(look.hem));
+        const hem = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.09), clothMat(look.hem));
         hem.userData.appealPart = true;
-        hem.geometry.translate(0, -0.08, 0);
-        const a = -0.6 + i * 0.4;
-        hem.position.set(Math.sin(a) * 0.16 * hi, 0.02 * hi, Math.cos(a) * 0.1 * hi);
-        hem.scale.setScalar(hi);
-        hips.add(hem);
-        spring(hem, 'x', 0.15, 8);
+        hem.geometry.translate(0, -0.045, 0);
+        const a = -0.5 + i * 0.35;
+        hem.position.set(Math.sin(a) * 0.12, 0.02, Math.cos(a) * 0.06);
+        skirt.add(hem);
+        spring(hem, 'x', 0.12, 8);
       }
-      const charm = new THREE.Mesh(new THREE.OctahedronGeometry(0.035, 0), clothMat(look.charm));
+      const charm = new THREE.Mesh(new THREE.OctahedronGeometry(0.025, 0), clothMat(look.charm));
       charm.userData.appealPart = true;
-      charm.position.set(0.12 * hi, 0.2 * hi, 0.08 * hi);
-      charm.scale.setScalar(hi);
-      hips.add(charm);
+      charm.position.set(0.1, 0.2, 0.05);
+      skirt.add(charm);
       spring(charm, 'z', 0, 14);
     }
     if (head && quality > 0) {
-      head.getWorldScale(tmp);
-      const hi = 1 / Math.max(0.02, tmp.y);
+      const face = follow(head);
       for (const side of [-1, 1]) {
-        const eye = new THREE.Mesh(new THREE.CircleGeometry(0.012, 8), new THREE.MeshBasicMaterial({ color: '#fffaf4' }));
+        const eye = new THREE.Mesh(new THREE.CircleGeometry(0.018, 12), new THREE.MeshBasicMaterial({ color: '#fffaf6', transparent: true, opacity: 0.95, depthWrite: false }));
         eye.userData.appealPart = true;
-        eye.position.set(side * 0.035 * hi, 0.06 * hi, 0.09 * hi);
-        eye.scale.setScalar(hi);
-        head.add(eye);
+        eye.position.set(side * 0.035, 0.04, -0.09);
+        const light = new THREE.Mesh(new THREE.CircleGeometry(0.006, 8), new THREE.MeshBasicMaterial({ color: '#ffffff' }));
+        light.position.set(-0.005, 0.005, 0.002);
+        eye.add(light);
+        const blush = new THREE.Mesh(new THREE.CircleGeometry(0.022, 10), new THREE.MeshBasicMaterial({ color: '#e7a090', transparent: true, opacity: 0.4, depthWrite: false }));
+        blush.userData.appealPart = true;
+        blush.position.set(side * 0.055, -0.01, -0.085);
+        face.add(eye, blush);
       }
     }
     if (neck) poses.push({ bone: neck, phase: look.phase });
@@ -188,6 +192,10 @@ export function createAppeal(scene, world) {
   function update(dt) {
     if (quality <= 0) return;
     const t = performance.now() * 0.001;
+    for (const lock of locks) {
+      lock.bone.getWorldPosition(lock.g.position);
+      lock.bone.getWorldQuaternion(lock.g.quaternion);
+    }
     for (const row of springs) {
       row.obj.getWorldPosition(tmp);
       const kick = (tmp.y - row.last.y) * 6 + Math.sin(t * 1.7 + row.loose) * 0.08;

@@ -15,6 +15,7 @@ import { createLiving } from './living.js';
 import { createWeather } from './weather.js';
 import { createDuel } from './petduel.js';
 import { createAppeal } from './appeal.js';
+import { createMind } from './hearthmind.js';
 import { createHexes } from './hexes.js';
 import { createHub } from './hub.js';
 import { tracked } from './handtrack.js';
@@ -126,6 +127,7 @@ const fire = createFire({ world, air, fx, flames });
 const zones = createZones({ scene, world, walker, camera, air });
 const ar = createAR(scene, camera, world, zones);
 const appeal = createAppeal(scene, world);
+const mind = createMind();
 if (phone) { appeal.quality = 0; post.grade = 0; }
 const living = createLiving({ zones });
 const street = createWeather(scene, world);
@@ -148,6 +150,7 @@ const hub = createHub({
   },
   toast(text) { zones.toast(text); },
   living,
+  mind,
 });
 zones.onLand = () => { const shore = hexes.at(walker.feet.x, walker.feet.z); hexes.grant(shore?.id || 'shore', shore ? 16 : 8); };
 zones.seatHexes(hexes.list);
@@ -542,7 +545,7 @@ const warden = createWarden({ scene, camera, world, zones, walker });
 const alchemist = createAlchemist({ scene, camera, world, zones, walker });
 const summoner = createSummoner({ scene, camera, world, zones, walker });
 camera.layers.enable(9);
-let padCast = false, forceDraw = false, chaseDist = 0;
+let padCast = false, forceDraw = false, chaseDist = 0, greetWho = '';
 let free = null;
 let shaking = 0;
 const blastAt = new THREE.Vector3();
@@ -620,6 +623,27 @@ function tick(dt) {
   appeal.scan(scene);
   appeal.update(dt);
   post.dusk = !!zones.dusk;
+  if (zones.name === 'hub') {
+    zones.roomWeather = living.weather;
+    const who = zones.nearFriend;
+    const card = document.getElementById('hearthGreet');
+    if (who && who !== greetWho && walker.speed < 0.4) {
+      greetWho = who;
+      const names = { maren: 'Maren', sable: 'Sable', bram: 'Bram', lumen: 'Lumen' };
+      const ctx = { name: names[who] || who, weather: living.weather, dusk: zones.dusk };
+      mind.talk(who, '', ctx).then((line) => {
+        if (greetWho !== who || !card) return;
+        const nameEl = document.getElementById('greetName');
+        const lineEl = document.getElementById('greetLine');
+        if (nameEl) nameEl.textContent = `${ctx.name} · ${mind.mood(who)}`;
+        if (lineEl) lineEl.textContent = line;
+        card.hidden = false;
+      });
+    } else if (!who && card) {
+      greetWho = '';
+      card.hidden = true;
+    }
+  }
   quest?.update();
   if (inp.any) sound?.wake();
   walker.update(dt, planted ? { ...inp, move: { x: 0, y: 0 }, jump: false, sprint: false } : inp);
@@ -794,7 +818,7 @@ function tick(dt) {
 
 // (the measuring tools were written for a figure seen from behind: these are the same handles on one seen from within)
 const head = new THREE.Vector3();
-const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar, wander, living, street, duel, appeal, hexes, hub, ranger, warden, alchemist,
+const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar, wander, living, street, duel, appeal, mind, hexes, hub, ranger, warden, alchemist,
   THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, arms, blade, gun, summoner, tune: TUNE, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
   player: walker,
   follow: { get yaw() { return walker.yaw; }, set yaw(v) { walker.yaw = v; }, get pitch() { return walker.pitch; }, set pitch(v) { walker.pitch = v; }, want: 0, distance: 0, pivot: new THREE.Vector3() },
