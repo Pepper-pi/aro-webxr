@@ -124,7 +124,7 @@ lap('ruin');
 const flames = createFlames(air);
 scene.add(flames.mesh);
 const fire = createFire({ world, air, fx, flames });
-const zones = createZones({ scene, world, walker, camera, air });
+const zones = createZones({ scene, world, walker, camera, air, detail: phone ? 'low' : 'high' });
 const ar = createAR(scene, camera, world, zones);
 const appeal = createAppeal(scene, world);
 const mind = createMind();
@@ -425,6 +425,7 @@ settingsEl?.querySelectorAll('[data-gfx]').forEach((b) => b.addEventListener('po
   renderer.shadowMap.type = low || phone ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
   appeal.quality = !low;
   post.grade = !low;
+  zones.setDetail(low || phone);
   fitView();
   e.preventDefault(); e.stopPropagation();
 }));
@@ -619,7 +620,7 @@ function tick(dt) {
     sip: settings.class === 'alchemist' && alchemist.hot > 0,
     onParry: () => blade.parry(),
   });
-  zones.update(dt);
+  zones.update(dt, { mood: mind.mood('maren') });
   appeal.scan(scene);
   appeal.update(dt);
   post.dusk = !!zones.dusk;

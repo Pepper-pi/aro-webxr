@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { createBeasts, PACKS, patchWebKitImageBitmap } from './beasts.js';
 import { createHearthShell } from './hearthroom.js';
+import { createMaren } from './maren.js';
 import { TUNE } from './rider.js';
 import { buildVillage } from './cabins.js';
 
@@ -89,7 +90,7 @@ function numeral(text, color) {
   s.center.set(0.5, 0.2);
   return s;
 }
-export function createZones({ scene, world, walker, camera, air }) {
+export function createZones({ scene, world, walker, camera, air, detail = 'high' }) {
   const saved = { home: world.home, edge: world.edge, colliders: world.colliders, walk: world.walk, blockers: world.blockers };
   const meadowRing = ring(0x9ee7ff);
   meadowRing.position.set(PLOT[0], world.ground(PLOT[0], PLOT[1]) + 0.2, PLOT[1] - 2.4);
@@ -303,6 +304,8 @@ export function createZones({ scene, world, walker, camera, air }) {
   }
   let loadedPeople = null;
   let dressBuddy = () => {};
+  let marenCtl = null;
+  let marenMood = 'settled';
   let hearthReady = Promise.resolve(false);
   function loadHearth() {
     let done = () => {};
@@ -317,14 +320,34 @@ export function createZones({ scene, world, walker, camera, air }) {
         maren: null, sable: null, bram: null, lumen: null, you: null,
       };
       const people = loadedPeople;
+      try {
+        marenCtl = await createMaren(new URL('hearth/people/maren-reed.vrm', document.baseURI).href, { low: detail === 'low' });
+      } catch (err) {
+        console.warn('maren vrm', err);
+      }
       Object.assign(people, {
-        maren: await file('hearth/people/maren.glb'),
+        maren: marenCtl ? null : await file('hearth/people/maren.glb'),
         sable: await file('hearth/people/sable.glb'),
         bram: await file('hearth/people/bram.glb'),
         lumen: await file('hearth/people/lumen.glb'),
         you: await file('hearth/people/you.glb'),
       });
       dressBuddy = (pal) => {
+        if (pal.id === 'maren' && marenCtl) {
+          stripBlocks(buddyBody);
+          buddyBody.add(marenCtl.root);
+          buddyTag.visible = true;
+          const canvas = buddyTag.material.map.image;
+          const g = canvas.getContext('2d');
+          g.clearRect(0, 0, canvas.width, canvas.height);
+          g.font = 'bold 36px Georgia';
+          g.fillStyle = '#fff6dc';
+          g.textAlign = 'center';
+          g.fillText(pal.name, canvas.width / 2, 46);
+          buddyTag.material.map.needsUpdate = true;
+          buddyRing.material.color.set(pal.color);
+          return;
+        }
         stripBlocks(buddyBody);
         const gltf = loadedPeople[pal.file];
         if (!gltf) return;
@@ -372,6 +395,12 @@ export function createZones({ scene, world, walker, camera, air }) {
       put(furn.lamp, -1.0, 0, -3.4, 0, 1.35);
       put(furn.pot, -2.35, 0, -4.15, 0.6, 0.46);
       for (const p of pals) {
+        if (p.id === 'maren' && marenCtl) {
+          stripBlocks(p.g);
+          p.g.add(marenCtl.root);
+          p.mark.position.y = 1.9;
+          continue;
+        }
         const gltf = people[p.file];
         if (!gltf) continue;
         stripBlocks(p.g);
@@ -1243,6 +1272,8 @@ export function createZones({ scene, world, walker, camera, air }) {
     setDusk,
     set roomWeather(v) { roomWeather = v || 'clear'; },
     get nearFriend() { return nearId; },
+    setDetail(low) { marenCtl?.setDetail(!!low); },
+    marenPose(name) { marenCtl?.pose(name); },
     showBook,
     stickRod() {
       if (!hold.visible) return;
@@ -1390,7 +1421,8 @@ export function createZones({ scene, world, walker, camera, air }) {
       return true;
     },
     castHeld() {},
-    update(dt) {
+    update(dt, gaze) {
+      if (gaze?.mood) marenMood = gaze.mood;
       try {
         if ((JSON.parse(localStorage.getItem('aro-hub') || '{}').people?.maren?.fp || 0) >= 90 && hearts < 120) hearts = Math.min(120, hearts + dt * 4);
       } catch { /* ordinary health */ }
@@ -1511,6 +1543,18 @@ export function createZones({ scene, world, walker, camera, air }) {
         if (buddySay && name !== 'hub') buddySay.hidden = true;
         buddyTag.visible = false;
         buddyRing.visible = false;
+      }
+      if (marenCtl) {
+        const home = pals.find((p) => p.id === 'maren')?.g;
+        const outside = buddy === 'maren' && name === 'meadow' && !atLake;
+        const host = outside ? buddyBody : home;
+        if (host && marenCtl.root.parent !== host) {
+          host.add(marenCtl.root);
+          marenCtl.root.position.set(0, 0, 0);
+          marenCtl.root.rotation.set(0, 0, 0);
+        }
+        marenCtl.feel({ mood: marenMood, greeting: nearId === 'maren' });
+        marenCtl.update(dt, camera);
       }
       for (const mixer of hearthMixers) mixer.update(dt);
       if (name === 'hub') {
