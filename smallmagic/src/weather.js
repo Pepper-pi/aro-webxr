@@ -6,15 +6,29 @@ function cloth(color) {
   return new THREE.MeshBasicMaterial({ color });
 }
 
+const jiggle = [];
+function hem(parent, color, y) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.025), cloth(color));
+  m.geometry.translate(0, -0.06, 0);
+  m.position.set(0, y, 0.02);
+  parent.add(m);
+  jiggle.push({ m, a: 0.12, v: 0 });
+  return m;
+}
 function chibi(color, robe) {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.62, 8), cloth(robe));
+  const body = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.62, 12), cloth(robe));
   body.position.y = 0.34;
-  const hood = new THREE.Mesh(new THREE.SphereGeometry(0.13, 7, 5), cloth(robe));
+  const hood = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), cloth(robe));
   hood.position.y = 0.68;
-  const face = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), cloth(color));
+  const face = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), cloth(color));
   face.position.set(0, 0.64, 0.06);
-  g.add(body, hood, face);
+  const tuft = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.14, 0.03), cloth('#3a2a1c'));
+  tuft.geometry.translate(0, -0.06, 0);
+  tuft.position.set(0, 0.8, -0.02);
+  g.add(body, hood, face, tuft);
+  hem(g, robe, 0.12);
+  jiggle.push({ m: tuft, a: 0.2, v: 0 });
   return g;
 }
 
@@ -112,6 +126,12 @@ export function createWeather(scene, world) {
     fog.visible = sky === 'fog' || sky === 'rain';
     fog.material.opacity = sky === 'fog' ? 0.38 : 0.12;
     const t = performance.now() * 0.001;
+    jiggle.forEach((row, i) => {
+      const kick = Math.sin(t * 2.4 + i) * 0.2;
+      row.v += ((0.16 - row.a) * 9 - row.v * 3.1 + kick) * dt;
+      row.a += row.v;
+      row.m.rotation.x = row.a;
+    });
     people.forEach((p, i) => {
       p.visible = rain;
       if (!rain) return;

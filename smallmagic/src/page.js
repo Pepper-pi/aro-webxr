@@ -13,11 +13,11 @@ export function createPage(renderer) {
   scene.depthTexture = new THREE.DepthTexture(size.x, size.y, THREE.UnsignedIntType);
   const print = new THREE.ShaderMaterial({
     glslVersion: THREE.GLSL3, depthTest: false, depthWrite: false,
-    uniforms: { tDrawn: { value: scene.texture }, tDepth: { value: scene.depthTexture }, uSize: { value: size.clone() }, uSunUv: { value: new THREE.Vector3() }, uSunCol: { value: new THREE.Color('#fff0d2') }, uHeat: { value: 0 }, uDoom: { value: 0 }, uInk: { value: 0 }, uWhite: { value: 0 }, uBlaze: { value: 0 }, uPaint: { value: 1 }, uShock: { value: new THREE.Vector4(0.5, 0.5, 0, 0) }, uHole: { value: new THREE.Vector4(0.5, 0.5, 0, 0) }, uHoleB: { value: new THREE.Vector4(0, 0, 0, 0) }, uHoleC: { value: new THREE.Vector4(0.1, 1000, 1, 1) }, uDoomCol: { value: new THREE.Vector3(0.5, 0.06, 0.05) }, uDoomKeep: { value: 0.05 } },
+    uniforms: { tDrawn: { value: scene.texture }, tDepth: { value: scene.depthTexture }, uSize: { value: size.clone() }, uSunUv: { value: new THREE.Vector3() }, uSunCol: { value: new THREE.Color('#fff0d2') }, uHeat: { value: 0 }, uDoom: { value: 0 }, uInk: { value: 0 }, uWhite: { value: 0 }, uBlaze: { value: 0 }, uPaint: { value: 1 }, uGrade: { value: 1 }, uDusk: { value: 0 }, uShock: { value: new THREE.Vector4(0.5, 0.5, 0, 0) }, uHole: { value: new THREE.Vector4(0.5, 0.5, 0, 0) }, uHoleB: { value: new THREE.Vector4(0, 0, 0, 0) }, uHoleC: { value: new THREE.Vector4(0.1, 1000, 1, 1) }, uDoomCol: { value: new THREE.Vector3(0.5, 0.06, 0.05) }, uDoomKeep: { value: 0.05 } },
     vertexShader: QUAD,
     fragmentShader: /* glsl */ `
       precision highp float;
-      uniform sampler2D tDrawn; uniform sampler2D tDepth; uniform vec2 uSize; uniform vec3 uSunUv; uniform vec3 uSunCol; uniform float uHeat; uniform float uDoom; uniform float uInk; uniform float uWhite; uniform float uBlaze; uniform float uPaint; uniform vec4 uShock; uniform vec4 uHole; uniform vec4 uHoleB; uniform vec4 uHoleC; uniform vec3 uDoomCol; uniform float uDoomKeep;
+      uniform sampler2D tDrawn; uniform sampler2D tDepth; uniform vec2 uSize; uniform vec3 uSunUv; uniform vec3 uSunCol; uniform float uHeat; uniform float uDoom; uniform float uInk; uniform float uWhite; uniform float uBlaze; uniform float uPaint; uniform float uGrade; uniform float uDusk; uniform vec4 uShock; uniform vec4 uHole; uniform vec4 uHoleB; uniform vec4 uHoleC; uniform vec3 uDoomCol; uniform float uDoomKeep;
       in vec2 vUv;
       layout(location = 0) out vec4 outC;
       float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -54,7 +54,15 @@ export function createPage(renderer) {
         // --- glow ---
         vec3 glow = vec3(0.0);
         for (int i = 2; i <= 6; i++) glow += max(textureLod(tDrawn, vUv, float(i)).rgb - 0.95, 0.0) * (i < 4 ? 0.14 : 0.22);
-        c += glow * (0.7 + 0.4 * uHeat) * (1.0 + 0.85 * uPaint);
+        c += glow * (0.7 + 0.4 * uHeat) * (1.0 + 0.85 * uPaint) * (1.0 + 0.9 * uGrade);
+        if (uGrade > 0.5) {
+          vec3 wide = max(textureLod(tDrawn, vUv, 5.0).rgb - 0.7, 0.0);
+          c += wide * 0.38;
+          float ao = 0.0;
+          ao += abs(textureLod(tDepth, vUv, 0.0).r - textureLod(tDepth, vUv + vec2(2.5 / uSize.x, 0.0), 0.0).r);
+          ao += abs(textureLod(tDepth, vUv, 0.0).r - textureLod(tDepth, vUv + vec2(0.0, 2.5 / uSize.y), 0.0).r);
+          c *= 1.0 - smoothstep(0.002, 0.02, ao) * 0.28;
+        }
         // the hole itself: nothing; with the last light that gets round it as a thin bright ring at its edge
         if (hback > 0.5) {
           float hpx = 1.5 / uSize.y, ho = (hl - uHoleB.x * 1.07) / (uHoleB.x * 0.04 + hpx);
@@ -88,10 +96,18 @@ export function createPage(renderer) {
           c = uInk > 0.0 ? vec3(k) : vec3(1.0 - k);
         } else c = mix(c, vec3(1.0, 0.97, 0.9), uWhite);
         if (uPaint > 0.5) {
-          c = vec3(c.r * 1.06 + 0.045, c.g * 0.98 + 0.03, c.b * 0.86 + 0.02);
-          c = mix(c, floor(c * 11.0) / 11.0, 0.2);
-          float edge = smoothstep(0.0012, 0.009, abs(textureLod(tDepth, vUv, 0.0).r - textureLod(tDepth, vUv + vec2(2.0 / uSize.x, 1.5 / uSize.y), 0.0).r));
-          c += vec3(1.0, 0.74, 0.42) * edge * 0.38;
+          c = vec3(c.r * 1.05 + 0.04, c.g * 0.99 + 0.028, c.b * 0.9 + 0.02);
+          c = mix(c, floor(c * 16.0) / 16.0, 0.06);
+          float edge = smoothstep(0.001, 0.008, abs(textureLod(tDepth, vUv, 0.0).r - textureLod(tDepth, vUv + vec2(1.6 / uSize.x, 1.2 / uSize.y), 0.0).r));
+          c = mix(c, c * vec3(0.42, 0.32, 0.34), edge * 0.4 * (0.45 + 0.55 * uGrade));
+          c += vec3(1.0, 0.78, 0.55) * edge * 0.22;
+        }
+        if (uDusk > 0.5) {
+          float depth = textureLod(tDepth, vUv, 0.0).r;
+          float far = smoothstep(0.62, 0.98, depth);
+          c = mix(c, vec3(0.42, 0.24, 0.46), far * 0.5);
+          float shaft = pow(max(0.0, 1.0 - length((vUv - uSunUv.xy) * vec2(0.55, 1.35))), 2.4);
+          c += vec3(1.0, 0.7, 0.82) * shaft * far * 0.42 * max(uSunUv.z, 0.35);
         }
         c *= 1.0 - (0.3 + 0.25 * uDoom + 0.22 * uPaint) * pow(length(vUv - 0.5) * 1.25, 2.4);
         outC = vec4(c, 1.0);
@@ -123,6 +139,8 @@ export function createPage(renderer) {
     set white(v) { print.uniforms.uWhite.value = v; },
     set blaze(v) { print.uniforms.uBlaze.value = v; },
     set paint(v) { print.uniforms.uPaint.value = v ? 1 : 0; },
+    set grade(v) { print.uniforms.uGrade.value = v ? 1 : 0; },
+    set dusk(v) { print.uniforms.uDusk.value = v ? 1 : 0; },
     /** The ring a blast sends out, as the eye sees it: round a place in the world, so far out, so strong. */
     shock(camera, place, radius, power) {
       const u = print.uniforms.uShock.value, d = camera.position.distanceTo(place);

@@ -377,6 +377,7 @@ export function createZones({ scene, world, walker, camera, air }) {
         toBasic(model);
         tintCloth(model, pal.color);
         fitModel(model, 1.7);
+        model.userData.who = pal.file;
         buddyBody.add(model);
         playIdle(gltf, model);
         buddyTag.visible = true;
@@ -423,6 +424,7 @@ export function createZones({ scene, world, walker, camera, air }) {
         toBasic(model);
         tintCloth(model, p.color);
         fitModel(model, 1.65);
+        model.userData.who = p.id;
         p.g.add(model);
         playIdle(gltf, model);
         p.mark.position.y = 1.85;
