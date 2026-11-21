@@ -13,6 +13,7 @@ import { createAR } from './ar.js';
 import { createWander } from './wander.js';
 import { createLiving } from './living.js';
 import { createWeather } from './weather.js';
+import { createDuel } from './petduel.js';
 import { createHexes } from './hexes.js';
 import { createHub } from './hub.js';
 import { tracked } from './handtrack.js';
@@ -125,10 +126,12 @@ const zones = createZones({ scene, world, walker, camera, air });
 const ar = createAR(scene, camera, world, zones);
 const living = createLiving({ zones });
 const street = createWeather(scene, world);
+const duel = createDuel({ scene, world, camera, living });
 const wander = createWander({
   scene, world, zones, sound,
   living,
   leave() { ar.set(false, walker, renderer); zones.enter('meadow'); },
+  onDuel() { duel.begin({ foe: 'wolf' }); },
 });
 const hexes = createHexes(scene, world, camera, walker, zones);
 hexes.watch = living;
@@ -350,6 +353,22 @@ document.getElementById('setX')?.addEventListener('pointerup', (e) => {
   const menu = document.getElementById('menu');
   if (menu) menu.hidden = true;
   if (settingsEl) settingsEl.hidden = true;
+  e.preventDefault();
+  e.stopPropagation();
+});
+document.getElementById('petArena')?.addEventListener('pointerup', (e) => {
+  if (settingsEl) settingsEl.hidden = true;
+  document.getElementById('menu') && (document.getElementById('menu').hidden = true);
+  zones.enter('meadow');
+  duel.begin({ foe: 'deer' });
+  e.preventDefault();
+  e.stopPropagation();
+});
+document.getElementById('hexDuel')?.addEventListener('pointerup', (e) => {
+  const foe = hexes.foe();
+  document.getElementById('hexcard') && (document.getElementById('hexcard').hidden = true);
+  zones.enter('meadow');
+  duel.begin({ foe });
   e.preventDefault();
   e.stopPropagation();
 });
@@ -595,7 +614,9 @@ function tick(dt) {
   quest?.update();
   if (inp.any) sound?.wake();
   walker.update(dt, planted ? { ...inp, move: { x: 0, y: 0 }, jump: false, sprint: false } : inp);
-  if (free) { camera.position.copy(free.position); camera.lookAt(free.target); } else walker.look(camera);
+  if (duel.active) duel.look(camera);
+  else if (free) { camera.position.copy(free.position); camera.lookAt(free.target); }
+  else walker.look(camera);
   if (ar.on && !free) { camera.rotateX(ar.gyro.pitch); camera.rotateZ(-ar.gyro.roll); }
   const bladeClose = settings.class === 'blade' && blade.drawn && blade.pad;
   const inHub = zones.name === 'hub';
@@ -644,7 +665,7 @@ function tick(dt) {
   }
   camera.updateMatrixWorld(true);
   zones.stickRod?.();
-  const wheel = discOn && kit === 'mage' && !previewOn && !melee && !zones.rodOut && zones.name !== 'hub';
+  const wheel = discOn && kit === 'mage' && !previewOn && !melee && !zones.rodOut && zones.name !== 'hub' && !duel.active;
   const rangerBar = document.getElementById('rangerBar');
   const wardenBar = document.getElementById('wardenBar');
   const alchemistBar = document.getElementById('alchemistBar');
@@ -682,7 +703,8 @@ function tick(dt) {
   ar.update(dt, walker);
   wander.update(dt, walker, camera, ar.on);
   street.sky = living.weather;
-  street.update(dt, walker, ar.on || zones.name === 'hub');
+  street.update(dt, walker, ar.on || zones.name === 'hub' || duel.active);
+  duel.update(dt);
   hexes.update(dt);
   const spellBox = document.getElementById('spells');
   if (spellBox) spellBox.hidden = !!(previewOn || zones.name === 'hub' || zones.rodOut || (wheel && castDisc?.ready));
@@ -763,7 +785,7 @@ function tick(dt) {
 
 // (the measuring tools were written for a figure seen from behind: these are the same handles on one seen from within)
 const head = new THREE.Vector3();
-const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar, wander, living, street, hexes, hub, ranger, warden, alchemist,
+const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar, wander, living, street, duel, hexes, hub, ranger, warden, alchemist,
   THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, arms, blade, gun, summoner, tune: TUNE, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
   player: walker,
   follow: { get yaw() { return walker.yaw; }, set yaw(v) { walker.yaw = v; }, get pitch() { return walker.pitch; }, set pitch(v) { walker.pitch = v; }, want: 0, distance: 0, pivot: new THREE.Vector3() },

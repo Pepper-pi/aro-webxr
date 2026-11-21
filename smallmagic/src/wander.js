@@ -253,7 +253,7 @@ function shadeMesh() {
 
 const MAKERS = { deer: deerMesh, fox: foxMesh, chest: chestMesh, herb: herbMesh, friend: friendMesh, shade: shadeMesh };
 
-export function createWander({ scene, world, zones, sound, leave, living }) {
+export function createWander({ scene, world, zones, sound, leave, living, onDuel }) {
   const root = new THREE.Group();
   root.name = 'ar-wander';
   root.visible = false;
@@ -343,6 +343,7 @@ export function createWander({ scene, world, zones, sound, leave, living }) {
   const list = document.getElementById('wanderList');
   const passBtn = document.getElementById('wanderPass');
   const meetBtn = document.getElementById('wanderMeet');
+  const duelBtn = document.getElementById('wanderDuel');
 
   function moodNow() {
     if (forced) return forced;
@@ -388,8 +389,10 @@ export function createWander({ scene, world, zones, sound, leave, living }) {
     hintLife = 6.5;
     if (spec.fight && hint && passBtn && meetBtn) {
       hint.append(passBtn, meetBtn);
+      if (duelBtn) hint.append(duelBtn);
       passBtn.hidden = false;
       meetBtn.hidden = false;
+      if (duelBtn) duelBtn.hidden = false;
     }
     if (spec.shimmer) {
       try { sound?.chime?.(); } catch { /* the bed can be quiet */ }
@@ -400,6 +403,7 @@ export function createWander({ scene, world, zones, sound, leave, living }) {
     active = null;
     if (passBtn) passBtn.hidden = true;
     if (meetBtn) meetBtn.hidden = true;
+    if (duelBtn) duelBtn.hidden = true;
   }
   function shimmerOf(mesh, on) {
     let ring = mesh.getObjectByName('shimmer');
@@ -475,6 +479,14 @@ export function createWander({ scene, world, zones, sound, leave, living }) {
     hideFind();
     if (hint) hint.textContent = 'It went on. The path is quiet.';
     hintLife = 3;
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  duelBtn?.addEventListener('pointerup', (e) => {
+    hideFind();
+    leave?.();
+    onDuel?.();
+    if (hint) hint.hidden = true;
     e.preventDefault();
     e.stopPropagation();
   });

@@ -174,6 +174,11 @@ export function createLiving({ zones } = {}) {
     data.seen[key] = entry;
     write(BOOK, data);
     if ((extra.shimmer || rarity.shimmer.includes(spec.tier)) && entry.seen === 1) hear?.();
+    if (extra.defeated) {
+      entry.defeated = (entry.defeated || 0) + 1;
+      entry.notes.push('Defeated in a pet duel.');
+      write(BOOK, data);
+    }
     const mem = store();
     const specName = network.starts[extra.who] || spec.kind;
     if (extra.who && mem.net[extra.who]) {
@@ -323,7 +328,9 @@ export function createLiving({ zones } = {}) {
 
   return {
     species, rarity, quests, vendors, network,
-    context, weights, roll, rollTier, sight, stalls, issueQuest, help, roster, book,
+    context, weights, roll, rollTier, sight,
+    defeat(id) { return sight(id, { where: 'duel', drop: true, defeated: true }); },
+    stalls, issueQuest, help, roster, book,
     findId: FIND_ID,
     get weather() { return weatherNow(); },
     set weather(v) { weather = v || ''; const data = store(); data.stalls = null; data.quest = null; write(MEM, data); },

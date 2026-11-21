@@ -177,6 +177,18 @@
       #bestiary { position: fixed; left: max(10px, env(safe-area-inset-left)); top: max(10px, env(safe-area-inset-top)); z-index: 23; width: min(420px, 92vw); max-height: calc(100vh - 20px); overflow: auto; padding: 12px 14px 16px; border-radius: 18px; border: 1px solid rgba(241, 217, 164, 0.55); background: rgba(12, 8, 28, 0.94); color: #f6ead0; font: 15px/1.4 Georgia, serif; }
       #bestiary[hidden] { display: none; }
       #bestiary pre { white-space: pre-wrap; color: #e6c27a; font: 12px/1.35 ui-monospace, monospace; }
+      #petHud { position: fixed; left: 0; right: 0; bottom: max(12px, env(safe-area-inset-bottom)); z-index: 9; display: flex; justify-content: space-between; gap: 8px; padding: 0 12px; pointer-events: none; }
+      #petHud[hidden] { display: none; }
+      #petHud .frost, #petCard { background: rgba(236, 242, 248, 0.9); color: #1c2430; border: 1px solid rgba(255, 255, 255, 0.8); border-radius: 16px; box-shadow: 0 8px 16px rgba(20, 28, 36, 0.16); backdrop-filter: blur(8px); }
+      #petHud .frost { pointer-events: none; min-width: 148px; padding: 8px 10px; }
+      #petHud .bar { height: 8px; border-radius: 99px; background: rgba(20, 28, 36, 0.12); overflow: hidden; margin-top: 4px; }
+      #petHud .hp i { display: block; height: 100%; background: #e07a62; width: 100%; }
+      #petHud .sta i { display: block; height: 100%; background: #5eb8b0; width: 100%; }
+      #petMoves { pointer-events: auto; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-content: flex-end; max-width: 240px; }
+      #petMoves button, #petClose, #hexDuel, #petArena, #wanderDuel { pointer-events: auto; color: #1c2430; background: rgba(236, 242, 248, 0.92); border: 1px solid rgba(255, 255, 255, 0.85); border-radius: 999px; min-height: 36px; padding: 4px 10px; font: 14px Georgia, serif; }
+      #petCard { position: fixed; left: 50%; top: 18%; transform: translateX(-50%); z-index: 24; width: min(320px, 86vw); padding: 16px 16px 14px; text-align: center; }
+      #petCard[hidden] { display: none; }
+      #petCard .meta { letter-spacing: 0.14em; text-transform: uppercase; color: #6a5a3a; font-size: 12px; }
       #chase { top: calc(max(12px, env(safe-area-inset-top)) + 90px); }
       #gear { pointer-events: auto; position: fixed; z-index: 7; top: max(12px, env(safe-area-inset-top)); right: calc(max(12px, env(safe-area-inset-right)) + 92px); width: 44px; height: 44px; border-radius: 50%; border: 1px solid #f1d9a4; background: rgba(20, 12, 28, 0.78); color: #f6ead0; font-size: 22px; }
       #discToggle { pointer-events: auto; position: fixed; z-index: 8; left: max(10px, env(safe-area-inset-left)); bottom: max(150px, env(safe-area-inset-bottom)); border-radius: 999px; border: 1px solid #f1d9a4; background: rgba(20, 12, 28, 0.78); color: #f6ead0; font: 12px Georgia, serif; padding: 6px 10px; }
@@ -495,9 +507,27 @@
       <p id="hexSpawns"></p>
       <p id="hexNext"></p>
       <button id="hexEnter" type="button">Enter Zone</button>
+      <button id="hexDuel" type="button">Pet duel</button>
     </div>
     <div id="hexbanner" hidden></div>
     <div id="toast" hidden></div>
+    <div id="petHud" hidden>
+      <div class="frost" id="petPane"><b id="petName">Ember</b><p id="petElem">Ember vs earth</p><div class="bar hp"><i></i></div><div class="bar sta"><i></i></div></div>
+      <div id="petMoves">
+        <button id="petSlam" type="button">Leap Slam</button>
+        <button id="petElemBtn" type="button">Ember</button>
+        <button id="petGuard" type="button">Guard</button>
+        <button id="petNip" type="button">Nip</button>
+      </div>
+      <div class="frost" id="foePane"><b id="foeName">Wild deer</b><div class="bar hp"><i></i></div><div class="bar sta"><i></i></div></div>
+    </div>
+    <div id="petCard" hidden>
+      <p class="meta" id="petResult">Win</p>
+      <h2 id="petTitle">Ember</h2>
+      <p id="petXp">+40 XP · level 2</p>
+      <p id="petBook">Bestiary</p>
+      <button id="petClose" type="button">Close</button>
+    </div>
     <div id="rangerBar" hidden>
       <p id="rangerAmmo">12 / 12 arrows</p>
       <div id="rangerCharge"><i></i></div>
@@ -552,6 +582,8 @@
         <p class="deck">On deck</p>
         <div class="deck-row"><span>The four kits above are in play. The staff stays with the Summoner.</span></div>
         <div class="row"><button id="handsToggle" type="button">Hands mode: off</button></div>
+        <div class="row"><button id="petArena" type="button">Pet duel arena</button></div>
+        <p class="note">A practice duel. Your fox pet, Ember, against a wild deer. Leap Slam uses the rubble and the boulder ridge.</p>
         <p class="note">Hands mode asks the camera to follow a real hand. The Mage's own arms stay down until a cast, a charge, or the wheel.</p>
         <details id="advanced">
           <summary>Advanced</summary>
@@ -595,6 +627,7 @@
       <div id="wanderList"></div>
       <button id="wanderPass" type="button" hidden>Let it pass</button>
       <button id="wanderMeet" type="button" hidden>Meet it</button>
+      <button id="wanderDuel" type="button" hidden>Pet duel</button>
       <button id="wanderClose" type="button">Close</button>
     </div>
     <div id="touch" hidden>

@@ -641,6 +641,7 @@ export function createHexes(scene, world, camera, walker, zones) {
 
   return {
     list: built, at, tier, grant, paint, enter, update, close, hit,
+    foe() { return (FIGHT[openId] || ['deer'])[0]; },
     root: ROOT,
     set watch(v) { watch = v; },
   };
