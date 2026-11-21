@@ -10,6 +10,7 @@ import { createWorld } from './meadow/world.js';
 import { createStaff } from './staff.js';
 import { createCastDisc } from './castdisc.js';
 import { createAR } from './ar.js';
+import { createWander } from './wander.js';
 import { createHexes } from './hexes.js';
 import { createHub } from './hub.js';
 import { tracked } from './handtrack.js';
@@ -120,6 +121,10 @@ scene.add(flames.mesh);
 const fire = createFire({ world, air, fx, flames });
 const zones = createZones({ scene, world, walker, camera, air });
 const ar = createAR(scene, camera, world, zones);
+const wander = createWander({
+  scene, world, zones, sound,
+  leave() { ar.set(false, walker, renderer); zones.enter('meadow'); },
+});
 const hexes = createHexes(scene, world, camera, walker, zones);
 if (q.get('bond') === 'trusted') zones.setHearts(120);
 const hub = createHub({
@@ -164,6 +169,7 @@ document.getElementById('ar')?.addEventListener('pointerup', (e) => {
   if (next && typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
     DeviceOrientationEvent.requestPermission().catch(() => 'denied');
   }
+  if (next) wander.askMotion();
   ar.set(next, walker, renderer);
   if (ar.on) import('./handtrack.js').then((m) => m.startHandTrack(() => {})).catch(() => {});
   e.preventDefault();
@@ -666,6 +672,7 @@ function tick(dt) {
     }
   }
   ar.update(dt, walker);
+  wander.update(dt, walker, camera, ar.on);
   hexes.update(dt);
   const spellBox = document.getElementById('spells');
   if (spellBox) spellBox.hidden = !!(previewOn || zones.name === 'hub' || zones.rodOut || (wheel && castDisc?.ready));
@@ -746,7 +753,7 @@ function tick(dt) {
 
 // (the measuring tools were written for a figure seen from behind: these are the same handles on one seen from within)
 const head = new THREE.Vector3();
-const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar, hexes, hub, ranger, warden, alchemist,
+const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar, wander, hexes, hub, ranger, warden, alchemist,
   THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, arms, blade, gun, summoner, tune: TUNE, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
   player: walker,
   follow: { get yaw() { return walker.yaw; }, set yaw(v) { walker.yaw = v; }, get pitch() { return walker.pitch; }, set pitch(v) { walker.pitch = v; }, want: 0, distance: 0, pivot: new THREE.Vector3() },

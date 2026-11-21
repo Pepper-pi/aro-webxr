@@ -985,13 +985,41 @@ export function createSound({ offline = 0 } = {}) {
   let keyWas = null;
   let pitWas = 'idle', pitGust = false, pitHeard = null, galeWas = 'idle', flashWas = 0;
   let was = 'idle', gustDue = false, brokeBefore = 0, debrisAt = 0, heard = null, volume = 1, quiet = false, T = 0, rendering = null;
+  let wanderBus = null;
+  function wander(on) {
+    if (!wanderBus) {
+      const at = t();
+      wanderBus = G(0);
+      [196, 246.94, 293.66, 329.63].forEach((f, i) => {
+        const o = O('sine', f);
+        chain(o, G(i === 0 ? 0.04 : 0.018), wanderBus);
+        o.start(at);
+      });
+      chain(noise('pink', at), F('lowpass', 480, 0.6), G(0.025), wanderBus);
+      wanderBus.connect(beds);
+    }
+    wanderBus.gain.setTargetAtTime(on && !quiet ? 0.5 : 0, t(), 0.5);
+  }
+  function chime() {
+    if (quiet) return;
+    const at = t();
+    [523.25, 659.25, 783.99].forEach((f, i) => {
+      const o = O('sine', f);
+      const e = G(0.0001);
+      env(e.gain, at + i * 0.14, [[0, 0.0001], [0.03, 0.06], [0.85, 0.0001]], true);
+      chain(o, e, beds);
+      o.start(at + i * 0.14);
+      o.stop(at + i * 0.14 + 0.95);
+    });
+  }
   return {
     ctx, ready,
     /** The sound card wakes at the first key or click: until then a page may make no sound. */
     wake() { if (!offline && ctx.state !== 'running') ctx.resume(); },
     sleep() { if (!offline && ctx.state === 'running') ctx.suspend(); },
     get volume() { return volume; }, set volume(v) { volume = v; out.gain.setTargetAtTime(quiet ? 0 : 0.9 * v, t(), 0.03); },
-    get quiet() { return quiet; }, set quiet(v) { quiet = v; out.gain.setTargetAtTime(v ? 0 : 0.9 * volume, t(), 0.03); },
+    get quiet() { return quiet; }, set quiet(v) { quiet = v; out.gain.setTargetAtTime(v ? 0 : 0.9 * volume, t(), 0.03); if (wanderBus) wanderBus.gain.setTargetAtTime(v ? 0 : wanderBus.gain.value, t(), 0.2); },
+    wander, chime,
     cue, stepsAt,
     update(dt, { blast, hole, twister, ruin, camera, fire, cast, world, walker }) {
       const m = camera.matrixWorld.elements;
