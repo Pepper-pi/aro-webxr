@@ -1,0 +1,48 @@
+{
+  "types": {
+    "herbalist": {
+      "label": "Herbalist",
+      "stock": ["moss sprig", "hearth salve", "dried fern", "calm tea"],
+      "got": ["rain petal", "moonherb", "glass sprig"]
+    },
+    "tackle": {
+      "label": "Tackle peddler",
+      "stock": ["cork", "pine fly", "spare line", "reed bobber"],
+      "got": ["night glow", "eel hook", "dusk lantern"]
+    },
+    "arms": {
+      "label": "Arms trader",
+      "stock": ["whetstone", "wrap", "buckler charm", "quiet oil"],
+      "got": ["rune bead", "soft mail scrap", "parry bell"]
+    },
+    "tea": {
+      "label": "Tea pop-up",
+      "stock": ["rose tea", "kettle cake", "honey bun", "mint"],
+      "got": ["boba", "dusk bun", "rain caramel"]
+    },
+    "tinker": {
+      "label": "Tinker",
+      "stock": ["wick", "brass pin", "mending wax", "small bell"],
+      "got": ["lantern wick", "odd gear", "warm stone"]
+    }
+  },
+  "black": {
+    "label": "Black-market stall",
+    "chance": 0.18,
+    "stock": ["bottled fog", "unnamed key", "left glove", "mirror bead", "map with no coast"]
+  },
+  "names": {
+    "first": ["Nia", "Osric", "Tansy", "Ivo", "Sera", "Pell", "Moss", "Brindle", "Quill", "Ada"],
+    "last": ["Vetch", "Cairn", "Pell", "Rowan", "Moth", "Bramble", "Keel", "Sorrel", "Wick", "Dale"]
+  },
+  "outfits": [
+    "linen dress and a moss apron",
+    "oilcoat, knit cap, boots",
+    "quilted vest, sleeves rolled, gloves",
+    "tea scarf and a flour apron",
+    "hooded coat, dark gloves, no sign",
+    "patched cloak over a buttoned shirt",
+    "straw hat and a long dyed skirt",
+    "sailor collar and rolled trousers"
+  ]
+}
