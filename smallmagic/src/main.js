@@ -490,7 +490,7 @@ scene.add(sword);
 const blade = createBlade((damage) => zones.launchNearest(damage, blade.locked), { scene, camera, world, zones, walker, air, fx, sword, sound });
 applyMood(readMood(), false);
 const gun = createGunner(scene, camera, world, zones);
-const ranger = createRanger({ scene, camera, world, zones, walker });
+const ranger = createRanger({ scene, camera, world, zones, walker, fire });
 zones.whenClear(() => ranger.restock());
 zones.hexOf = (x, z) => hexes.at(x, z);
 const warden = createWarden({ scene, camera, world, zones, walker });

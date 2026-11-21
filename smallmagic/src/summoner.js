@@ -32,6 +32,8 @@ export function createSummoner({ scene, camera, world, zones, walker }) {
   function summon() {
     life = 8;
     spin = 0;
+    mote.position.set(walker.feet.x, walker.feet.y + 1.2, walker.feet.z);
+    mote.visible = true;
     note = 'Summoner · familiar';
   }
 
@@ -41,14 +43,25 @@ export function createSummoner({ scene, camera, world, zones, walker }) {
     if (life > 0) {
       life -= dt;
       spin += dt;
-      const yaw = walker.yaw;
-      const x = walker.feet.x + Math.sin(yaw + spin * 1.6) * 1.5;
-      const z = walker.feet.z + Math.cos(yaw + spin * 1.6) * 1.5;
+      let tx = walker.feet.x + Math.sin(spin) * 1.2;
+      let tz = walker.feet.z + Math.cos(spin) * 1.2;
+      let prey = null;
+      let best = 14;
+      for (const b of zones.beasts()) {
+        if (b.dead) continue;
+        const d = Math.hypot(b.x - mote.position.x, b.z - mote.position.z);
+        if (d < best) { best = d; prey = b; }
+      }
+      if (prey) { tx = prey.x; tz = prey.z; }
+      const y = world.ground(tx, tz) + (prey ? 1.05 : 1.2);
       mote.visible = true;
-      mote.position.set(x, world.ground(x, z) + 1.15, z);
-      ring.rotation.z += dt * 2;
-      if (Math.floor(spin * 2) !== Math.floor((spin - dt) * 2)) {
-        zones.hurt([{ x, z, r: 1.6, d: 8, k: 'arcane' }]);
+      mote.position.x += (tx - mote.position.x) * Math.min(1, dt * 3.2);
+      mote.position.z += (tz - mote.position.z) * Math.min(1, dt * 3.2);
+      mote.position.y += (y - mote.position.y) * Math.min(1, dt * 4);
+      ring.rotation.z += dt * 3;
+      if (prey && best < 1.5 && Math.floor(spin * 3) !== Math.floor((spin - dt) * 3)) {
+        zones.hurt([{ x: prey.x, z: prey.z, r: 1.2, d: 9, k: 'arcane' }]);
+        note = `Summoner · familiar bites ${prey.kind}`;
       }
       if (life <= 0) { mote.visible = false; note = 'Summoner'; }
     }

@@ -3,13 +3,17 @@ import * as THREE from 'three';
 
 const QUIVER = 12;
 
-export function createRanger({ scene, camera, world, zones, walker }) {
+export function createRanger({ scene, camera, world, zones, walker, fire }) {
   const bow = new THREE.Group();
-  const wood = new THREE.MeshBasicMaterial({ color: '#8a5a32' });
-  const limb = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.02, 6, 18, Math.PI), wood);
+  const wood = new THREE.MeshBasicMaterial({ color: '#6a3e22' });
+  const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.028, 0.26, 6), wood);
+  const limb = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.018, 6, 20, Math.PI), new THREE.MeshBasicMaterial({ color: '#c4a574' }));
   limb.rotation.z = Math.PI;
-  const string = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.5, 4), new THREE.MeshBasicMaterial({ color: '#f3e6d0' }));
-  bow.add(limb, string);
+  limb.position.y = 0.02;
+  const string = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.52, 4), new THREE.MeshBasicMaterial({ color: '#f3e6d0' }));
+  const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.045, 0), new THREE.MeshBasicMaterial({ color: '#ff7a1c' }));
+  gem.position.set(0, 0.02, 0.04);
+  bow.add(grip, limb, string, gem);
   bow.visible = false;
   scene.add(bow);
   const shots = [];
@@ -58,9 +62,11 @@ export function createRanger({ scene, camera, world, zones, walker }) {
     arrow.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
     scene.add(arrow);
     const p = Math.max(0.2, Math.min(1, power));
-    shots.push({ mesh: arrow, v: dir.multiplyScalar(14 + p * 16), life: 0.85, dmg: Math.round(8 + p * 20), hunt: true });
-    const kind = p > 0.72 ? 'power shot' : 'shot';
-    note = `Ranger preview · ${kind} · ${ammo} arrows`;
+    const tip = p > 0.55 ? 'fire' : 'frost';
+    arrow.material = new THREE.MeshBasicMaterial({ color: tip === 'fire' ? '#ff7a1c' : '#9fe6ff' });
+    gem.material.color.set(tip === 'fire' ? '#ff7a1c' : '#9fe6ff');
+    shots.push({ mesh: arrow, v: dir.multiplyScalar(14 + p * 16), life: 0.85, dmg: Math.round(8 + p * 20), hunt: true, tip });
+    note = `Ranger · ${tip} arrow · ${ammo} left`;
   }
 
   function chargeRelease() {
@@ -121,12 +127,19 @@ export function createRanger({ scene, camera, world, zones, walker }) {
       s.mesh.position.addScaledVector(s.v, dt);
       const gy = world.ground(s.mesh.position.x, s.mesh.position.z) + 0.4;
       if (s.mesh.position.y < gy) s.life = 0;
-      const beast = zones.beasts().find((b) => !b.dead && Math.hypot(b.x - s.mesh.position.x, b.z - s.mesh.position.z) < 1.2);
-      if (beast) {
-        const bonus = beast.n === marked;
-        zones.hurt([{ x: beast.x, z: beast.z, r: 1.2, d: s.dmg, k: 'arcane', hunt: bonus }]);
+      const px = s.mesh.position.x;
+      const pz = s.mesh.position.z;
+      const beast = zones.beasts().find((b) => !b.dead && Math.hypot(b.x - px, b.z - pz) < 1.2);
+      if (beast || s.life <= 0) {
+        if (s.tip === 'fire') {
+          fire?.ignite(px, pz, 1.7, 0.75);
+          zones.hurt([{ x: px, z: pz, r: 1.3, d: s.dmg, k: 'fire', hunt: beast && beast.n === marked }]);
+        } else {
+          world.mark(px, pz, 1.8, 1, 0.85);
+          zones.hurt([{ x: px, z: pz, r: 1.3, d: s.dmg, k: 'arcane', status: 'chill', chill: 3.2, hunt: beast && beast.n === marked }]);
+        }
         s.life = 0;
-        note = `Ranger preview · ${bonus ? 'marked hit' : 'hit'} · ${ammo} arrows`;
+        note = `Ranger · ${s.tip} ${beast ? 'hit' : 'lands'} · ${ammo} left`;
       }
       if (s.life <= 0) {
         scene.remove(s.mesh);

@@ -31,12 +31,13 @@ export function createAlchemist({ scene, camera, world, zones, walker }) {
   function splash(x, z) {
     const y = world.ground(x, z) + 0.08;
     zones.hurt([{ x, z, r: 2.1, d: 12, k: 'arcane', radial: 1.1, falloff: true }]);
-    const ring = new THREE.Mesh(puddleGeo, new THREE.MeshBasicMaterial({ color: '#9dffb0', transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
+    const ring = new THREE.Mesh(puddleGeo, new THREE.MeshBasicMaterial({ color: '#7dff9a', transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide }));
     ring.rotation.x = -Math.PI / 2;
     ring.position.set(x, y, z);
     scene.add(ring);
-    puddles.push({ mesh: ring, life: 0.7 });
-    note = 'Alchemist preview · splash';
+    world.mark(x, z, 2.2, 3, 0.45);
+    puddles.push({ mesh: ring, x, z, life: 8, tick: 0 });
+    note = 'Alchemist · puddle';
   }
 
   function sip() {
@@ -80,8 +81,13 @@ export function createAlchemist({ scene, camera, world, zones, walker }) {
     for (let i = puddles.length - 1; i >= 0; i--) {
       const p = puddles[i];
       p.life -= dt;
-      p.mesh.material.opacity = Math.max(0, p.life);
-      p.mesh.scale.setScalar(1 + (0.7 - p.life) * 0.6);
+      p.tick += dt;
+      p.mesh.material.opacity = p.life > 2 ? 0.48 : Math.max(0, p.life / 4);
+      p.mesh.scale.setScalar(1 + Math.sin(p.life * 3) * 0.04);
+      if (p.tick >= 0.9) {
+        p.tick = 0;
+        zones.hurt([{ x: p.x, z: p.z, r: 2.1, d: 4, k: 'arcane', status: 'chill', chill: 0.6 }]);
+      }
       if (p.life <= 0) {
         scene.remove(p.mesh);
         puddles.splice(i, 1);

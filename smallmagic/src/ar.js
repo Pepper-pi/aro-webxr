@@ -149,8 +149,20 @@ export function createAR(scene, camera, world, zones) {
   );
   groundGlow.rotation.x = -Math.PI / 2;
   root.add(groundGlow);
+  const glowFar = groundGlow.clone();
+  glowFar.material = groundGlow.material.clone();
+  glowFar.material.opacity = 0.12;
+  glowFar.scale.setScalar(1.85);
+  root.add(glowFar);
+  const critter = new THREE.Group();
+  const bug = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), new THREE.MeshBasicMaterial({ color: '#6a8f4a' }));
+  bug.scale.set(1.4, 0.65, 1);
+  const bugHead = new THREE.Mesh(new THREE.SphereGeometry(0.055, 6, 5), new THREE.MeshBasicMaterial({ color: '#c6e08a' }));
+  bugHead.position.set(0, 0.03, 0.1);
+  critter.add(bug, bugHead);
+  root.add(critter);
   const motes = [];
-  for (let i = 0; i < 22; i++) {
+  for (let i = 0; i < 12; i++) {
     const m = new THREE.Mesh(
       new THREE.OctahedronGeometry(0.03, 0),
       new THREE.MeshBasicMaterial({ color: '#fff1c4', transparent: true, opacity: 0.85 }),
@@ -344,7 +356,15 @@ export function createAR(scene, camera, world, zones) {
       b.wingR.rotation.y = -flap * 0.8;
     });
     groundGlow.position.set(walker.feet.x + fx * 2.1, world.ground(walker.feet.x + fx * 2.1, walker.feet.z + fz * 2.1) + 0.05, walker.feet.z + fz * 2.1);
-    groundGlow.material.opacity = 0.18 + Math.sin(t * 2) * 0.08;
+    groundGlow.material.opacity = 0.16 + Math.sin(t * 2) * 0.06;
+    const farX = walker.feet.x + fx * 3.2;
+    const farZ = walker.feet.z + fz * 3.2;
+    glowFar.position.set(farX, world.ground(farX, farZ) + 0.04, farZ);
+    const ca = t * 0.28;
+    const cx = walker.feet.x + fx * 2.2 + Math.cos(ca) * 1.5;
+    const cz = walker.feet.z + fz * 2.2 + Math.sin(ca) * 1.05;
+    critter.position.set(cx, world.ground(cx, cz) + 0.07, cz);
+    critter.rotation.y = -ca;
     motes.forEach((m, i) => {
       const a = t * 0.35 + i;
       const rad = 1.2 + (i % 4) * 0.45;

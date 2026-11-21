@@ -127,6 +127,7 @@ export function createTwister({ air, world, fx, fire, ruin, scene }) {
       }`,
   }));
   funnel.visible = false; funnel.frustumCulled = false; funnel.renderOrder = 5;
+  funnel.name = 'twister-funnel';
   scene.add(funnel);
 
   // the lid of cloud it hangs from
@@ -158,6 +159,7 @@ export function createTwister({ air, world, fx, fire, ruin, scene }) {
       }`,
   }));
   cloud.visible = false; cloud.frustumCulled = false; cloud.renderOrder = 4;
+  cloud.name = 'twister-cloud';
   scene.add(cloud);
 
   // the rings of runes written in the air while it gathers, level, one above another: they are gone once it has struck
