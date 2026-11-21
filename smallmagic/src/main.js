@@ -653,19 +653,19 @@ function tick(dt) {
   if (ar.on && !free) { camera.rotateX(ar.gyro.pitch); camera.rotateZ(-ar.gyro.roll); }
   const bladeClose = settings.class === 'blade' && blade.drawn && blade.pad;
   const inHub = zones.name === 'hub';
-  const wantChase = !free && !bladeClose && (inHub || (settings.class === 'mage' ? settings.viewBack : (settings.viewBack || walker.speed > 1.15)));
-  const wantDist = inHub ? 2.6 : settings.viewBack ? 4.4 : 2.5 + Math.min(2.1, Math.max(0, walker.speed - 1) * 0.32);
+  const wantChase = !free && !bladeClose && !inHub && (settings.class === 'mage' ? settings.viewBack : (settings.viewBack || walker.speed > 1.15));
+  const wantDist = settings.viewBack ? 4.4 : 2.5 + Math.min(2.1, Math.max(0, walker.speed - 1) * 0.32);
   chaseDist += ((wantChase ? wantDist : 0) - chaseDist) * Math.min(1, dt * 3.2);
   const chasing = chaseDist > 0.45;
-  if (chasing) {
+  if (inHub && !free && !duel.active) {
+    camera.position.set(0.6, 2.35, 5.9);
+    camera.lookAt(-2.2, 0.95, -3.4);
+  } else if (chasing) {
     const yaw = walker.yaw;
     const fx = Math.sin(yaw);
     const fz = Math.cos(yaw);
-    const side = inHub ? 1.35 : 0;
-    const rx = fz;
-    const rz = -fx;
-    camera.position.set(walker.feet.x - fx * chaseDist + rx * side, walker.feet.y + (inHub ? 1.28 : 1.55) + chaseDist * 0.12, walker.feet.z - fz * chaseDist + rz * side);
-    camera.lookAt(walker.feet.x + fx * (inHub ? 2.4 : 1.6) - rx * (inHub ? 0.35 : 0), walker.feet.y + (inHub ? 0.85 : 1.15), walker.feet.z + fz * (inHub ? 2.4 : 1.6) - rz * (inHub ? 0.35 : 0));
+    camera.position.set(walker.feet.x - fx * chaseDist, walker.feet.y + 1.55 + chaseDist * 0.12, walker.feet.z - fz * chaseDist);
+    camera.lookAt(walker.feet.x + fx * 1.6, walker.feet.y + 1.15, walker.feet.z + fz * 1.6);
   }
   // (and shakes the eye)
   if (blast.shake + hole.shake + twister.shake > 0.002) { const s = blast.shake + hole.shake + twister.shake * 0.5; shaking += dt; camera.rotateX(Math.sin(shaking * 61) * Math.sin(shaking * 37 + 1) * 0.03 * s); camera.rotateY(Math.sin(shaking * 53 + 2) * Math.sin(shaking * 29) * 0.03 * s); camera.rotateZ(Math.sin(shaking * 47 + 4) * 0.018 * s); }
@@ -738,6 +738,7 @@ function tick(dt) {
   street.sky = living.weather;
   street.update(dt, walker, ar.on || zones.name === 'hub' || duel.active);
   duel.update(dt);
+  if (hexes.layer) hexes.layer.visible = zones.name !== 'hub';
   hexes.update(dt);
   const spellBox = document.getElementById('spells');
   if (spellBox) spellBox.hidden = !!(previewOn || zones.name === 'hub' || zones.rodOut || (wheel && castDisc?.ready));

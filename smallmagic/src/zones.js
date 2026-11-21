@@ -814,7 +814,7 @@ export function createZones({ scene, world, walker, camera, air }) {
       world.home = [0, 0]; world.edge = 5.1; world.colliders = [];
       world.blockers = null;
       world.walk = () => 0;
-      place(0, -2.2, 0);
+      place(-3.2, 1.2, 0.4);
       walker.pitch = 0.12;
       boardHeld = true;
       hideBoard();

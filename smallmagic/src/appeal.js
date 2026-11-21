@@ -85,48 +85,19 @@ export function createAppeal(scene, world) {
     model.userData.appealed = true;
     const look = LOOK[who] || LOOK.lumen;
     let head = null;
-    let hips = null;
     let neck = null;
     model.updateWorldMatrix(true, true);
     model.traverse((o) => {
       if (o.name === 'Head') head = o;
-      if (o.name === 'Hips') hips = o;
       if (o.name === 'Neck') neck = o;
     });
     if (quality > 0) toonize(model);
-    const count = quality > 0 ? 3 : 2;
     const follow = (bone) => {
       const g = new THREE.Group();
       scene.add(g);
       locks.push({ g, bone });
       return g;
     };
-    const hair = follow(head || model);
-    for (let i = 0; i < count; i++) {
-      const strand = new THREE.Mesh(new THREE.PlaneGeometry(0.035, 0.1), clothMat(look.hair));
-      strand.userData.appealPart = true;
-      strand.geometry.translate(0, -0.05, 0);
-      strand.position.set((i - (count - 1) / 2) * 0.04, 0.16, 0.05);
-      hair.add(strand);
-      spring(strand, 'x', 0.2, 11);
-    }
-    if (hips && quality > 0) {
-      const skirt = follow(hips);
-      for (let i = 0; i < 4; i++) {
-        const hem = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.09), clothMat(look.hem));
-        hem.userData.appealPart = true;
-        hem.geometry.translate(0, -0.045, 0);
-        const a = -0.5 + i * 0.35;
-        hem.position.set(Math.sin(a) * 0.12, 0.02, Math.cos(a) * 0.06);
-        skirt.add(hem);
-        spring(hem, 'x', 0.12, 8);
-      }
-      const charm = new THREE.Mesh(new THREE.OctahedronGeometry(0.025, 0), clothMat(look.charm));
-      charm.userData.appealPart = true;
-      charm.position.set(0.1, 0.2, 0.05);
-      skirt.add(charm);
-      spring(charm, 'z', 0, 14);
-    }
     if (head && quality > 0) {
       const face = follow(head);
       for (const side of [-1, 1]) {

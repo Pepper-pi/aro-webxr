@@ -82,7 +82,8 @@ export function createHexes(scene, world, camera, walker, zones) {
       const x = Math.cos(a) * SIZE;
       const z = Math.sin(a) * SIZE;
       const rune = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), new THREE.MeshBasicMaterial({ color: def.accent }));
-      rune.position.set(x, world.ground(at.x + x, at.z + z) + 0.35, z);
+      rune.scale.set(1, 0.35, 1);
+      rune.position.set(x, world.ground(at.x + x, at.z + z) + 0.06, z);
       runes.add(rune);
     }
     const motes = [];
@@ -162,10 +163,14 @@ export function createHexes(scene, world, camera, walker, zones) {
       const rad = SIZE * hexRadius(a) * 0.98;
       const x = Math.cos(a) * rad;
       const z = Math.sin(a) * rad;
-      const slab = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.32, 0.42), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 }));
-      slab.position.set(x, world.ground(cx + x, cz + z) + 0.28, z);
-      slab.rotation.y = -a;
-      g.add(slab);
+      const y = world.ground(cx + x, cz + z);
+      const stone = new THREE.Mesh(new THREE.DodecahedronGeometry(0.14, 0), new THREE.MeshBasicMaterial({ color: '#b7aa96' }));
+      stone.scale.set(1, 0.38, 1);
+      stone.position.set(x, y + 0.05, z);
+      const glow = new THREE.Mesh(new THREE.CircleGeometry(0.22, 10), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide }));
+      glow.rotation.x = -Math.PI / 2;
+      glow.position.set(x, y + 0.03, z);
+      g.add(stone, glow);
     }
     return g;
   }
@@ -641,6 +646,7 @@ export function createHexes(scene, world, camera, walker, zones) {
 
   return {
     list: built, at, tier, grant, paint, enter, update, close, hit,
+    layer: group,
     foe() { return (FIGHT[openId] || ['deer'])[0]; },
     root: ROOT,
     set watch(v) { watch = v; },

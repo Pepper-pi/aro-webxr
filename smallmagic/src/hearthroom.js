@@ -64,9 +64,9 @@ export function createHearthShell() {
   const wall = wood.clone();
   wall.repeat.set(3, 1.4);
   const stone = mapOf('hearth/textures/stone_wall_diff_1k.jpg', 2, 2);
-  const plank = new THREE.MeshStandardMaterial({ map: wood, roughness: 0.86, metalness: 0, color: '#f0d7b4' });
-  const boards = new THREE.MeshStandardMaterial({ map: wall, roughness: 0.9, metalness: 0, color: '#e7c8a4' });
-  const rock = new THREE.MeshStandardMaterial({ map: stone, roughness: 0.95, metalness: 0, color: '#d9cfc4' });
+  const plank = new THREE.MeshStandardMaterial({ map: wood, roughness: 0.78, metalness: 0, color: '#fff8ef' });
+  const boards = new THREE.MeshStandardMaterial({ map: wall, roughness: 0.84, metalness: 0, color: '#fff4e6' });
+  const rock = new THREE.MeshStandardMaterial({ map: stone, roughness: 0.92, metalness: 0, color: '#f4efe8' });
 
   const floor = new THREE.Mesh(new THREE.BoxGeometry(11, 0.16, 14), plank);
   floor.position.y = -0.08;
@@ -152,13 +152,13 @@ export function createHearthShell() {
   plant(4.2, 1.8);
   plant(-4.4, 2.6);
 
-  const fireLight = new THREE.PointLight('#ff7a2a', 6, 12, 2);
-  fireLight.position.set(-3.2, 1.2, -4.7);
-  const bounce = new THREE.PointLight('#ffd8b0', 1.6, 9, 2);
-  bounce.position.set(0.4, 1.4, 0.2);
-  const windowLight = new THREE.PointLight('#f3e2c4', 1.3, 10, 2);
-  windowLight.position.set(4.2, 1.6, 0);
-  const hemi = new THREE.HemisphereLight('#fff1e0', '#6a4030', 0.72);
+  const fireLight = new THREE.PointLight('#ff8a3a', 3.4, 9, 2);
+  fireLight.position.set(-3.2, 1.15, -4.6);
+  const bounce = new THREE.PointLight('#ffe7c8', 0.9, 8, 2);
+  bounce.position.set(0.2, 1.5, 0.4);
+  const windowLight = new THREE.PointLight('#d5e6f4', 2.4, 14, 2);
+  windowLight.position.set(4.4, 1.8, 0.2);
+  const hemi = new THREE.HemisphereLight('#f7f4ee', '#8aa0b4', 0.85);
   root.add(fireLight, bounce, windowLight, hemi);
 
   let painted = '';
@@ -183,8 +183,8 @@ export function createHearthShell() {
       e.position.set(e.userData.x, 0.45 + u * 1.05, 0.35);
       e.material.opacity = (1 - u) * 0.85;
     });
-    fireLight.intensity = 5.2 + Math.sin(t * 11) * 1.3 + Math.sin(t * 23) * 0.5;
-    bounce.intensity = 1.3 + Math.sin(t * 11) * 0.25;
+    fireLight.intensity = 2.8 + Math.sin(t * 11) * 0.45;
+    bounce.intensity = 0.75 + Math.sin(t * 11) * 0.08;
   }
 
   return { root, paintWindow, flicker, fireLight };
