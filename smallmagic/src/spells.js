@@ -43,6 +43,19 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     return g;
   };
   const shards = [makeShard(), makeShard(), makeShard(), makeShard()];
+  const sigil = new THREE.Group();
+  const sigilA = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.016, 6, 28), new THREE.MeshBasicMaterial({ color: '#ffb15a', transparent: true, opacity: 0.9, depthWrite: false }));
+  const sigilB = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.01, 6, 20), new THREE.MeshBasicMaterial({ color: '#fff6dc', transparent: true, opacity: 0.85, depthWrite: false }));
+  sigilB.rotation.x = Math.PI / 2;
+  const sigilBits = [];
+  for (let i = 0; i < 8; i++) {
+    const bit = new THREE.Mesh(new THREE.OctahedronGeometry(0.028, 0), new THREE.MeshBasicMaterial({ color: '#ffe08a', transparent: true, opacity: 0.95 }));
+    sigil.add(bit);
+    sigilBits.push(bit);
+  }
+  sigil.add(sigilA, sigilB);
+  sigil.visible = false;
+  world.root.add(sigil);
   let selected = 0, down = false, hold = 0, sealPower = 0, cooldown = 0, coolMax = 1, kick = 0, beamPower = 0, beamKind = 'frost', channel = false, tether = false, leash = false;
   const wait = (t) => { cooldown = coolMax = t; };
   const beamTo = V(0, 0, -1);
@@ -465,12 +478,25 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
           if (Math.random() < 14 * dt) fx.spawn({ kind: 2, x: b.p.x, y: b.p.y, z: b.p.z, life: 1.1, size: [0.25, 1.1 + b.big], colour: [0.12, 0.12, 0.15], alpha: 0.3, vy: 0.6 });
         }
         carried = b;
+        sigil.visible = true;
+        sigil.position.copy(b.p);
+        sigil.lookAt(b.p.x + b.v.x, b.p.y + b.v.y, b.p.z + b.v.z);
+        sigilA.rotation.z += dt * 7;
+        sigilB.rotation.y += dt * 5;
+        sigilA.material.color.set(b.ice ? '#9fe6ff' : '#ff7a1c');
+        sigilB.material.color.set(b.ice ? '#e7c8ff' : '#fff1c4');
+        sigilBits.forEach((bit, n) => {
+          const a = b.life * 9 + n;
+          bit.position.set(Math.cos(a) * 0.2, Math.sin(a * 1.3) * 0.08, Math.sin(a) * 0.2);
+          bit.material.color.copy(sigilA.material.color);
+        });
         if (!b.ice) marks.push({ x: b.p.x, z: b.p.z, r: 0.7, d: 16, k: 'fire' });
         const floor = Math.max(world.ground(b.p.x, b.p.z), world.water);
         const inTree = world.trees.some((t, k) => k && t.burnt < 0.9 && t.clumps.some(([x, y, z, r]) => Math.hypot(x - b.p.x, y - b.p.y, z - b.p.z) < r * 0.75));
         if (b.p.y <= floor + 0.1 || inTree || b.life > 4 || ruin?.touches(b.p, 0.25 + 0.2 * b.big)) { if (b.p.y < floor) b.p.y = floor; if (b.ice) freezeLand(b.p, b.big, b.v); else burst(b.p, b.big); bolts.splice(i, 1); carried = null; }
       }
       for (let k = shardN; k < shards.length; k++) shards[k].visible = false;
+      if (!bolts.length) sigil.visible = false;
       for (let i = ices.length - 1; i >= 0; i--) {
         const ice = ices[i];
         ice.life -= dt;

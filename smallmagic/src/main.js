@@ -38,6 +38,7 @@ import { createGunner } from './gunner.js';
 import { createRanger } from './ranger.js';
 import { createWarden } from './warden.js';
 import { createAlchemist } from './alchemist.js';
+import { createSummoner } from './summoner.js';
 
 const q = new URLSearchParams(location.search);
 const capture = q.has('capture'), testing = q.has('patch-test');
@@ -148,6 +149,8 @@ document.getElementById('wardenBash')?.addEventListener('pointerup', (e) => { wa
 document.getElementById('wardenGuard')?.addEventListener('pointerup', (e) => { warden.raise(); e.preventDefault(); e.stopPropagation(); });
 document.getElementById('alchemistToss')?.addEventListener('pointerup', (e) => { alchemist.toss(); e.preventDefault(); e.stopPropagation(); });
 document.getElementById('alchemistSip')?.addEventListener('pointerup', (e) => { alchemist.sip(); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('summonerStrike')?.addEventListener('pointerup', (e) => { summoner.strike(); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('summonerCall')?.addEventListener('pointerup', (e) => { summoner.summon(); e.preventDefault(); e.stopPropagation(); });
 const wrist = new THREE.Vector3();
 function wristPoint() {
   if (!tracked.on) return null;
@@ -344,7 +347,7 @@ function showClass() {
   if (gunBtn) { gunBtn.textContent = settings.class === 'gunner' ? 'Gunner: on' : 'Gunner: off'; gunBtn.classList.toggle('on', settings.class === 'gunner'); }
 }
 function pickClass(name) {
-  settings.class = name === 'blade' || name === 'gunner' || name === 'ranger' || name === 'warden' || name === 'alchemist' ? name : 'mage';
+  settings.class = name === 'blade' || name === 'gunner' || name === 'ranger' || name === 'warden' || name === 'alchemist' || name === 'summoner' ? name : 'mage';
   settings.blade = settings.class === 'blade';
   settings.gunner = settings.class === 'gunner';
   arms.load();
@@ -492,6 +495,7 @@ zones.whenClear(() => ranger.restock());
 zones.hexOf = (x, z) => hexes.at(x, z);
 const warden = createWarden({ scene, camera, world, zones, walker });
 const alchemist = createAlchemist({ scene, camera, world, zones, walker });
+const summoner = createSummoner({ scene, camera, world, zones, walker });
 camera.layers.enable(9);
 let padCast = false, forceDraw = false, chaseDist = 0;
 let free = null;
@@ -535,7 +539,8 @@ function tick(dt) {
   const rangerOn = zones.name !== 'hub' && settings.class === 'ranger';
   const wardenOn = zones.name !== 'hub' && settings.class === 'warden';
   const alchemistOn = zones.name !== 'hub' && settings.class === 'alchemist';
-  const previewOn = rangerOn || wardenOn || alchemistOn;
+  const summonerOn = zones.name !== 'hub' && settings.class === 'summoner';
+  const previewOn = rangerOn || wardenOn || alchemistOn || summonerOn;
   if (previewOn) kit = settings.class;
   else applyKit(melee ? settings.class : 'mage');
   if (discToggle) discToggle.hidden = kit !== 'mage';
@@ -620,12 +625,15 @@ function tick(dt) {
   const rangerBar = document.getElementById('rangerBar');
   const wardenBar = document.getElementById('wardenBar');
   const alchemistBar = document.getElementById('alchemistBar');
+  const summonerBar = document.getElementById('summonerBar');
   if (rangerBar) rangerBar.hidden = !rangerOn;
   if (wardenBar) wardenBar.hidden = !wardenOn;
   if (alchemistBar) alchemistBar.hidden = !alchemistOn;
+  if (summonerBar) summonerBar.hidden = !summonerOn;
   ranger?.update(dt, rangerOn);
   warden?.update(dt, wardenOn);
   alchemist?.update(dt, alchemistOn);
+  summoner?.update(dt, summonerOn);
   const armCharge = (discCharge || spells?.cast?.holding) ? Math.max(0.14, spells?.cast?.charge || 0) : 0;
   const handDisc = !!(ar.on || settings.hands);
   castDisc?.update(dt, wheel, spells?.selected ?? 0, walker, camera, armCharge, !chasing && !free, wristPoint(), ar.on, handDisc);
@@ -711,7 +719,7 @@ function tick(dt) {
     sword.matrix.premultiply(camera.matrixWorld);
     sword.matrix.decompose(sword.position, sword.quaternion, sword.scale);
   }
-  const hideStaff = true;
+  const hideStaff = settings.class !== 'summoner';
   const hpEl = document.getElementById('hp');
   if (hpEl) hpEl.textContent = `HP ${Math.round(zones.hearts)}`;
   const questEl = document.getElementById('quest');
@@ -729,7 +737,7 @@ function tick(dt) {
 // (the measuring tools were written for a figure seen from behind: these are the same handles on one seen from within)
 const head = new THREE.Vector3();
 const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar, hexes, hub, ranger, warden, alchemist,
-  THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, arms, blade, gun, tune: TUNE, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
+  THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, arms, blade, gun, summoner, tune: TUNE, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
   player: walker,
   follow: { get yaw() { return walker.yaw; }, set yaw(v) { walker.yaw = v; }, get pitch() { return walker.pitch; }, set pitch(v) { walker.pitch = v; }, want: 0, distance: 0, pivot: new THREE.Vector3() },
   doll: { man: { bones: { Head: { getWorldPosition: (v) => v.copy(walker.feet).setY(walker.feet.y + 1.66) } } } },

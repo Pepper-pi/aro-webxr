@@ -98,7 +98,35 @@ export function createCastDisc(scene) {
     mandala.add(spark);
     sparks.push(spark);
   }
-  mandala.add(outerRing, midRing, innerRing, ticks);
+  const glyphTex = (() => {
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const g = c.getContext('2d');
+    g.clearRect(0, 0, 64, 64);
+    g.strokeStyle = '#fff6dc';
+    g.lineWidth = 3;
+    g.beginPath();
+    g.arc(32, 32, 18, 0, TAU);
+    g.moveTo(32, 10); g.lineTo(32, 54);
+    g.moveTo(14, 32); g.lineTo(50, 32);
+    g.stroke();
+    const t = new THREE.CanvasTexture(c);
+    if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  })();
+  const glyphs = [];
+  const glyphRing = new THREE.Group();
+  for (let i = 0; i < 8; i++) {
+    const g = new THREE.Mesh(new THREE.PlaneGeometry(0.045, 0.045), new THREE.MeshBasicMaterial({ map: glyphTex, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
+    const a = (i / 8) * TAU;
+    g.position.set(Math.sin(a) * 0.168, Math.cos(a) * 0.168, -0.015);
+    g.userData.a = a;
+    glyphRing.add(g);
+    glyphs.push(g);
+  }
+  mandala.add(outerRing, midRing, innerRing, ticks, glyphRing);
+  const halo = rune(0.228, 0.003, '#c9a6ff', 0.55);
+  mandala.add(halo);
   const along = (t) => -0.46 + t * 0.74;
   const wrap = new THREE.Mesh(new THREE.CylinderGeometry(0.078, 0.1, 1, 14), ringMat('#ff7a1c', 0.45));
   wrap.rotation.x = Math.PI / 2;
@@ -313,9 +341,12 @@ export function createCastDisc(scene) {
       midRing.rotation.z -= dt * 1.15;
       innerRing.rotation.z += dt * 1.6;
       ticks.rotation.z -= dt * 0.45;
+      glyphRing.rotation.z += dt * 0.35;
+      halo.rotation.z -= dt * 0.22;
       const tint = new THREE.Color(SPELLS[index]?.colour || '#f1d9a4');
       if (warm) tint.lerp(new THREE.Color('#ffd7a8'), 0.4);
       outerRing.material.color.copy(tint).lerp(new THREE.Color(warm ? '#ffd2a2' : '#f1d9a4'), 0.45);
+      glyphs.forEach((g, i) => { g.material.opacity = 0.45 + 0.45 * Math.abs(Math.sin(sparkT * 2 + i)); g.material.color.set(tint); });
       sparks.forEach((spark, i) => {
         const a = spin * (1.2 + i * 0.07) + i;
         const rad = 0.1 + (i % 3) * 0.035;
