@@ -95,7 +95,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     const mesh = new THREE.Mesh(new THREE.CircleGeometry(Math.max(0.8, r * 0.42), 16), new THREE.MeshBasicMaterial({ color: '#e7fdff', transparent: true, opacity: 0.62, side: THREE.DoubleSide, depthWrite: false }));
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.set(p.x, world.ground(p.x, p.z) + 0.05, p.z);
-    rememberIce(mesh, 7, []);
+    rememberIce(mesh, 14, []);
   }
   /** A solid wall across the throw, or a mound when the ground is already frozen. Both block feet and beasts. */
   function raiseIce(p, kind, vel) {
@@ -147,13 +147,14 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
         cols.push({ x: p.x + Math.cos(yaw) * i * 0.46, z: p.z - Math.sin(yaw) * i * 0.46, r: 0.42 });
       }
     }
-    rememberIce(g, kind === 'glacier' ? 14 : 9, cols);
+    rememberIce(g, kind === 'glacier' ? 16 : 12, cols);
   }
   function freezeLand(p, big, vel) {
     const r = 2.2 + 5.2 * big;
     const had = frostHere(p.x, p.z, Math.max(1.8, r * 0.4));
     world.mark(p.x, p.z, r, 1, 0.5 + 0.5 * big);
-    marks.push({ x: p.x, z: p.z, r: 1.6 + 1.4 * big, d: 8 + 12 * big, k: 'arcane', status: 'chill', chill: 1.1 + 3.4 * big });
+    marks.push({ x: p.x, z: p.z, r: 1.6 + 1.4 * big, d: 8 + 12 * big, k: 'arcane', status: 'chill', chill: 2.6 + 5.2 * big });
+    stamp('frost', p.x, p.z, 0.75 + big * 0.4);
     frostPatch(p, r);
     const glacier = big > 0.85 && had > 40;
     const wall = !glacier && (big > 0.62 || had > 22);
@@ -197,6 +198,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     // it melts frost where it lands, and sets light to what will burn
     melt(p.x, p.z, r * 1.2);
     if (!onWater) fire.ignite(p.x, p.z, r, 0.6);
+    stamp('fire', p.x, p.z, 0.85 + big * 0.35);
     for (let t = 1; t < world.trees.length; t++) { const tree = world.trees[t]; if (tree.clumps.some(([x, y, z, cr]) => Math.hypot(x - p.x, y - p.y, z - p.z) < cr + 0.6 + 1.5 * big)) { tree.frost = 0; fire.kindle(tree); world.treeChanged(tree); } }
   }
   /** Takes frost off the ground within r of a place. Says how much there was. */
@@ -215,12 +217,45 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     heard?.('windThrow', { charge });
     flat.set(dir.x, 0, dir.z).normalize();
     gusts.push({ x: walker.feet.x + flat.x * 1.5, z: walker.feet.z + flat.z * 1.5, dx: flat.x, dz: flat.z, t: 0, life: 1.1 + 0.8 * charge, wide: 4.5 + 4.5 * charge, speed: 22, hit: new Set(), pull: charge > 0.45 });
+    stamp('wind', walker.feet.x + flat.x * 3.2, walker.feet.z + flat.z * 3.2, 0.55 + charge * 0.4);
     kick = 0.5 + 0.5 * charge; wait(0.3);
     for (let i = 0; i < 26; i++) fx.spawn({ kind: 5, x: tip.x + rnd(0.3), y: tip.y + rnd(0.3), z: tip.z + rnd(0.3), vx: dir.x * 26 + rnd(7), vy: dir.y * 26 + rnd(5), vz: dir.z * 26 + rnd(7), life: 0.22 + 0.15 * Math.random(), size: [0.012, 0.012], colour: [0.92, 1, 0.96], alpha: 0.5, rot: 30 + 30 * Math.random() });
   }
 
   const marks = [];
-  let pourMark = 0, boomPhase = '', boomId = 0, windMark = 0, stormMark = 0;
+  let pourMark = 0, boomPhase = '', boomId = 0, windMark = 0, stormMark = 0, bloomMark = 0, stormStamp = false, holeStamp = false;
+  const brands = [];
+  const BRAND = {
+    fire: ['#2c1810', 16, 1.7],
+    frost: ['#e9fbff', 14, 1.9],
+    wind: ['#e7fff6', 7, 2.1],
+    growth: ['#c6ff9a', 11, 1.5],
+    explosion: ['#4a2014', 18, 2.6],
+    singularity: ['#d2b6ff', 9, 1.7],
+    tornado: ['#d8fff8', 9, 2.6],
+  };
+  function stamp(key, x, z, scale = 1) {
+    const spec = BRAND[key];
+    if (!spec || !Number.isFinite(x) || !Number.isFinite(z)) return;
+    const mesh = new THREE.Mesh(
+      new THREE.RingGeometry(0.28 * scale, spec[2] * scale, 28),
+      new THREE.MeshBasicMaterial({ color: spec[0], transparent: true, opacity: 0.82, side: THREE.DoubleSide, depthWrite: false }),
+    );
+    mesh.rotation.x = -Math.PI / 2;
+    const y = world.ground(x, z) + 0.06;
+    mesh.position.set(x, y, z);
+    world.root.add(mesh);
+    const embers = [];
+    if (key === 'fire') {
+      for (let i = 0; i < 7; i++) {
+        const e = new THREE.Mesh(new THREE.SphereGeometry(0.055, 5, 4), new THREE.MeshBasicMaterial({ color: i % 2 ? '#ffb15a' : '#ff6a1a', transparent: true, opacity: 0.95 }));
+        e.position.set(x + (Math.random() - 0.5) * 1.4, y + 0.08, z + (Math.random() - 0.5) * 1.4);
+        world.root.add(e);
+        embers.push(e);
+      }
+    }
+    brands.push({ mesh, embers, life: spec[1], max: spec[1] });
+  }
   const api = {
     get selected() { return selected; }, select,
     get cast() { return cast; }, set hear(fn) { heard = fn; },
@@ -495,7 +530,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
       if (blast.phase === 'boom' && blast.reach > 0) {
         const visual = blast.reach, damage = fireballRadius(blast.age);
         if (Math.abs(damage - visual) > 1e-3) console.warn('explosion damage radius does not match the visible blast', { damage, visual });
-        if (boomPhase !== 'boom') { boomPhase = 'boom'; boomId++; }
+        if (boomPhase !== 'boom') { boomPhase = 'boom'; boomId++; stamp('explosion', blast.centre.x, blast.centre.z); }
         marks.push({ x: blast.centre.x, z: blast.centre.z, r: visual, d: 70, k: 'fire', radial: 5, exact: true, falloff: true, once: boomId });
         world.breakAt?.(blast.centre.x, blast.centre.z, visual, boomId);
       } else boomPhase = '';
@@ -504,6 +539,23 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
         stormMark = 0.3;
         const away = Math.random() * 6.283;
         marks.push({ x: twister.base.x, z: twister.base.z, r: 6, d: 16, k: 'arcane', kx: Math.cos(away) * 1.6, kz: Math.sin(away) * 1.6 });
+      }
+      if ((twister.phase === 'live' || twister.phase === 'gather') && !stormStamp) { stormStamp = true; stamp('tornado', twister.base.x, twister.base.z); }
+      if (twister.phase === 'idle') stormStamp = false;
+      if (hole.phase === 'open' && !holeStamp) { holeStamp = true; stamp('singularity', hole.ground.x, hole.ground.z); }
+      if (hole.phase !== 'open' && hole.phase !== 'shut') holeStamp = false;
+      if (spell.key === 'growth' && down && target) { bloomMark -= dt; if (bloomMark <= 0) { bloomMark = 1.3; stamp('growth', target.x, target.z, 0.7); } }
+      for (let i = brands.length - 1; i >= 0; i--) {
+        const b = brands[i];
+        b.life -= dt;
+        const fade = Math.max(0, b.life / b.max);
+        b.mesh.material.opacity = fade * 0.82;
+        b.embers.forEach((e, n) => { e.material.opacity = fade; e.position.y += dt * 0.12; e.position.x += Math.sin((b.max - b.life) * 3 + n) * dt * 0.04; });
+        if (b.life <= 0) {
+          world.root.remove(b.mesh); b.mesh.geometry.dispose(); b.mesh.material.dispose();
+          b.embers.forEach((e) => { world.root.remove(e); e.geometry.dispose(); e.material.dispose(); });
+          brands.splice(i, 1);
+        }
       }
       if (twister.phase === 'live' || twister.phase === 'gather') {
         world.swirl?.(twister.base.x, twister.base.z, 10, dt);

@@ -149,6 +149,14 @@ export function createCastDisc(scene) {
     arm.add(mist);
     return mist;
   });
+  const auroras = [];
+  for (let i = 0; i < 4; i++) {
+    const rib = new THREE.Mesh(new THREE.PlaneGeometry(0.055, 0.62), ringMat(i % 2 ? '#b7f4ff' : '#e4c8ff', 0.55));
+    rib.userData.i = i;
+    rib.frustumCulled = false;
+    arm.add(rib);
+    auroras.push(rib);
+  }
   const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.074, 1, 10), ringMat('#bfefff', 0.22));
   sleeve.rotation.x = Math.PI / 2;
   arm.add(sleeve);
@@ -362,7 +370,7 @@ export function createCastDisc(scene) {
       wrap.scale.set(key === 'explosion' ? fat * 1.25 : fat, Math.max(0.1, pose * (tier === 1 ? 0.62 : 1)), key === 'explosion' ? fat * 1.25 : fat);
       wrap.position.z = -0.46 + wrap.scale.y * 0.5;
       palm.visible = arm.visible && pose > 0.08;
-      palm.material.color.set(frostOn ? '#e7fbff' : growthOn ? '#b6ff9a' : windOn ? '#e9fff6' : siphonOn ? '#c9a6ff' : '#fff1c4');
+      palm.material.color.set(frostOn ? '#9eecff' : growthOn ? '#b6ff9a' : windOn ? '#e9fff6' : siphonOn ? '#c9a6ff' : '#fff1c4');
       palm.scale.setScalar(0.28 + pose * (tier === 3 ? 0.4 : 0.18));
       sleeveBands.forEach((band, i) => {
         const show = arm.visible && fireOn && lit(band.userData.t);
@@ -408,6 +416,17 @@ export function createCastDisc(scene) {
         mist.position.z = along(mist.userData.t);
         mist.material.opacity = 0.1 + pose * 0.28;
         mist.scale.setScalar(0.5 + pose * 1.1);
+      });
+      auroras.forEach((rib, i) => {
+        rib.visible = arm.visible && frostOn && pose > 0.06;
+        const climb = (sparkT * 0.45 + i * 0.25) % 1;
+        const a = sparkT * 1.7 + i * 1.55 + climb * 5;
+        const rad = 0.07 + pose * 0.045;
+        rib.position.set(Math.cos(a) * rad, Math.sin(a) * rad * 0.45, along(climb));
+        rib.rotation.set(0.5, a * 0.25, a);
+        rib.scale.set(0.7 + pose * 0.5, 0.35 + pose * 0.85, 1);
+        rib.material.opacity = (0.22 + pose * 0.5) * (0.55 + 0.45 * Math.sin(sparkT * 3 + i));
+        rib.material.color.set(i % 2 ? '#9af4ff' : '#e7c8ff');
       });
       sleeve.visible = arm.visible && frostOn && pose > 0.05;
       sleeve.scale.y = Math.max(0.05, pose * 0.78);

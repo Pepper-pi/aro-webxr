@@ -374,7 +374,13 @@ export function createTwister({ air, world, fx, fire, ruin, scene }) {
         fireLevel = Math.max(0, Math.min(1, fireLevel + (hot > 2 ? 0.7 : -0.06) * dt));
         frostLevel = fireLevel > 0.15 ? Math.max(0, frostLevel - dt) : Math.max(0, Math.min(1, frostLevel + (frozen ? 0.7 : -0.08) * dt));
         spout += ((onWater ? 1 : 0) - spout) * Math.min(1, dt * 1.5);
-        if (fireLevel > 0.3) { lit -= dt; if (lit <= 0) { lit = 0.2; if (!onWater) fire.ignite(base.x, base.z, 3.4, 0.9); } }
+        if (fireLevel > 0.2) {
+          for (const [x, z] of fire.drain(base.x, base.z, 7, 2.2, dt)) {
+            const y = world.ground(x, z);
+            fx.spawn({ kind: 0, x, y: y + 0.35, z, vx: (base.x - x) * 1.1, vy: 7 + Math.random() * 4, vz: (base.z - z) * 1.1, life: 1.15, size: [0.5, 0.18], colour: [1, 1, 1], alpha: 0.95 });
+            fx.spawn({ kind: 1, x, y: y + 0.5, z, vx: (base.x - x) * 0.6, vy: 5, vz: (base.z - z) * 0.6, life: 1.5, size: [0.05, 0.012], colour: [1, 0.55, 0.12] });
+          }
+        }
         else if (frostLevel > 0.3) world.mark(base.x, base.z, 4.5, 1, dt * 0.9);
         const sp = vel.length();
         if (sp > 0.5) fire.fan(base.x, base.z, vel.x / sp, vel.y / sp, 7);

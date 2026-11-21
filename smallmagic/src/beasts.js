@@ -921,6 +921,7 @@ export function createBeasts(scene, ground, world) {
             track.visible = true;
             for (const seg of track.children) if (seg.material) seg.material.opacity = 0.3 + u * 0.65;
           }
+          if (!b.clips?.attack && b.model) b.model.rotation.x = Math.sin(Math.min(1, u) * Math.PI) * (b.kind === 'bear' ? 0.75 : 0.4);
           if (b.swing <= 0) {
             b.swing = 0;
             if (b.model) b.model.rotation.x = 0;

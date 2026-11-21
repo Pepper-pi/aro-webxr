@@ -131,15 +131,17 @@ export function createAR(scene, camera, world, zones) {
     lakeMotes.push(m);
   }
   const butterflies = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 9; i++) {
     const g = new THREE.Group();
-    const wing = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.1), new THREE.MeshBasicMaterial({ color: i % 2 ? '#f2c14e' : '#e7f6ff', side: THREE.DoubleSide, transparent: true, opacity: 0.85 }));
+    const wing = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.28), new THREE.MeshBasicMaterial({ color: i % 2 ? '#f2c14e' : '#f4fbff', side: THREE.DoubleSide, transparent: true, opacity: 0.92 }));
     const wingR = wing.clone();
-    wing.position.x = 0.08;
-    wingR.position.x = -0.08;
-    g.add(wing, wingR);
+    wing.position.x = 0.22;
+    wingR.position.x = -0.22;
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 5), new THREE.MeshBasicMaterial({ color: '#5a3a28' }));
+    body.scale.set(1, 1, 2.2);
+    g.add(wing, wingR, body);
     root.add(g);
-    butterflies.push({ g, wing, wingR, a: i * 1.3, r: 1.4 + i * 0.35 });
+    butterflies.push({ g, wing, wingR, a: i * 0.7, r: 1.3 + (i % 3) * 0.85 });
   }
   const groundGlow = new THREE.Mesh(
     new THREE.CircleGeometry(1.35, 24),
@@ -335,7 +337,8 @@ export function createAR(scene, camera, world, zones) {
       const a = t * 0.7 + b.a;
       const x = walker.feet.x + fx * 1.6 + Math.cos(a) * b.r;
       const z = walker.feet.z + fz * 1.6 + Math.sin(a) * b.r * 0.6;
-      b.g.position.set(x, world.ground(x, z) + 0.7 + Math.sin(t * 3 + i) * 0.18, z);
+      b.g.position.set(x, world.ground(x, z) + 0.95 + Math.sin(t * 2.2 + i) * 0.28, z);
+      b.g.lookAt(walker.feet.x, b.g.position.y, walker.feet.z);
       const flap = Math.sin(t * 14 + i);
       b.wing.rotation.y = flap * 0.8;
       b.wingR.rotation.y = -flap * 0.8;
