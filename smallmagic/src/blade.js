@@ -1666,6 +1666,17 @@ export function createBlade(onLaunch, bits = {}) {
     }
     scene.add(arc);
     const strike = camera.position.clone().add(look.clone().multiplyScalar(2.2));
+    const gy = (world.ground?.(strike.x, strike.z) ?? strike.y) + 0.05;
+    const gouge = new THREE.Mesh(
+      new THREE.PlaneGeometry(step === 2 ? 2.4 : 1.5, step === 2 ? 0.42 : 0.16),
+      new THREE.MeshBasicMaterial({ color: step === 2 ? '#3a2818' : color, transparent: true, opacity: 0.82, side: THREE.DoubleSide, depthWrite: false }),
+    );
+    gouge.rotation.x = -Math.PI / 2;
+    gouge.rotation.z = Math.atan2(look.x, look.z);
+    gouge.position.set(strike.x, gy, strike.z);
+    scene.add(gouge);
+    cuts.push({ mesh: gouge, x: strike.x, z: strike.z, r: step === 2 ? 2.3 : 1.35, life: step === 2 ? 2.6 : 0.85, max: step === 2 ? 2.6 : 0.85 });
+    world.mark?.(strike.x, strike.z, step === 2 ? 1.6 : 0.8, 0, step === 2 ? 0.28 : 0.06);
     const beast = zones?.beasts?.().find((b) => !b.dead && Math.hypot(b.x - strike.x, b.z - strike.z) < 2.4);
     if (beast) zones.hurt([{ x: beast.x, z: beast.z, r: 1.3, d: [8, 14, 26][step], k: 'arcane', bleed: step === 2 ? 3.2 : 0 }]);
     shots.push({ mesh: arc, v: aim.multiplyScalar(0), life: 0.55, max: 0.55, kind: 'arc', stuck: true, blew: true, chopped: true });
@@ -1888,7 +1899,14 @@ export function createBlade(onLaunch, bits = {}) {
     openFor = 0;
   }
 
+  const cuts = [];
   function update(dt, classOn, inRange) {
+    for (let i = cuts.length - 1; i >= 0; i--) {
+      const c = cuts[i];
+      c.life -= dt;
+      if (c.mesh?.material) c.mesh.material.opacity = Math.max(0, c.life / c.max) * 0.82;
+      if (c.life <= 0) { scene.remove(c.mesh); cuts.splice(i, 1); }
+    }
     warrior = !!classOn;
     const board = root();
     const label = document.getElementById('bladeSay');
@@ -2105,6 +2123,7 @@ export function createBlade(onLaunch, bits = {}) {
       const ang = Math.atan2((dx / len) * note.launch.z - (dz / len) * note.launch.x, (dx / len) * note.launch.x + (dz / len) * note.launch.z);
       return +((ang * 180) / Math.PI).toFixed(1);
     },
+    cutFlat() { const c = cuts[0]; return c ? { x: c.x, z: c.z, r: c.r } : null; },
     get locked() { return lockN; },
     lock(n) { lockN = n == null ? null : n; },
     get thread() {

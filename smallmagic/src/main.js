@@ -489,7 +489,7 @@ sword.traverse((o) => { o.frustumCulled = false; });
 scene.add(sword);
 const blade = createBlade((damage) => zones.launchNearest(damage, blade.locked), { scene, camera, world, zones, walker, air, fx, sword, sound });
 applyMood(readMood(), false);
-const gun = createGunner(scene, camera, world, zones);
+const gun = createGunner(scene, camera, world, zones, fire);
 const ranger = createRanger({ scene, camera, world, zones, walker, fire });
 zones.whenClear(() => ranger.restock());
 zones.hexOf = (x, z) => hexes.at(x, z);
@@ -602,10 +602,12 @@ function tick(dt) {
   const pal = zones.buddyAt?.();
   if (pal) flats[flatN++].set(pal.x, pal.z, 0.95, 1);
   for (const b of zones.beasts()) {
-    if (flatN >= 4 || b.dead) continue;
+    if (flatN >= 3 || b.dead) continue;
     if (Math.hypot(b.x - walker.feet.x, b.z - walker.feet.z) > 12) continue;
     flats[flatN++].set(b.x, b.z, 0.9, 1);
   }
+  const cut = blade.cutFlat?.();
+  if (cut) flats[3].set(cut.x, cut.z, cut.r, 1);
   staff?.update(dt, walker, camera, world.sunAt?.(camera.position) ?? 1);
   const fishPull = zones.fishZoom || 0;
   if (fishPull > 0.04 && !free && !chasing) {

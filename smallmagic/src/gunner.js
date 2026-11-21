@@ -9,7 +9,7 @@ const dir = new THREE.Vector3();
 const to = new THREE.Vector3();
 const up = new THREE.Vector3(0, 1, 0);
 
-export function createGunner(scene, camera, world, zones) {
+export function createGunner(scene, camera, world, zones, fire) {
   const gun = new THREE.Group();
   const steel = new THREE.MeshBasicMaterial({ color: '#d5dee6' });
   const dark = new THREE.MeshBasicMaterial({ color: '#2c343c' });
@@ -173,7 +173,7 @@ export function createGunner(scene, camera, world, zones) {
       b.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.velocity.clone().normalize());
       const hit = zones.beasts().find((beast) => !beast.dead && Math.hypot(beast.x - b.mesh.position.x, beast.z - b.mesh.position.z) < 1.15 && Math.abs(beast.y + 0.7 - b.mesh.position.y) < 1.5);
       if (hit) {
-        zones.hurt([{ x: hit.x, z: hit.z, r: 1.2, d: b.dmg || 10, k: 'arcane', burn: b.charged ? 2.2 : 0 }]);
+        zones.hurt([{ x: hit.x, z: hit.z, r: 1.2, d: b.dmg || 10, k: b.charged ? 'fire' : 'arcane', burn: b.charged ? 2.2 : 0, kx: b.charged ? b.velocity.x * 0.1 : 0, kz: b.charged ? b.velocity.z * 0.1 : 0 }]);
         const spark = new THREE.Mesh(flashGeo, sparkMat);
         spark.scale.setScalar(0.35);
         spark.position.set(hit.x, hit.y + 0.7, hit.z);
@@ -181,7 +181,26 @@ export function createGunner(scene, camera, world, zones) {
         flashes.push({ mesh: spark, life: 0.22, max: 0.22 });
         markT = 0.45;
       }
-      if (hit || b.life <= 0) { scene.remove(b.mesh); bolts.splice(i, 1); }
+      if (hit || b.life <= 0) {
+        const x = b.mesh.position.x;
+        const z = b.mesh.position.z;
+        const gy = world.ground(x, z) + 0.05;
+        const pock = new THREE.Mesh(
+          new THREE.CircleGeometry(b.charged ? 1.15 : 0.38, 14),
+          new THREE.MeshBasicMaterial({ color: b.charged ? '#4a2414' : '#2a2118', transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }),
+        );
+        pock.rotation.x = -Math.PI / 2;
+        pock.position.set(x, gy, z);
+        scene.add(pock);
+        flashes.push({ mesh: pock, life: b.charged ? 3.2 : 1.4, max: b.charged ? 3.2 : 1.4 });
+        if (b.charged) {
+          fire?.ignite(x, z, 1.5, 0.55);
+          world.mark?.(x, z, 1.5, 0, 0.55);
+          zones.shoveBeast?.(x, z, b.velocity.x, b.velocity.z, 2.4);
+        } else world.mark?.(x, z, 0.55, 0, 0.35);
+        scene.remove(b.mesh);
+        bolts.splice(i, 1);
+      }
     }
     for (let i = nades.length - 1; i >= 0; i--) {
       const n = nades[i];

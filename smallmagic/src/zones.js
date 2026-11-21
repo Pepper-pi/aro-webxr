@@ -649,6 +649,7 @@ export function createZones({ scene, world, walker, camera, air }) {
     { id: 'lantern', name: 'Dusk Lantern', rarity: 'Rare', min: 16, max: 28, flavor: 'Its belly lamp lights the evening weeds.', dusk: true, w: 2 },
     { id: 'eel', name: 'Violet Eel', rarity: 'Rare', min: 30, max: 62, flavor: 'A purple ribbon that rises only after sunset.', dusk: true, w: 1 },
     { id: 'minnow', name: 'Star Minnow', rarity: 'Rare', min: 6, max: 12, flavor: 'Tiny lights, as if the sky fell into the shallows.', dusk: true, lure: 'glow', w: 1 },
+    { id: 'glowfin', name: 'Glowfin', rarity: 'Rare', min: 18, max: 40, flavor: 'It rises only when the lake itself is lit.', dusk: true, lure: 'glow', w: 1 },
   ];
   const BOOK_KEY = 'aro-long-lake';
   let lure = 'bobber';
@@ -682,13 +683,25 @@ export function createZones({ scene, world, walker, camera, air }) {
     });
   }
   const writeBook = (data) => { try { localStorage.setItem(BOOK_KEY, JSON.stringify(data)); } catch { /* private mode */ } };
+  function paintLures() {
+    let rod = { fly: false, glow: false };
+    try { rod = JSON.parse(localStorage.getItem('aro-rod') || '{}'); } catch { /* bobber only */ }
+    document.querySelectorAll('#lures button').forEach((b) => {
+      const id = b.getAttribute('data-lure');
+      const locked = (id === 'fly' && !rod.fly) || (id === 'glow' && !rod.glow);
+      b.disabled = !!locked;
+      if (id === 'fly') b.textContent = rod.fly ? 'Pine Fly' : 'Fly · 3 catches';
+      if (id === 'glow') b.textContent = rod.glow ? 'Night Glow' : 'Glow · evening';
+    });
+  }
   function pickFish() {
     const rows = SPECIES.filter((s) => (!s.dusk || dusk) && (!s.lure || s.lure === lure));
     let bag = [];
     for (const s of rows) {
       let w = s.w;
       if (lure === 'fly' && s.max < 26) w += 3;
-      if (lure === 'glow' && s.dusk && dusk) w += 4;
+      if (dusk && s.dusk) w += 3;
+      if (lure === 'glow' && s.dusk && dusk) w += 5;
       try { if (s.dusk && (JSON.parse(localStorage.getItem('aro-hub') || '{}').people?.sable?.fp || 0) >= 90) w += 3; } catch { /* ordinary odds */ }
       for (let i = 0; i < w; i++) bag.push(s);
     }
@@ -718,6 +731,16 @@ export function createZones({ scene, world, walker, camera, air }) {
     const record = !prev || cm > prev.best;
     data[species.id] = { n: (prev?.n || 0) + 1, best: Math.max(prev?.best || 0, cm) };
     writeBook(data);
+    const total = Object.values(data).reduce((n, r) => n + (r.n || 0), 0);
+    const duskN = SPECIES.filter((s) => s.dusk).reduce((n, s) => n + (data[s.id]?.n || 0), 0);
+    const rod = { fly: total >= 3, glow: duskN > 0 || total >= 6 };
+    try { localStorage.setItem('aro-rod', JSON.stringify(rod)); } catch { /* private mode */ }
+    paintLures();
+    const note = rod.fly && total === 3 ? 'Rod · Pine Fly unlocked' : rod.glow && (duskN === 1 || total === 6) ? 'Rod · Night Glow unlocked' : '';
+    if (note) {
+      const el = document.getElementById('toast');
+      if (el) { el.hidden = false; el.textContent = note; clearTimeout(el._t); el._t = setTimeout(() => { el.hidden = true; }, 3200); }
+    }
     const title = document.getElementById('catchName');
     const size = document.getElementById('catchSize');
     const rare = document.getElementById('catchRare');
@@ -1591,7 +1614,7 @@ export function createZones({ scene, world, walker, camera, air }) {
       const luresEl = document.getElementById('lures');
       const bookBtn = document.getElementById('bookBtn');
       const eveBtn = document.getElementById('eve');
-      if (luresEl) luresEl.hidden = !atLake;
+      if (luresEl) { luresEl.hidden = !atLake; if (atLake) paintLures(); }
       if (bookBtn) bookBtn.hidden = !atLake;
       if (eveBtn) eveBtn.hidden = !atLake;
       pads.forEach((p) => { p.visible = atLake; });

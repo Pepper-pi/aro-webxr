@@ -110,13 +110,15 @@ const REQUESTS = [
 
 const NEEDS = [
   { item: 'herb', title: 'A moss sprig', note: 'One herb picked in a hex.', who: 'maren' },
-  { item: 'trout', title: 'One creek trout', note: 'A trout from Long Lake.', who: 'sable' },
+  { item: 'trout', title: 'One creek trout', note: 'A trout from Long Lake. Pays respect.', who: 'sable' },
+  { item: 'eel', title: 'A violet eel', note: 'An evening fish from the glowing water.', who: 'sable' },
   { item: 'tusk', title: 'A boar tusk', note: 'A drop from a hex fight.', who: 'bram' },
   { item: 'wick', title: 'A lantern wick', note: 'A crafted bit from a hearth hex.', who: 'lumen' },
 ];
 function bagCount(item) {
   if (item === 'herb') return herbs();
   if (item === 'trout') return fishCount('trout');
+  if (item === 'eel') return fishCount('eel') + fishCount('glowfin') + fishCount('lantern');
   try { return JSON.parse(localStorage.getItem('aro-beast-drops') || '{}')[item] || 0; } catch { return 0; }
 }
 function pickBoard(seed) {

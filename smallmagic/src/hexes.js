@@ -365,6 +365,22 @@ export function createHexes(scene, world, camera, walker, zones) {
       bannerT = 2.4;
     }
     close();
+    puff(h);
+  }
+  const moods = [];
+  function puff(h) {
+    h._puffed = h.id;
+    const kind = h.id === 'moss' || h.id === 'glen' ? 'mist' : h.id === 'meadow' || h.id === 'bloom' ? 'petal' : h.id === 'shore' ? 'fly' : 'warm';
+    const color = kind === 'mist' ? '#d5f0e2' : kind === 'petal' ? '#f2a3c2' : kind === 'fly' ? '#ffe27a' : '#ffd2a2';
+    for (let i = 0; i < 12; i++) {
+      const geo = kind === 'petal' ? new THREE.PlaneGeometry(0.18, 0.08) : new THREE.SphereGeometry(kind === 'fly' ? 0.045 : 0.16, 6, 4);
+      const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.75, depthWrite: false, side: THREE.DoubleSide }));
+      const x = h.x + (Math.random() - 0.5) * 5;
+      const z = h.z + (Math.random() - 0.5) * 5;
+      m.position.set(x, (world.walk ? world.walk(x, z) : world.ground(x, z)) + 0.3 + Math.random() * 1.2, z);
+      scene.add(m);
+      moods.push({ m, life: 5.5, kind, vx: (Math.random() - 0.5) * 0.35, vz: (Math.random() - 0.5) * 0.35 });
+    }
   }
   function grant(id, n) {
     const before = tierOf(xp[id] || 0);
@@ -435,6 +451,16 @@ export function createHexes(scene, world, camera, walker, zones) {
   });
 
   function update(dt) {
+    for (let i = moods.length - 1; i >= 0; i--) {
+      const p = moods[i];
+      p.life -= dt;
+      p.m.position.x += p.vx * dt;
+      p.m.position.z += p.vz * dt;
+      p.m.position.y += dt * (p.kind === 'petal' ? 0.15 : 0.35);
+      p.m.material.opacity = Math.max(0, p.life / 5.5) * 0.75;
+      if (p.kind === 'petal') p.m.rotation.z += dt * 2;
+      if (p.life <= 0) { scene.remove(p.m); moods.splice(i, 1); }
+    }
     const time = performance.now() * 0.001;
     const here = at(walker.feet.x, walker.feet.z);
     for (const h of built) {
@@ -511,6 +537,7 @@ export function createHexes(scene, world, camera, walker, zones) {
       }
     }
     for (const h of built) if (h !== here && h.wave?.done) h.waved = false;
+    if (here && here._puffed !== here.id) { here._puffed = here.id; puff(here); }
     if (here && FIGHT[here.id] && zones?.beginWave && !here.waved) {
       here.waved = true;
       const t = tier(here);
