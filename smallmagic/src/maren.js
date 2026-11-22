@@ -8,6 +8,9 @@ const BOTTOM = /bottoms/i;
 const SHOE = /shoes/i;
 
 const _euler = new THREE.Euler();
+const _qa = new THREE.Quaternion();
+const _qb = new THREE.Quaternion();
+const _qout = new THREE.Quaternion();
 
 function dye(material, lit, shade) {
   if (!material) return;
@@ -77,6 +80,54 @@ export function shapeBody(vrm, shape = {}) {
   const fit = vrm.scene.userData.fit || vrm.scene.scale.x || 1;
   vrm.scene.scale.setScalar(fit * height);
   return { hips, thighs, waist, height };
+}
+
+function sampleQuat(track, time, out) {
+  const times = track.times;
+  const values = track.values;
+  let i = 0;
+  const last = times.length - 1;
+  while (i < last && times[i + 1] <= time) i += 1;
+  const j = Math.min(i + 1, last);
+  const span = Math.max(0.0001, times[j] - times[i]);
+  const u = j === i ? 0 : (time - times[i]) / span;
+  _qa.fromArray(values, i * 4);
+  _qb.fromArray(values, j * 4);
+  out.copy(_qa).slerp(_qb, u);
+}
+
+function buildIdle(vrm) {
+  const keys = {
+    hips: [[0, 0.03, 0], [0, -0.025, 0.02], [0, -0.03, 0], [0, 0.025, -0.02], [0, 0.03, 0]],
+    spine: [[0.02, 0, 0], [0.05, 0.02, 0.012], [0.02, 0, 0], [0.045, -0.02, -0.01], [0.02, 0, 0]],
+    chest: [[0.03, 0, 0], [0.07, 0, 0.01], [0.025, 0, 0], [0.065, 0, -0.01], [0.03, 0, 0]],
+    neck: [[0, 0.03, 0], [0.02, -0.04, 0], [0, -0.02, 0], [0.015, 0.04, 0], [0, 0.03, 0]],
+    head: [[0, 0.05, 0], [0.03, -0.06, 0.01], [0, -0.04, 0], [0.02, 0.06, -0.01], [0, 0.05, 0]],
+    leftUpperArm: [[0, 0, 0], [0.05, 0, 0.05], [0.01, 0, 0], [0.04, 0, -0.03], [0, 0, 0]],
+    rightUpperArm: [[0, 0, 0], [0.04, 0, -0.05], [0.01, 0, 0], [0.05, 0, 0.04], [0, 0, 0]],
+    leftLowerArm: [[0, 0, 0], [0.08, 0.04, 0], [0.02, 0, 0], [0.06, -0.02, 0], [0, 0, 0]],
+    rightLowerArm: [[0, 0, 0], [0.06, -0.03, 0], [0.02, 0, 0], [0.08, 0.04, 0], [0, 0, 0]],
+  };
+  const times = [0, 1, 2, 3, 4];
+  const tracks = [];
+  const bones = [];
+  for (const [name, frames] of Object.entries(keys)) {
+    const node = vrm.humanoid.getRawBoneNode(name);
+    if (!node) continue;
+    const rest = node.quaternion.clone();
+    const values = [];
+    for (const [x, y, z] of frames) {
+      _euler.setFromQuaternion(rest, 'XYZ');
+      _euler.x += x;
+      _euler.y += y;
+      _euler.z += z;
+      _qa.setFromEuler(_euler);
+      values.push(_qa.x, _qa.y, _qa.z, _qa.w);
+    }
+    tracks.push(new THREE.QuaternionKeyframeTrack(`${name}.quaternion`, times, values));
+    bones.push(node);
+  }
+  return { clip: new THREE.AnimationClip('maren-idle', 4, tracks), bones, time: 0 };
 }
 
 function tuneSprings(vrm, low) {
@@ -162,11 +213,11 @@ export async function createMaren(url, { low = false } = {}) {
   root.userData.fit = root.scale.x;
   shapeBody(vrm, {});
   tuneSprings(vrm, low);
+  const idle = buildIdle(vrm);
 
   const gaze = new THREE.Object3D();
   gaze.name = 'maren-gaze';
   if (vrm.lookAt) vrm.lookAt.target = gaze;
-  const rest = new Map();
   let mood = 'settled';
   let greetLeft = 0;
   let greeting = false;
@@ -197,17 +248,6 @@ export async function createMaren(url, { low = false } = {}) {
     if (greeting && !was) greetLeft = 1.7;
   }
 
-  function poseBone(name, x, y, z) {
-    const node = vrm.humanoid.getRawBoneNode(name);
-    if (!node) return;
-    if (!rest.has(name)) rest.set(name, node.quaternion.clone());
-    _euler.setFromQuaternion(rest.get(name), 'XYZ');
-    _euler.x += x;
-    _euler.y += y;
-    _euler.z += z;
-    node.quaternion.setFromEuler(_euler);
-  }
-
   function update(dt, camera) {
     const t = performance.now() * 0.001;
     if (greetLeft > 0) greetLeft = Math.max(0, greetLeft - dt);
@@ -235,8 +275,11 @@ export async function createMaren(url, { low = false } = {}) {
       face.setValue('Surprised', surprised);
       face.setValue('blink', surprised > 0.4 ? blink * 0.25 : blink);
     }
-    poseBone('chest', Math.sin(t * 1.45) * 0.035, 0, 0);
-    poseBone('spine', Math.sin(t * 0.7) * 0.012, 0, Math.sin(t * 0.45) * 0.018);
+    idle.time = (idle.time + dt) % idle.clip.duration;
+    idle.clip.tracks.forEach((track, i) => {
+      sampleQuat(track, idle.time, _qout);
+      idle.bones[i].quaternion.copy(_qout);
+    });
     if (camera) {
       camera.getWorldPosition(gaze.position);
       if (!gaze.parent) camera.parent?.add(gaze) || vrm.scene.parent?.add(gaze);
