@@ -152,13 +152,13 @@ export function createHearthShell() {
   plant(4.2, 1.8);
   plant(-4.4, 2.6);
 
-  const fireLight = new THREE.PointLight('#ff8a3a', 3.4, 9, 2);
-  fireLight.position.set(-3.2, 1.15, -4.6);
-  const bounce = new THREE.PointLight('#ffe7c8', 0.9, 8, 2);
+  const fireLight = new THREE.PointLight('#ffc39a', 1.35, 6.5, 2);
+  fireLight.position.set(-3.2, 1.05, -4.7);
+  const bounce = new THREE.PointLight('#f6efe4', 0.35, 7, 2);
   bounce.position.set(0.2, 1.5, 0.4);
-  const windowLight = new THREE.PointLight('#d5e6f4', 2.4, 14, 2);
-  windowLight.position.set(4.4, 1.8, 0.2);
-  const hemi = new THREE.HemisphereLight('#f7f4ee', '#8aa0b4', 0.85);
+  const windowLight = new THREE.PointLight('#d5e4f4', 3.1, 16, 2);
+  windowLight.position.set(4.4, 1.9, 0.2);
+  const hemi = new THREE.HemisphereLight('#f3f6fb', '#9aa8b4', 1.15);
   root.add(fireLight, bounce, windowLight, hemi);
 
   let painted = '';
@@ -169,8 +169,8 @@ export function createHearthShell() {
     const next = paintSky(!!dusk, weather || 'clear');
     paneCanvas.getContext('2d').drawImage(next, 0, 0);
     paneTex.needsUpdate = true;
-    windowLight.color.set(dusk ? '#c49ad4' : weather === 'rain' ? '#c5d4e4' : '#fff4d4');
-    windowLight.intensity = dusk ? 0.7 : 1.35;
+    windowLight.color.set(dusk ? '#c9b4dc' : weather === 'rain' ? '#c5d4e4' : '#e4eef8');
+    windowLight.intensity = dusk ? 0.8 : 2.6;
   }
 
   function flicker(t) {
@@ -183,8 +183,8 @@ export function createHearthShell() {
       e.position.set(e.userData.x, 0.45 + u * 1.05, 0.35);
       e.material.opacity = (1 - u) * 0.85;
     });
-    fireLight.intensity = 2.8 + Math.sin(t * 11) * 0.45;
-    bounce.intensity = 0.75 + Math.sin(t * 11) * 0.08;
+    fireLight.intensity = 1.15 + Math.sin(t * 11) * 0.16;
+    bounce.intensity = 0.32 + Math.sin(t * 11) * 0.04;
   }
 
   return { root, paintWindow, flicker, fireLight };
