@@ -96,8 +96,8 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   const meadowRing = ring(0x9ee7ff);
   meadowRing.position.set(PLOT[0], world.ground(PLOT[0], PLOT[1]) + 0.2, PLOT[1] - 2.4);
   const hub = new THREE.Group();
-  const canal = createCityBlock(1);
-  const ruin = createCityBlock(2);
+  const canal = createCityBlock(1, detail === 'low');
+  const ruin = createCityBlock(2, detail === 'low');
   canal.root.visible = false;
   ruin.root.visible = false;
   scene.add(canal.root, ruin.root);
@@ -1314,7 +1314,11 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     setDusk,
     set roomWeather(v) { roomWeather = v || 'clear'; },
     get nearFriend() { return nearId; },
-    setDetail(low) { for (const ctl of Object.values(ctls)) ctl.setDetail(!!low); },
+    setDetail(low) {
+      for (const ctl of Object.values(ctls)) ctl.setDetail(!!low);
+      canal.setGlow(!low);
+      ruin.setGlow(!low);
+    },
     marenPose(name) { ctls.maren?.pose(name); },
     set cityAngle(v) { cityAngle = v || 0; },
     get cityAngle() { return cityAngle; },
@@ -1592,12 +1596,18 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       life.visible = name === 'meadow';
       if (name === 'block') canal.tick(dt);
       if (name === 'ruin') ruin.tick(dt);
+      const cityFolk = { sable: [-0.15, -3.5, 0.4], lumen: [0.35, 1.15, -0.5] };
       for (const [id, ctl] of Object.entries(ctls)) {
         const home = pals.find((p) => p.id === id)?.g;
+        const inCity = (name === 'block' || name === 'ruin') && cityFolk[id] && buddy !== id;
         const outside = buddy === id && name === 'meadow' && !atLake;
-        const host = outside ? buddyBody : home;
-        if (host && ctl.root.parent !== host) {
-          host.add(ctl.root);
+        const host = inCity ? (name === 'ruin' ? ruin.root : canal.root) : outside ? buddyBody : home;
+        if (host && ctl.root.parent !== host) host.add(ctl.root);
+        if (inCity) {
+          const spot = cityFolk[id];
+          ctl.root.position.set(spot[0], 0, spot[1]);
+          ctl.root.rotation.set(0, spot[2], 0);
+        } else if (host && ctl.root.parent === host) {
           ctl.root.position.set(0, 0, 0);
           ctl.root.rotation.set(0, 0, 0);
         }
