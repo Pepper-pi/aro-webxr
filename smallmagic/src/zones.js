@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { createBeasts, PACKS, patchWebKitImageBitmap } from './beasts.js';
 import { createHearthShell } from './hearthroom.js';
+import { createCityBlock } from './cityblock.js';
 import { createCompanion } from './maren.js';
 import { TUNE } from './rider.js';
 import { buildVillage } from './cabins.js';
@@ -95,6 +96,11 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   const meadowRing = ring(0x9ee7ff);
   meadowRing.position.set(PLOT[0], world.ground(PLOT[0], PLOT[1]) + 0.2, PLOT[1] - 2.4);
   const hub = new THREE.Group();
+  const canal = createCityBlock(1);
+  const ruin = createCityBlock(2);
+  canal.root.visible = false;
+  ruin.root.visible = false;
+  scene.add(canal.root, ruin.root);
   const village = buildVillage(world.root, world, air);
   world.blow = (x, z, dx, dz, r) => village.blow(x, z, dx, dz, r);
   world.pound = (x, z, r) => village.pound(x, z, r);
@@ -807,6 +813,9 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     world.wade = null;
   }
   function enter(next) {
+    const city = next === 'block' || next === 'ruin';
+    canal.root.visible = next === 'block';
+    ruin.root.visible = next === 'ruin';
     if (next === 'lake') {
       atLake = true;
       name = 'meadow';
@@ -827,6 +836,22 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     }
     atLake = false;
     if (back) back.textContent = 'Back';
+    if (city) {
+      atLake = false;
+      name = next;
+      world.root.visible = false;
+      hub.visible = false;
+      meadowRing.visible = false;
+      hold.visible = false;
+      world.home = [0, 0]; world.edge = 9; world.colliders = [];
+      world.blockers = null; world.walk = () => 0; world.wade = null;
+      if (back) { back.hidden = false; back.textContent = 'Hearth'; }
+      if (menu) menu.hidden = true;
+      hideBoard();
+      resetFish();
+      place(0.2, 4.4, Math.PI);
+      return;
+    }
     const outside = next === 'meadow' || next === 'plot';
     name = outside ? 'meadow' : 'hub';
     world.root.visible = outside;
@@ -866,7 +891,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     e.stopPropagation();
   }));
   document.getElementById('boardX')?.addEventListener('pointerup', (e) => { hideBoard(); boardHeld = true; e.preventDefault(); e.stopPropagation(); });
-  menu?.querySelectorAll('[data-trip]').forEach((b) => b.addEventListener('pointerup', (e) => {
+  document.querySelectorAll('[data-trip]').forEach((b) => b.addEventListener('pointerup', (e) => {
     enter(b.getAttribute('data-trip'));
     e.preventDefault();
     e.stopPropagation();
@@ -1004,6 +1029,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   });
   back?.addEventListener('pointerup', (e) => {
     if (atLake) enter('meadow');
+    else if (name === 'block' || name === 'ruin') enter('hub');
     else if (menu) menu.hidden = false;
     e.preventDefault();
     e.stopPropagation();
