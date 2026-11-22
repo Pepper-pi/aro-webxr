@@ -1,97 +1,205 @@
-// One seeded city block. The plan stays put. The seed only reskins it.
-// Built from code and the CC0 wood and stone already in the hearth. No trees.
+// One city block from Kenney's Fantasy Town Kit (CC0). The plan is fixed.
+// The seed only changes which pieces, the tint, the fog, and the fireflies.
+// No trees from that kit are used.
 import * as THREE from 'three';
 
-const STALLS = [[-2.2, 1.6], [1.1, 1.6], [4.2, 1.6], [7.2, 1.6]];
-const LANTERNS = [];
-for (let i = 0; i < 6; i++) LANTERNS.push([-4.2, -6 + i * 2.3]);
-for (let i = 0; i < 4; i++) LANTERNS.push([2 + i * 3.2, -2.4]);
-const HOUSES = [[8.6, -5.2], [8.6, -1.4], [8.6, 2.6], [8.6, 6.2]];
+const PIECES = [
+  'wall', 'wall-window-shutters', 'wall-door', 'wall-broken',
+  'wall-wood', 'wall-wood-window-shutters', 'wall-wood-door', 'wall-wood-broken',
+  'roof', 'roof-gable', 'stall-red', 'stall-green', 'lantern',
+  'banner-red', 'banner-green', 'road', 'planks', 'rock-small', 'rock-wide',
+  'hedge', 'hedge-large', 'cart', 'pillar-wood', 'fence-broken', 'stairs-stone',
+];
 
-function theme(seed) {
-  const moss = seed % 2 === 0;
-  return moss
-    ? {
-      ground: '#6e7a62', wall: '#7a7368', roof: '#3e4a52', trim: '#b08a4a',
-      water: '#2c4a44', light: '#d5e6a0', awning: '#6a7a58', moss: true,
-    }
-    : {
-      ground: '#cbb89a', wall: '#e4d2b4', roof: '#8d5344', trim: '#f0d7a4',
-      water: '#3c9aa6', light: '#ffd7a4', awning: '#c45a4a', moss: false,
-    };
+let kitPromise = null;
+
+function kit() {
+  if (kitPromise) return kitPromise;
+  kitPromise = (async () => {
+    const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+    const loader = new GLTFLoader();
+    const out = {};
+    await Promise.all(PIECES.map(async (name) => {
+      const gltf = await loader.loadAsync(new URL(`city/kenney/${name}.glb`, document.baseURI).href);
+      gltf.scene.updateMatrixWorld(true);
+      let mesh = null;
+      gltf.scene.traverse((o) => { if (!mesh && o.isMesh) mesh = o; });
+      const geo = mesh.geometry.clone();
+      geo.applyMatrix4(mesh.matrixWorld);
+      const mat = mesh.material.clone();
+      if (mat.map) mat.map.anisotropy = 8;
+      mat.side = THREE.FrontSide;
+      out[name] = { geo, mat };
+    }));
+    return out;
+  })();
+  return kitPromise;
 }
 
-function instances(geo, mat, spots, y, rot) {
-  const mesh = new THREE.InstancedMesh(geo, mat, spots.length);
+function scatter(lib, name, spots, y, yaw, tint) {
+  const src = lib[name];
+  if (!src || !spots.length) return null;
+  const mat = src.mat.clone();
+  if (tint) mat.color = src.mat.color.clone().multiply(new THREE.Color(tint));
+  const mesh = new THREE.InstancedMesh(src.geo, mat, spots.length);
   const dummy = new THREE.Object3D();
   spots.forEach(([x, z], i) => {
     dummy.position.set(x, y, z);
-    dummy.rotation.set(0, 0, 0);
-    if (rot) dummy.rotation.z = rot;
+    dummy.rotation.set(0, yaw || 0, 0);
     dummy.updateMatrix();
     mesh.setMatrixAt(i, dummy.matrix);
   });
   mesh.instanceMatrix.needsUpdate = true;
+  mesh.frustumCulled = false;
+  mesh.castShadow = mesh.receiveShadow = true;
+  return mesh;
+}
+
+function waterMaterial(color, deep) {
+  return new THREE.ShaderMaterial({
+    transparent: true,
+    uniforms: {
+      uTime: { value: 0 },
+      uColor: { value: new THREE.Color(color) },
+      uDeep: { value: new THREE.Color(deep) },
+    },
+    vertexShader: `
+      uniform float uTime;
+      varying vec2 vUv;
+      varying float vWave;
+      void main() {
+        vUv = uv;
+        vec3 p = position;
+        float w = sin(p.x * 1.6 + uTime * 1.4) * 0.035 + sin(p.y * 2.2 + uTime * 0.9) * 0.02;
+        p.z += w;
+        vWave = w;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uColor;
+      uniform vec3 uDeep;
+      varying vec2 vUv;
+      varying float vWave;
+      void main() {
+        float fres = pow(1.0 - abs(vUv.y - 0.5) * 1.4, 1.6);
+        vec3 col = mix(uDeep, uColor, 0.45 + fres * 0.4 + vWave * 4.0);
+        col += vec3(0.65, 0.8, 0.75) * pow(fres, 3.0) * 0.35;
+        gl_FragColor = vec4(col, 0.92);
+      }
+    `,
+  });
+}
+
+function skyDome(top, horizon) {
+  const geo = new THREE.SphereGeometry(48, 20, 12);
+  const c = new THREE.Color(top);
+  const h = new THREE.Color(horizon);
+  const pos = geo.attributes.position;
+  const col = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const t = THREE.MathUtils.clamp(pos.getY(i) / 48 * 0.5 + 0.5, 0, 1);
+    const k = c.clone().lerp(h, 1 - t);
+    col[i * 3] = k.r; col[i * 3 + 1] = k.g; col[i * 3 + 2] = k.b;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, depthWrite: false }));
+  mesh.frustumCulled = false;
   return mesh;
 }
 
 export function createCityBlock(seed = 1) {
+  const moss = seed % 2 === 0;
   const root = new THREE.Group();
-  root.name = 'city-block';
-  const look = theme(seed);
-  const ground = new THREE.Mesh(
-    new THREE.BoxGeometry(22, 0.2, 18),
-    new THREE.MeshLambertMaterial({ color: look.ground }),
-  );
-  ground.position.y = -0.1;
-  const water = new THREE.Mesh(
-    new THREE.BoxGeometry(3.4, 0.08, 18),
-    new THREE.MeshLambertMaterial({ color: look.water }),
-  );
-  water.position.set(-8.6, 0.05, 0);
-  const quay = new THREE.Mesh(
-    new THREE.BoxGeometry(0.35, 0.28, 18),
-    new THREE.MeshLambertMaterial({ color: look.trim }),
-  );
-  quay.position.set(-6.8, 0.1, 0);
-  const street = new THREE.Mesh(
-    new THREE.BoxGeometry(10, 0.04, 14),
-    new THREE.MeshLambertMaterial({ color: look.moss ? '#5c6554' : '#b7a488' }),
-  );
-  street.position.set(0.4, 0.02, 0);
-  const wallMat = new THREE.MeshLambertMaterial({ color: look.wall });
-  const roofMat = new THREE.MeshLambertMaterial({ color: look.roof });
-  const houses = instances(new THREE.BoxGeometry(3.2, 3.4, 2.8), wallMat, HOUSES, 1.7);
-  const roofs = instances(new THREE.BoxGeometry(3.5, 0.28, 3.1), roofMat, HOUSES, 3.5);
-  const postMat = new THREE.MeshLambertMaterial({ color: look.moss ? '#4a4034' : '#6a4a32' });
-  const headMat = new THREE.MeshBasicMaterial({ color: look.light });
-  const posts = instances(new THREE.CylinderGeometry(0.06, 0.08, 1.7, 5), postMat, LANTERNS, 0.85);
-  const heads = instances(new THREE.BoxGeometry(0.22, 0.28, 0.22), headMat, LANTERNS, 1.75);
-  const stallMat = new THREE.MeshLambertMaterial({ color: look.awning });
-  const stalls = instances(new THREE.BoxGeometry(1.5, 0.08, 1.1), stallMat, STALLS, 1.55);
-  const crates = instances(new THREE.BoxGeometry(0.42, 0.42, 0.42), new THREE.MeshLambertMaterial({ color: look.trim }), STALLS, 0.24);
-  const pipes = instances(new THREE.CylinderGeometry(0.05, 0.05, 2.4, 5), new THREE.MeshLambertMaterial({ color: '#8a7348' }), HOUSES, 2.2, Math.PI / 2);
-  pipes.visible = look.moss;
-  const mossCaps = instances(new THREE.SphereGeometry(0.45, 6, 4), new THREE.MeshLambertMaterial({ color: '#4f7a48' }), HOUSES, 3.7);
-  mossCaps.visible = look.moss;
-  const dock = new THREE.Group();
-  const pad = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.16, 2.6), new THREE.MeshLambertMaterial({ color: look.trim }));
-  pad.position.y = 1.7;
-  const legGeo = new THREE.CylinderGeometry(0.08, 0.1, 1.7, 5);
-  const legMat = new THREE.MeshLambertMaterial({ color: look.roof });
-  [[-1.3, -0.9], [1.3, -0.9], [-1.3, 0.9], [1.3, 0.9]].forEach(([x, z]) => {
-    const leg = new THREE.Mesh(legGeo, legMat);
-    leg.position.set(x, 0.85, z);
-    dock.add(leg);
+  root.name = moss ? 'city-ruin' : 'city-canal';
+  const tint = moss ? '#b7c9a4' : '#ffffff';
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 16, 24, 48), waterMaterial(moss ? '#3d6a58' : '#3aa0b0', moss ? '#1c3330' : '#0e3c4a'));
+  water.rotation.x = -Math.PI / 2;
+  water.position.set(-4.6, 0.08, 0);
+  const flies = moss ? new THREE.InstancedMesh(new THREE.SphereGeometry(0.045, 5, 4), new THREE.MeshBasicMaterial({ color: '#d8f0a0' }), 16) : null;
+  if (flies) { flies.frustumCulled = false; flies.name = 'fireflies'; }
+  const ready = kit().then((lib) => {
+    const add = (name, spots, y, yaw) => {
+      const mesh = scatter(lib, name, spots, y, yaw, tint);
+      if (mesh) root.add(mesh);
+    };
+    const road = [];
+    for (let x = -2; x <= 2; x++) for (let z = -8; z <= 7; z++) road.push([x, z]);
+    add('road', road, 0, 0);
+    const quay = [];
+    for (let z = -8; z <= 7; z++) quay.push([-3, z]);
+    add('planks', quay, 0.02, Math.PI / 2);
+    const span = [];
+    for (let x = -5; x <= -2; x++) span.push([x, 0]);
+    add('planks', span, 0.35, 0);
+    add('pillar-wood', [[-5, 0], [-3.2, 0]], 0, 0);
+    const wall = moss ? 'wall-broken' : 'wall';
+    const wood = moss ? 'wall-wood-broken' : 'wall-wood';
+    const win = moss ? 'wall-wood-broken' : 'wall-window-shutters';
+    const door = moss ? 'wall-wood-door' : 'wall-door';
+    const houses = [-6, -2, 2, 6];
+    add(door, houses.map((z) => [4.2, z]), 0, Math.PI);
+    add(win, houses.map((z) => [4.2, z + 1]), 0, Math.PI);
+    add(wood, houses.map((z) => [4.2, z]), 1, Math.PI);
+    add(wall, houses.map((z) => [4.2, z + 1]), 1, Math.PI);
+    add('roof', houses.map((z) => [4.2, z]), 2, Math.PI);
+    add('roof-gable', houses.map((z) => [4.2, z + 1]), 2, Math.PI);
+    add(moss ? 'banner-green' : 'banner-red', houses.map((z) => [3.7, z + 0.2]), 1.2, Math.PI);
+    add(moss ? 'stall-green' : 'stall-red', [[0.6, -4], [0.6, 1], [0.6, 5]], 0, Math.PI / 2);
+    add('cart', [[1.6, -1.5]], 0, 0.4);
+    const lamps = [];
+    for (let z = -7; z <= 6; z += 3) lamps.push([-2.4, z]);
+    add('lantern', lamps, 0, 0);
+    add('hedge', [[3.3, -7.2], [3.3, 7.2], [-1.2, 6.5]], 0, 0);
+    add('hedge-large', moss ? [[4.6, -4], [4.6, 3], [2.2, -6]] : [[-1.4, -6.5]], 0, 0);
+    add('rock-small', moss ? [[3.4, -5], [3.6, -1.2], [4.8, -4]] : [[-2.6, -5], [2.8, -6]], 0, 0);
+    add('rock-wide', moss ? [[5.2, -1], [4.4, -6.4]] : [[5.4, -7]], 0, 0);
+    if (moss) add('fence-broken', [[3.2, -3.2], [3.2, 3.4]], 0, Math.PI / 2);
+    const dock = [[0.2, -7.4], [1.4, -7.4], [0.2, -6.4], [1.4, -6.4]];
+    add('pillar-wood', dock, 0, 0);
+    add('planks', dock, 1.0, 0);
+    add('planks', [[0.8, -7.4], [0.8, -6.4]], 1.0, Math.PI / 2);
+    add('stairs-stone', [[0.8, -5.6]], 0, 0);
+    root.add(water);
+    if (flies) root.add(flies);
+    lamps.forEach(([x, z], i) => {
+      if (i % 2) return;
+      const light = new THREE.PointLight(moss ? '#d7e7a4' : '#ffc48a', moss ? 1.4 : 2.2, 7, 2);
+      light.position.set(x, 1.35, z);
+      root.add(light);
+    });
+    const glowMat = new THREE.MeshBasicMaterial({ color: moss ? '#e7f3b0' : '#ffd7a0', transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending });
+    const glows = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.22, 0.28), glowMat, lamps.length);
+    const dummy = new THREE.Object3D();
+    lamps.forEach(([x, z], i) => {
+      dummy.position.set(x, 1.15, z);
+      dummy.rotation.set(0, 0, 0);
+      dummy.updateMatrix();
+      glows.setMatrixAt(i, dummy.matrix);
+    });
+    glows.instanceMatrix.needsUpdate = true;
+    glows.frustumCulled = false;
+    root.add(glows);
+    root.add(skyDome(moss ? '#1d3328' : '#8eb4d4', moss ? '#6d8a62' : '#f0d7b4'));
+    const fill = new THREE.HemisphereLight(moss ? '#c5d8be' : '#f7f4ee', moss ? '#3a4034' : '#8a7560', moss ? 0.7 : 0.85);
+    root.add(fill);
   });
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.04, 6, 16), new THREE.MeshBasicMaterial({ color: look.light }));
-  ring.rotation.x = Math.PI / 2;
-  ring.position.y = 1.82;
-  dock.add(pad, ring);
-  dock.position.set(2.4, 0, -7.2);
-  const lamp = new THREE.PointLight(look.light, look.moss ? 0.7 : 1.1, 9, 2);
-  lamp.position.set(-1, 2.2, 0);
-  const fill = new THREE.HemisphereLight(look.moss ? '#c5d4c0' : '#f4f7fb', look.moss ? '#3a4034' : '#8a7a68', 1.05);
-  root.add(ground, water, quay, street, houses, roofs, posts, heads, stalls, crates, pipes, mossCaps, dock, lamp, fill);
-  return { root, seed };
+  const flyDummy = new THREE.Object3D();
+  return {
+    root,
+    moss,
+    ready,
+    fog: moss ? ['#6d8a72', 5, 20] : ['#d2c2a4', 8, 34],
+    tick(dt) {
+      water.material.uniforms.uTime.value += dt;
+      if (!flies) return;
+      const t = performance.now() * 0.001;
+      for (let i = 0; i < 16; i++) {
+        flyDummy.position.set(3.2 + Math.sin(t * 0.7 + i) * 1.4, 0.6 + (i % 5) * 0.35 + Math.sin(t * 1.6 + i) * 0.15, -2 + (i - 8) * 0.7);
+        flyDummy.updateMatrix();
+        flies.setMatrixAt(i, flyDummy.matrix);
+      }
+      flies.instanceMatrix.needsUpdate = true;
+    },
+  };
 }

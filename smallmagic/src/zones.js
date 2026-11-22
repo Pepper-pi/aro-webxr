@@ -398,8 +398,12 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         hub.add(model);
         return model;
       };
-      put(furn.rug, 0.2, 0, -0.4, 0, 0.04);
-      put(furn.rug, -3.4, 0, 3.0, 0.2, 0.03);
+      const dyeRug = (mesh) => mesh.traverse((o) => {
+        if (!o.isMesh) return;
+        for (const m of [].concat(o.material)) m.color.set('#2c4552');
+      });
+      dyeRug(put(furn.rug, 0.2, 0, -0.4, 0, 0.04));
+      dyeRug(put(furn.rug, -3.4, 0, 3.0, 0.2, 0.03));
       put(furn.fire, -3.55, 0.3, -4.82, 0.2, 0.36);
       put(furn.table, 1.5, 0, -0.8, 0.3, 0.75);
       put(furn.chair, 0.7, 0, -0.5, 0.8, 0.9);
@@ -813,6 +817,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     world.wade = null;
   }
   function enter(next) {
+    scene.fog = null;
     const city = next === 'block' || next === 'ruin';
     canal.root.visible = next === 'block';
     ruin.root.visible = next === 'ruin';
@@ -845,6 +850,8 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       hold.visible = false;
       world.home = [0, 0]; world.edge = 9; world.colliders = [];
       world.blockers = null; world.walk = () => 0; world.wade = null;
+      const block = next === 'ruin' ? ruin : canal;
+      scene.fog = new THREE.Fog(...block.fog);
       if (back) { back.hidden = false; back.textContent = 'Hearth'; }
       if (menu) menu.hidden = true;
       hideBoard();
@@ -1208,6 +1215,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     birds.push(g);
   }
   world.root.add(life);
+  let cityAngle = 0;
   const pool = [];
   const blasts = [];
   const blastGeo = new THREE.SphereGeometry(0.4, 10, 8);
@@ -1308,6 +1316,9 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     get nearFriend() { return nearId; },
     setDetail(low) { for (const ctl of Object.values(ctls)) ctl.setDetail(!!low); },
     marenPose(name) { ctls.maren?.pose(name); },
+    set cityAngle(v) { cityAngle = v || 0; },
+    get cityAngle() { return cityAngle; },
+    get cityReady() { return Promise.all([canal.ready, ruin.ready]); },
     showBook,
     stickRod() {
       if (!hold.visible) return;
@@ -1578,6 +1589,9 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         buddyTag.visible = false;
         buddyRing.visible = false;
       }
+      life.visible = name === 'meadow';
+      if (name === 'block') canal.tick(dt);
+      if (name === 'ruin') ruin.tick(dt);
       for (const [id, ctl] of Object.entries(ctls)) {
         const home = pals.find((p) => p.id === id)?.g;
         const outside = buddy === id && name === 'meadow' && !atLake;

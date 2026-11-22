@@ -64,7 +64,7 @@ export function createHearthShell() {
   const wall = wood.clone();
   wall.repeat.set(3, 1.4);
   const stone = mapOf('hearth/textures/stone_wall_diff_1k.jpg', 2, 2);
-  const plank = new THREE.MeshStandardMaterial({ map: wood, roughness: 0.78, metalness: 0, color: '#fff8ef' });
+  const plank = new THREE.MeshStandardMaterial({ map: wood, roughness: 0.86, metalness: 0, color: '#6e5844' });
   const boards = new THREE.MeshStandardMaterial({ map: wall, roughness: 0.84, metalness: 0, color: '#fff4e6' });
   const rock = new THREE.MeshStandardMaterial({ map: stone, roughness: 0.92, metalness: 0, color: '#f4efe8' });
 

@@ -658,9 +658,14 @@ function tick(dt) {
   const wantDist = settings.viewBack ? 4.4 : 2.5 + Math.min(2.1, Math.max(0, walker.speed - 1) * 0.32);
   chaseDist += ((wantChase ? wantDist : 0) - chaseDist) * Math.min(1, dt * 3.2);
   const chasing = chaseDist > 0.45;
+  const inCity = zones.name === 'block' || zones.name === 'ruin';
   if (inHub && !free && !duel.active) {
     camera.position.set(0.6, 2.35, 5.9);
     camera.lookAt(-2.2, 0.95, -3.4);
+  } else if (inCity && !free && !duel.active) {
+    const a = zones.cityAngle || 0;
+    camera.position.set(-1.1 + Math.sin(a) * 5.5, 1.62, 6.4 - Math.cos(a) * 1.4);
+    camera.lookAt(-2.4, 1.15, -6);
   } else if (chasing) {
     const yaw = walker.yaw;
     const fx = Math.sin(yaw);
