@@ -15,9 +15,17 @@ function dye(material, lit, shade) {
   if (material.shadeColorFactor?.set) material.shadeColorFactor.set(shade);
 }
 
-function shrink(tex, max) {
-  const img = tex?.image;
-  if (!img || !img.width || Math.max(img.width, img.height) <= max) return;
+function sharpen(tex, max) {
+  if (!tex) return;
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.generateMipmaps = true;
+  tex.anisotropy = 8;
+  const img = tex.image;
+  if (!max || !img || !img.width || Math.max(img.width, img.height) <= max) {
+    tex.needsUpdate = true;
+    return;
+  }
   const scale = max / Math.max(img.width, img.height);
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.round(img.width * scale));
@@ -108,7 +116,7 @@ export async function createMaren(url, { low = false } = {}) {
   VRMUtils.rotateVRM0(vrm);
   // The normalized rig is a T-pose. Copying it onto the sample would hold her arms out.
   vrm.humanoid.autoUpdateHumanBones = false;
-  const cap = low ? 160 : 256;
+  const cap = low ? 192 : 0;
   vrm.scene.traverse((o) => {
     o.frustumCulled = false;
     if (!o.isMesh) return;
@@ -119,8 +127,8 @@ export async function createMaren(url, { low = false } = {}) {
       else if (BOTTOM.test(name)) dye(material, '#b7d39a', '#4e6a3c');
       else if (SHOE.test(name)) dye(material, '#c4926e', '#5c3a28');
       if (material.outlineWidthFactor != null) material.outlineWidthFactor = low ? 0 : 0.0015;
-      for (const key of ['map', 'shadeMultiplyTexture', 'normalMap']) {
-        if (material[key]) shrink(material[key], cap);
+        for (const key of ['map', 'shadeMultiplyTexture', 'normalMap']) {
+        if (material[key]) sharpen(material[key], cap);
       }
     }
   });
@@ -169,13 +177,13 @@ export async function createMaren(url, { low = false } = {}) {
 
   function setDetail(next) {
     detail = !!next;
-    const max = detail ? 160 : 256;
+    const max = detail ? 192 : 0;
     vrm.scene.traverse((o) => {
       if (!o.isMesh) return;
       for (const material of [].concat(o.material || [])) {
         if (material.outlineWidthFactor != null) material.outlineWidthFactor = detail ? 0 : 0.0015;
         for (const key of ['map', 'shadeMultiplyTexture', 'normalMap']) {
-          if (material[key]) shrink(material[key], max);
+          if (material[key]) sharpen(material[key], max);
         }
       }
     });

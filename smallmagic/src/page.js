@@ -97,7 +97,7 @@ export function createPage(renderer) {
         } else c = mix(c, vec3(1.0, 0.97, 0.9), uWhite);
         if (uPaint > 0.5) {
           c = vec3(c.r * 1.05 + 0.04, c.g * 0.99 + 0.028, c.b * 0.9 + 0.02);
-          c = mix(c, floor(c * 16.0) / 16.0, 0.06);
+          c = mix(c, floor(c * 16.0) / 16.0, 0.06 * (1.0 - uGrade));
           float edge = smoothstep(0.001, 0.008, abs(textureLod(tDepth, vUv, 0.0).r - textureLod(tDepth, vUv + vec2(1.6 / uSize.x, 1.2 / uSize.y), 0.0).r));
           c = mix(c, c * vec3(0.42, 0.32, 0.34), edge * 0.4 * (0.45 + 0.55 * uGrade));
           c += vec3(1.0, 0.78, 0.55) * edge * 0.22;
