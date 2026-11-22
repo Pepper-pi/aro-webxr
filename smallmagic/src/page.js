@@ -4,6 +4,7 @@
 //   3. it is brought into the range a screen can show, kept rich in colour, and the corners are let fall away.
 // The staff is drawn last, by itself, over everything.
 import * as THREE from 'three';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
 const QUAD = /* glsl */ `out vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -113,6 +114,9 @@ export function createPage(renderer) {
         outC = vec4(c, 1.0);
       }`,
   });
+  const bloom = new UnrealBloomPass(size.clone(), 0.55, 0.42, 0.92);
+  bloom.renderToScreen = false;
+  let bloomOn = false;
   const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), print);
   quad.frustumCulled = false;
   const stage = new THREE.Scene();
@@ -141,6 +145,7 @@ export function createPage(renderer) {
     set paint(v) { print.uniforms.uPaint.value = v ? 1 : 0; },
     set grade(v) { print.uniforms.uGrade.value = v ? 1 : 0; },
     set dusk(v) { print.uniforms.uDusk.value = v ? 1 : 0; },
+    set bloom(v) { bloomOn = !!v; },
     /** The ring a blast sends out, as the eye sees it: round a place in the world, so far out, so strong. */
     shock(camera, place, radius, power) {
       const u = print.uniforms.uShock.value, d = camera.position.distanceTo(place);
@@ -151,6 +156,8 @@ export function createPage(renderer) {
     resize() {
       renderer.getDrawingBufferSize(size);
       scene.setSize(size.x, size.y);
+      bloom.resolution.copy(size);
+      bloom.setSize(size.x, size.y);
       print.uniforms.uSize.value.copy(size);
     },
     /** world, camera: what is seen. hand: { scene, camera }, drawn over it. sun: the way to the sun. */
@@ -165,6 +172,7 @@ export function createPage(renderer) {
       renderer.clear();
       renderer.render(world, camera);
       if (hand) renderer.render(hand.scene, hand.camera);
+      if (bloomOn) bloom.render(renderer, null, scene, 0, false);
       renderer.setRenderTarget(null);
       renderer.render(stage, flat);
     },
