@@ -739,7 +739,7 @@ function tick(dt) {
   street.sky = living.weather;
   street.update(dt, walker, ar.on || zones.name === 'hub' || duel.active);
   duel.update(dt);
-  if (hexes.layer) hexes.layer.visible = zones.name !== 'hub';
+  if (hexes.layer) hexes.layer.visible = zones.name === 'meadow';
   hexes.update(dt);
   const spellBox = document.getElementById('spells');
   if (spellBox) spellBox.hidden = !!(previewOn || zones.name === 'hub' || zones.rodOut || (wheel && castDisc?.ready));
