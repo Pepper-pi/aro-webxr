@@ -99,20 +99,78 @@ def write_glb(js, blob, path):
     path.write_bytes(out)
 
 
-def main():
-    js, blob = read_glb(SRC)
+def role(name):
+    n = (name or "").lower()
+    if "hair" in n and "nml" not in n and "spe" not in n and "matcap" not in n:
+        return "hair"
+    if "tops" in n:
+        return "top"
+    if "bottoms" in n:
+        return "bottom"
+    if "shoes" in n:
+        return "shoe"
+    return None
+
+
+def derive(src, dst, title, reference, tints):
+    js, blob = read_glb(src)
     meta = js["extensions"]["VRM"]["meta"]
-    meta["title"] = "Maren Reed"
+    meta["title"] = title
     meta["author"] = "VRoid"
     meta["licenseName"] = "Other"
     meta["otherLicenseUrl"] = ""
-    meta["reference"] = (
-        "Derived from VRoid AvatarSample_A for this game as Maren Reed. "
-        "This is not a public-domain licence. Do not ship or sell the unmodified sample."
-    )
+    meta["reference"] = reference
+    named = {}
+    for image in js["images"]:
+        kind = role(image.get("name"))
+        if kind and kind in tints:
+            named[js["images"].index(image)] = tints[kind]
+    global TINTS
+    TINTS = named
     blob = pack(js, blob)
-    write_glb(js, blob, DST)
-    print(f"wrote {DST} {DST.stat().st_size}")
+    write_glb(js, blob, dst)
+    print(f"wrote {dst} {dst.stat().st_size}")
+
+
+def main():
+    note = "This is not a public-domain licence. Do not ship or sell the unmodified sample."
+    derive(
+        SRC,
+        DST,
+        "Maren Reed",
+        "Derived from VRoid AvatarSample_A for this game as Maren Reed. " + note,
+        {
+            "hair": (176, 96, 58, 0.62),
+            "top": (214, 186, 132, 0.55),
+            "bottom": (92, 122, 70, 0.42),
+            "shoe": (122, 74, 46, 0.35),
+        },
+    )
+    people = ROOT / "smallmagic/public/hearth/people"
+    derive(
+        ROOT / "v7/assets/vrm/AvatarSample_B.vrm",
+        people / "bram-vroid.vrm",
+        "Bram",
+        "Derived from VRoid AvatarSample_B for this game as Bram. " + note,
+        {
+            "hair": (140, 96, 58, 0.45),
+            "top": (120, 138, 78, 0.5),
+            "bottom": (70, 54, 40, 0.35),
+            "shoe": (90, 64, 46, 0.3),
+        },
+    )
+    derive(
+        ROOT / "v7/assets/vrm/AvatarSample_C.vrm",
+        people / "sable-vroid.vrm",
+        "Sable",
+        "Derived from VRoid AvatarSample_C for this game as Sable. " + note,
+        {
+            "hair": (36, 48, 62, 0.55),
+            "top": (46, 110, 128, 0.5),
+            "bottom": (28, 40, 48, 0.35),
+            "shoe": (54, 48, 42, 0.25),
+        },
+    )
 
 
 if __name__ == "__main__":

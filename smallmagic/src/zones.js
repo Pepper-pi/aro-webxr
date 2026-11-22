@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { createBeasts, PACKS, patchWebKitImageBitmap } from './beasts.js';
 import { createHearthShell } from './hearthroom.js';
-import { createMaren } from './maren.js';
+import { createCompanion } from './maren.js';
 import { TUNE } from './rider.js';
 import { buildVillage } from './cabins.js';
 
@@ -304,7 +304,13 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   }
   let loadedPeople = null;
   let dressBuddy = () => {};
-  let marenCtl = null;
+  const ctls = {};
+  const COMPANIONS = {
+    maren: { url: 'hearth/people/maren-reed.vrm', charm: 'sprig', height: 1.58, dyes: { hair: '#e7b08a', hairShade: '#7a4030', top: '#f3e2c0', topShade: '#a88458', bottom: '#b7d39a', bottomShade: '#4e6a3c', shoe: '#c4926e', shoeShade: '#5c3a28' } },
+    bram: { url: 'hearth/people/bram-vroid.vrm', charm: null, height: 1.72, shape: { waist: 1.06, hips: 1.05 }, dyes: { hair: '#c4a574', hairShade: '#5c4030', top: '#9aaa72', topShade: '#4e5c34', bottom: '#5c4636', bottomShade: '#2e241c', shoe: '#6a5344', shoeShade: '#3a2c22' } },
+    sable: { url: 'hearth/people/sable-vroid.vrm', charm: 'hook', height: 1.66, dyes: { hair: '#2c3844', hairShade: '#141820', top: '#4e8ea0', topShade: '#1e4c58', bottom: '#243038', bottomShade: '#12181c', shoe: '#4a4038', shoeShade: '#241c18' } },
+    lumen: { url: 'hearth/people/maren-reed.vrm', charm: 'bead', height: 1.56, shape: { waist: 0.95 }, dyes: { hair: '#e7c98a', hairShade: '#8a6840', top: '#f6e7c4', topShade: '#c4a56a', bottom: '#e2d0a8', bottomShade: '#8a7050', shoe: '#c4a070', shoeShade: '#6a4830' } },
+  };
   let marenMood = 'settled';
   let hearthReady = Promise.resolve(false);
   function loadHearth() {
@@ -320,22 +326,24 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         maren: null, sable: null, bram: null, lumen: null, you: null,
       };
       const people = loadedPeople;
-      try {
-        marenCtl = await createMaren(new URL('hearth/people/maren-reed.vrm', document.baseURI).href, { low: detail === 'low' });
-      } catch (err) {
-        console.warn('maren vrm', err);
-      }
+      await Promise.all(Object.entries(COMPANIONS).map(async ([id, spec]) => {
+        try {
+          ctls[id] = await createCompanion(new URL(spec.url, document.baseURI).href, { ...spec, low: detail === 'low' });
+        } catch (err) {
+          console.warn(id, err);
+        }
+      }));
       Object.assign(people, {
-        maren: marenCtl ? null : await file('hearth/people/maren.glb'),
-        sable: await file('hearth/people/sable.glb'),
-        bram: await file('hearth/people/bram.glb'),
-        lumen: await file('hearth/people/lumen.glb'),
+        maren: ctls.maren ? null : await file('hearth/people/maren.glb'),
+        sable: ctls.sable ? null : await file('hearth/people/sable.glb'),
+        bram: ctls.bram ? null : await file('hearth/people/bram.glb'),
+        lumen: ctls.lumen ? null : await file('hearth/people/lumen.glb'),
         you: await file('hearth/people/you.glb'),
       });
       dressBuddy = (pal) => {
-        if (pal.id === 'maren' && marenCtl) {
+        if (ctls[pal.id]) {
           stripBlocks(buddyBody);
-          buddyBody.add(marenCtl.root);
+          buddyBody.add(ctls[pal.id].root);
           buddyTag.visible = true;
           const canvas = buddyTag.material.map.image;
           const g = canvas.getContext('2d');
@@ -395,9 +403,9 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       put(furn.lamp, -1.0, 0, -3.4, 0, 1.35);
       put(furn.pot, -2.35, 0, -4.15, 0.6, 0.46);
       for (const p of pals) {
-        if (p.id === 'maren' && marenCtl) {
+        if (ctls[p.id]) {
           stripBlocks(p.g);
-          p.g.add(marenCtl.root);
+          p.g.add(ctls[p.id].root);
           p.mark.position.y = 1.9;
           continue;
         }
@@ -1272,8 +1280,8 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     setDusk,
     set roomWeather(v) { roomWeather = v || 'clear'; },
     get nearFriend() { return nearId; },
-    setDetail(low) { marenCtl?.setDetail(!!low); },
-    marenPose(name) { marenCtl?.pose(name); },
+    setDetail(low) { for (const ctl of Object.values(ctls)) ctl.setDetail(!!low); },
+    marenPose(name) { ctls.maren?.pose(name); },
     showBook,
     stickRod() {
       if (!hold.visible) return;
@@ -1544,17 +1552,17 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         buddyTag.visible = false;
         buddyRing.visible = false;
       }
-      if (marenCtl) {
-        const home = pals.find((p) => p.id === 'maren')?.g;
-        const outside = buddy === 'maren' && name === 'meadow' && !atLake;
+      for (const [id, ctl] of Object.entries(ctls)) {
+        const home = pals.find((p) => p.id === id)?.g;
+        const outside = buddy === id && name === 'meadow' && !atLake;
         const host = outside ? buddyBody : home;
-        if (host && marenCtl.root.parent !== host) {
-          host.add(marenCtl.root);
-          marenCtl.root.position.set(0, 0, 0);
-          marenCtl.root.rotation.set(0, 0, 0);
+        if (host && ctl.root.parent !== host) {
+          host.add(ctl.root);
+          ctl.root.position.set(0, 0, 0);
+          ctl.root.rotation.set(0, 0, 0);
         }
-        marenCtl.feel({ mood: marenMood, greeting: nearId === 'maren' });
-        marenCtl.update(dt, camera);
+        ctl.feel({ mood: id === 'maren' ? marenMood : 'settled', greeting: nearId === id });
+        ctl.update(dt, camera);
       }
       for (const mixer of hearthMixers) mixer.update(dt);
       if (name === 'hub') {

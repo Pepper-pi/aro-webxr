@@ -157,7 +157,35 @@ function tuneSprings(vrm, low) {
   springs.setInitState();
 }
 
-export async function createMaren(url, { low = false } = {}) {
+function charmOf(kind) {
+  if (kind === 'hook') {
+    const g = new THREE.Group();
+    g.name = 'line-hook';
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.07, 4), new THREE.MeshBasicMaterial({ color: '#d7dde2' }));
+    const bend = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.003, 4, 8, Math.PI), new THREE.MeshBasicMaterial({ color: '#c5ced6' }));
+    bend.position.y = -0.04;
+    g.add(stem, bend);
+    return g;
+  }
+  if (kind === 'bead') {
+    const g = new THREE.Group();
+    g.name = 'sun-bead';
+    const bead = new THREE.Mesh(new THREE.SphereGeometry(0.016, 8, 6), new THREE.MeshBasicMaterial({ color: '#e7c56a' }));
+    g.add(bead);
+    return g;
+  }
+  return sprig();
+}
+
+export async function createCompanion(url, opts = {}) {
+  const low = !!opts.low;
+  const dyes = opts.dyes || {
+    hair: '#e7b08a', hairShade: '#7a4030',
+    top: '#f3e2c0', topShade: '#a88458',
+    bottom: '#b7d39a', bottomShade: '#4e6a3c',
+    shoe: '#c4926e', shoeShade: '#5c3a28',
+  };
+  const tall = opts.height || 1.58;
   const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
   const { VRMLoaderPlugin, VRMUtils } = await import('@pixiv/three-vrm');
   const loader = new GLTFLoader();
@@ -173,10 +201,10 @@ export async function createMaren(url, { low = false } = {}) {
     if (!o.isMesh) return;
     for (const material of [].concat(o.material || [])) {
       const name = material.name || o.name || '';
-      if (HAIR.test(name)) dye(material, '#e7b08a', '#7a4030');
-      else if (TOP.test(name)) dye(material, '#f3e2c0', '#a88458');
-      else if (BOTTOM.test(name)) dye(material, '#b7d39a', '#4e6a3c');
-      else if (SHOE.test(name)) dye(material, '#c4926e', '#5c3a28');
+      if (HAIR.test(name)) dye(material, dyes.hair, dyes.hairShade);
+      else if (TOP.test(name)) dye(material, dyes.top, dyes.topShade);
+      else if (BOTTOM.test(name)) dye(material, dyes.bottom, dyes.bottomShade);
+      else if (SHOE.test(name)) dye(material, dyes.shoe, dyes.shoeShade);
       if (material.outlineWidthFactor != null) material.outlineWidthFactor = low ? 0 : 0.0015;
         for (const key of ['map', 'shadeMultiplyTexture', 'normalMap']) {
         if (material[key]) sharpen(material[key], cap);
@@ -185,10 +213,12 @@ export async function createMaren(url, { low = false } = {}) {
   });
   const chest = vrm.humanoid.getRawBoneNode('chest') || vrm.humanoid.getRawBoneNode('upperChest');
   if (chest) {
-    const herb = sprig();
-    herb.position.set(0.03, 0.04, -0.1);
-    herb.rotation.z = -0.5;
-    chest.add(herb);
+    if (opts.charm !== null) {
+      const herb = charmOf(opts.charm || 'sprig');
+      herb.position.set(0.03, 0.04, -0.1);
+      herb.rotation.z = -0.5;
+      chest.add(herb);
+    }
   }
   const relax = (name, x, y, z) => {
     const node = vrm.humanoid.getRawBoneNode(name);
@@ -207,11 +237,11 @@ export async function createMaren(url, { low = false } = {}) {
   root.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(root);
   const height = box.getSize(new THREE.Vector3()).y || 1;
-  if (Number.isFinite(height) && height > 0.3 && height < 20) root.scale.multiplyScalar(1.58 / height);
+  if (Number.isFinite(height) && height > 0.3 && height < 20) root.scale.multiplyScalar(tall / height);
   root.updateMatrixWorld(true);
   root.position.y -= new THREE.Box3().setFromObject(root).min.y;
   root.userData.fit = root.scale.x;
-  shapeBody(vrm, {});
+  shapeBody(vrm, opts.shape || {});
   tuneSprings(vrm, low);
   const idle = buildIdle(vrm);
 
@@ -297,4 +327,8 @@ export async function createMaren(url, { low = false } = {}) {
     pose(name) { hold = name || null; },
     get expressions() { return Object.keys(vrm.expressionManager?.expressionMap || {}); },
   };
+}
+
+export function createMaren(url, opts) {
+  return createCompanion(url, opts);
 }
