@@ -60,7 +60,7 @@
       #spell { bottom: calc(max(22px, env(safe-area-inset-bottom)) + 90px); }
       #cast:active, #spell:active { background: rgba(241, 217, 164, 0.35); }
       #board, #catch, #atlas { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); z-index: 8; width: min(320px, 90vw); padding: 22px 16px 16px; border: 2px solid #f1d9a4; border-radius: 16px; background: rgba(20, 12, 28, 0.94); color: #f6ead0; text-align: center; font: 18px/1.3 Georgia, serif; touch-action: none; user-select: none; }
-      #menu.glasshex { position: fixed; inset: 0; z-index: 24; display: grid; place-items: center; padding: 18px; background: radial-gradient(circle at 50% 40%, rgba(40, 16, 64, 0.2), rgba(4, 2, 12, 0.72)); }
+      #menu.glasshex { position: fixed; inset: 0; z-index: 24; display: grid; place-items: center; padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left)); background: radial-gradient(circle at 50% 40%, rgba(40, 16, 64, 0.2), rgba(4, 2, 12, 0.72)); }
       #menu.glasshex[hidden] { display: none; }
       #menu.glasshex .glass-body { position: relative; width: min(980px, 96vw); height: min(640px, 92vh); display: flex; gap: 18px; padding: 22px; color: #f4ecff; background: linear-gradient(180deg, rgba(210, 186, 255, 0.22), rgba(36, 18, 64, 0.55) 38%, rgba(12, 8, 28, 0.72)); border: 1px solid rgba(214, 170, 255, 0.55); border-radius: 28px; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(120, 220, 255, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -12px 24px rgba(40, 8, 70, 0.35); backdrop-filter: blur(16px); }
       #menu.glasshex .glass-body::before { content: ''; position: absolute; inset: 0; border-radius: 28px; pointer-events: none; opacity: 0.28; background-image: linear-gradient(rgba(210, 170, 255, 0.35) 1px, transparent 1px), linear-gradient(90deg, rgba(210, 170, 255, 0.35) 1px, transparent 1px); background-size: 28px 28px; mask-image: radial-gradient(circle, #000 42%, transparent 80%); }
@@ -79,8 +79,9 @@
       #menu.glasshex .cards { display: flex; gap: 8px; }
       #menu.glasshex .cards article { flex: 1; min-height: 72px; padding: 8px; border-radius: 14px; border: 1px solid rgba(200, 170, 255, 0.45); background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(40, 16, 70, 0.18)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 4px 10px rgba(0, 0, 0, 0.18); font: 13px Georgia, serif; }
       #menu.glasshex .cards b { display: block; color: #dffbff; margin-bottom: 4px; }
-      #menu.glasshex .cards button, #menu.glasshex .row-go button, #menu.glasshex .glass-foot button, #menu.glasshex #menuX { position: static; width: auto; top: auto; right: auto; margin: 0; min-height: 36px; padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(180, 245, 255, 0.6); background: rgba(20, 10, 40, 0.35); color: #f4ecff; font: 14px Georgia, serif; }
-      #menu.glasshex .glass-foot, #menu.glasshex .row-go { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+      #menu.glasshex .cards button, #menu.glasshex .row-go button, #menu.glasshex .glass-foot button, #menu.glasshex #menuX { position: static; width: auto; top: auto; right: auto; margin: 0; min-height: 48px; padding: 10px 16px; border-radius: 999px; border: 1px solid rgba(180, 245, 255, 0.6); background: rgba(20, 10, 40, 0.35); color: #f4ecff; font: 18px Georgia, serif; }
+      #menu.glasshex .glass-foot, #menu.glasshex .row-go { display: flex; gap: 10px; justify-content: stretch; margin-top: 12px; }
+      #menu.glasshex .glass-foot button { flex: 1; }
       #menu.glasshex .spell-rest { font: italic 14px Georgia, serif; color: #f0dff8; }
       #settings { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 26; width: min(420px, 94vw); max-height: min(86vh, 720px); overflow: auto; padding: 18px 14px 14px; border: 1px solid rgba(180, 245, 255, 0.55); border-radius: 22px; background: linear-gradient(180deg, rgba(210, 186, 255, 0.24), rgba(12, 8, 28, 0.88)); color: #f4ecff; backdrop-filter: blur(14px); box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.35); }
       #book, #crew, #home { border-color: rgba(180, 245, 255, 0.55); background: linear-gradient(165deg, rgba(170, 140, 255, 0.16), rgba(10, 6, 22, 0.9)); color: #f4ecff; box-shadow: 0 0 24px rgba(140, 70, 200, 0.28); }
@@ -89,7 +90,7 @@
         #menu.glasshex .glass-tabs { width: 100%; flex-direction: row; flex-wrap: wrap; justify-content: flex-start; }
         #menu.glasshex .glass-tabs button, #menu.glasshex .glass-tabs button:nth-child(even) { flex: 1 1 42%; margin-left: 0; }
         #menu.glasshex .glass-stage { border-radius: 14px; }
-        #settings { top: 8px; transform: translate(-50%, 0); max-height: calc(100vh - 16px); }
+        #settings { top: max(72px, calc(env(safe-area-inset-top) + 56px)); transform: translate(-50%, 0); max-height: calc(100vh - 96px); }
       }
       #book { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 25; width: min(420px, 94vw); max-height: min(78vh, 720px); overflow: auto; padding: 18px 16px; border: 1px solid rgba(180, 245, 255, 0.55); border-radius: 22px; background: linear-gradient(180deg, rgba(210, 186, 255, 0.22), rgba(12, 8, 28, 0.9)); color: #f4ecff; box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3); }
       #hexcard { position: fixed; left: 50%; top: 46%; transform: translate(-50%, -50%); z-index: 20; width: min(360px, 92vw); padding: 0 0 14px; border: 2px solid #f1d9a4; border-radius: 16px; background: rgba(16, 10, 24, 0.98); color: #f6ead0; text-align: center; font: 16px/1.35 Georgia, serif; overflow: hidden; }
@@ -155,7 +156,7 @@
       #boardX, #menuX, #mapX { position: absolute; top: 8px; right: 8px; width: 44px; min-height: 44px; margin: 0; padding: 0; font-size: 28px; }
       #back, #menubtn, #reel { position: fixed; z-index: 7; border-radius: 999px; border: 1px solid #f1d9a4; background: rgba(20, 12, 28, 0.78); color: #f6ead0; font: 16px Georgia, serif; }
       #menubtn { top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); padding: 10px 16px; }
-      #back { top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); padding: 10px 16px; }
+      #back { top: auto; left: 50%; right: auto; bottom: max(24px, calc(env(safe-area-inset-bottom) + 12px)); transform: translateX(-50%); min-width: 132px; min-height: 48px; padding: 12px 22px; z-index: 12; font-size: 18px; }
       #reel { right: max(108px, calc(env(safe-area-inset-right) + 108px)); bottom: calc(max(22px, env(safe-area-inset-bottom)) + 96px); width: 76px; height: 76px; border-radius: 50%; font-size: 16px; }
       #fish, #dusk, #chase, #ar { pointer-events: auto; position: fixed; z-index: 7; border-radius: 999px; border: 2px solid rgba(241, 217, 164, 0.7); background: rgba(20, 12, 36, 0.55); color: #f6ead0; font: 13px/1.1 Georgia, serif; letter-spacing: 0.06em; text-transform: uppercase; }
       #fish { left: 50%; right: auto; bottom: calc(max(22px, env(safe-area-inset-bottom)) + 118px); transform: translateX(-50%); width: 148px; height: 64px; font-size: 22px; background: rgba(20, 12, 28, 0.88); box-shadow: 0 0 18px rgba(255, 214, 120, 0.85); }
@@ -483,7 +484,7 @@
             <div class="hero hero-board"></div>
             <div class="cards"><article><button type="button" id="openCrew">Open board</button></article><article><b>Needs</b><span>Fish, herb, hex</span></article><article><b>Bond</b><span>Tea, a walk, a gift</span></article></div>
           </section>
-          <footer class="glass-foot"><button type="button" data-trip="meadow">Back</button><button type="button" id="menuHome">Home</button><button type="button" id="menuX">Close</button></footer>
+          <footer class="glass-foot"><button type="button" id="menuBack">Back</button><button type="button" id="menuX">Close</button></footer>
         </div>
       </div>
     </div>

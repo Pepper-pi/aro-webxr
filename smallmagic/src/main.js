@@ -334,7 +334,8 @@ const settings = { hands: false, class: 'mage', blade: false, gunner: false, gfx
 function chaseLabel() {
   const b = document.getElementById('chase');
   if (!b) return;
-  b.textContent = settings.class === 'mage' ? (settings.viewBack ? 'Eyes' : 'Zoom') : (settings.viewBack ? 'Far' : 'Near');
+  if (typeof zones !== 'undefined' && zones.atLake) b.textContent = settings.viewBack ? 'Near' : 'Far';
+  else b.textContent = settings.class === 'mage' ? (settings.viewBack ? 'Eyes' : 'Zoom') : (settings.viewBack ? 'Far' : 'Near');
   b.classList.toggle('on', settings.viewBack);
 }
 document.getElementById('chase')?.addEventListener('pointerup', (e) => {
@@ -546,7 +547,7 @@ const warden = createWarden({ scene, camera, world, zones, walker });
 const alchemist = createAlchemist({ scene, camera, world, zones, walker });
 const summoner = createSummoner({ scene, camera, world, zones, walker });
 camera.layers.enable(9);
-let padCast = false, forceDraw = false, chaseDist = 0, greetWho = '';
+let padCast = false, forceDraw = false, chaseDist = 0, greetWho = '', lakeWide = false;
 let free = null;
 let shaking = 0;
 const blastAt = new THREE.Vector3();
@@ -624,6 +625,11 @@ function tick(dt) {
   appeal.scan(scene);
   appeal.update(dt);
   post.dusk = !!zones.dusk;
+  if (zones.name !== 'hub') {
+    const card = document.getElementById('hearthGreet');
+    if (card) card.hidden = true;
+    greetWho = '';
+  }
   if (zones.name === 'hub') {
     zones.roomWeather = living.weather;
     const who = zones.nearFriend;
@@ -660,9 +666,25 @@ function tick(dt) {
   const chasing = chaseDist > 0.45;
   const inCity = zones.name === 'block' || zones.name === 'ruin';
   post.bloom = inCity && settings.gfx !== 'low' && !phone;
+  if (zones.atLake && !lakeWide) { settings.viewBack = true; lakeWide = true; chaseLabel(); }
+  if (!zones.atLake) lakeWide = false;
   if (inHub && !free && !duel.active) {
-    camera.position.set(0.6, 2.35, 5.9);
-    camera.lookAt(-2.2, 0.95, -3.4);
+    const yaw = walker.yaw;
+    const fx = Math.sin(yaw);
+    const fz = Math.cos(yaw);
+    const dist = 3.1;
+    const x = Math.max(-4.2, Math.min(4.2, walker.feet.x - fx * dist));
+    const z = Math.max(-5.2, Math.min(5.2, walker.feet.z - fz * dist));
+    camera.position.set(x, walker.feet.y + 1.62, z);
+    camera.lookAt(walker.feet.x + fx * 1.1, walker.feet.y + 1.05, walker.feet.z + fz * 1.1);
+  } else if (zones.atLake && !free && !duel.active) {
+    const far = settings.viewBack;
+    const dist = far ? 9.2 : 3.3;
+    const yaw = walker.yaw;
+    const fx = Math.sin(yaw);
+    const fz = Math.cos(yaw);
+    camera.position.set(walker.feet.x - fx * dist, walker.feet.y + (far ? 3.6 : 1.7), walker.feet.z - fz * dist);
+    camera.lookAt(walker.feet.x + fx * (far ? 14 : 4), walker.feet.y + 0.35, walker.feet.z + fz * (far ? 14 : 4));
   } else if (inCity && !free && !duel.active) {
     const a = zones.cityAngle || 0;
     camera.position.set(-2.35 + Math.sin(a) * 3.4, 1.28, 4.6 - Math.cos(a) * 0.8);

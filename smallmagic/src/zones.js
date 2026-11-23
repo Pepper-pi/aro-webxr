@@ -903,7 +903,15 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     e.preventDefault();
     e.stopPropagation();
   }));
-  document.getElementById('menuX')?.addEventListener('pointerup', (e) => { if (menu) menu.hidden = true; e.preventDefault(); e.stopPropagation(); });
+  const shutMenu = (e) => {
+    if (menu) menu.hidden = true;
+    const settingsBox = document.getElementById('settings');
+    if (settingsBox) settingsBox.hidden = true;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  document.getElementById('menuX')?.addEventListener('pointerup', shutMenu);
+  document.getElementById('menuBack')?.addEventListener('pointerup', shutMenu);
   document.getElementById('menuHome')?.addEventListener('pointerup', (e) => { document.getElementById('openHome')?.dispatchEvent(new PointerEvent('pointerup', { bubbles: true })); e.preventDefault(); e.stopPropagation(); });
   document.getElementById('openFish')?.addEventListener('pointerup', (e) => { showBook(); e.preventDefault(); e.stopPropagation(); });
   const pickMenu = (id) => {

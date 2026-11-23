@@ -445,8 +445,21 @@ export function createHexes(scene, world, camera, walker, zones) {
     e.preventDefault();
     e.stopPropagation();
   });
+  const tapUi = 'button, a, input, #stick, #knob, #touch, #cast, #spell, #menu, #settings, #board, #hexcard, #atlas, #book, #catch, #home, #crew';
+  let tap = null;
+  addEventListener('pointerdown', (e) => {
+    if (e.target.closest && e.target.closest(tapUi)) { tap = null; return; }
+    tap = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId };
+  });
   addEventListener('pointerup', (e) => {
-    if (e.target.closest && e.target.closest('button, #hexcard, #menu, #atlas, #settings, #book, #catch, #board')) return;
+    if (!tap || e.pointerId !== tap.id) return;
+    const moved = Math.hypot(e.clientX - tap.x, e.clientY - tap.y);
+    const held = performance.now() - tap.t;
+    tap = null;
+    if (moved > 10 || held > 300) return;
+    if (e.target.closest && e.target.closest(tapUi)) return;
+    const where = zones?.name;
+    if (where === 'hub' || where === 'block' || where === 'ruin' || zones?.atLake) return;
     ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
     ray.setFromCamera(ndc, camera);
     const hit = world.aim?.(ray.ray.origin, ray.ray.direction, 90);
