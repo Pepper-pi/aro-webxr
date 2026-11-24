@@ -103,6 +103,9 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
   function host() {
     return api.placeAr && world.root.parent ? world.root.parent : world.root;
   }
+  function groundY(x, z) {
+    return api.placeAr && typeof api.floorY === 'number' ? api.floorY : world.ground(x, z);
+  }
   function rememberIce(g, life, cols) {
     host().add(g);
     ices.push({ g, life, max: life, cols });
@@ -112,12 +115,12 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
   function frostPatch(p, r) {
     const mesh = new THREE.Mesh(new THREE.CircleGeometry(Math.max(0.8, r * 0.42), 16), new THREE.MeshBasicMaterial({ color: '#e7fdff', transparent: true, opacity: 0.62, side: THREE.DoubleSide, depthWrite: false }));
     mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(p.x, world.ground(p.x, p.z) + 0.05, p.z);
+    mesh.position.set(p.x, groundY(p.x, p.z) + 0.05, p.z);
     rememberIce(mesh, 14, []);
   }
   /** A solid wall across the throw, or a mound when the ground is already frozen. Both block feet and beasts. */
   function raiseIce(p, kind, vel) {
-    const y0 = world.ground(p.x, p.z);
+    const y0 = groundY(p.x, p.z);
     const fl = Math.hypot(vel?.x || 0, vel?.z || 0) || 1;
     const fx = (vel?.x || 0) / fl, fz = (vel?.z || 1) / fl;
     const g = new THREE.Group();
@@ -298,7 +301,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     press() { down = true; }, release() { down = false; },
     cancel() { down = false; hold = 0; },
     refresh() { cooldown = 0; },
-    from: null, hideMark: false, placeAr: false,
+    from: null, hideMark: false, placeAr: false, floor: null, floorY: null,
     get busy() { return bolts.length + gusts.length; },
     get ice() { return ices.map((i) => ({ life: +i.life.toFixed(2), cols: i.cols.length })); },
     marks,
@@ -316,14 +319,18 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
       const block = ruin ? ruin.ray(camera.position, dir, hit.dist) : null;
       if (block !== null) { hit.point.copy(camera.position).addScaledVector(dir, block); hit.dist = block; hit.ground = hit.water = hit.none = false; hit.tree = null; }
       if (api.placeAr) {
-        const px = walker.feet.x + Math.sin(walker.yaw) * 2.3;
-        const pz = walker.feet.z + Math.cos(walker.yaw) * 2.3;
-        hit.point.set(px, Math.max(world.ground(px, pz), world.water), pz);
-        hit.dist = 2.3;
+        const landed = api.floor?.(camera.position, dir);
+        if (landed) hit.point.copy(landed);
+        else {
+          const px = walker.feet.x + Math.sin(walker.yaw) * 2.3;
+          const pz = walker.feet.z + Math.cos(walker.yaw) * 2.3;
+          hit.point.set(px, groundY(px, pz), pz);
+        }
+        hit.dist = Math.max(0.4, camera.position.distanceTo(hit.point));
         hit.ground = true;
         hit.none = false;
         hit.tree = null;
-        hit.water = hit.point.y <= world.water + 0.05;
+        hit.water = false;
       }
       cooldown = Math.max(0, cooldown - dt);
       for (let i = 0; i < slotLeft.length; i++) slotLeft[i] = Math.max(0, slotLeft[i] - dt);
@@ -340,7 +347,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
           // (looking up at it, at the sky, leaves it where it is)
           const p = leash && hit.none ? tmp.copy(twister.base) : hit.none || hit.tree ? tmp.copy(camera.position).addScaledVector(flat, hit.tree ? hit.dist : 40) : tmp.copy(hit.point);
           if (!api.placeAr && !leash && Math.hypot(p.x - camera.position.x, p.z - camera.position.z) < 16) { p.x = camera.position.x + flat.x * 16; p.z = camera.position.z + flat.z * 16; }
-          p.y = Math.max(world.ground(p.x, p.z), world.water);
+          p.y = api.placeAr ? groundY(p.x, p.z) : Math.max(world.ground(p.x, p.z), world.water);
           if (!leash) { leash = true; twister.begin(p); }
           if (twister.steer(p, dt)) { twister.release(); leash = false; wait(2.5); }
         } else if (leash) { leash = false; twister.release(); wait(2.5); }
@@ -354,7 +361,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
             flat.set(dir.x, 0, dir.z).normalize();
             const p = hit.none ? tmp.copy(camera.position).addScaledVector(flat, 40) : tmp.copy(hit.point);
             if (Math.hypot(p.x - camera.position.x, p.z - camera.position.z) < 22) { p.x = camera.position.x + flat.x * 22; p.z = camera.position.z + flat.z * 22; }
-            p.y = Math.max(world.ground(p.x, p.z), world.water);
+            p.y = api.placeAr ? groundY(p.x, p.z) : Math.max(world.ground(p.x, p.z), world.water);
             tether = true; hole.begin(p, camera.position);
           }
           if (hole.hold(dt)) { hole.release(); tether = false; wait(3); kick = 1.3; }
@@ -368,7 +375,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
             flat.set(dir.x, 0, dir.z).normalize();
             const p = hit.none ? tmp.copy(camera.position).addScaledVector(flat, 45) : tmp.copy(hit.point);
             if (Math.hypot(p.x - camera.position.x, p.z - camera.position.z) < 16) { p.x = camera.position.x + flat.x * 16; p.z = camera.position.z + flat.z * 16; }
-            p.y = Math.max(world.ground(p.x, p.z), world.water);
+            p.y = api.placeAr ? groundY(p.x, p.z) : Math.max(world.ground(p.x, p.z), world.water);
             channel = true; blast.begin(p);
           }
           if (blast.gather(dt)) { blast.fire(); channel = false; wait(2.5); kick = 1.6; }

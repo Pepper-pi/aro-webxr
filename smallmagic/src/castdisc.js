@@ -459,10 +459,11 @@ export function createCastDisc(scene) {
         rib.material.opacity = (0.22 + pose * 0.5) * (0.55 + 0.45 * Math.sin(sparkT * 3 + i));
         rib.material.color.set(i % 2 ? '#9af4ff' : '#e7c8ff');
       });
-      sleeve.visible = arm.visible && frostOn && pose > 0.05;
+      sleeve.visible = arm.visible && pose > 0.05 && (frostOn || !!hand);
       sleeve.scale.y = Math.max(0.05, pose * 0.78);
       sleeve.position.z = -0.46 + sleeve.scale.y * 0.5;
-      sleeve.material.opacity = 0.12 + pose * 0.28;
+      sleeve.material.opacity = 0.16 + pose * 0.4;
+      sleeve.material.color.set(frostOn ? '#bfefff' : tint);
       helices.forEach((coil, i) => {
         coil.visible = arm.visible && windOn && lit(coil.userData.t);
         coil.position.z = along(coil.userData.t);

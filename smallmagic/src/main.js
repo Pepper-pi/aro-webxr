@@ -868,13 +868,19 @@ function tickStep(dt, draw) {
   if (duel.active && !raidOwn) duel.look(camera);
   else if (free) { camera.position.copy(free.position); camera.lookAt(free.target); }
   else walker.look(camera);
-  if (ar.on && !free) { camera.rotateX(ar.gyro.pitch); camera.rotateZ(-ar.gyro.roll); }
-  const wantChase = !raidSweep && !free && !bladeClose && !inHub && !mapFollow && (settings.class === 'mage' ? settings.viewBack : (settings.viewBack || walker.speed > 1.15));
+  if (ar.on && !ar.xr && !free) { camera.rotateX(ar.gyro.pitch); camera.rotateZ(-ar.gyro.roll); }
+  if (ar.shake > 0.002) {
+    const s = ar.shake;
+    camera.rotateX(Math.sin(performance.now() * 0.05) * 0.012 * s);
+    camera.rotateZ(Math.sin(performance.now() * 0.04) * 0.008 * s);
+  }
+  const wantChase = !ar.on && !raidSweep && !free && !bladeClose && !inHub && !mapFollow && (settings.class === 'mage' ? settings.viewBack : (settings.viewBack || walker.speed > 1.15));
   const wantDist = settings.viewBack ? 4.4 : 2.5 + Math.min(2.1, Math.max(0, walker.speed - 1) * 0.32);
   chaseDist += ((wantChase ? wantDist : 0) - chaseDist) * Math.min(1, dt * 3.2);
   const chasing = mapFollow || chaseDist > 0.45;
   const inCity = zones.name === 'block' || zones.name === 'ruin';
-  post.bloom = inCity && settings.gfx !== 'low';
+  post.bloom = inCity && settings.gfx !== 'low' && !(phone && ar.on);
+  post.direct = !!(phone && ar.on);
   post.bloomStrength = phone ? 0.22 : 0.55;
   if (zones.atLake && !lakeWide) { settings.viewBack = true; lakeWide = true; chaseLabel(); }
   if (!zones.atLake) lakeWide = false;
@@ -987,10 +993,14 @@ function tickStep(dt, draw) {
       put('discFire', s.x, s.y - s.r * 1.35);
     }
   }
-  ar.update(dt, walker);
+  if (spells) {
+    spells.floor = ar.on ? (origin, dir) => ar.hitFloor(origin, dir) : null;
+    spells.floorY = ar.on ? ar.floorY : null;
+  }
+  ar.update(dt, walker, camera, { twister, spells, living });
   wander.update(dt, walker, camera, ar.on);
   if (zones.name === 'meadow') folk.update(dt, walker);
-  pets.update(dt, camera);
+  pets.update(dt, camera, ar.on ? ar.floorY : null);
   street.sky = living.weather;
   world.rain = living.weather === 'rain';
   street.update(dt, walker, ar.on || zones.name === 'hub' || duel.active);

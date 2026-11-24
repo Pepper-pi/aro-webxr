@@ -136,6 +136,9 @@ export function createPets({ scene, world, walker, living, zones, duel }) {
   root.visible = false;
   scene.add(root);
   let shown = '';
+  let mixer = null;
+  let clips = {};
+  let clipName = '';
   let calmN = -1;
   let calmT = 0;
   let picked = null;
@@ -266,11 +269,27 @@ export function createPets({ scene, world, walker, living, zones, duel }) {
       const h = Math.max(0.2, box.max.y - box.min.y);
       model.scale.multiplyScalar((TALL[kind] || 0.7) / h);
       model.position.y -= box.min.y * model.scale.y;
+      mixer = new THREE.AnimationMixer(model);
+      clips = {};
+      clipName = '';
+      for (const clip of gltf.animations) {
+        const key = String(clip.name || '').toLowerCase();
+        const slot = /walk|run/.test(key) && !/gallop/.test(key) ? 'walk' : /idle/.test(key) ? 'idle' : '';
+        if (slot && !clips[slot]) clips[slot] = mixer.clipAction(clip);
+      }
+      if (clips.idle) { clips.idle.play(); clipName = 'idle'; }
       root.add(model);
     } catch { /* the party still exists without the mesh */ }
   }
+  function playClip(name) {
+    const next = clips[name] || (name === 'walk' ? null : clips.idle);
+    if (!next || clipName === name) return;
+    next.reset().fadeIn(0.18).play();
+    if (clips[clipName] && clips[clipName] !== next) clips[clipName].fadeOut(0.18);
+    clipName = next === clips.walk ? 'walk' : 'idle';
+  }
 
-  function update(dt, camera) {
+  function update(dt, camera, floorY) {
     if (camera) cam = camera;
     const row = active();
     const here = zones.name === 'meadow' && !duel.active && row;
@@ -285,9 +304,25 @@ export function createPets({ scene, world, walker, living, zones, duel }) {
     const back = sky === 'wind' ? 1.7 : 1.25;
     const tx = walker.feet.x - Math.sin(walker.yaw) * back;
     const tz = walker.feet.z - Math.cos(walker.yaw) * back;
+    const before = Math.hypot(tx - root.position.x, tz - root.position.z);
     root.position.x += (tx - root.position.x) * Math.min(1, dt * rate);
     root.position.z += (tz - root.position.z) * Math.min(1, dt * rate);
-    const y = world.ground(root.position.x, root.position.z);
+    playClip(before > 0.18 ? 'walk' : 'idle');
+    mixer?.update(dt);
+    const y = typeof floorY === 'number' ? floorY : world.ground(root.position.x, root.position.z);
+    let shadow = root.getObjectByName('petshadow');
+    if (!shadow) {
+      shadow = new THREE.Mesh(new THREE.CircleGeometry(0.34, 16), new THREE.MeshBasicMaterial({ color: '#140e0a', transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide }));
+      shadow.rotation.x = -Math.PI / 2;
+      shadow.name = 'petshadow';
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.36, 0.46, 20), new THREE.MeshBasicMaterial({ color: '#f1d9a4', transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false }));
+      ring.rotation.x = -Math.PI / 2;
+      ring.name = 'petring';
+      root.add(shadow, ring);
+    }
+    shadow.visible = typeof floorY === 'number';
+    const ring = root.getObjectByName('petring');
+    if (ring) ring.visible = shadow.visible;
     const t = performance.now() * 0.001;
     if (sky === 'rain') {
       root.position.y = y + Math.sin(t * 16) * 0.02;

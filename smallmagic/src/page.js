@@ -9,6 +9,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 const QUAD = /* glsl */ `out vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
 export function createPage(renderer) {
+  let direct = false;
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
   const scene = new THREE.WebGLRenderTarget(size.x, size.y, { samples: 4, type: THREE.HalfFloatType, depthBuffer: true, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter });
   scene.depthTexture = new THREE.DepthTexture(size.x, size.y, THREE.UnsignedIntType);
@@ -146,6 +147,7 @@ export function createPage(renderer) {
     set grade(v) { print.uniforms.uGrade.value = v ? 1 : 0; },
     set dusk(v) { print.uniforms.uDusk.value = v ? 1 : 0; },
     set bloom(v) { bloomOn = !!v; },
+    set direct(v) { direct = !!v; },
     set bloomStrength(v) { bloom.strength = v; },
     /** The ring a blast sends out, as the eye sees it: round a place in the world, so far out, so strong. */
     shock(camera, place, radius, power) {
@@ -163,6 +165,14 @@ export function createPage(renderer) {
     },
     /** world, camera: what is seen. hand: { scene, camera }, drawn over it. sun: the way to the sun. */
     render(world, camera, hand, sun) {
+      if (direct) {
+        renderer.setRenderTarget(null);
+        renderer.setClearColor(0x000000, 1);
+        renderer.clear();
+        renderer.render(world, camera);
+        if (hand) renderer.render(hand.scene, hand.camera);
+        return;
+      }
       // where the sun is on the page, and how squarely the eye faces it
       camera.getWorldDirection(fwd);
       const facing = fwd.dot(sun);

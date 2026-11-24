@@ -70,6 +70,19 @@ export function createAR(scene, camera, world, zones) {
   plate.name = 'ar-plate';
   plate.frustumCulled = false;
   root.add(plate);
+  const floor = new THREE.Mesh(
+    new THREE.CircleGeometry(7.2, 40),
+    new THREE.MeshBasicMaterial({ color: '#d7c4a4', transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide }),
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.name = 'ar-floor';
+  root.add(floor);
+  const floorRing = new THREE.Mesh(
+    new THREE.RingGeometry(6.4, 6.7, 40),
+    new THREE.MeshBasicMaterial({ color: '#f1d9a4', transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide }),
+  );
+  floorRing.rotation.x = -Math.PI / 2;
+  root.add(floorRing);
   const rift = new THREE.Group();
   rift.name = 'ar-rift';
   const arch = new THREE.Mesh(
@@ -167,26 +180,49 @@ export function createAR(scene, camera, world, zones) {
   for (let i = 0; i < 12; i++) {
     const m = new THREE.Mesh(
       new THREE.OctahedronGeometry(0.03, 0),
-      new THREE.MeshBasicMaterial({ color: '#fff1c4', transparent: true, opacity: 0.85 }),
+      new THREE.MeshBasicMaterial({ color: '#fff1c4', transparent: true, opacity: 0.85, depthWrite: false }),
     );
+    m.userData.base = new THREE.Color('#fff1c4');
+    m.userData.home = { x: 0, z: 0 };
     root.add(m);
     motes.push(m);
   }
   const grade = document.getElementById('arGrade');
   const button = document.getElementById('ar');
+  const phone = typeof matchMedia === 'function' && (matchMedia('(pointer: coarse)').matches || innerWidth < 820);
+  const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const moteN = phone ? 6 : 12;
+  const wingN = phone ? 2 : 5;
   let on = false;
   let riftLife = 0;
   let goals = [];
   let video = null;
   let videoTex = null;
   let gyro = { pitch: 0, roll: 0 };
+  let wantP = 0;
+  let wantR = 0;
+  let floorY = 0;
   let anchored = [];
+  let greeted = false;
+  let shake = 0;
+  let bright = 0.7;
+  let sampleIn = 0;
+  let path = 'park';
+  let xrOn = false;
+  let xrSession = null;
+  const fires = [];
+  const critters = [];
   const saved = new Map();
+  const sample = document.createElement('canvas');
+  sample.width = sample.height = 8;
+  const sampleG = sample.getContext('2d', { willReadFrequently: true });
+  const hit = new THREE.Vector3();
 
   addEventListener('deviceorientation', (e) => {
     if (e.beta == null) return;
-    gyro.pitch = Math.max(-0.35, Math.min(0.35, (e.beta - 50) * 0.004));
-    gyro.roll = Math.max(-0.4, Math.min(0.4, (e.gamma || 0) * 0.004));
+    // Absolute tilt, never added up, so the floor does not drift.
+    wantP = Math.max(-0.9, Math.min(0.65, (e.beta - 55) * 0.016));
+    wantR = Math.max(-0.5, Math.min(0.5, (e.gamma || 0) * 0.01));
   });
 
   function groundKit(b) {
@@ -209,42 +245,76 @@ export function createAR(scene, camera, world, zones) {
     b.g.add(shadow, ring);
   }
 
-  function plant(walker) {
-    const live = zones.live().filter((b) => !b.dead && b.where === 'meadow' && (b.model || b.kind === 'wolf'));
-    const pick = ['boar', 'slime', 'goblin'].map((k) => live.find((b) => b.kind === k)).filter(Boolean).slice(0, 2);
+  function seat(mesh, radius = 0.42) {
+    if (mesh.getObjectByName('arshadow')) return;
+    const shadow = new THREE.Mesh(
+      new THREE.CircleGeometry(radius, 16),
+      new THREE.MeshBasicMaterial({ color: '#140e0a', transparent: true, opacity: 0.38, depthWrite: false, side: THREE.DoubleSide }),
+    );
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.name = 'arshadow';
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(radius * 0.92, radius * 1.15, 22),
+      new THREE.MeshBasicMaterial({ color: '#f1d9a4', transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.02;
+    ring.name = 'arring';
+    mesh.add(shadow, ring);
+  }
+  function layHome(walker) {
     const yaw = walker.yaw;
     const fx = Math.sin(yaw);
     const fz = Math.cos(yaw);
-    const rx = fz;
-    const rz = -fx;
+    const put = (i, rad) => {
+      const a = i * 0.9;
+      return { x: walker.feet.x + fx * 2.4 + Math.cos(a) * rad, z: walker.feet.z + fz * 2.4 + Math.sin(a) * rad };
+    };
+    life.forEach((p, i) => { const at = put(i, p.r); p.x = at.x; p.z = at.z; seat(p.mesh, p.bob < 0 ? 0.28 : 0.16); });
+    butterflies.forEach((b, i) => {
+      const at = put(i + 3, b.r);
+      b.x = at.x;
+      b.z = at.z;
+      b.g.visible = !phone || i < wingN;
+    });
+    motes.forEach((m, i) => {
+      const at = put(i, 1.1 + (i % 4) * 0.35);
+      m.userData.home.x = at.x;
+      m.userData.home.z = at.z;
+      m.visible = !phone || i < moteN;
+    });
+    critter.userData.x = walker.feet.x + fx * 1.8;
+    critter.userData.z = walker.feet.z + fz * 1.8;
+    seat(critter, 0.28);
+  }
+  function plant(walker) {
+    const live = zones.live().filter((b) => !b.dead && b.where === 'meadow' && (b.model || b.kind === 'wolf' || b.kind === 'fox' || b.kind === 'bunny'));
+    const pick = ['wolf', 'fox', 'bunny', 'deer'].map((k) => live.find((b) => b.kind === k)).filter(Boolean).slice(0, 1);
+    const yaw = walker.yaw;
+    const fx = Math.sin(yaw);
+    const fz = Math.cos(yaw);
     anchored = [];
-    pick.forEach((b, i) => {
-      const depth = 2.05 + i * 0.08;
-      const side = i === 0 ? 0.28 : -0.32;
-      const x = walker.feet.x + fx * depth + rx * side;
-      const z = walker.feet.z + fz * depth + rz * side;
-      const y = world.ground(x, z);
+    const depth = 2.4;
+    const gx = walker.feet.x + fx * depth;
+    const gz = walker.feet.z + fz * depth;
+    pick.forEach((b) => {
       if (!saved.has(b.n)) saved.set(b.n, true);
-      zones.anchor(b.n, x, y, z, Math.atan2(-fx, -fz));
+      zones.anchor(b.n, gx, floorY, gz, Math.atan2(-fx, -fz));
       groundKit(b);
       const shadow = b.g.getObjectByName('arshadow');
       const ring = b.g.getObjectByName('arring');
-      if (shadow) shadow.visible = true;
+      if (shadow) { shadow.visible = true; shadow.position.y = 0.02; }
       if (ring) ring.visible = true;
       anchored.push(b);
     });
-    const lead = anchored[0];
     goals = anchored.map((b) => {
       const prev = b.g.scale.x || 1;
-      b.g.scale.setScalar(0.58);
-      return { x: b.g.position.x, y: b.g.position.y, z: b.g.position.z, scale: prev };
+      return { x: gx, y: floorY, z: gz, scale: prev, name: b.kind };
     });
-    if (lead) {
-      const depth = 3.15;
-      rift.position.set(walker.feet.x + fx * depth, walker.feet.y + 1.35, walker.feet.z + fz * depth);
-      rift.scale.setScalar(1.35);
-      rift.lookAt(walker.feet.x, walker.feet.y + 1.45, walker.feet.z);
-    }
+    rift.rotation.set(-Math.PI / 2, 0, 0);
+    rift.position.set(gx, floorY + 0.05, gz);
+    rift.scale.setScalar(0.2);
+    greeted = false;
   }
 
   function clearPlants() {
@@ -273,6 +343,7 @@ export function createAR(scene, camera, world, zones) {
       videoTex.colorSpace = THREE.SRGBColorSpace;
       plate.material.map = videoTex;
       plate.material.needsUpdate = true;
+      if (path !== 'xr') path = 'camera';
     } catch { /* the painted park stays */ }
   }
 
@@ -283,7 +354,11 @@ export function createAR(scene, camera, world, zones) {
       const session = await navigator.xr.requestSession('immersive-ar', { optionalFeatures: ['local-floor', 'hit-test'] });
       renderer.xr.enabled = true;
       await renderer.xr.setSession(session);
-      session.addEventListener('end', () => { renderer.xr.enabled = false; });
+      xrSession = session;
+      xrOn = true;
+      path = 'xr';
+      plate.visible = false;
+      session.addEventListener('end', () => { renderer.xr.enabled = false; xrOn = false; xrSession = null; if (on) { path = videoTex ? 'camera' : 'park'; plate.visible = true; } });
       return true;
     } catch {
       return false;
@@ -300,6 +375,8 @@ export function createAR(scene, camera, world, zones) {
     if (!on) {
       clearPlants();
       riftLife = 0;
+      while (critters.length) root.remove(critters.pop().g);
+      while (fires.length) root.remove(fires.pop().g);
       if (video) {
         video.srcObject?.getTracks?.().forEach((t) => t.stop());
         video = null;
@@ -309,107 +386,252 @@ export function createAR(scene, camera, world, zones) {
       return;
     }
     riftLife = 3.4;
-    rift.scale.setScalar(0.2);
-    if (walker) plant(walker);
+    floorY = walker ? walker.feet.y + 0.15 : 0;
+    path = 'park';
+    shake = reduced ? 0 : 0.55;
+    if (walker) { layHome(walker); plant(walker); }
     tryFeed();
     if (renderer) tryXR(renderer);
   }
 
-  function update(dt, walker) {
-    if (!on || !walker) return;
+  function duskNow() {
+    const h = new Date().getHours();
+    return h >= 18 || h < 6;
+  }
+  function rollCritters(walker) {
+    while (critters.length) {
+      const c = critters.pop();
+      root.remove(c.g);
+    }
+    const n = phone ? 1 : 3;
     const yaw = walker.yaw;
     const fx = Math.sin(yaw);
     const fz = Math.cos(yaw);
-    const eyeY = walker.feet.y + 1.55;
-    plate.position.set(walker.feet.x + fx * 7.4, eyeY - 0.35, walker.feet.z + fz * 7.4);
+    for (let i = 0; i < n; i++) {
+      let tier = 'common';
+      let shimmer = false;
+      let title = 'A small critter';
+      try {
+        const rolled = livingRoll?.roll?.('critter', livingRoll.context?.('meadow'));
+        if (rolled) { tier = rolled.tier || tier; shimmer = !!rolled.shimmer; title = rolled.species?.name || title; }
+      } catch { /* a plain critter */ }
+      const color = tier === 'mythic' ? '#f2a0ff' : tier === 'epic' ? '#e7c56a' : tier === 'rare' ? '#7ec8ff' : tier === 'uncommon' ? '#9fd4ff' : '#c8e6b0';
+      const g = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color }));
+      body.scale.set(1.2, 0.7, 1);
+      body.position.y = 0.12;
+      g.add(body);
+      if (shimmer) {
+        const ring = new THREE.Mesh(new THREE.RingGeometry(0.22, 0.3, 20), new THREE.MeshBasicMaterial({ color: '#f4e6c4', transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false }));
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = 0.03;
+        ring.name = 'tell';
+        g.add(ring);
+      }
+      seat(g, 0.2);
+      root.add(g);
+      const a = i * 2.1;
+      critters.push({ g, x: walker.feet.x + fx * 2 + Math.cos(a) * 1.4, z: walker.feet.z + fz * 2 + Math.sin(a) * 1.4, a, title, tier, vx: Math.cos(a) * 0.25, vz: Math.sin(a) * 0.25 });
+    }
+  }
+  let livingRoll = null;
+  function hitFloor(origin, dir) {
+    const dy = dir?.y || 0;
+    if (!on) return null;
+    if (dy > -0.04) {
+      const flat = Math.hypot(dir.x, dir.z) || 1;
+      hit.set(origin.x + (dir.x / flat) * 2.6, floorY, origin.z + (dir.z / flat) * 2.6);
+      return hit.clone();
+    }
+    const t = (floorY - origin.y) / dy;
+    if (t < 0.35 || t > 16) return null;
+    hit.set(origin.x + dir.x * t, floorY, origin.z + dir.z * t);
+    return hit.clone();
+  }
+  function soften(mesh, camera) {
+    const mat = mesh.material;
+    if (!mat || !mat.color) return;
+    if (!mesh.userData.base) mesh.userData.base = mat.color.clone();
+    const dist = camera ? camera.position.distanceTo(mesh.getWorldPosition(hit)) : 3;
+    const far = Math.max(0, Math.min(1, (dist - 2.2) / (phone ? 4.2 : 5.6)));
+    const baseOp = mesh.userData.op ?? (mat.opacity ?? 1);
+    if (mesh.userData.op == null) mesh.userData.op = baseOp;
+    mat.transparent = true;
+    mat.opacity = baseOp * (1 - far * 0.78);
+    mat.color.copy(mesh.userData.base).lerp(new THREE.Color(bright, bright, bright), 0.2);
+  }
+  function readBright() {
+    const dusk = duskNow();
+    if (!video || video.readyState < 2 || !sampleG) { bright = dusk ? 0.4 : 0.72; return; }
+    try {
+      sampleG.drawImage(video, 0, 0, 8, 8);
+      const data = sampleG.getImageData(0, 0, 8, 8).data;
+      let s = 0;
+      for (let i = 0; i < data.length; i += 4) s += data[i] * 0.3 + data[i + 1] * 0.59 + data[i + 2] * 0.11;
+      bright = (s / (data.length / 4)) / 255;
+    } catch { bright = dusk ? 0.4 : 0.72; }
+  }
+  function spawnFire(x, z) {
+    const cap = phone ? 3 : 6;
+    if (fires.length >= cap) return;
+    if (fires.some((f) => Math.hypot(f.g.position.x - x, f.g.position.z - z) < 0.85)) return;
+    const g = new THREE.Group();
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(0.7, 16), new THREE.MeshBasicMaterial({ color: '#ff7a1c', transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
+    disc.rotation.x = -Math.PI / 2;
+    g.add(disc);
+    for (let i = 0; i < (phone ? 2 : 4); i++) {
+      const wisp = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.28), new THREE.MeshBasicMaterial({ color: i % 2 ? '#ffd27a' : '#ff5a1a', transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide }));
+      wisp.position.set((i - 1) * 0.2, 0.2, 0);
+      wisp.userData.i = i;
+      g.add(wisp);
+    }
+    g.position.set(x, floorY + 0.04, z);
+    root.add(g);
+    fires.push({ g, life: 6 });
+  }
+  function update(dt, walker, camera, extra) {
+    if (!on || !walker) return;
+    livingRoll = extra?.living || livingRoll;
+    if (livingRoll && !critters.length) rollCritters(walker);
+    const k = 1 - Math.exp(-dt * 7);
+    gyro.pitch += (wantP - gyro.pitch) * k;
+    gyro.roll += (wantR - gyro.roll) * k;
+    const eye = walker.feet.y + 1.55;
+    const wantFloor = eye - 1.4;
+    floorY += (wantFloor - floorY) * (1 - Math.exp(-dt * 1.4));
+    shake = Math.max(0, shake - dt * 0.8);
+    const yaw = walker.yaw;
+    const fx = Math.sin(yaw);
+    const fz = Math.cos(yaw);
+    const dusk = duskNow();
+    plate.visible = !xrOn;
+    plate.position.set(walker.feet.x + fx * 7.4, eye - 0.2, walker.feet.z + fz * 7.4);
     plate.lookAt(walker.feet.x, plate.position.y, walker.feet.z);
     plate.rotateZ(-gyro.roll);
     plate.rotateX(gyro.pitch);
-    plate.material.map = videoTex || (zones.dusk ? duskMap : dayMap);
-    plate.material.color.set(zones.atLake ? '#f6e2c0' : zones.dusk ? '#ffd0c4' : '#fff3e0');
-    grade?.classList.toggle('dusk', !!zones.dusk);
+    plate.material.map = videoTex || (dusk ? duskMap : dayMap);
+    plate.material.color.set(dusk ? '#ffd0c4' : '#fff3e0');
+    grade?.classList.toggle('dusk', dusk);
+    floor.position.set(walker.feet.x, floorY, walker.feet.z);
+    floorRing.position.set(walker.feet.x, floorY + 0.02, walker.feet.z);
+    floor.material.color.set(dusk ? '#6a5344' : '#d7c4a4');
+    floor.material.opacity = 0.1 + bright * 0.08;
+    sampleIn -= dt;
+    if (sampleIn <= 0) { sampleIn = 0.45; readBright(); }
     const t = performance.now() * 0.001;
+    const cast = extra?.spells?.cast;
+    const casting = !!(cast?.holding || cast?.pour || extra?.spells?.busy);
+    const pull = extra?.twister?.busy ? extra.twister.base : null;
+    const nudge = (item) => {
+      if (!casting) return;
+      const dx = item.x - walker.feet.x;
+      const dz = item.z - walker.feet.z;
+      const d = Math.hypot(dx, dz) || 1;
+      if (d < 2.6) { item.x += (dx / d) * dt * 1.4; item.z += (dz / d) * dt * 1.4; }
+    };
     life.forEach((p) => {
-      const depth = 2.4 + p.r;
-      const side = Math.sin(p.a) * p.r;
-      const x = walker.feet.x + fx * depth + fz * side;
-      const z = walker.feet.z + fz * depth - fx * side;
-      p.mesh.position.set(x, world.ground(x, z) + (p.bob < 0 ? 0.1 : 0.55 + Math.sin(t + p.bob) * 0.04), z);
-    });
-    const tint = zones.atLake ? '#ffe0b0' : zones.dusk ? '#e7b0ff' : '#fff1c4';
-    lakeMotes.forEach((m, i) => {
-      m.visible = !!zones.atLake;
-      if (!m.visible) return;
-      const a = t * 0.6 + i;
-      m.position.set(
-        walker.feet.x + fx * (2.2 + (i % 4) * 0.35) + Math.cos(a) * 0.8,
-        walker.feet.y + 0.35 + Math.sin(t * 1.4 + i) * 0.08,
-        walker.feet.z + fz * (2.2 + (i % 4) * 0.35) + Math.sin(a) * 0.45,
-      );
+      p.x += Math.cos(t * 0.15 + p.a) * dt * 0.05;
+      p.z += Math.sin(t * 0.12 + p.a) * dt * 0.05;
+      nudge(p);
+      const bob = p.bob < 0 ? 0.08 : 0.16 + Math.sin(t + p.bob) * 0.03;
+      p.mesh.position.set(p.x, floorY + bob, p.z);
+      soften(p.mesh, camera);
     });
     butterflies.forEach((b, i) => {
-      const a = t * 0.32 + b.a;
-      const x = walker.feet.x + fx * 2.2 + Math.cos(a) * b.r;
-      const z = walker.feet.z + fz * 2.2 + Math.sin(a * 0.8) * b.r * 0.7;
-      b.g.position.set(x, world.ground(x, z) + 1.25 + Math.sin(t * 0.9 + i) * 0.22, z);
-      b.g.lookAt(walker.feet.x, b.g.position.y, walker.feet.z);
-      const flap = Math.sin(t * 5.5 + i);
+      if (!b.g.visible) return;
+      b.x += Math.cos(t * 0.35 + b.a) * dt * 0.35;
+      b.z += Math.sin(t * 0.28 + b.a) * dt * 0.28;
+      nudge(b);
+      if (pull) { b.x += (pull.x - b.x) * Math.min(1, dt * 1.5); b.z += (pull.z - b.z) * Math.min(1, dt * 1.5); }
+      const lift = casting ? 0.45 : 0;
+      b.g.position.set(b.x, floorY + 0.85 + lift + Math.sin(t * 0.9 + i) * 0.16, b.z);
+      const flap = Math.sin(t * (casting ? 12 : 5.5) + i);
       b.wing.rotation.y = flap * 0.7;
       b.wingR.rotation.y = -flap * 0.7;
+      soften(b.wing, camera);
     });
-    groundGlow.position.set(walker.feet.x + fx * 2.1, world.ground(walker.feet.x + fx * 2.1, walker.feet.z + fz * 2.1) + 0.05, walker.feet.z + fz * 2.1);
-    groundGlow.material.opacity = 0.16 + Math.sin(t * 2) * 0.06;
-    const farX = walker.feet.x + fx * 3.2;
-    const farZ = walker.feet.z + fz * 3.2;
-    glowFar.position.set(farX, world.ground(farX, farZ) + 0.04, farZ);
-    const ca = t * 0.28;
-    const cx = walker.feet.x + fx * 2.2 + Math.cos(ca) * 1.5;
-    const cz = walker.feet.z + fz * 2.2 + Math.sin(ca) * 1.05;
-    critter.position.set(cx, world.ground(cx, cz) + 0.07, cz);
-    critter.rotation.y = -ca;
+    groundGlow.position.set(walker.feet.x + fx * 1.4, floorY + 0.03, walker.feet.z + fz * 1.4);
+    groundGlow.material.opacity = 0.12 + Math.sin(t * 2) * 0.04;
+    glowFar.position.set(walker.feet.x + fx * 2.6, floorY + 0.025, walker.feet.z + fz * 2.6);
+    critter.userData.x += Math.cos(t * 0.22) * dt * 0.2;
+    critter.userData.z += Math.sin(t * 0.18) * dt * 0.2;
+    critter.position.set(critter.userData.x, floorY + 0.02, critter.userData.z);
+    critter.rotation.y = t * 0.3;
     motes.forEach((m, i) => {
-      const a = t * 0.35 + i;
-      const rad = 1.2 + (i % 4) * 0.45;
-      m.position.set(
-        walker.feet.x + fx * (2.2 + (i % 3) * 0.4) + Math.cos(a) * rad,
-        walker.feet.y + 0.8 + (i % 5) * 0.38 + Math.sin(t + i) * 0.12,
-        walker.feet.z + fz * (2.2 + (i % 3) * 0.4) + Math.sin(a) * rad * 0.35,
-      );
-      m.material.color.set(tint);
+      if (!m.visible) return;
+      const home = m.userData.home;
+      let x = home.x + Math.cos(t * 0.4 + i) * 0.35;
+      let z = home.z + Math.sin(t * 0.33 + i) * 0.35;
+      let y = floorY + 0.7 + (i % 4) * 0.22 + Math.sin(t + i) * 0.08;
+      if (pull) {
+        x += (pull.x - x) * Math.min(1, dt * 2.2);
+        z += (pull.z - z) * Math.min(1, dt * 2.2);
+        y += 0.6;
+        home.x += (pull.x - home.x) * dt * 0.4;
+        home.z += (pull.z - home.z) * dt * 0.4;
+      }
+      if (casting) y += 0.25;
+      m.position.set(x, y, z);
+      soften(m, camera);
     });
+    critters.forEach((c) => {
+      c.x += c.vx * dt;
+      c.z += c.vz * dt;
+      if (Math.hypot(c.x - walker.feet.x, c.z - walker.feet.z) > 6) { c.vx *= -1; c.vz *= -1; }
+      c.g.position.set(c.x, floorY, c.z);
+      c.g.rotation.y = Math.atan2(c.vx, c.vz);
+      const tell = c.g.getObjectByName('tell');
+      if (tell) tell.material.opacity = 0.16 + Math.sin(t * 2) * 0.06;
+    });
+    const marks = extra?.spells?.marks || [];
+    for (const m of marks) if (m.k === 'fire') spawnFire(m.x, m.z);
+    for (let i = fires.length - 1; i >= 0; i--) {
+      const f = fires[i];
+      f.life -= dt;
+      f.g.children.forEach((w, n) => {
+        if (n === 0) return;
+        w.position.y = 0.15 + Math.sin(t * 8 + w.userData.i) * 0.08;
+        w.material.opacity = Math.max(0, f.life / 6) * 0.7;
+      });
+      if (f.life <= 0) { root.remove(f.g); fires.splice(i, 1); }
+    }
     if (riftLife > 0) {
       riftLife = Math.max(0, riftLife - dt);
       const open = Math.min(1, (3.4 - riftLife) / 0.45);
-      rift.scale.setScalar((0.4 + open * 0.7) * 1.7);
+      rift.scale.setScalar(0.35 + open * 1.15);
+      rift.position.y = floorY + 0.04;
       const fade = riftLife < 0.7 ? riftLife / 0.7 : 1;
       rift.visible = fade > 0.02;
       arch.material.opacity = fade;
       inner.material.opacity = fade;
       glow.material.opacity = 0.75 * fade;
-      mouth.material.opacity = 0.4 * fade;
+      mouth.material.opacity = 0.45 * fade;
       const stepU = Math.min(1, (3.4 - riftLife) / 1.1);
+      if (!greeted && open > 0.85 && goals[0]) {
+        greeted = true;
+        const who = { wolf: 'A moss wolf', fox: 'A fern fox', bunny: 'A pasture bunny', deer: 'A meadow deer' }[goals[0].name] || 'A beast';
+        zones.toast?.(`${who} steps through the ring.`);
+      }
       anchored.forEach((b, i) => {
         const g = goals[i];
         if (!g) return;
-        b.g.position.x = g.x + fx * (1 - stepU) * 1.7;
-        b.g.position.z = g.z + fz * (1 - stepU) * 1.7;
+        b.g.position.set(g.x + fx * (1 - stepU) * 1.1, floorY, g.z + fz * (1 - stepU) * 1.1);
       });
-      arch.rotation.y += dt * 0.4;
-      inner.rotation.y -= dt * 0.7;
       riftSparks.forEach((s, i) => {
+        if (phone && i > 3) { s.visible = false; return; }
         const a = t * 1.4 + i;
-        s.position.set(Math.cos(a) * (0.8 + (i % 3) * 0.08), 0.2 + Math.sin(a) * 0.7, Math.sin(t * 2 + i) * 0.08);
+        s.position.set(Math.cos(a) * 0.9, 0.05, Math.sin(a) * 0.9);
       });
     } else rift.visible = false;
-    for (const b of anchored) {
-      const ring = b.g.getObjectByName('arring');
-      if (ring) ring.rotation.z += dt * 0.6;
-    }
   }
 
   return {
     get on() { return on; },
-    set, update, plant,
+    set, update, plant, hitFloor,
     get gyro() { return gyro; },
+    get floorY() { return floorY; },
+    get shake() { return reduced ? 0 : shake; },
+    get xr() { return xrOn; },
+    get path() { return path; },
   };
 }
