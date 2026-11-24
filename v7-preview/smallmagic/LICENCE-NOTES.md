@@ -15,7 +15,7 @@ Code MIT (`LICENSE`). The world is drawn by code in `src/`: there are no models,
 | Map body and Hands, samples A, B, and C | `public/figure/hires/` | Official VRoid Hub AvatarSample A, B, and C, re-encoded. High is capped at 2048. Phone is capped at 512. Not CC0, not MIT, not Apache. Do not label them public domain. Credit VRoid Project / pixiv. The older `public/figure/AvatarSample_B.vrm` is not loaded as the player. |
 | Meadow grass and path detail | `public/ground/cc0/` | Poly Haven, CC0. aerial_grass_rock diffuse and normal, brown_mud_leaves_01 diffuse, 1k JPG. |
 | Idle, walk, jog, sprint | `public/motion/UAL1_Standard.glb` | Quaternius Universal Animation Library, CC0. In-place clips, retargeted onto the VRM. |
-| City block | `public/city/kenney/` | Kenney Fantasy Town Kit 2.0, CC0. Trees from that kit are not included. |
+| City block and meadow houses | `public/city/kenney/` | Kenney Fantasy Town Kit 2.0, CC0. Trees from that kit are not included. Meadow houses reuse the wall, door, window, and roof pieces. |
 | Maren Reed | `public/hearth/people/maren-reed.vrm` | Derived from VRoid AvatarSample_A. Not a public-domain licence. Not the unmodified sample. |
 | Bram | `public/hearth/people/bram-vroid.vrm` | Derived from VRoid AvatarSample_B. Not a public-domain licence. Not the unmodified sample. |
 | Sable | `public/hearth/people/sable-vroid.vrm` | Derived from VRoid AvatarSample_C. Not a public-domain licence. Not the unmodified sample. |
