@@ -342,6 +342,13 @@ try {
 if (playtest) {
   const qq = q.get('q');
   if (qq === 'low' || qq === 'high') settings.gfx = qq;
+  if (settings.gfx === 'low') {
+    renderer.setPixelRatio(1);
+    renderer.shadowMap.enabled = false;
+    appeal.quality = 0;
+    post.grade = 0;
+    zones.setDetail(true);
+  }
   const look = (q.get('look') || '').toUpperCase();
   if (look === 'A' || look === 'B' || look === 'C') settings.look = look;
   avatar.setTier(settings.gfx === 'low' ? 'Phone' : 'High');
@@ -590,18 +597,18 @@ const alchemist = createAlchemist({ scene, camera, world, zones, walker });
 const summoner = createSummoner({ scene, camera, world, zones, walker });
 camera.layers.enable(9);
 let padCast = false, forceDraw = false, chaseDist = 0, greetWho = '', greetUntil = 0, lakeWide = false, playFrames = 0;
-const tour = { t: 0, done: false };
+const tour = { t: 0, done: false, live: false };
 function playMove() {
   const t = tour.t;
   const blank = { move: { x: 0, y: 0 }, walk: false, sprint: false, strafe: false, jump: false, look: { x: 0, y: 0 }, zoom: 0, turn: 0, device: 'keyboard', cast: null, spell: 0, pause: false, any: false };
-  if (t < 3 || t >= 56) return blank;
-  if (t < 13) return { ...blank, move: { x: 0, y: 1 }, walk: true, any: true, turn: Math.sin((t - 3) * 0.9) * 0.45 };
-  if (t < 21) return { ...blank, move: { x: 0, y: 1 }, any: true };
-  if (t < 31) {
-    const u = t - 21;
-    return { ...blank, move: { x: 0, y: 1 }, sprint: true, any: true, turn: u < 3.2 ? 0.7 : u < 6.4 ? -0.75 : 0.15 };
+  if (!tour.live || t >= 53) return blank;
+  if (t < 10) return { ...blank, move: { x: 0, y: 1 }, walk: true, any: true, turn: Math.sin(t * 0.9) * 0.4 };
+  if (t < 18) return { ...blank, move: { x: 0, y: 1 }, any: true };
+  if (t < 28) {
+    const u = t - 18;
+    return { ...blank, move: { x: 0, y: 1 }, sprint: true, any: true, turn: u < 3.2 ? 0.65 : u < 6.4 ? -0.7 : 0.12 };
   }
-  if (t < 51) return { ...blank, move: { x: 0, y: 1 }, any: true };
+  if (t < 48) return { ...blank, move: { x: 0, y: 1 }, any: true };
   return blank;
 }
 let free = null;
@@ -677,25 +684,29 @@ function applyFollow(dt) {
 
 function tick(frameDt) {
   const fixed = playtest;
-  if (fixed) {
-    const prev = tour.t;
-    tour.t += 1 / 30;
-    if (prev < 45 && tour.t >= 45) {
-      walker.yaw += Math.PI;
-      followCam.yaw += Math.PI;
+  const burst = q.has('clip') && tour.live ? 16 : 1;
+  for (let n = 0; n < burst; n++) {
+    if (fixed && tour.live) {
+      const prev = tour.t;
+      tour.t += 1 / 30;
+      if (prev < 42 && tour.t >= 42) {
+        walker.yaw += Math.PI;
+        followCam.yaw += Math.PI;
+      }
     }
+    let budget = fixed ? 1 / 30 : Math.min(Math.max(frameDt || 0, 0), 0.25);
+    const slices = [];
+    while (budget > 1e-4) {
+      const h = Math.min(1 / 15, budget);
+      slices.push(h);
+      budget -= h;
+    }
+    if (!slices.length) slices.push(fixed ? 1 / 30 : 1 / 60);
+    const lastBurst = n === burst - 1;
+    for (let i = 0; i < slices.length; i++) tickStep(slices[i], lastBurst && i === slices.length - 1);
+    if (fixed && tour.live) playFrames += 1;
   }
-  let budget = fixed ? 1 / 30 : Math.min(Math.max(frameDt || 0, 0), 0.25);
-  const slices = [];
-  while (budget > 1e-4) {
-    const h = Math.min(1 / 15, budget);
-    slices.push(h);
-    budget -= h;
-  }
-  if (!slices.length) slices.push(fixed ? 1 / 30 : 1 / 60);
-  for (let i = 0; i < slices.length; i++) tickStep(slices[i], i === slices.length - 1);
   if (fixed) {
-    playFrames += 1;
     const counter = document.getElementById('playframes');
     if (counter) counter.textContent = String(playFrames);
   }
@@ -785,10 +796,16 @@ function tickStep(dt, draw) {
   const mapFollow = !free && !duel.active && !ar.on && !bladeClose && settings.viewBack && zones.name === 'meadow' && !zones.atLake;
   const stepInp = { ...inp, look: { x: inp.look.x, y: inp.look.y }, move: planted ? { x: 0, y: 0 } : inp.move, jump: planted ? false : inp.jump, sprint: planted ? false : inp.sprint };
   if (stepInp.turn) followCam.yaw -= stepInp.turn * 1.8 * dt;
-  const orbiting = playtest && tour.t >= 31 && tour.t < 39;
+  const orbiting = playtest && tour.t >= 28 && tour.t < 36;
   if (playtest) {
-    settings.viewBack = !(tour.t >= 51 && tour.t < 56);
-    if (tour.t >= 59 && !tour.done) {
+    settings.viewBack = !(tour.t >= 48 && tour.t < 53);
+    settings.monsters = 'passive';
+    for (const b of zones.live()) {
+      if (!b.g || b.where !== 'meadow') continue;
+      const far = Math.hypot(b.g.position.x - walker.feet.x, b.g.position.z - walker.feet.z) > 40;
+      b.g.visible = far && !b.dead;
+    }
+    if (tour.t >= 56 && !tour.done) {
       tour.done = true;
       const tag = document.getElementById('tourdne');
       if (tag) tag.hidden = false;
@@ -844,7 +861,7 @@ function tickStep(dt, draw) {
     camera.lookAt(-3.8, 0.72, -8);
   } else if (mapFollow) {
     if (orbiting) {
-      const u = Math.min(1, (tour.t - 31) / 8);
+      const u = Math.min(1, (tour.t - 28) / 8);
       followCam.yaw = walker.yaw + u * (Math.PI / 2);
       followCam.pitch = 0.7;
       followCam.want = 3.05;
@@ -891,7 +908,7 @@ function tickStep(dt, draw) {
   }
   camera.updateMatrixWorld(true);
   zones.stickRod?.();
-  const wheel = discOn && kit === 'mage' && !previewOn && !melee && !zones.rodOut && zones.name !== 'hub' && !duel.active;
+  const wheel = !playtest && discOn && kit === 'mage' && !previewOn && !melee && !zones.rodOut && zones.name !== 'hub' && !duel.active;
   const rangerBar = document.getElementById('rangerBar');
   const wardenBar = document.getElementById('wardenBar');
   const alchemistBar = document.getElementById('alchemistBar');
@@ -910,7 +927,7 @@ function tickStep(dt, draw) {
   castDisc?.update(dt, wheel, spells?.selected ?? 0, walker, camera, armCharge, !chasing && !free, wristPoint(), ar.on, handDisc);
   const acts = document.getElementById('discActs');
   if (acts) {
-    const showActs = !!(wheel && castDisc?.ready && !handDisc);
+    const showActs = !playtest && phone && !!(wheel && castDisc?.ready && !handDisc);
     acts.hidden = !showActs;
     if (showActs && castDisc.screen?.on) {
       const s = castDisc.screen;
@@ -931,7 +948,7 @@ function tickStep(dt, draw) {
   street.sky = living.weather;
   street.update(dt, walker, ar.on || zones.name === 'hub' || duel.active);
   duel.update(dt);
-  if (hexes.layer) hexes.layer.visible = zones.name === 'meadow';
+  if (hexes.layer) hexes.layer.visible = zones.name === 'meadow' && !playtest;
   hexes.update(dt);
   const spellBox = document.getElementById('spells');
   if (spellBox) spellBox.hidden = !!(previewOn || zones.name === 'hub' || zones.rodOut || (wheel && castDisc?.ready));
@@ -1006,7 +1023,10 @@ function tickStep(dt, draw) {
     });
     questEl.style.visibility = (open || zones.rodOut) ? 'hidden' : '';
   }
-  if (draw && (!q.has('fast') || forceDraw)) post.render(scene, camera, hideStaff ? null : staff, SUN);
+  if (draw && (!q.has('fast') || forceDraw)) {
+    post.render(scene, camera, hideStaff ? null : staff, SUN);
+    if (q.has('clip')) renderer.getContext().finish?.();
+  }
   forceDraw = false;
 }
 
@@ -1067,6 +1087,19 @@ function warmMagic() {
   hole.warm(ahead.clone());
   twister.warm(ahead.clone().setY(world.ground(ahead.x, ahead.z)));
 }
+if (playtest) {
+  try {
+    input.override = () => playMove();
+    input.lockable = false;
+    zones.enter('meadow');
+    applyMood('passive', false);
+    document.body.classList.add('playtest');
+    tour.t = 0;
+    tour.live = false;
+  } catch (err) {
+    console.error('playtest', err);
+  }
+}
 timings.warm = [];
 for (let i = 0; i < (capture ? 3 : phone ? 0 : 6); i++) {
   const t = performance.now();
@@ -1083,6 +1116,15 @@ function run() {
   // (every frame also looks at the window's size itself, in case a resize was ever missed)
   const going = shown && begun && !paused && !capture;
   if (sound && !capture) { if (going) sound.wake(); else sound.sleep(); }
+  if (q.has('clip') && going) {
+    const pump = () => {
+      if (tour.done) return;
+      tick(1 / 30);
+      setTimeout(pump, 40);
+    };
+    setTimeout(pump, 40);
+    return;
+  }
   renderer.setAnimationLoop(going ? () => {
     if (innerWidth !== fitW || innerHeight !== fitH) fitView();
     if (playtest) tick(1 / 30);
@@ -1096,6 +1138,11 @@ if (playtest) {
     input.override = () => playMove();
     input.lockable = false;
     zones.enter('meadow');
+    applyMood('passive', false);
+    document.body.classList.add('playtest');
+    playFrames = 0;
+    tour.t = 0;
+    tour.live = true;
     title?.classList.add('gone');
     document.getElementById('hint')?.classList.add('off');
     const greet = document.getElementById('hearthGreet');

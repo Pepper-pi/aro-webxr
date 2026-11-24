@@ -28,7 +28,13 @@ function basin(x, z) {
 const STREAM = [[-140, 22], [-70, 12], [-34, 7], [-14, 2.5], [0, 4.5], [10, 3.5], [19, 5], [34, 1], [60, -8], [140, -24]];
 const WAY = [[0, 36], [-1, 26], [-3, 16], [-1.5, 8], [0, 4.5], [1.5, -2], [0.5, -12], [3, -22], [5, -30]];
 const STEPS = [[-0.9, 6.3], [-0.4, 5.2], [0.1, 4.2], [0.5, 3.2], [0.9, 2.3]];
-const phoneGrass = (n) => (typeof matchMedia === 'function' && (matchMedia('(pointer: coarse)').matches || innerWidth < 820) ? Math.round(n * 0.02) : n);
+const clipLite = typeof location !== 'undefined' && new URLSearchParams(location.search).has('clip');
+const phoneGrass = (n) => {
+  const phone = typeof matchMedia === 'function' && (matchMedia('(pointer: coarse)').matches || innerWidth < 820);
+  if (phone) return Math.round(n * 0.02);
+  if (clipLite) return Math.round(n * 0.025);
+  return n;
+};
 
 function along(line) {
   const seg = line.slice(1).map(([x1, z1], i) => { const [x0, z0] = line[i], dx = x1 - x0, dz = z1 - z0; return { x0, z0, dx, dz, l2: dx * dx + dz * dz }; });
@@ -284,15 +290,17 @@ export async function createWorld({ air, scene, say, turn }) {
   const ROCKS = clutterPhone ? 2 : 5;
   const TUFTS = clutterPhone ? 4 : 12;
   const side = REACH * 2 + 1;
-  const rockMesh = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(0.15, 0), new THREE.MeshLambertMaterial({ color: '#b1a48c' }), side * side * ROCKS);
-  const tuftA = new THREE.PlaneGeometry(0.46, 0.68, 1, 3);
-  tuftA.translate(0, 0.34, 0);
-  const tuftB = tuftA.clone();
-  tuftB.rotateY(Math.PI / 2);
+  const rockMesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.22, 1), new THREE.MeshBasicMaterial({ color: '#b7a48c', side: THREE.DoubleSide }), side * side * ROCKS);
+  const tuftParts = [];
+  for (let i = 0; i < 3; i++) {
+    const cone = new THREE.ConeGeometry(0.07, 0.42, 6);
+    cone.translate((i - 1) * 0.09, 0.21, (i === 1 ? 0.06 : -0.03));
+    tuftParts.push(cone);
+  }
   const tuftPos = [];
   const tuftIdx = [];
   let tuftBase = 0;
-  for (const g of [tuftA, tuftB]) {
+  for (const g of tuftParts) {
     const p = g.attributes.position;
     for (let i = 0; i < p.count; i++) tuftPos.push(p.getX(i), p.getY(i), p.getZ(i));
     for (let i = 0; i < g.index.count; i++) tuftIdx.push(g.index.getX(i) + tuftBase);
@@ -302,11 +310,7 @@ export async function createWorld({ air, scene, say, turn }) {
   tuftGeo.setAttribute('position', new THREE.Float32BufferAttribute(tuftPos, 3));
   tuftGeo.setIndex(tuftIdx);
   tuftGeo.computeVertexNormals();
-  const tuftMat = new THREE.MeshLambertMaterial({ color: '#7fba58', side: THREE.DoubleSide });
-  tuftMat.onBeforeCompile = (shader) => {
-    shader.uniforms.uNow = U.uNow;
-    shader.vertexShader = 'uniform float uNow;\n' + shader.vertexShader.replace('#include <begin_vertex>', 'vec3 transformed = vec3(position);\ntransformed.x += sin(uNow * 1.6 + position.y * 4.0) * position.y * 0.16;\ntransformed.z += cos(uNow * 1.25 + position.y * 3.0) * position.y * 0.08;');
-  };
+  const tuftMat = new THREE.MeshBasicMaterial({ color: '#6ea84a', side: THREE.DoubleSide });
   const tuftMesh = new THREE.InstancedMesh(tuftGeo, tuftMat, side * side * TUFTS);
   rockMesh.castShadow = rockMesh.receiveShadow = true;
   tuftMesh.castShadow = tuftMesh.receiveShadow = true;
@@ -328,12 +332,12 @@ export async function createWorld({ air, scene, say, turn }) {
     for (let n = 0; n < ROCKS; n++) {
       const x = ix * CHUNK + R() * CHUNK, z = iz * CHUNK + R() * CHUNK, y = ground(x, z);
       if (pathHere(x, z) > 0.48 || y < WATER + 0.08) continue;
-      rocks.push({ x, y, z, s: 0.22 + R() * 0.28, ry: R() * 6.2 });
+      rocks.push({ x, y, z, sx: 0.9 + R() * 0.7, sy: 0.28 + R() * 0.22, sz: 0.75 + R() * 0.55, ry: R() * 6.2, rx: (R() - 0.5) * 0.5, rz: (R() - 0.5) * 0.4 });
     }
     for (let n = 0; n < TUFTS; n++) {
       const x = ix * CHUNK + R() * CHUNK, z = iz * CHUNK + R() * CHUNK, y = ground(x, z);
       if (pathHere(x, z) > 0.4 || y < WATER + 0.05) continue;
-      tufts.push({ x, y, z, s: 0.7 + R() * 0.7, ry: R() * 6.2 });
+      tufts.push({ x, y, z, s: 0.55 + R() * 0.45, ry: R() * 6.2 });
     }
     const made = { rocks, tufts };
     clutter.set(key, made);
@@ -347,9 +351,9 @@ export async function createWorld({ air, scene, say, turn }) {
     for (let dz = -REACH; dz <= REACH; dz++) for (let dx = -REACH; dx <= REACH; dx++) {
       const chunk = chunkAt(ix + dx, iz + dz);
       for (const rock of chunk.rocks) {
-        clutterDummy.position.set(rock.x, rock.y + rock.s * 0.04, rock.z);
-        clutterDummy.rotation.set(rock.ry, rock.s, rock.ry * 0.3);
-        clutterDummy.scale.setScalar(rock.s);
+        clutterDummy.position.set(rock.x, rock.y + rock.sy * 0.08, rock.z);
+        clutterDummy.rotation.set(rock.rx, rock.ry, rock.rz);
+        clutterDummy.scale.set(rock.sx, rock.sy, rock.sz);
         clutterDummy.updateMatrix();
         rockMesh.setMatrixAt(ri++, clutterDummy.matrix);
       }
