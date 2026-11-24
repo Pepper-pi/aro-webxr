@@ -152,7 +152,7 @@ export function createHearthShell() {
   plant(4.2, 1.8);
   plant(-4.4, 2.6);
 
-  const fireLight = new THREE.PointLight('#ffc39a', 1.35, 6.5, 2);
+  const fireLight = new THREE.PointLight('#ffb060', 1.55, 7, 2);
   fireLight.position.set(-3.2, 1.05, -4.7);
   const bounce = new THREE.PointLight('#f6efe4', 0.35, 7, 2);
   bounce.position.set(0.2, 1.5, 0.4);
@@ -183,7 +183,7 @@ export function createHearthShell() {
       e.position.set(e.userData.x, 0.45 + u * 1.05, 0.35);
       e.material.opacity = (1 - u) * 0.85;
     });
-    fireLight.intensity = 1.15 + Math.sin(t * 11) * 0.16;
+    fireLight.intensity = 1.35 + Math.sin(t * 11) * 0.18;
     bounce.intensity = 0.32 + Math.sin(t * 11) * 0.04;
   }
 

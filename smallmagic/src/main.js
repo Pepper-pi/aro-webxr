@@ -665,7 +665,8 @@ function tick(dt) {
   chaseDist += ((wantChase ? wantDist : 0) - chaseDist) * Math.min(1, dt * 3.2);
   const chasing = chaseDist > 0.45;
   const inCity = zones.name === 'block' || zones.name === 'ruin';
-  post.bloom = inCity && settings.gfx !== 'low' && !phone;
+  post.bloom = inCity && settings.gfx !== 'low';
+  post.bloomStrength = phone ? 0.22 : 0.55;
   if (zones.atLake && !lakeWide) { settings.viewBack = true; lakeWide = true; chaseLabel(); }
   if (!zones.atLake) lakeWide = false;
   if (inHub && !free && !duel.active) {

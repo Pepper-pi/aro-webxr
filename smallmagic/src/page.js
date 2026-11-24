@@ -146,6 +146,7 @@ export function createPage(renderer) {
     set grade(v) { print.uniforms.uGrade.value = v ? 1 : 0; },
     set dusk(v) { print.uniforms.uDusk.value = v ? 1 : 0; },
     set bloom(v) { bloomOn = !!v; },
+    set bloomStrength(v) { bloom.strength = v; },
     /** The ring a blast sends out, as the eye sees it: round a place in the world, so far out, so strong. */
     shock(camera, place, radius, power) {
       const u = print.uniforms.uShock.value, d = camera.position.distanceTo(place);
