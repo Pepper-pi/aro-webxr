@@ -44,6 +44,17 @@ export class Input {
       if (document.pointerLockElement === el || this.mouse.right) { this.mouse.x += e.movementX; this.mouse.y += e.movementY; }
     });
     el.addEventListener('wheel', (e) => { this.mouse.wheel += Math.sign(e.deltaY); e.preventDefault(); }, { passive: false });
+    let pinchDist = 0;
+    const pinch = (e) => {
+      if (e.touches.length < 2) { pinchDist = 0; return; }
+      const a = e.touches[0], b = e.touches[1];
+      const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      if (pinchDist) this.mouse.wheel += (pinchDist - d) * 0.012;
+      pinchDist = d;
+    };
+    el.addEventListener('touchmove', pinch, { passive: true });
+    el.addEventListener('touchend', () => { pinchDist = 0; });
+    el.addEventListener('touchcancel', () => { pinchDist = 0; });
   }
 
   read(dt) {

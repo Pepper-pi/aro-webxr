@@ -21,6 +21,7 @@ import { createHub } from './hub.js';
 import { tracked } from './handtrack.js';
 import { createPage } from './page.js';
 import { Walker } from './player.js';
+import { createAvatar } from './avatar.js';
 import { Input } from './input.js';
 import { createFx } from './fx.js';
 import { createFire } from './fire.js';
@@ -99,6 +100,7 @@ lap('world');
 say('Warming the hands');
 await turn();
 const walker = new Walker(world);
+const avatar = createAvatar(scene, { phone });
 const staff = q.has('nostaff') ? null : createStaff({ air, atlas: world.atlas });
 const castDisc = createCastDisc(scene);
 let discOn = true;
@@ -330,7 +332,17 @@ if (sound) living.hear = () => sound.chime();
 
 // The one clock. Everything that moves is a function of it; `pace` is how fast it runs (1 as a rule).
 const clock = { pace: 1 };
-const settings = { hands: false, class: 'mage', blade: false, gunner: false, gfx: 'high', viewBack: false };
+const settings = { hands: false, class: 'mage', blade: false, gunner: false, gfx: phone ? 'low' : 'high', viewBack: true, look: 'B', jiggle: 'soft' };
+try {
+  const savedLook = localStorage.getItem('aro-look');
+  if (savedLook === 'A' || savedLook === 'B' || savedLook === 'C') settings.look = savedLook;
+  const savedJiggle = localStorage.getItem('aro-jiggle');
+  if (savedJiggle === 'off' || savedJiggle === 'soft' || savedJiggle === 'full') settings.jiggle = savedJiggle;
+} catch { /* private mode */ }
+if (settings.look !== 'B') avatar.setLetter(settings.look);
+avatar.setJiggle(settings.jiggle);
+document.querySelectorAll('[data-gfx]').forEach((b) => b.classList.toggle('on', b.getAttribute('data-gfx') === settings.gfx));
+const followCam = { yaw: walker.yaw, pitch: 0.22, dist: 3.35, want: 3.35, pos: new THREE.Vector3(), look: new THREE.Vector3(), born: false };
 function chaseLabel() {
   const b = document.getElementById('chase');
   if (!b) return;
@@ -427,7 +439,27 @@ settingsEl?.querySelectorAll('[data-gfx]').forEach((b) => b.addEventListener('po
   appeal.quality = !low;
   post.grade = !low;
   zones.setDetail(low || phone);
+  avatar.setTier(low || phone ? 'Phone' : 'High');
   fitView();
+  e.preventDefault(); e.stopPropagation();
+}));
+function showLook() {
+  document.querySelectorAll('[data-look]').forEach((b) => b.classList.toggle('on', b.getAttribute('data-look') === settings.look));
+  document.querySelectorAll('[data-jiggle]').forEach((b) => b.classList.toggle('on', b.getAttribute('data-jiggle') === settings.jiggle));
+}
+showLook();
+document.querySelectorAll('[data-look]').forEach((b) => b.addEventListener('pointerup', (e) => {
+  settings.look = b.getAttribute('data-look') || 'B';
+  try { localStorage.setItem('aro-look', settings.look); } catch { /* private mode */ }
+  avatar.setLetter(settings.look);
+  showLook();
+  e.preventDefault(); e.stopPropagation();
+}));
+document.querySelectorAll('[data-jiggle]').forEach((b) => b.addEventListener('pointerup', (e) => {
+  settings.jiggle = b.getAttribute('data-jiggle') || 'soft';
+  try { localStorage.setItem('aro-jiggle', settings.jiggle); } catch { /* private mode */ }
+  avatar.setJiggle(settings.jiggle);
+  showLook();
   e.preventDefault(); e.stopPropagation();
 }));
 const paintBtn = document.getElementById('paintToggle');
@@ -575,6 +607,49 @@ function hop(kind) {
   else { dx = -cy * step; dz = sy * step; }
   walker.place(walker.feet.x + dx, walker.feet.z + dz, yaw);
 }
+function pullFollow(from, to) {
+  const vx = to.x - from.x, vy = to.y - from.y, vz = to.z - from.z;
+  let span = Math.hypot(vx, vy, vz);
+  if (span < 0.05) return span;
+  const cols = world.colliders || [];
+  for (const c of cols) {
+    if (c.tree?.down) continue;
+    const vv = vx * vx + vz * vz;
+    const t = vv > 1e-4 ? Math.min(1, Math.max(0, ((c.x - from.x) * vx + (c.z - from.z) * vz) / vv)) : 0;
+    const px = from.x + vx * t, pz = from.z + vz * t;
+    if (Math.hypot(px - c.x, pz - c.z) < c.r + 0.3) span = Math.min(span, Math.max(0.45, t * span - 0.2));
+  }
+  return span;
+}
+
+function applyFollow(dt) {
+  const yaw = followCam.yaw;
+  const fx = Math.sin(yaw), fz = Math.cos(yaw);
+  const rx = Math.cos(yaw), rz = -Math.sin(yaw);
+  const shoulder = 0.34;
+  const look = followCam.look.set(
+    walker.feet.x + rx * shoulder + fx * 0.4,
+    walker.feet.y + 1.32,
+    walker.feet.z + rz * shoulder + fz * 0.4,
+  );
+  const lift = 0.42 + followCam.pitch * 1.05;
+  const aim = new THREE.Vector3(look.x - fx * followCam.dist + rx * 0.16, look.y + lift, look.z - fz * followCam.dist + rz * 0.16);
+  const floor = world.ground(aim.x, aim.z) + 0.4;
+  if (aim.y < floor) aim.y = floor;
+  const span = pullFollow(look, aim);
+  const dir = aim.clone().sub(look);
+  const len = dir.length() || 1;
+  aim.copy(look).addScaledVector(dir.multiplyScalar(1 / len), span);
+  const k = followCam.born ? 1 - Math.exp(-dt * 7) : 1;
+  followCam.born = true;
+  followCam.dist += (followCam.want - followCam.dist) * k;
+  followCam.pos.x += (aim.x - followCam.pos.x) * k;
+  followCam.pos.y += (aim.y - followCam.pos.y) * k;
+  followCam.pos.z += (aim.z - followCam.pos.z) * k;
+  camera.position.copy(followCam.pos);
+  camera.lookAt(followCam.look);
+}
+
 function tick(dt) {
   dt = Math.min(dt, 1 / 20);
   // (a blast all but stops time for the instant it lands)
@@ -610,7 +685,7 @@ function tick(dt) {
     if (inp.cast !== null && inp.cast !== padCast) { padCast = inp.cast; if (padCast) spells.press(); else spells.release(); }
     if (inp.spell) spells.select(spells.selected + inp.spell);
   }
-  zones.showMage(settings.class === 'mage' && settings.viewBack && zones.name !== 'hub');
+  zones.showMage(settings.class === 'mage' && settings.viewBack && zones.name !== 'hub' && !avatar.ready);
   zones.aim({
     x: walker.feet.x,
     z: walker.feet.z,
@@ -653,17 +728,30 @@ function tick(dt) {
   }
   quest?.update();
   if (inp.any) sound?.wake();
-  walker.update(dt, planted ? { ...inp, move: { x: 0, y: 0 }, jump: false, sprint: false } : inp);
+  const bladeClose = settings.class === 'blade' && blade.drawn && blade.pad;
+  const inHub = zones.name === 'hub';
+  const mapFollow = !free && !duel.active && !ar.on && !bladeClose && settings.viewBack && zones.name === 'meadow' && !zones.atLake;
+  const stepInp = { ...inp, look: { x: inp.look.x, y: inp.look.y }, move: planted ? { x: 0, y: 0 } : inp.move, jump: planted ? false : inp.jump, sprint: planted ? false : inp.sprint };
+  if (mapFollow) {
+    followCam.yaw -= stepInp.look.x;
+    followCam.pitch = THREE.MathUtils.clamp(followCam.pitch + stepInp.look.y * 0.85, 0.08, 1.15);
+    if (stepInp.zoom) followCam.want = THREE.MathUtils.clamp(followCam.want + stepInp.zoom * 0.38, 1.85, 7.2);
+    if (Math.hypot(stepInp.move.x, stepInp.move.y) > 0.08) {
+      const dy = Math.atan2(Math.sin(followCam.yaw - walker.yaw), Math.cos(followCam.yaw - walker.yaw));
+      walker.yaw += dy * (1 - Math.exp(-dt * 9));
+    }
+    stepInp.look.x = 0;
+    stepInp.look.y = 0;
+  }
+  walker.update(dt, stepInp);
   if (duel.active) duel.look(camera);
   else if (free) { camera.position.copy(free.position); camera.lookAt(free.target); }
   else walker.look(camera);
   if (ar.on && !free) { camera.rotateX(ar.gyro.pitch); camera.rotateZ(-ar.gyro.roll); }
-  const bladeClose = settings.class === 'blade' && blade.drawn && blade.pad;
-  const inHub = zones.name === 'hub';
-  const wantChase = !free && !bladeClose && !inHub && (settings.class === 'mage' ? settings.viewBack : (settings.viewBack || walker.speed > 1.15));
+  const wantChase = !free && !bladeClose && !inHub && !mapFollow && (settings.class === 'mage' ? settings.viewBack : (settings.viewBack || walker.speed > 1.15));
   const wantDist = settings.viewBack ? 4.4 : 2.5 + Math.min(2.1, Math.max(0, walker.speed - 1) * 0.32);
   chaseDist += ((wantChase ? wantDist : 0) - chaseDist) * Math.min(1, dt * 3.2);
-  const chasing = chaseDist > 0.45;
+  const chasing = mapFollow || chaseDist > 0.45;
   const inCity = zones.name === 'block' || zones.name === 'ruin';
   post.bloom = inCity && settings.gfx !== 'low';
   post.bloomStrength = phone ? 0.22 : 0.55;
@@ -690,6 +778,8 @@ function tick(dt) {
     const a = zones.cityAngle || 0;
     camera.position.set(-2.35 + Math.sin(a) * 3.4, 1.28, 4.6 - Math.cos(a) * 0.8);
     camera.lookAt(-3.8, 0.72, -8);
+  } else if (mapFollow) {
+    applyFollow(dt);
   } else if (chasing) {
     const yaw = walker.yaw;
     const fx = Math.sin(yaw);
@@ -700,6 +790,8 @@ function tick(dt) {
   // (and shakes the eye)
   if (blast.shake + hole.shake + twister.shake > 0.002) { const s = blast.shake + hole.shake + twister.shake * 0.5; shaking += dt; camera.rotateX(Math.sin(shaking * 61) * Math.sin(shaking * 37 + 1) * 0.03 * s); camera.rotateY(Math.sin(shaking * 53 + 2) * Math.sin(shaking * 29) * 0.03 * s); camera.rotateZ(Math.sin(shaking * 47 + 4) * 0.018 * s); }
   camera.updateMatrixWorld(true);
+  const showBody = !!avatar.ready && zones.name === 'meadow' && !ar.on && settings.viewBack && !free && followCam.dist > 1.15;
+  avatar.update(dt, walker, showBody);
   world.update(dt, walker.feet, camera, walker.speed);
   const flats = air.uniforms.uFlat.value;
   for (const f of flats) f.w = 0;
@@ -849,7 +941,7 @@ function tick(dt) {
 
 // (the measuring tools were written for a figure seen from behind: these are the same handles on one seen from within)
 const head = new THREE.Vector3();
-const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar, wander, living, street, duel, appeal, mind, hexes, hub, ranger, warden, alchemist,
+const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar, wander, living, street, duel, appeal, mind, hexes, hub, ranger, warden, alchemist, avatar,
   THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, arms, blade, gun, summoner, tune: TUNE, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
   player: walker,
   follow: { get yaw() { return walker.yaw; }, set yaw(v) { walker.yaw = v; }, get pitch() { return walker.pitch; }, set pitch(v) { walker.pitch = v; }, want: 0, distance: 0, pivot: new THREE.Vector3() },

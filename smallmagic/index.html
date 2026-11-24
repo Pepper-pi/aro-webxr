@@ -200,7 +200,8 @@
       #gear { pointer-events: auto; position: fixed; z-index: 7; top: max(12px, env(safe-area-inset-top)); right: calc(max(12px, env(safe-area-inset-right)) + 92px); width: 44px; height: 44px; border-radius: 50%; border: 1px solid #f1d9a4; background: rgba(20, 12, 28, 0.78); color: #f6ead0; font-size: 22px; }
       #discToggle { pointer-events: auto; position: fixed; z-index: 8; left: max(10px, env(safe-area-inset-left)); bottom: max(150px, env(safe-area-inset-bottom)); border-radius: 999px; border: 1px solid #f1d9a4; background: rgba(20, 12, 28, 0.78); color: #f6ead0; font: 12px Georgia, serif; padding: 6px 10px; }
       #settings { font: 16px/1.35 Georgia, serif; text-align: center; touch-action: none; user-select: none; }
-      #settings .tabs { display: flex; gap: 6px; margin: 10px 0; }
+      #settings .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+      #settings .tabs button { flex: 1 1 40%; }
       #settings .tabs button, #settings .row button { flex: 1; min-height: 48px; border-radius: 12px; border: 2px solid #f1d9a4; background: rgba(241, 217, 164, 0.12); color: #f6ead0; font: 15px Georgia, serif; }
       #settings .tabs button.on, #settings .row button.on { background: rgba(241, 217, 164, 0.4); }
       #settings .deck { margin: 12px 0 4px; letter-spacing: 0.14em; text-transform: uppercase; font-size: 12px; color: #e6c27a; }
@@ -573,6 +574,7 @@
       <p>Settings</p>
       <div class="tabs">
         <button type="button" data-tab="controls" class="on">Controls</button>
+        <button type="button" data-tab="look">Look</button>
         <button type="button" data-tab="graphics">Graphics</button>
         <button type="button" data-tab="audio">Audio</button>
       </div>
@@ -600,6 +602,22 @@
           <p class="note">These switches follow the class row. Turning one on turns the others off.</p>
           <div class="row"><button id="gunnerToggle" type="button">Gunner: off</button></div>
         </details>
+      </div>
+      <div data-pane="look" hidden>
+        <p>Look</p>
+        <div class="row" id="lookPick">
+          <button type="button" data-look="A">A</button>
+          <button type="button" data-look="B" class="on">B</button>
+          <button type="button" data-look="C">C</button>
+        </div>
+        <p class="note">AvatarSample A, B, or C. Desktop High uses the 2048 set. A phone, or Low, uses the 512 set. These samples are not public domain.</p>
+        <p>Cloth</p>
+        <div class="row" id="jigglePick">
+          <button type="button" data-jiggle="off">Off</button>
+          <button type="button" data-jiggle="soft" class="on">Soft</button>
+          <button type="button" data-jiggle="full">Full</button>
+        </div>
+        <p class="note">Hair, cloth, and the body's own spring bones. Soft is the default. Off holds them still. Full is looser, and a phone takes shorter steps.</p>
       </div>
       <div data-pane="graphics" hidden>
         <div class="row"><button type="button" data-gfx="low">Low</button><button type="button" data-gfx="high" class="on">High</button></div>

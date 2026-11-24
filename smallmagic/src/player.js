@@ -24,7 +24,9 @@ export class Walker {
     this.pitch = THREE.MathUtils.clamp(this.pitch + inp.look.y, -1.35, 1.35);
     this.turned.set(inp.look.x, inp.look.y);
     // where they mean to go
-    const top = inp.sprint ? RUN : WALK, sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
+    let top = inp.sprint ? RUN : WALK;
+    if (inp.walk && !inp.sprint) top = 3.15;
+    const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
     // The eye looks along (sin yaw, cos yaw). Forward is that, and right is (cos yaw, -sin yaw).
     const wx = (inp.move.y * sy + inp.move.x * cy) * top, wz = (inp.move.y * cy - inp.move.x * sy) * top;
     const follow = inp.sprint ? 22 : 14;
