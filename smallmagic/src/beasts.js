@@ -728,7 +728,7 @@ export function createBeasts(scene, ground, world) {
         if (hits[0] && hits[0].distance < dist) { best = b; dist = hits[0].distance; }
       }
       if (!best) return null;
-      return { n: all.indexOf(best), kind: best.kind, hp: best.hp, max: best.max, x: best.g.position.x, z: best.g.position.z };
+      return { n: all.indexOf(best), kind: best.kind, tier: best.tier || 'common', hp: best.hp, max: best.max, x: best.g.position.x, z: best.g.position.z };
     },
     nearest(x, z, reach = 2.8) {
       let best = null;

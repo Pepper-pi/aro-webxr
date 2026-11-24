@@ -305,6 +305,23 @@ hexes.onPortal = (h) => {
   duel.beginRaid(`${h.name} brute`);
 };
 const pets = createPets({ scene, world, walker, living, zones, duel });
+pets.onRare = () => {
+  const here = hexes.at(walker.feet.x, walker.feet.z);
+  hexes.grant(here?.id || 'meadow', 12);
+};
+document.querySelectorAll('[data-ask]').forEach((b) => b.addEventListener('pointerup', (e) => {
+  const which = b.getAttribute('data-ask');
+  const board = document.getElementById('board');
+  if (board) board.hidden = true;
+  zones.enter('meadow');
+  if (which === 'square') walker.place(-4, 22, 0);
+  else {
+    const hex = hexes.list.find((h) => h.id === 'meadow');
+    if (hex) hexes.enter(hex);
+  }
+  e.preventDefault();
+  e.stopPropagation();
+}));
 addEventListener('pointerup', (e) => { if (!playtest) pets.tap(e, camera); });
 const quest = createQuest({ walker, zones, spells });
 spellsBar.select(spells?.selected ?? 0);
@@ -949,6 +966,8 @@ function tickStep(dt, draw) {
     const a = zones.cityAngle || 0;
     camera.position.set(-2.35 + Math.sin(a) * 3.4, 1.28, 4.6 - Math.cos(a) * 0.8);
     camera.lookAt(-3.8, 0.72, -8);
+  } else if (duel.active && !raidOwn && !raidSweep) {
+    duel.look(camera);
   } else if (raidSweep) {
     duel.look(camera);
   } else if (mapFollow) {

@@ -211,16 +211,35 @@ export function createTown(parent, world, { low = false } = {}) {
     const tiles = [];
     const step = simple ? 2.5 : 1.2;
     const targets = ['cottage', 'keep', 'abbey-a'].map((id) => doors.find((d) => d.id === id)).filter(Boolean);
+    const houses = { cottage: { x: -10, z: 30.3 }, keep: { x: -22, z: 17 }, 'abbey-a': { x: 27, z: 42 } };
     for (const door of targets) {
-      const dx = door.x - cx;
-      const dz = door.z - cz;
+      const ax = cx;
+      const az = cz;
+      const bx = door.x;
+      const bz = door.z;
+      const dx = bx - ax;
+      const dz = bz - az;
       const len = Math.hypot(dx, dz) || 1;
-      const n = Math.max(2, Math.floor(len / step));
+      const px = -dz / len;
+      const pz = dx / len;
+      const house = houses[door.id] || { x: bx, z: bz };
+      const mx = (ax + bx) / 2;
+      const mz = (az + bz) / 2;
+      const side = Math.sign((house.x - mx) * px + (house.z - mz) * pz) || 1;
+      const bow = 2.6 * -side;
+      const qx = mx + px * bow;
+      const qz = mz + pz * bow;
+      const n = Math.max(3, Math.floor(len / step));
+      let prevX = ax;
+      let prevZ = az;
       for (let i = 1; i < n; i++) {
         const t = i / n;
-        const x = cx + dx * t;
-        const z = cz + dz * t;
-        tiles.push({ x, z, yaw: Math.atan2(dx, dz) });
+        const o = 1 - t;
+        const x = o * o * ax + 2 * o * t * qx + t * t * bx;
+        const z = o * o * az + 2 * o * t * qz + t * t * bz;
+        tiles.push({ x, z, yaw: Math.atan2(x - prevX, z - prevZ) });
+        prevX = x;
+        prevZ = z;
       }
     }
     if (tiles.length) {

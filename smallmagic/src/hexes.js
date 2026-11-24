@@ -651,6 +651,7 @@ export function createHexes(scene, world, camera, walker, zones) {
         const gain = here.event.kind === 'boss' ? 36 : here.event.kind === 'surge' ? 24 : here.event.kind === 'bloom' ? 18 : 16;
         grant(here.id, gain);
         zones?.toast?.(`${here.event.name} clear · +${gain} Resonance`);
+        watch?.chime?.();
         here.event = null;
         here.clears = (here.clears || 0) + 1;
         here.cool = 28;

@@ -11,8 +11,9 @@ const FOE_TYPE = { fox: 'fire', wolf: 'frost', deer: 'earth', boar: 'earth', bun
 const MOB = {
   fox: 'mobs/cc0/fox.glb', wolf: 'mobs/cc0/wolf.glb', deer: 'mobs/cc0/deer.glb',
   bunny: 'mobs/cc0/bunny.glb', cow: 'mobs/cc0/cow.glb', crab: 'mobs/cc0/crab.glb', fish: 'mobs/cc0/fish.glb',
+  boar: 'mobs/overaction/boar.glb', goblin: 'mobs/overaction/goblin.glb',
 };
-const TALL = { fox: 1.05, wolf: 1.15, deer: 1.35, bunny: 0.72, cow: 1.15, crab: 0.55, fish: 0.42 };
+const TALL = { fox: 1.05, wolf: 1.15, deer: 1.35, bunny: 0.72, cow: 1.15, crab: 0.55, fish: 0.42, boar: 1.05, goblin: 0.85 };
 const MOVE_IDS = ['petSlam', 'petElemBtn', 'petGuard', 'petNip'];
 const MOVE_LABELS = ['Leap Slam', 'Ember', 'Guard', 'Nip'];
 const BEAT = { chill: 'burn', burn: 'growth', growth: 'bleed', bleed: 'wind', wind: 'chill' };
@@ -266,6 +267,20 @@ export function createDuel({ scene, world, camera, living }) {
       mixers.push(mixer);
       actor.clips = clips;
     }
+    function gel(actor) {
+      if (actor.g.getObjectByName('mob-slime')) return;
+      const g = new THREE.Group();
+      g.name = 'mob-slime';
+      const mound = new THREE.Mesh(new THREE.IcosahedronGeometry(0.32, 1), new THREE.MeshBasicMaterial({ color: '#2f8f5a', transparent: true, opacity: 0.88 }));
+      mound.scale.set(1.15, 0.48, 1.15);
+      mound.position.y = 0.16;
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), new THREE.MeshBasicMaterial({ color: '#1d5c38' }));
+      cap.position.y = 0.34;
+      g.add(mound, cap);
+      actor.g.add(g);
+    }
+    gel(actors.pet);
+    gel(actors.foe);
     wear(actors.pet, 'fox');
     wear(actors.foe, 'deer');
     wear(actors.foe, 'wolf');
@@ -472,6 +487,14 @@ export function createDuel({ scene, world, camera, living }) {
     if (BEAT[move.el] === other.element) { dmg = Math.round(dmg * 1.25); note += ' · ring'; }
     other.hp = Math.max(0, other.hp - dmg);
     if (move.heal) actor.hp = Math.min(actor.max, actor.hp + move.heal);
+    const self = actor === bout.mine ? actors.pet.g : actors.foe.g;
+    const foeG = actor === bout.mine ? actors.foe.g : actors.pet.g;
+    bout.anim = { who: actor === bout.mine ? 'mine' : 'wild', t: 0, from: self.position.clone(), to: foeG.position.clone() };
+    shock.visible = true;
+    shock.position.set(foeG.position.x, 0.08, foeG.position.z);
+    shock.scale.setScalar(0.25);
+    shock.material.opacity = 0.95;
+    shock.material.color.set('#fff6dc');
     actors.pet.hp = bout.mine.hp;
     actors.pet.max = bout.mine.max;
     actors.foe.hp = bout.wild.hp;
@@ -509,10 +532,29 @@ export function createDuel({ scene, world, camera, living }) {
     bout.queue = mineFirst
       ? [['mine', mineMove], ['wild', foeMove]]
       : [['wild', foeMove], ['mine', mineMove]];
-    bout.wait = 0.12;
+    bout.wait = 0.08;
   }
   function boutStep(dt) {
     if (!bout || bout.over) return;
+    if (bout.anim) {
+      bout.anim.t += dt;
+      const u = Math.min(1, bout.anim.t / 0.22);
+      const self = bout.anim.who === 'mine' ? actors.pet.g : actors.foe.g;
+      const hop = Math.sin(u * Math.PI);
+      self.position.x = bout.anim.from.x + (bout.anim.to.x - bout.anim.from.x) * hop * 0.42;
+      self.position.z = bout.anim.from.z + (bout.anim.to.z - bout.anim.from.z) * hop * 0.42;
+      self.position.y = hop * 0.22;
+      if (u >= 1) {
+        self.position.copy(bout.anim.from);
+        self.position.y = 0;
+        bout.anim = null;
+      }
+    }
+    if (shock.visible) {
+      shock.scale.multiplyScalar(1 + dt * 8);
+      shock.material.opacity = Math.max(0, shock.material.opacity - dt * 4.5);
+      if (shock.material.opacity <= 0.02) shock.visible = false;
+    }
     if (!bout.queue) return;
     bout.wait -= dt;
     if (bout.wait > 0) return;
@@ -523,7 +565,7 @@ export function createDuel({ scene, world, camera, living }) {
     const other = who === 'mine' ? bout.wild : bout.mine;
     const local = who === 'mine' ? actors.pet.g.position : actors.foe.g.position;
     if (actor.hp > 0 && other.hp > 0) strike(actor, other, move, local);
-    bout.wait = 0.55;
+    bout.wait = 0.28;
     if (!bout.queue.length) bout.queue = null;
     if (bout.wild.hp <= 0) { finishBout(true); return; }
     if (bout.mine.hp <= 0) finishBout(false);
@@ -876,6 +918,28 @@ export function createDuel({ scene, world, camera, living }) {
       return true;
     }
     if (raid) return false;
+    if (bout && !bout.over) {
+      const pet = actors.pet.g.position;
+      const foe = actors.foe.g.position;
+      const dx = foe.x - pet.x;
+      const dz = foe.z - pet.z;
+      const len = Math.hypot(dx, dz) || 1;
+      const fx = dx / len;
+      const fz = dz / len;
+      const sx = fz;
+      const sz = -fx;
+      cam.position.set(
+        root.position.x + pet.x - fx * 2.35 + sx * 0.72,
+        root.position.y + 1.45,
+        root.position.z + pet.z - fz * 2.35 + sz * 0.72,
+      );
+      cam.lookAt(
+        root.position.x + (pet.x * 0.35 + foe.x * 0.65),
+        root.position.y + 0.55,
+        root.position.z + (pet.z * 0.35 + foe.z * 0.65),
+      );
+      return true;
+    }
     const pet = actors.pet.g.position;
     const foe = actors.foe.g.position;
     const x = root.position.x + (pet.x + foe.x) * 0.5;

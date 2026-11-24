@@ -321,15 +321,24 @@ export function createAvatar(scene, { phone = false, world = null } = {}) {
       const gy = world.ground(footW.x, footW.z);
       const height = footW.y - gy;
       // Held only while the ankle is within about 22 cm of the ground. A sprint step used to drop the lock because the whole body moved more than 22 cm.
-      if (locks[side] && height > 0.22) locks[side] = null;
-      if (!locks[side] && height < 0.16 && height > -0.08 && walker.grounded && walker.speed > 0.3) {
+      const pull = locks[side] ? Math.hypot(hipW.x - locks[side].x, hipW.z - locks[side].z) : 0;
+      const reach = walker.speed > 7.5 ? 0.38 : 0.7;
+      if (locks[side] && (height > 0.22 || pull > reach)) locks[side] = null;
+      if (!locks[side] && height < 0.16 && height > -0.08 && walker.grounded && walker.speed > 0.3 && walker.speed < 9.2) {
         locks[side] = new THREE.Vector3(footW.x, gy + 0.02, footW.z);
       }
       if (!locks[side]) continue;
       locks[side].y = world.ground(locks[side].x, locks[side].z) + 0.02;
       goal.copy(locks[side]);
       pole.set(hipW.x + fx * 0.45, hipW.y - 0.2, hipW.z + fz * 0.45);
+      const beforeUpper = upper.quaternion.clone();
+      const beforeLower = lower.quaternion.clone();
       solveLeg(upper, lower, foot, goal, pole);
+      const slip = THREE.MathUtils.smoothstep(walker.speed, 6.4, 9.4);
+      if (slip > 0) {
+        upper.quaternion.slerp(beforeUpper, slip);
+        lower.quaternion.slerp(beforeLower, slip);
+      }
     }
   }
   function plantFeet() {

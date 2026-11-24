@@ -11,8 +11,10 @@ const FILES = {
   cow: 'mobs/cc0/cow.glb',
   wolf: 'mobs/cc0/wolf.glb',
   fish: 'mobs/cc0/fish.glb',
+  boar: 'mobs/overaction/boar.glb',
+  goblin: 'mobs/overaction/goblin.glb',
 };
-const TALL = { bunny: 0.62, fox: 0.72, deer: 0.95, crab: 0.42, cow: 0.9, wolf: 0.78, fish: 0.36 };
+const TALL = { bunny: 0.62, fox: 0.72, deer: 0.95, crab: 0.42, cow: 0.9, wolf: 0.78, fish: 0.36, boar: 0.85, goblin: 0.7 };
 
 export const ROSTER = {
   bunny: {
@@ -76,6 +78,33 @@ export const ROSTER = {
       { name: 'Dart', el: 'wind', pow: 8 },
       { name: 'Scale cut', el: 'bleed', pow: 7 },
       { name: 'Cold fin', el: 'chill', pow: 10 },
+    ],
+  },
+  boar: {
+    kind: 'boar', name: 'Trot', element: 'bleed', hp: 36, speed: 9,
+    moves: [
+      { name: 'Tusk', el: 'bleed', pow: 10 },
+      { name: 'Shoulder', el: 'bleed', pow: 8, slam: true },
+      { name: 'Bristle', el: 'wind', pow: 7 },
+      { name: 'Mud kick', el: 'growth', pow: 6 },
+    ],
+  },
+  slime: {
+    kind: 'slime', name: 'Puddle', element: 'chill', hp: 30, speed: 8,
+    moves: [
+      { name: 'Seep', el: 'chill', pow: 8 },
+      { name: 'Gel coat', el: 'chill', pow: 4, heal: 5 },
+      { name: 'Split', el: 'growth', pow: 7 },
+      { name: 'Cold drip', el: 'chill', pow: 11 },
+    ],
+  },
+  goblin: {
+    kind: 'goblin', name: 'Nim', element: 'wind', hp: 24, speed: 15,
+    moves: [
+      { name: 'Pebble', el: 'wind', pow: 8 },
+      { name: 'Trip', el: 'bleed', pow: 7 },
+      { name: 'Whistle', el: 'wind', pow: 9 },
+      { name: 'Scramble', el: 'wind', pow: 11, slam: true },
     ],
   },
 };
@@ -178,7 +207,22 @@ export function createPets({ scene, world, walker, living, zones, duel }) {
     if (prompt) prompt.hidden = true;
     picked = null;
   }
-  function join(kind, keepN) {
+  function reward(name) {
+    living.chime?.();
+    const card = document.getElementById('petCard');
+    const result = document.getElementById('petResult');
+    const title = document.getElementById('petTitle');
+    const xp = document.getElementById('petXp');
+    const book = document.getElementById('petBook');
+    if (result) result.textContent = 'Rare catch';
+    if (title) title.textContent = name;
+    if (xp) xp.textContent = '+12 Resonance';
+    if (book) book.textContent = 'The bestiary keeps the find.';
+    if (card) card.hidden = false;
+    magicReward?.(name);
+  }
+  let magicReward = null;
+  function join(kind, keepN, tier) {
     if (!ROSTER[kind]) return null;
     if (party.slots.some((s) => s.kind === kind)) {
       zones.toast?.(`${ROSTER[kind].name} is already with you.`);
@@ -195,6 +239,7 @@ export function createPets({ scene, world, walker, living, zones, duel }) {
     party.active = party.slots.length - 1;
     saveParty(party);
     zones.toast?.(`${row.name} follows you.`);
+    if (tier === 'rare' || tier === 'epic' || tier === 'mythic') reward(row.name);
     return row;
   }
   function startBattle(mine, wild) {
@@ -217,7 +262,7 @@ export function createPets({ scene, world, walker, living, zones, duel }) {
   duel.bind?.({ onBout });
 
   document.getElementById('petBefriend')?.addEventListener('pointerup', (e) => {
-    if (picked) join(picked.kind, picked.n);
+    if (picked) join(picked.kind, picked.n, picked.tier);
     shut();
     e.preventDefault();
     e.stopPropagation();
@@ -251,10 +296,21 @@ export function createPets({ scene, world, walker, living, zones, duel }) {
   let cam = null;
   function arm(camera) { cam = camera; }
 
+  function gelBody() {
+    const gel = new THREE.Mesh(new THREE.IcosahedronGeometry(0.28, 1), new THREE.MeshBasicMaterial({ color: '#2f8f5a', transparent: true, opacity: 0.88 }));
+    gel.scale.set(1.15, 0.5, 1.15);
+    gel.position.y = 0.16;
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 5), new THREE.MeshBasicMaterial({ color: '#1d5c38' }));
+    cap.position.y = 0.32;
+    const g = new THREE.Group();
+    g.add(gel, cap);
+    return g;
+  }
   async function wear(kind) {
     if (shown === kind) return;
     shown = kind;
     while (root.children.length) root.remove(root.children[0]);
+    if (kind === 'slime') { root.add(gelBody()); return; }
     let GLTFLoader;
     let SkeletonUtils;
     try {
@@ -357,5 +413,8 @@ export function createPets({ scene, world, walker, living, zones, duel }) {
     paintPrompt(hit, calm, weak);
   }
 
-  return { root, update, tap, arm, join, party, roster: ROSTER };
+  return {
+    root, update, tap, arm, join, party, roster: ROSTER,
+    set onRare(fn) { magicReward = fn; },
+  };
 }

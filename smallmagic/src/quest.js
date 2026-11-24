@@ -7,7 +7,7 @@ export function createQuest({ walker, zones, spells }) {
   const banner = document.createElement('div');
   banner.style.cssText = 'position:fixed;inset:0;display:none;place-items:center;z-index:12;background:rgba(8,6,16,.45);color:#fff6dc;font:34px Georgia,serif;pointer-events:none;';
   document.body.appendChild(banner);
-  let xp = 0, level = 1, gold = 0, fell = 0, phase = 'hunt', downT = 0, shown = '', bossN = -1, held = false;
+  let xp = 0, level = 1, gold = 0, fell = 0, phase = 'hunt', downT = 0, shown = '', bossN = -1, held = false, lead = true;
   const seen = new Set();
   const flash = (text, ms = 1400) => {
     banner.style.display = 'grid';
@@ -30,6 +30,14 @@ export function createQuest({ walker, zones, spells }) {
     update() {
       if (!zones || zones.name !== 'meadow') { hud.hidden = true; return; }
       hud.hidden = false;
+      const atSquare = Math.hypot(walker.feet.x + 4, walker.feet.z - 24) < 8;
+      const board = document.getElementById('board');
+      if (lead && (atSquare || (board && !board.hidden))) lead = false;
+      if (lead && fell === 0) {
+        const line = 'Next: follow the cobble to the square notice.';
+        if (line !== shown) { shown = line; hud.textContent = line; }
+        return;
+      }
       for (const kind of zones.collect(walker.feet.x, walker.feet.z)) grant(kind);
       if (phase === 'boss' && bossN >= 0) {
         const boss = zones.beasts().find((b) => b.n === bossN);

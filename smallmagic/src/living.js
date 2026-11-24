@@ -342,6 +342,7 @@ export function createLiving({ zones } = {}) {
     set weather(v) { weather = v || ''; const data = store(); data.stalls = null; data.quest = null; write(MEM, data); },
     shiftSky(v) { weather = v || ''; },
     set hear(fn) { hear = fn; },
+    chime() { hear?.(); },
     resetMemory() { const data = store(); data.memory = []; data.quest = null; write(MEM, data); },
   };
 }
