@@ -1325,6 +1325,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     buddyAt() { return buddyBody.visible ? buddyBody.position : null; },
     get hearts() { return hearts; },
     nick(n) {
+      if (typeof this.ward === 'function' && n > 0) n = this.ward(n);
       if (guard > 0 && n > 0) {
         const use = Math.min(guard, n);
         guard -= use;
@@ -1357,6 +1358,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     nearestBeast(x, z, reach) { return beasts.nearest(x, z, reach); },
     keepBeast(n) { return beasts.keep(n); },
     live() { return beasts.live(); },
+    stir(fn) { beasts.stir?.(fn); },
     anchor(n, x, y, z, face) { beasts.anchor(n, x, y, z, face); },
     releaseAnchor(n) { beasts.releaseAnchor(n); },
     get mobsReady() { return beasts.mobsReady; },

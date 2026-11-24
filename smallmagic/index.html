@@ -116,6 +116,7 @@
       #rangerCharge i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #e7c56a, #fff1c4); }
       #classPick { display: flex; flex-direction: column; gap: 0; align-items: stretch; }
       #classPick .live, #classPick .branch { display: flex; gap: 8px; }
+      #classPick .live.support { margin-top: 10px; }
       #classPick .branch { margin-top: 0; }
       #classPick .spell-branch { position: relative; height: 36px; }
       #classPick .spell-branch .stem { position: absolute; left: 16.6%; top: 0; width: 1px; height: 18px; background: rgba(241, 217, 164, 0.9); }
@@ -584,19 +585,24 @@
     <div id="rangerBar" hidden>
       <p id="rangerAmmo">12 / 12 arrows</p>
       <div id="rangerCharge"><i></i></div>
-      <button id="rangerShoot" type="button">Hold shot</button>
-      <button id="rangerMark" type="button">Mark</button>
-      <button id="rangerDodge" type="button">Dodge</button>
-      <p id="rangerNote">Ranger preview</p>
+      <button id="rangerShoot" type="button">Draw</button>
+      <button id="rangerVolley" type="button">Volley</button>
+      <button id="rangerTrap" type="button">Trap</button>
+      <button id="rangerMark" type="button">Hawk</button>
+      <p id="rangerNote">Ranger</p>
     </div>
     <div id="wardenBar" hidden>
-      <button id="wardenBash" type="button">Bash</button>
-      <button id="wardenGuard" type="button">Guard</button>
-      <p id="wardenNote">Warden preview</p>
+      <button id="wardenTotem" type="button">Totem</button>
+      <button id="wardenBubble" type="button">Bubble</button>
+      <button id="wardenSnare" type="button">Snare</button>
+      <button id="wardenCalm" type="button">Calm</button>
+      <p id="wardenNote">Warden</p>
     </div>
     <div id="alchemistBar" hidden>
-      <button id="alchemistToss" type="button">Throw</button>
-      <button id="alchemistSip" type="button">Sip</button>
+      <button id="alchemistHeal" type="button">Heal</button>
+      <button id="alchemistAcid" type="button">Acid</button>
+      <button id="alchemistSmoke" type="button">Smoke</button>
+      <button id="alchemistBrew" type="button">Brew</button>
       <p id="alchemistNote">Alchemist</p>
     </div>
     <div id="summonerBar" hidden>
@@ -635,10 +641,13 @@
             <button type="button" class="card" data-class="summoner"><b>Summoner</b><i>Summon</i><p>The staff catches a spirit onto a page, then lets it out.</p><span>Catch · Summon · Spirit mend</span></button>
             <button type="button" class="card" data-class="puppet"><b>Puppetmaster</b><i>Support</i><p>A barrel tank carries a fighter. They come out of each other.</p><span>Deploy Tank · Pop Fighter · Fighter Strike</span></button>
           </div>
+          <div class="live support">
+            <button type="button" class="card" data-class="warden"><b>Warden</b><i>Guard</i><p>A ward for the party. Not a tank. The field stays quiet.</p><span>Totem · Bubble · Snare · Calm</span></button>
+            <button type="button" class="card" data-class="ranger"><b>Ranger</b><i>Striker</i><p>Draw the bow. A hawk marks a rare beast's weak spot.</p><span>Draw · Volley · Trap · Hawk</span></button>
+            <button type="button" class="card" data-class="alchemist"><b>Alchemist</b><i>Healer</i><p>Healing lives here. Flasks spend herbs you gathered.</p><span>Heal · Acid · Smoke · Brew</span></button>
+          </div>
         </div>
-        <p class="note">Summoner and Puppetmaster branch from the Mage. They stay separate kits. The Mage has no staff. The Summoner keeps it.</p>
-        <p class="deck">On deck</p>
-        <div class="deck-row"><span>Warden · guard and bash. Still on deck.</span><span>Ranger · bow and mark. Still on deck.</span><span>Alchemist · toss and sip. Still on deck.</span></div>
+        <p class="note">Summoner and Puppetmaster branch from the Mage. They stay separate kits. The Mage has no staff. The Summoner keeps it. Warden, Ranger, and Alchemist stand with them.</p>
         <p id="xrCheck" class="note">XR self-check: desktop park</p>
         <div class="row"><button id="handsToggle" type="button">Hands mode: off</button></div>
         <div class="row"><button id="petArena" type="button">Pet duel arena</button></div>

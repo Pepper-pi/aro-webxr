@@ -171,12 +171,17 @@ zones.onHexTap = (sx, sy) => {
 document.getElementById('rangerShoot')?.addEventListener('pointerdown', (e) => { ranger.chargeStart(); e.preventDefault(); e.stopPropagation(); });
 document.getElementById('rangerShoot')?.addEventListener('pointerup', (e) => { ranger.chargeRelease(); e.preventDefault(); e.stopPropagation(); });
 document.getElementById('rangerShoot')?.addEventListener('pointercancel', (e) => { ranger.chargeRelease(); e.preventDefault(); });
-document.getElementById('rangerMark')?.addEventListener('pointerup', (e) => { ranger.mark(); e.preventDefault(); e.stopPropagation(); });
-document.getElementById('rangerDodge')?.addEventListener('pointerup', (e) => { ranger.dodge(); e.preventDefault(); e.stopPropagation(); });
-document.getElementById('wardenBash')?.addEventListener('pointerup', (e) => { warden.bash(); e.preventDefault(); e.stopPropagation(); });
-document.getElementById('wardenGuard')?.addEventListener('pointerup', (e) => { warden.raise(); e.preventDefault(); e.stopPropagation(); });
-document.getElementById('alchemistToss')?.addEventListener('pointerup', (e) => { alchemist.toss(); e.preventDefault(); e.stopPropagation(); });
-document.getElementById('alchemistSip')?.addEventListener('pointerup', (e) => { alchemist.sip(); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('rangerVolley')?.addEventListener('pointerup', (e) => { ranger.volley(); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('rangerTrap')?.addEventListener('pointerup', (e) => { ranger.trap(); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('rangerMark')?.addEventListener('pointerup', (e) => { ranger.hawk(); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('wardenTotem')?.addEventListener('pointerup', (e) => { warden.plantTotem(); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('wardenBubble')?.addEventListener('pointerup', (e) => { warden.shield(); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('wardenSnare')?.addEventListener('pointerup', (e) => { warden.root(); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('wardenCalm')?.addEventListener('pointerup', (e) => { warden.calm(); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('alchemistHeal')?.addEventListener('pointerup', (e) => { alchemist.heal(); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('alchemistAcid')?.addEventListener('pointerup', (e) => { alchemist.acid(); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('alchemistSmoke')?.addEventListener('pointerup', (e) => { alchemist.smoke(); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('alchemistBrew')?.addEventListener('pointerup', (e) => { alchemist.brew(); e.preventDefault(); e.stopPropagation(); });
 document.getElementById('summonerCatch')?.addEventListener('pointerdown', (e) => { summoner.catchStart(); e.preventDefault(); e.stopPropagation(); });
 document.getElementById('summonerCatch')?.addEventListener('pointerup', (e) => { summoner.catchStop(); e.preventDefault(); e.stopPropagation(); });
 document.getElementById('summonerCall')?.addEventListener('pointerup', (e) => { summoner.summon(); e.preventDefault(); e.stopPropagation(); });
@@ -222,7 +227,25 @@ const PUPPET_ATK = [
   { key: 'bash', name: 'Tank Bash', colour: '#6a3a22', sides: 4 },
   { key: 'recall', name: 'Recall', colour: '#9fd4ff', sides: 3 },
 ];
-const KIT_ATK = { blade: BLADE_ATK, gunner: GUN_ATK, summoner: SUMMON_ATK, puppet: PUPPET_ATK };
+const WARDEN_ATK = [
+  { key: 'totem', name: 'Ward totem', colour: '#8a9a78', sides: 4 },
+  { key: 'bubble', name: 'Bubble', colour: '#d7e4f2', sides: 6 },
+  { key: 'snare', name: 'Root snare', colour: '#6a8f4a', sides: 5 },
+  { key: 'calm', name: 'Calm', colour: '#c9d7b8', sides: 6 },
+];
+const RANGER_ATK = [
+  { key: 'draw', name: 'Draw', colour: '#c4a574', sides: 3 },
+  { key: 'volley', name: 'Volley', colour: '#e7c56a', sides: 3 },
+  { key: 'trap', name: 'Trap arrow', colour: '#6a8f4a', sides: 4 },
+  { key: 'hawk', name: 'Hawk', colour: '#8a5a32', sides: 5 },
+];
+const ALCHEMIST_ATK = [
+  { key: 'heal', name: 'Heal splash', colour: '#7dff9a', sides: 6 },
+  { key: 'acid', name: 'Acid splash', colour: '#c6e04a', sides: 5 },
+  { key: 'smoke', name: 'Smoke', colour: '#d5d0c8', sides: 6 },
+  { key: 'brew', name: 'Brew', colour: '#6a4324', sides: 6 },
+];
+const KIT_ATK = { blade: BLADE_ATK, gunner: GUN_ATK, summoner: SUMMON_ATK, puppet: PUPPET_ATK, warden: WARDEN_ATK, ranger: RANGER_ATK, alchemist: ALCHEMIST_ATK };
 const spellsBar = spellBar(document.getElementById('spells'), SPELLS, 'ui/', { ring: true, onPick: (i) => spells?.select(i) });
 let kitBar = spellsBar;
 let kit = 'mage';
@@ -263,6 +286,24 @@ function useAttack(which, index, down) {
     const key = PUPPET_ATK[index]?.key;
     if (key === 'bash') { if (down) puppet.bashStart(); else puppet.bashRelease(); return; }
     if (down) puppet.use(key);
+    return;
+  }
+  if (which === 'warden') { if (down) warden.use(WARDEN_ATK[index]?.key); return; }
+  if (which === 'ranger') {
+    const key = RANGER_ATK[index]?.key;
+    if (key === 'draw') { if (down) ranger.chargeStart(); else ranger.chargeRelease(); return; }
+    if (down && key === 'volley') ranger.volley();
+    if (down && key === 'trap') ranger.trap();
+    if (down && key === 'hawk') ranger.hawk();
+    return;
+  }
+  if (which === 'alchemist') {
+    if (!down) return;
+    const key = ALCHEMIST_ATK[index]?.key;
+    if (key === 'acid') alchemist.acid();
+    else if (key === 'smoke') alchemist.smoke();
+    else if (key === 'brew') alchemist.brew();
+    else alchemist.heal();
     return;
   }
   const key = BLADE_ATK[index]?.key;
@@ -674,11 +715,12 @@ scene.add(sword);
 const blade = createBlade((damage) => zones.launchNearest(damage, blade.locked), { scene, camera, world, zones, walker, air, fx, sword, sound });
 applyMood(readMood(), false);
 const gun = createGunner(scene, camera, world, zones, fire);
-const ranger = createRanger({ scene, camera, world, zones, walker, fire });
+const groundAt = (x, z) => (ar.on ? ar.floorY : world.ground(x, z));
+const ranger = createRanger({ scene, camera, world, zones, walker, fire, living, ground: groundAt });
 zones.whenClear(() => ranger.restock());
 zones.hexOf = (x, z) => hexes.at(x, z);
-const warden = createWarden({ scene, camera, world, zones, walker });
-const alchemist = createAlchemist({ scene, camera, world, zones, walker });
+const warden = createWarden({ scene, camera, world, zones, walker, pets, ground: groundAt });
+const alchemist = createAlchemist({ scene, camera, world, zones, walker, fire, living, ground: groundAt });
 const summoner = createSummoner({ scene, camera, world, zones, walker, staff, beam });
 const puppet = createPuppetmaster({ scene, world, zones, walker });
 const classBind = {
@@ -687,6 +729,11 @@ const classBind = {
   mendPet: (n) => duel.mendPet(n),
 };
 summoner.bind(classBind);
+ranger.bind(classBind);
+warden.bind(classBind);
+alchemist.bind(classBind);
+zones.ward = (n) => warden.soak(n);
+duel.bind({ calm: () => warden.aura() });
 puppet.bind(classBind);
 camera.layers.enable(9);
 let padCast = false, forceDraw = false, chaseDist = 0, greetWho = '', greetUntil = 0, lakeWide = false, playFrames = 0;
@@ -779,6 +826,68 @@ let xrFrame = null;
 let xrHeld = null;
 let xrSelectCast = false;
 const xrGaze = new THREE.Vector3();
+let wheelOpen = false;
+let wheelFromHold = false;
+let selectHold = 0;
+let drawArmed = false;
+let castArmed = false;
+const xrWheel = new THREE.Group();
+xrWheel.name = 'xr-wheel';
+xrWheel.visible = false;
+scene.add(xrWheel);
+const xrWedges = [];
+const wheelLook = new THREE.Vector3();
+const wheelAt = new THREE.Vector3();
+function wheelList() {
+  if (settings.class === 'mage') return SPELLS.map((s) => ({ name: s.name, colour: s.colour }));
+  return (KIT_ATK[settings.class] || []).map((a) => ({ name: a.name, colour: a.colour }));
+}
+function openWheel() {
+  const list = wheelList();
+  while (xrWheel.children.length) xrWheel.remove(xrWheel.children[0]);
+  xrWedges.length = 0;
+  const n = Math.max(1, list.length);
+  list.forEach((item, i) => {
+    const a = (i / n) * Math.PI * 2 - Math.PI / 2;
+    const mesh = new THREE.Mesh(new THREE.CircleGeometry(0.05, 14), new THREE.MeshBasicMaterial({ color: item.colour, transparent: true, opacity: 0.94, side: THREE.DoubleSide, depthWrite: false }));
+    mesh.position.set(Math.cos(a) * 0.18, Math.sin(a) * 0.18, 0);
+    xrWheel.add(mesh);
+    xrWedges.push(mesh);
+  });
+  xrWheel.visible = true;
+  wheelOpen = true;
+}
+function closeWheel() {
+  wheelOpen = false;
+  wheelFromHold = false;
+  xrWheel.visible = false;
+  ar.cue('');
+}
+function gazeWheel() {
+  const list = wheelList();
+  if (!list.length || !xrWedges.length) return;
+  camera.getWorldDirection(wheelLook);
+  xrWheel.position.copy(camera.position).addScaledVector(wheelLook, 0.95);
+  xrWheel.quaternion.copy(camera.quaternion);
+  let best = 0;
+  let bestD = -1;
+  xrWedges.forEach((w, i) => {
+    w.getWorldPosition(wheelAt);
+    wheelAt.sub(camera.position).normalize();
+    const d = wheelAt.dot(wheelLook);
+    if (d > bestD) { bestD = d; best = i; }
+  });
+  xrWedges.forEach((w, i) => w.scale.setScalar(i === best ? 1.5 : 0.86));
+  if (settings.class === 'mage') spells?.select(best);
+  else { atk = best; kitBar.select(best); }
+  ar.cue(list[best]?.name || '');
+}
+function firePrimary(down) {
+  const klass = settings.class;
+  if (KIT_ATK[klass]) useAttack(klass, atk, down);
+  else if (down) spells?.press();
+  else spells?.release();
+}
 function tick(frameDt) {
   const fixed = playtest;
   const burst = q.has('clip') && tour.live ? 16 : 1;
@@ -826,10 +935,8 @@ function tickStep(dt, draw) {
   const rangerOn = zones.name !== 'hub' && settings.class === 'ranger';
   const wardenOn = zones.name !== 'hub' && settings.class === 'warden';
   const alchemistOn = zones.name !== 'hub' && settings.class === 'alchemist';
-  const previewOn = rangerOn || wardenOn || alchemistOn;
-  const kitOn = melee || summonerOn || puppetOn;
-  if (previewOn) kit = settings.class;
-  else applyKit(kitOn ? settings.class : 'mage');
+  const kitOn = melee || summonerOn || puppetOn || rangerOn || wardenOn || alchemistOn;
+  applyKit(kitOn ? settings.class : 'mage');
   if (discToggle) discToggle.hidden = kit !== 'mage';
   if (zones.blocksMagic) {
     zones.castHeld(!!inp.cast, !padCast && !!inp.cast, padCast && !inp.cast);
@@ -842,25 +949,44 @@ function tickStep(dt, draw) {
     if (inp.cast !== null && inp.cast !== padCast) { const down = !!inp.cast; padCast = !!inp.cast; useAttack(settings.class, atk, down); }
     if (settings.class === 'summoner') kitBar.charge?.(summoner.fill || 0);
     if (settings.class === 'puppet') kitBar.charge?.(puppet.bash || 0);
-  } else if (previewOn) {
-    spells?.release();
-    padCast = !!inp.cast;
+    if (settings.class === 'ranger') kitBar.charge?.(ranger.charge || 0);
+    if (settings.class === 'warden') kitBar.charge?.(warden.calm || 0);
   } else if (spells) {
     if (inp.cast !== null && inp.cast !== padCast) { padCast = inp.cast; if (padCast) spells.press(); else spells.release(); }
     if (inp.spell) spells.select(spells.selected + inp.spell);
   }
   if (xrLive) {
-    const down = !!ar.selectHeld;
-    if (down !== xrSelectCast) {
-      xrSelectCast = down;
-      const klass = settings.class;
-      if (klass === 'blade' || klass === 'gunner' || klass === 'summoner' || klass === 'puppet') useAttack(klass, atk, down);
-      else if (down) spells?.press();
-      else spells?.release();
+    const drawing = settings.class === 'ranger' && RANGER_ATK[atk]?.key === 'draw';
+    const charged = drawing || settings.class === 'mage';
+    if (ar.squeezeHeld && !wheelOpen) { openWheel(); wheelFromHold = false; }
+    if (!ar.squeezeHeld && wheelOpen && !wheelFromHold) closeWheel();
+    if (ar.selectHeld) {
+      if (selectHold === 0 && !wheelOpen && charged) {
+        if (drawing) { ranger.chargeStart(); drawArmed = true; }
+        else { firePrimary(true); castArmed = true; }
+      }
+      selectHold += dt;
+      if (!wheelOpen && !drawing && selectHold > 0.55) {
+        spells?.cancel();
+        if (castArmed) { firePrimary(false); castArmed = false; }
+        openWheel();
+        wheelFromHold = true;
+      }
+    } else {
+      if (wheelFromHold && wheelOpen) { closeWheel(); wheelFromHold = false; }
+      else if (drawArmed) ranger.chargeRelease();
+      else if (castArmed) firePrimary(false);
+      else if (!wheelOpen && selectHold >= 0.02 && selectHold < 0.55) { firePrimary(true); firePrimary(false); }
+      selectHold = 0;
+      drawArmed = false;
+      castArmed = false;
     }
-  } else if (xrSelectCast) {
-    xrSelectCast = false;
-    spells?.release();
+    if (wheelOpen) gazeWheel();
+  } else {
+    if (wheelOpen) closeWheel();
+    if (drawArmed) { ranger.chargeRelease(); drawArmed = false; }
+    if (castArmed) { firePrimary(false); castArmed = false; }
+    selectHold = 0;
   }
   zones.showMage(settings.class === 'mage' && settings.viewBack && zones.name !== 'hub' && !avatar.ready);
   zones.aim({
@@ -1056,7 +1182,7 @@ function tickStep(dt, draw) {
   }
   camera.updateMatrixWorld(true);
   zones.stickRod?.();
-  const wheel = !playtest && discOn && kit === 'mage' && !previewOn && !melee && !zones.rodOut && zones.name !== 'hub' && !duel.active;
+  const wheel = !playtest && discOn && kit === 'mage' && !melee && !zones.rodOut && zones.name !== 'hub' && !duel.active;
   const rangerBar = document.getElementById('rangerBar');
   const wardenBar = document.getElementById('wardenBar');
   const alchemistBar = document.getElementById('alchemistBar');
@@ -1116,7 +1242,7 @@ function tickStep(dt, draw) {
   hexes.update(dt);
   const spellBox = document.getElementById('spells');
   if (spellBox) {
-    const closed = !!(previewOn || zones.name === 'hub' || zones.rodOut || (wheel && castDisc?.ready));
+    const closed = !!(zones.name === 'hub' || zones.rodOut || (wheel && castDisc?.ready));
     spellBox.classList.toggle('shut', closed && spellBox.classList.contains('ring'));
     if (!spellBox.classList.contains('ring') || !closed) spellBox.hidden = closed;
     else if (!spellBox._shut) spellBox._shut = setTimeout(() => { if (spellBox.classList.contains('shut')) spellBox.hidden = true; spellBox._shut = 0; }, 320);
@@ -1362,7 +1488,7 @@ if (!capture) {
     useDevice('keys');
     if (e.code === 'KeyH') hint.classList.toggle('off');
     if (settings.class === 'mage' && spells && /^Digit[1-7]$/.test(e.code)) spells.select(Number(e.code.slice(5)) - 1);
-    if ((settings.class === 'summoner' || settings.class === 'puppet') && /^Digit[1-6]$/.test(e.code)) {
+    if (KIT_ATK[settings.class] && /^Digit[1-6]$/.test(e.code)) {
       const list = KIT_ATK[settings.class];
       const i = Number(e.code.slice(5)) - 1;
       if (list[i]) { atk = i; kitBar.select(i); }

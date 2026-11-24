@@ -1,82 +1,142 @@
-// Warden is a preview kit. A shield bash, and a guard that calls beasts in.
+// Warden keeps the party standing. A totem soaks hits, a bubble covers an ally,
+// a snare holds a beast, and a calm aura slows the next wind-up. No leading slam.
 import * as THREE from 'three';
 
-export function createWarden({ scene, camera, world, zones, walker }) {
-  const shield = new THREE.Group();
-  const face = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.3, 0.05, 6), new THREE.MeshBasicMaterial({ color: '#d7e4f2' }));
-  face.rotation.x = Math.PI / 2;
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.028, 6, 6), new THREE.MeshBasicMaterial({ color: '#8a5a32' }));
-  const boss = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: '#c4a574' }));
-  boss.position.z = 0.04;
-  shield.add(face, rim, boss);
-  shield.visible = false;
-  scene.add(shield);
-  const cracks = [];
+export function createWarden({ scene, camera, world, zones, walker, pets, ground }) {
+  const gy = (x, z) => (ground ? ground(x, z) : world.ground(x, z));
+  const totem = new THREE.Group();
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 0.7, 6), new THREE.MeshBasicMaterial({ color: '#8a9a78' }));
+  post.position.y = 0.35;
+  const rune = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.03, 6, 18), new THREE.MeshBasicMaterial({ color: '#f1d9a4', transparent: true, opacity: 0.9 }));
+  rune.rotation.x = -Math.PI / 2;
+  rune.position.y = 0.04;
+  totem.add(post, rune);
+  totem.visible = false;
+  scene.add(totem);
+  const bubble = new THREE.Mesh(new THREE.SphereGeometry(0.72, 16, 12), new THREE.MeshBasicMaterial({ color: '#d7e4f2', transparent: true, opacity: 0.28, depthWrite: false }));
+  bubble.visible = false;
+  scene.add(bubble);
+  const snare = new THREE.Mesh(new THREE.RingGeometry(0.7, 0.92, 20), new THREE.MeshBasicMaterial({ color: '#6a8f4a', side: THREE.DoubleSide, transparent: true, opacity: 0.85, depthWrite: false }));
+  snare.rotation.x = -Math.PI / 2;
+  snare.visible = false;
+  scene.add(snare);
+  const aura = new THREE.Mesh(new THREE.SphereGeometry(3.2, 18, 12), new THREE.MeshBasicMaterial({ color: '#c9d7b8', transparent: true, opacity: 0.08, depthWrite: false, side: THREE.BackSide }));
+  aura.visible = false;
+  scene.add(aura);
   let note = 'Warden';
-  let guard = 0;
-  let bashT = 0;
+  let onKit = false;
+  let pool = 0;
+  let totemT = 0;
+  let bubbleT = 0;
+  let bubbleLeft = 0;
+  let snareT = 0;
+  let calmT = 0;
+  let wound = null;
 
-  function crackAt(x, z) {
-    const g = new THREE.Group();
-    const mat = new THREE.MeshBasicMaterial({ color: '#2a211c' });
-    for (let i = 0; i < 6; i++) {
-      const seg = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.02, 0.7 + (i % 3) * 0.25), mat);
-      seg.rotation.y = i * 1.05;
-      seg.position.set(Math.sin(i) * 0.15, 0, Math.cos(i) * 0.15);
-      g.add(seg);
-    }
-    g.position.set(x, world.ground(x, z) + 0.04, z);
-    scene.add(g);
-    cracks.push({ g, life: 4.5 });
-  }
-
-  function bash() {
+  function ahead(dist) {
     const yaw = walker.yaw;
-    const dx = Math.sin(yaw);
-    const dz = Math.cos(yaw);
-    walker.place(walker.feet.x + dx * 1.15, walker.feet.z + dz * 1.15, yaw);
-    const x = walker.feet.x + dx * 1.1;
-    const z = walker.feet.z + dz * 1.1;
-    const dmg = guard > 0 ? 26 : 16;
-    zones.hurt([{ x, z, r: 1.8, d: dmg, k: 'arcane', kx: dx * 2.4, kz: dz * 2.4 }]);
-    zones.shoveBeast?.(x, z, dx, dz, 3.1);
-    crackAt(x, z);
-    bashT = 0.28;
-    note = guard > 0 ? 'Warden · guarded slam' : 'Warden · shield slam';
+    return { x: walker.feet.x + Math.sin(yaw) * dist, z: walker.feet.z + Math.cos(yaw) * dist, yaw };
   }
 
-  function raise() {
-    guard = 4;
-    const n = zones.tauntBeasts?.(walker.feet.x, walker.feet.z) || 0;
-    note = `Warden preview · guard · taunt ${n}`;
+  function plantTotem() {
+    const at = ahead(1.6);
+    totem.position.set(at.x, gy(at.x, at.z), at.z);
+    totem.visible = true;
+    totemT = 14;
+    pool = 36;
+    note = 'Warden · the ward stands';
+  }
+
+  function shield() {
+    bubbleT = 8;
+    bubbleLeft = 18;
+    bubble.visible = true;
+    note = pets?.root?.visible ? 'Warden · bubble on your pet' : 'Warden · bubble on you';
+  }
+
+  function root() {
+    const at = ahead(2.4);
+    snare.position.set(at.x, gy(at.x, at.z) + 0.03, at.z);
+    snare.visible = true;
+    snareT = 8;
+    note = 'Warden · roots take the ground';
+  }
+
+  function calm() {
+    calmT = 8;
+    aura.visible = true;
+    note = 'Warden · the field slows';
+  }
+
+  function soak(n) {
+    let left = n;
+    if (totemT > 0 && pool > 0 && Math.hypot(walker.feet.x - totem.position.x, walker.feet.z - totem.position.z) < 4.6) {
+      const use = Math.min(pool, left);
+      pool -= use;
+      left -= use;
+      note = pool > 0 ? `Warden · ward soaks ${Math.round(use)}` : 'Warden · the ward is spent';
+    }
+    if (bubbleT > 0 && bubbleLeft > 0 && left > 0) {
+      const use = Math.min(bubbleLeft, left);
+      bubbleLeft -= use;
+      left -= use;
+      note = 'Warden · the bubble takes the hit';
+    }
+    return Math.max(0, left);
+  }
+
+  function use(key) {
+    if (key === 'totem') plantTotem();
+    else if (key === 'bubble') shield();
+    else if (key === 'snare') root();
+    else if (key === 'calm') calm();
   }
 
   function update(dt, on) {
-    shield.visible = !!on;
-    if (!on) { guard = 0; bashT = 0; }
-    if (guard > 0) guard = Math.max(0, guard - dt);
-    if (bashT > 0) bashT = Math.max(0, bashT - dt);
-    if (on) {
-      camera.getWorldDirection(shield.userData.dir || (shield.userData.dir = new THREE.Vector3()));
-      const dir = shield.userData.dir;
-      shield.position.copy(camera.position).addScaledVector(dir, 0.62);
-      shield.position.y -= 0.12 + bashT * 0.2;
-      shield.lookAt(shield.position.clone().add(dir));
-      face.material.color.set(guard > 0 ? '#fff1c4' : '#d7e4f2');
-      face.material.opacity = guard > 0 ? 1 : 0.9;
-      face.material.transparent = true;
+    onKit = !!on;
+    if (!on) { totemT = 0; bubbleT = 0; snareT = 0; calmT = 0; }
+    if (totemT > 0) totemT = Math.max(0, totemT - dt);
+    if (totemT <= 0) { totem.visible = false; pool = 0; }
+    else rune.material.opacity = 0.45 + Math.sin(performance.now() * 0.003) * 0.25;
+    if (bubbleT > 0) bubbleT = Math.max(0, bubbleT - dt);
+    bubble.visible = on && bubbleT > 0 && bubbleLeft > 0;
+    if (bubble.visible) {
+      const pet = pets?.root;
+      if (pet?.visible) bubble.position.set(pet.position.x, pet.position.y + 0.55, pet.position.z);
+      else bubble.position.set(walker.feet.x, walker.feet.y + 1.1, walker.feet.z);
+      bubble.material.opacity = 0.16 + Math.sin(performance.now() * 0.004) * 0.06;
     }
-    for (let i = cracks.length - 1; i >= 0; i--) {
-      cracks[i].life -= dt;
-      cracks[i].g.scale.setScalar(1 + (4.5 - cracks[i].life) * 0.04);
-      if (cracks[i].life <= 0) { scene.remove(cracks[i].g); cracks.splice(i, 1); }
+    if (snareT > 0) snareT = Math.max(0, snareT - dt);
+    snare.visible = on && snareT > 0;
+    if (snare.visible) {
+      zones.stir?.((b) => {
+        if (Math.hypot(b.g.position.x - snare.position.x, b.g.position.z - snare.position.z) < 1.35) b.rooted = 0.45;
+      });
+    }
+    if (calmT > 0) calmT = Math.max(0, calmT - dt);
+    aura.visible = on && calmT > 0;
+    if (aura.visible) {
+      aura.position.set(walker.feet.x, walker.feet.y + 1.1, walker.feet.z);
+      aura.material.opacity = 0.05 + Math.sin(performance.now() * 0.002) * 0.02;
+      zones.stir?.((b) => {
+        if (Math.hypot(b.g.position.x - walker.feet.x, b.g.position.z - walker.feet.z) < 6.5) b.calm = 0.5;
+      });
     }
     const el = document.getElementById('wardenNote');
     if (el) {
       el.hidden = !on;
-      if (on) el.textContent = guard > 0 ? `${note} · ${guard.toFixed(1)}s` : note;
+      if (on) el.textContent = note;
     }
   }
 
-  return { bash, raise, update, get note() { return note; }, get guard() { return guard; } };
+  return {
+    use, plantTotem, shield, root, calm, soak, update,
+    bash() { plantTotem(); },
+    raise() { calm(); },
+    get note() { return note; },
+    get guard() { return calmT; },
+    get calm() { return calmT > 0 ? Math.min(1, calmT / 8) : 0; },
+    aura() { return calmT > 0 ? 0.45 : 0; },
+    bind(next) { wound = next?.wound || wound; },
+  };
 }

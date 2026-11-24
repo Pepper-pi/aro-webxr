@@ -762,7 +762,7 @@ export function createDuel({ scene, world, camera, living }) {
   function raidStep(dt) {
     if (raid.intro > 0) raid.intro = Math.max(0, raid.intro - dt);
     const phase = raid.breathing ? BREAK : LOOP[raid.i];
-    raid.t += dt;
+    raid.t += dt * (1 - Math.min(0.55, magic.calm?.() || 0));
     const foe = actors.foe;
     const you = playerLocal();
     const from = { x: foe.g.position.x, z: foe.g.position.z };

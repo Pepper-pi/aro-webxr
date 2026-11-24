@@ -580,6 +580,9 @@ export function createBeasts(scene, ground, world) {
     live() {
       return all.map((b, n) => ({ n, kind: b.kind, dead: b.dead, where: b.where, model: !!b.model, g: b.g }));
     },
+    stir(fn) {
+      for (let n = 0; n < all.length; n++) if (!all[n].dead) fn(all[n], n);
+    },
     anchor(n, x, y, z, face) {
       const b = all[n];
       if (!b || b.dead) return;
@@ -853,7 +856,10 @@ export function createBeasts(scene, ground, world) {
         const fx = foe ? foe.x - b.g.position.x : 0;
         const fz = foe ? foe.z - b.g.position.z : 0;
         const fd = foe ? Math.hypot(fx, fz) : 99;
-        const aggro = !!(foe?.fight && fd < 9 && zone === 'meadow');
+        if (b.rooted > 0) b.rooted = Math.max(0, b.rooted - dt);
+        if (b.lost > 0) b.lost = Math.max(0, b.lost - dt);
+        if (b.calm > 0) b.calm = Math.max(0, b.calm - dt);
+        const aggro = !!(foe?.fight && fd < 9 && zone === 'meadow' && !(b.lost > 0) && !(b.rooted > 0));
         if (b.busy && !aggro) {
           b.g.position.y = ground(b.g.position.x, b.g.position.z);
           const held = !b.clips?.walk && !b.clips?.run;
@@ -862,7 +868,11 @@ export function createBeasts(scene, ground, world) {
           else b.g.rotation.z = 0;
           continue;
         }
-        if (aggro && fd > 2.2) {
+        if (b.rooted > 0) {
+          b.tx = b.g.position.x;
+          b.tz = b.g.position.z;
+          b.wait = 0.45;
+        } else if (aggro && fd > 2.2) {
           b.tx = foe.x - (fx / fd) * 2.05;
           b.tz = foe.z - (fz / fd) * 2.05;
           b.wait = 0.35;
@@ -890,7 +900,7 @@ export function createBeasts(scene, ground, world) {
           b.cool = (b.cool ?? 1.4) - dt;
           if (!b.wind && b.cool <= 0) { b.wind = 0.85; b.cool = 4.4; }
           if (b.wind > 0) {
-            b.wind -= dt;
+            b.wind -= dt * (b.calm > 0 ? 0.45 : 1);
             const gy = ground(b.g.position.x, b.g.position.z);
             ring.visible = true;
             ring.position.set(b.g.position.x, gy + 0.08, b.g.position.z);

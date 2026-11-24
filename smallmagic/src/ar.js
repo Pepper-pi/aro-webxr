@@ -240,6 +240,8 @@ export function createAR(scene, camera, world, zones) {
   let seated = false;
   let localOrigin = false;
   let selectHeld = false;
+  let squeezeHeld = false;
+  let panelCue = '';
   let floorSet = false;
   let anchorX = 0;
   let anchorZ = 0;
@@ -419,8 +421,11 @@ export function createAR(scene, camera, world, zones) {
         }
       });
       session.addEventListener('selectend', () => { selectHeld = false; });
+      session.addEventListener('squeezestart', () => { squeezeHeld = true; });
+      session.addEventListener('squeezeend', () => { squeezeHeld = false; });
       session.addEventListener('end', () => {
         selectHeld = false;
+        squeezeHeld = false;
         xrOn = false;
         xrSession = null;
         hitSource = null;
@@ -596,9 +601,16 @@ export function createAR(scene, camera, world, zones) {
     if (on && path === 'camera') return 'iPhone camera';
     return 'desktop park';
   }
+  function cue(text) {
+    const next = text || '';
+    if (next === panelCue) return;
+    panelCue = next;
+    panelText = '';
+  }
   function paintPanel(text) {
-    if (text === panelText) return;
-    panelText = text;
+    const line = `${text}|${panelCue}`;
+    if (line === panelText) return;
+    panelText = line;
     const g = panelCanvas.getContext('2d');
     g.clearRect(0, 0, 512, 192);
     g.fillStyle = 'rgba(18, 12, 24, 0.86)';
@@ -610,7 +622,7 @@ export function createAR(scene, camera, world, zones) {
     g.font = '42px Georgia, serif';
     g.fillText(text, 28, 78);
     g.font = '30px Georgia, serif';
-    g.fillText('Look, then tap to cast', 28, 138);
+    g.fillText(panelCue || 'Look, then tap to cast', 28, 138);
     panelTex.needsUpdate = true;
   }
   function placePanel(camera) {
@@ -957,6 +969,8 @@ export function createAR(scene, camera, world, zones) {
     get path() { return path; },
     get placed() { return floorSet ? (hitSource ? 'hit-test' : 'tap') : 'estimate'; },
     get selectHeld() { return selectHeld; },
+    get squeezeHeld() { return squeezeHeld; },
+    cue,
     get seated() { return seated; },
     viewName, sample: sampleFrame, seat, unseat, recenter,
   };
