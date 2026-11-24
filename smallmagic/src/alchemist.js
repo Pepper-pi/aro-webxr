@@ -1,6 +1,7 @@
 // Alchemist is where healing lives. Flasks spend gathered herbs: a heal splash,
 // an acid that burns, a smoke that drops aggro, and a brew that rain thins or fire lights.
 import * as THREE from 'three';
+import { herbCount, setHerbs } from './save.js';
 
 const COLOUR = { heal: '#7dff9a', acid: '#c6e04a', smoke: '#d5d0c8', oil: '#6a4324' };
 
@@ -21,13 +22,11 @@ export function createAlchemist({ scene, camera, world, zones, walker, fire, liv
   let wound = null;
   const aim = new THREE.Vector3();
 
-  function herbs() {
-    try { return Number(localStorage.getItem('aro-herbs') || 0); } catch { return 0; }
-  }
+  function herbs() { return herbCount(); }
   function spend() {
     const n = herbs();
     if (n <= 0) { note = 'Alchemist · no herbs gathered'; return false; }
-    try { localStorage.setItem('aro-herbs', String(n - 1)); } catch { /* private mode */ }
+    setHerbs(n - 1);
     return true;
   }
   function raining() {

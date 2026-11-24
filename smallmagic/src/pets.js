@@ -112,7 +112,10 @@ export const ROSTER = {
 function loadParty() {
   try {
     const row = JSON.parse(localStorage.getItem(KEY) || 'null');
-    if (row?.slots) return row;
+    const slots = (Array.isArray(row?.slots) ? row.slots : []).filter((s) => s && ROSTER[s.kind]).slice(0, 3);
+    let active = Number.isInteger(row?.active) ? row.active : 0;
+    if (active < 0 || active >= slots.length) active = 0;
+    return { slots, active };
   } catch { /* a new party */ }
   return { slots: [], active: 0 };
 }
@@ -144,7 +147,8 @@ export function grow(row, gain) {
   return row;
 }
 function battleRow(row, wildName) {
-  const spec = ROSTER[row.kind];
+  const spec = ROSTER[row?.kind];
+  if (!row || !spec) return null;
   return {
     kind: row.kind,
     name: wildName || row.name,
@@ -224,7 +228,7 @@ export function createPets({ scene, world, walker, living, zones, duel }) {
   let magicReward = null;
   function join(kind, keepN, tier) {
     if (!ROSTER[kind]) return null;
-    if (party.slots.some((s) => s.kind === kind)) {
+    if (party.slots.some((s) => s && s.kind === kind)) {
       zones.toast?.(`${ROSTER[kind].name} is already with you.`);
       return null;
     }
@@ -243,12 +247,14 @@ export function createPets({ scene, world, walker, living, zones, duel }) {
     return row;
   }
   function startBattle(mine, wild) {
+    const row = battleRow(mine);
+    if (!row || !wild) return;
     shut();
     zones.enter?.('meadow');
-    duel.beginBout(battleRow(mine), wild);
+    duel.beginBout(row, wild);
   }
   function onBout({ won, kind, gain }) {
-    const row = party.slots.find((s) => s.kind === kind) || active();
+    const row = party.slots.find((s) => s && s.kind === kind) || active();
     if (!row) return {};
     const before = row.level || 1;
     grow(row, gain);
@@ -314,6 +320,8 @@ export function createPets({ scene, world, walker, living, zones, duel }) {
     let GLTFLoader;
     let SkeletonUtils;
     try {
+      const mobs = await import('./beasts.js');
+      mobs.patchWebKitImageBitmap?.();
       ({ GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js'));
       SkeletonUtils = await import('three/addons/utils/SkeletonUtils.js');
     } catch { return; }

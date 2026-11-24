@@ -202,7 +202,8 @@ export async function createWorld({ air, scene, say, turn }) {
   // ========================================================================================================= the ground
   say('Rolling out the grass');
   await turn();
-  const landNear = new THREE.PlaneGeometry(MAP.size, MAP.size, 320, 320).rotateX(-Math.PI / 2);
+  const phoneMesh = typeof matchMedia === 'function' && (matchMedia('(pointer: coarse)').matches || innerWidth < 820);
+  const landNear = new THREE.PlaneGeometry(MAP.size, MAP.size, phoneMesh ? 128 : 320, phoneMesh ? 128 : 320).rotateX(-Math.PI / 2);
   const coatTex = (file, color) => {
     const t = new THREE.TextureLoader().load(file);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
@@ -277,7 +278,7 @@ export async function createWorld({ air, scene, say, turn }) {
   {
     const near = new THREE.Mesh(landNear, landMat(true));
     near.receiveShadow = true; near.frustumCulled = false;
-    const fg = new THREE.PlaneGeometry(1800, 1800, 300, 300).rotateX(-Math.PI / 2), p = fg.attributes.position;
+    const fg = new THREE.PlaneGeometry(1800, 1800, phoneMesh ? 80 : 300, phoneMesh ? 80 : 300).rotateX(-Math.PI / 2), p = fg.attributes.position;
     for (let i = 0; i < p.count; i++) p.setY(i, ground(p.getX(i), p.getZ(i)) - 0.25);
     fg.computeVertexNormals();
     const far = new THREE.Mesh(fg, landMat(false));

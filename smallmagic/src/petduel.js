@@ -239,6 +239,8 @@ export function createDuel({ scene, world, camera, living }) {
     let GLTFLoader;
     let SkeletonUtils;
     try {
+      const mobs = await import('./beasts.js');
+      mobs.patchWebKitImageBitmap?.();
       ({ GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js'));
       SkeletonUtils = await import('three/addons/utils/SkeletonUtils.js');
     } catch { return; }

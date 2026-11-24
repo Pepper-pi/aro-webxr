@@ -47,11 +47,13 @@ import { createGunner } from './gunner.js';
 import { createRanger } from './ranger.js';
 import { createWarden } from './warden.js';
 import { createAlchemist } from './alchemist.js';
+import { migrateSave, rememberClass, savedClass } from './save.js';
 import { createSummoner } from './summoner.js';
 import { createPuppetmaster } from './puppetmaster.js';
 
 const q = new URLSearchParams(location.search);
 const capture = q.has('capture'), testing = q.has('patch-test'), playtest = q.has('playtest');
+migrateSave();
 if (q.has('shot')) document.body.classList.add('shot');
 const timings = {};
 let mark = performance.now();
@@ -449,7 +451,9 @@ if (sound) living.hear = () => sound.chime();
 
 // The one clock. Everything that moves is a function of it; `pace` is how fast it runs (1 as a rule).
 const clock = { pace: 1 };
-const settings = { hands: false, class: 'mage', blade: false, gunner: false, gfx: phone ? 'low' : 'high', viewBack: true, look: 'B', jiggle: 'soft' };
+const settings = { hands: false, class: savedClass(), blade: false, gunner: false, gfx: phone ? 'low' : 'high', viewBack: true, look: 'B', jiggle: 'soft' };
+settings.blade = settings.class === 'blade';
+settings.gunner = settings.class === 'gunner';
 try {
   const savedLook = localStorage.getItem('aro-look');
   if (savedLook === 'A' || savedLook === 'B' || savedLook === 'C') settings.look = savedLook;
@@ -546,6 +550,7 @@ function showClass() {
 function pickClass(name) {
   const live = ['blade', 'gunner', 'summoner', 'puppet', 'ranger', 'warden', 'alchemist'];
   settings.class = live.includes(name) ? name : 'mage';
+  rememberClass(settings.class);
   settings.blade = settings.class === 'blade';
   settings.gunner = settings.class === 'gunner';
   arms.load();
@@ -673,7 +678,6 @@ document.getElementById('gunNade')?.addEventListener('pointerup', (e) => { gun.t
 document.getElementById('vol')?.addEventListener('input', (e) => { if (sound) sound.volume = Number(e.target.value) / 100; });
 const arms = createArms(scene);
 const armTier = () => (phone || settings.gfx === 'low' ? 'Phone' : 'High');
-arms.load({ letter: settings.look, tier: armTier() });
 const sword = new THREE.Group();
 const steel = new THREE.MeshBasicMaterial({ color: '#e7eef6' });
 const gripMat = new THREE.MeshBasicMaterial({ color: '#6b3a22' });
@@ -735,6 +739,7 @@ alchemist.bind(classBind);
 zones.ward = (n) => warden.soak(n);
 duel.bind({ calm: () => warden.aura() });
 puppet.bind(classBind);
+if (settings.class !== 'mage') showClass();
 camera.layers.enable(9);
 let padCast = false, forceDraw = false, chaseDist = 0, greetWho = '', greetUntil = 0, lakeWide = false, playFrames = 0;
 const tour = { t: 0, done: false, live: false };
@@ -1283,7 +1288,9 @@ function tickStep(dt, draw) {
   gun.update(dt, klass === 'gunner');
   const casting = !!(inp.cast || spells?.cast?.holding || spells?.cast?.pour || (spells?.cast?.charge || 0) > 0.04);
   const mageEyes = klass === 'mage' && !chasing && !free && zones.name !== 'hub';
-  const armsOn = zones.name !== 'hub' && arms.loaded && (klass === 'gunner' || settings.hands || mageEyes);
+  const armsWanted = zones.name !== 'hub' && (klass === 'gunner' || settings.hands || mageEyes);
+  if (armsWanted && !arms.loaded) arms.load({ letter: settings.look, tier: armTier() });
+  const armsOn = armsWanted && arms.loaded;
   arms.rig.visible = !!armsOn;
   if (arms.rig.visible) {
     const rise = klass === 'mage' ? !!(casting || (wheel && castDisc?.ready)) : undefined;
@@ -1531,3 +1538,19 @@ lab.ready = true;
 window.__block = { ready: true, timings, set() {} };
 // (the measuring tools go straight in)
 lab.begin = () => { if (!begun) { begun = true; title?.remove(); run(); } };
+lab.kitCount = (which) => (which === 'mage' ? SPELLS.length : (KIT_ATK[which]?.length || 0));
+lab.act = (which, index, down) => {
+  const name = ['mage', 'blade', 'gunner', 'summoner', 'puppet', 'warden', 'ranger', 'alchemist'].includes(which) ? which : 'mage';
+  if (settings.class !== name) pickClass(name);
+  if (name === 'mage') {
+    spells?.select(index % SPELLS.length);
+    if (down) spells?.press();
+    else spells?.release();
+    return;
+  }
+  const list = KIT_ATK[name] || [];
+  if (!list[index]) return;
+  atk = index;
+  kitBar.select(index);
+  useAttack(name, index, down);
+};

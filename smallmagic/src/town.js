@@ -1,6 +1,7 @@
 // Meadow houses from Kenney's Fantasy Town Kit (CC0). Each sits on a real footprint,
 // closed on every side, with a pitched roof and a door toward the nearest path.
 import * as THREE from 'three';
+import { patchWebKitImageBitmap } from './beasts.js';
 
 const PATH = [
   [0, 36], [-1, 26], [-3, 16], [-1.5, 8], [0, 4.5], [1.5, -2], [0.5, -12], [3, -22], [5, -30],
@@ -88,6 +89,7 @@ export function createTown(parent, world, { low = false } = {}) {
   let cool = 0;
 
   const ready = (async () => {
+    patchWebKitImageBitmap();
     const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
     const loader = new GLTFLoader();
     const lib = {};
@@ -151,47 +153,82 @@ export function createTown(parent, world, { low = false } = {}) {
       square.stalls.push({ x, z, y, yaw });
     }
     const benchN = simple ? 2 : 3;
+    const benches = [];
     for (let i = 0; i < benchN; i++) {
       const a = i * (Math.PI * 2 / 3);
       const x = cx + Math.cos(a) * 2.25;
       const z = cz + Math.sin(a) * 2.25;
       const y = world.ground(x, z);
       const yaw = Math.atan2(cx - x, cz - z);
-      const bench = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.12, 0.34), wood);
-      bench.position.set(x, y + 0.32, z);
-      bench.rotation.y = yaw;
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.28, 0.08), wood);
-      leg.position.set(0.4, -0.16, 0);
-      const leg2 = leg.clone();
-      leg2.position.x = -0.4;
-      bench.add(leg, leg2);
-      root.add(bench);
+      benches.push({ x, y, z, yaw });
       square.benches.push({ x, z, y, yaw });
     }
     const lampN = simple ? 2 : 4;
+    const lamps = [];
     for (let i = 0; i < lampN; i++) {
       const a = Math.PI / 4 + i * (Math.PI * 2 / lampN);
-      const x = cx + Math.cos(a) * 4.5;
-      const z = cz + Math.sin(a) * 4.5;
-      const y = world.ground(x, z);
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 1.5, 6), wood);
-      post.position.set(x, y + 0.75, z);
-      const glow = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), new THREE.MeshBasicMaterial({ color: '#ffd27a' }));
-      glow.position.set(x, y + 1.55, z);
-      root.add(post, glow);
+      lamps.push({ x: cx + Math.cos(a) * 4.5, z: cz + Math.sin(a) * 4.5 });
     }
     const plantN = simple ? 2 : 4;
+    const plants = [];
     for (let i = 0; i < plantN; i++) {
       const a = i * (Math.PI * 2 / plantN) + 0.4;
-      const x = cx + Math.cos(a) * 1.35;
-      const z = cz + Math.sin(a) * 1.35;
-      const y = world.ground(x, z);
-      const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.14, 0.22, 6), new THREE.MeshLambertMaterial({ color: '#8a5a3a' }));
-      pot.position.set(x, y + 0.12, z);
-      const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 5), new THREE.MeshLambertMaterial({ color: '#3d8f4a' }));
-      leaf.position.set(x, y + 0.32, z);
-      root.add(pot, leaf);
+      plants.push({ x: cx + Math.cos(a) * 1.35, z: cz + Math.sin(a) * 1.35 });
     }
+    const stamp = (geo, mat, items, place) => {
+      if (!items.length) return;
+      const mesh = new THREE.InstancedMesh(geo, mat, items.length);
+      const dummy = new THREE.Object3D();
+      items.forEach((item, i) => {
+        place(dummy, item);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i, dummy.matrix);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingSphere();
+      root.add(mesh);
+    };
+    stamp(new THREE.BoxGeometry(1.1, 0.12, 0.34), wood, benches, (dummy, item) => {
+      dummy.position.set(item.x, item.y + 0.32, item.z);
+      dummy.rotation.set(0, item.yaw, 0);
+      dummy.scale.set(1, 1, 1);
+    });
+    const legs = [];
+    for (const bench of benches) {
+      const c = Math.cos(bench.yaw);
+      const s = Math.sin(bench.yaw);
+      legs.push({ x: bench.x + 0.4 * c, y: bench.y + 0.16, z: bench.z - 0.4 * s, yaw: bench.yaw });
+      legs.push({ x: bench.x - 0.4 * c, y: bench.y + 0.16, z: bench.z + 0.4 * s, yaw: bench.yaw });
+    }
+    stamp(new THREE.BoxGeometry(0.08, 0.28, 0.08), wood, legs, (dummy, item) => {
+      dummy.position.set(item.x, item.y, item.z);
+      dummy.rotation.set(0, item.yaw, 0);
+      dummy.scale.set(1, 1, 1);
+    });
+    stamp(new THREE.CylinderGeometry(0.05, 0.07, 1.5, 6), wood, lamps, (dummy, item) => {
+      const y = world.ground(item.x, item.z);
+      dummy.position.set(item.x, y + 0.75, item.z);
+      dummy.rotation.set(0, 0, 0);
+      dummy.scale.set(1, 1, 1);
+    });
+    stamp(new THREE.SphereGeometry(0.1, 6, 5), new THREE.MeshBasicMaterial({ color: '#ffd27a' }), lamps, (dummy, item) => {
+      const y = world.ground(item.x, item.z);
+      dummy.position.set(item.x, y + 1.55, item.z);
+      dummy.rotation.set(0, 0, 0);
+      dummy.scale.set(1, 1, 1);
+    });
+    const potMat = new THREE.MeshLambertMaterial({ color: '#8a5a3a' });
+    const leafMat = new THREE.MeshLambertMaterial({ color: '#3d8f4a' });
+    stamp(new THREE.CylinderGeometry(0.18, 0.14, 0.22, 6), potMat, plants, (dummy, item) => {
+      dummy.position.set(item.x, world.ground(item.x, item.z) + 0.12, item.z);
+      dummy.rotation.set(0, 0, 0);
+      dummy.scale.set(1, 1, 1);
+    });
+    stamp(new THREE.SphereGeometry(0.16, 6, 5), leafMat, plants, (dummy, item) => {
+      dummy.position.set(item.x, world.ground(item.x, item.z) + 0.32, item.z);
+      dummy.rotation.set(0, 0, 0);
+      dummy.scale.set(1, 1, 1);
+    });
     const nx = cx + 2.2;
     const nz = cz - 3.4;
     const ny = world.ground(nx, nz);
@@ -285,6 +322,17 @@ export function createTown(parent, world, { low = false } = {}) {
       put(bag, name, wx, ly, wz, yaw + spin, scx, scy, scz);
     };
     const y0 = world.ground(plot.x, plot.z);
+    const farLodge = simple && Math.hypot(plot.x + 4, plot.z - 24) > 36;
+    if (farLodge) {
+      const box = new THREE.Mesh(new THREE.BoxGeometry(plot.w, plot.tall ? 3.2 : 2.2, plot.d), new THREE.MeshLambertMaterial({ color: '#8d6b4a' }));
+      box.position.set(plot.x, y0 + (plot.tall ? 1.6 : 1.1), plot.z);
+      box.rotation.y = yaw;
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(Math.max(plot.w, plot.d) * 0.62, 1.15, 4), new THREE.MeshLambertMaterial({ color: '#6a3a22' }));
+      cap.position.set(plot.x, y0 + (plot.tall ? 3.5 : 2.4), plot.z);
+      cap.rotation.y = yaw + Math.PI / 4;
+      root.add(box, cap);
+      return;
+    }
     const footing = new THREE.Mesh(
       new THREE.BoxGeometry(plot.w + 0.35, 0.16, plot.d + 0.35),
       new THREE.MeshLambertMaterial({ color: '#6e6256' }),
