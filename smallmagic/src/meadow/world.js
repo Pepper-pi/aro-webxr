@@ -197,13 +197,26 @@ export async function createWorld({ air, scene, say, turn }) {
   say('Rolling out the grass');
   await turn();
   const landNear = new THREE.PlaneGeometry(MAP.size, MAP.size, 320, 320).rotateX(-Math.PI / 2);
+  const coatTex = (file, color) => {
+    const t = new THREE.TextureLoader().load(file);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.colorSpace = color ? THREE.SRGBColorSpace : THREE.LinearSRGBColorSpace;
+    t.anisotropy = 4;
+    return { value: t };
+  };
+  const groundCoat = {
+    tGrassC: coatTex('ground/cc0/grass-color.jpg', true),
+    tGrassN: coatTex('ground/cc0/grass-normal.jpg', false),
+    tDirtC: coatTex('ground/cc0/dirt-color.jpg', true),
+    uContact: { value: [new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()] },
+  };
   { const p = landNear.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, ground(p.getX(i), p.getZ(i))); landNear.computeVertexNormals(); }
   const landMat = (near) => {
     const m = shadowed(air, {
       key: `land-${near}`,
       vertexPars: 'varying vec3 vWorld; varying vec3 vNw;',
       vertex: '#include <begin_vertex>\n  vWorld = position; vNw = normal;',
-      fragmentPars: 'varying vec3 vWorld; varying vec3 vNw;',
+      fragmentPars: 'varying vec3 vWorld; varying vec3 vNw; uniform sampler2D tGrassC; uniform sampler2D tGrassN; uniform sampler2D tDirtC; uniform vec4 uContact[4];',
       fragment: /* glsl */ `
   vec2 xz = vWorld.xz, uv = mapUv(xz);
   float inMap = step(abs(uv.x - 0.5), 0.498) * step(abs(uv.y - 0.5), 0.498);
@@ -221,7 +234,21 @@ export async function createWorld({ air, scene, say, turn }) {
   lCol = mix(lCol, mix(uSand, uEarth * 0.55, smoothstep(0.3, 0.8, aNoise(xz * 0.8))), lKind.g);
   // frost lies on whatever is there: grass, a path, a shore
   lCol = mix(lCol, uFrost * (0.78 + 0.14 * aNoise(xz * 2.2 + 3.0)), lSt.g * 0.85);
-  vec3 lN = normalize(vNw);
+  vec2 coatUv = xz * 0.16;
+  vec3 grassAlb = texture2D(tGrassC, coatUv).rgb;
+  vec3 dirtAlb = texture2D(tDirtC, coatUv * 0.82 + 0.17).rgb;
+  float worn = smoothstep(0.28, 0.78, lKind.r + (aNoise(xz * 1.7) - 0.5) * 0.18);
+  vec3 coat = mix(grassAlb, dirtAlb, worn);
+  coat = mix(coat, mix(grassAlb, dirtAlb, 0.45), smoothstep(0.2, 0.6, lKind.g));
+  lCol = mix(lCol, lCol * coat * 1.45, inMap * 0.62);
+  vec3 gn = texture2D(tGrassN, coatUv).xyz * 2.0 - 1.0;
+  vec3 lN = normalize(vNw + vec3(gn.x, 0.0, gn.y) * 0.22 * (1.0 - worn));
+  float shade = 1.0;
+  for (int i = 0; i < 4; i++) {
+    float cd = length(xz - uContact[i].xy);
+    shade *= 1.0 - (1.0 - smoothstep(uContact[i].z * 0.25, uContact[i].z, cd)) * uContact[i].w;
+  }
+  lCol *= shade;
   float lSun = smoothstep(-0.1, 0.55, dot(lN, uSun)) * outgoingLight.g;
   vec3 lC = lit(lCol, lSun * mix(1.0, 0.62, lKind.a), 1.0) + lCol * lamps(vWorld);
   // where it is alight the ground glows between the blades; and a seal is drawn on it in light
@@ -231,6 +258,8 @@ export async function createWorld({ air, scene, say, turn }) {
   lC += uSealCol * seal(xz) * 1.1;
   gl_FragColor = vec4(air(lC, vWorld), 1.0);`,
     });
+    const compile = m.onBeforeCompile;
+    m.onBeforeCompile = (s) => { compile(s); Object.assign(s.uniforms, groundCoat); };
     return m;
   };
   {
@@ -248,7 +277,34 @@ export async function createWorld({ air, scene, say, turn }) {
     createGrass(air, { count: phoneGrass(300000), tile: 30, segs: 4, fade: [10, 15, 6, -100], size: [0.016, 0.42, 0.012], seed: 11 }),
     createGrass(air, { count: phoneGrass(420000), tile: 104, segs: 2, fade: [34, 52, 14, 9], size: [0.03, 0.46, 0.022], seed: 23 }),
     createFlowers(air, { count: phoneGrass(110000), tile: 84, fade: [32, 42, 8, -100], seed: 37 }),
+    createGrass(air, { count: phoneGrass(9000), tile: 12, segs: 3, fade: [1.2, 7.5, 1.4, -1], size: [0.06, 0.72, 0.006], seed: 81 }),
   );
+  const rockN = phoneGrass(48) < 40 ? 14 : 48;
+  const rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(0.16, 0), new THREE.MeshLambertMaterial({ color: '#b1a48c' }), rockN);
+  rocks.castShadow = rocks.receiveShadow = true;
+  rocks.frustumCulled = false;
+  const rockDummy = new THREE.Object3D();
+  const rockAnchor = { x: 1e9, z: 1e9 };
+  const placeRocks = (cx, cz) => {
+    rockAnchor.x = cx; rockAnchor.z = cz;
+    for (let i = 0; i < rockN; i++) {
+      const a = i * 2.399963;
+      const rad = 1.6 + (i * 0.41 % 7);
+      const x = cx + Math.cos(a) * rad;
+      const z = cz + Math.sin(a * 0.93) * rad;
+      const y = ground(x, z);
+      const ii = Math.floor(((x - MAP.x0) / MAP.size) * 512), jj = Math.floor(((z - MAP.z0) / MAP.size) * 512);
+      const path = ii < 0 || jj < 0 || ii > 511 || jj > 511 ? 1 : kindMap[(jj * 512 + ii) * 4] / 255;
+      const s = path > 0.5 || y < WATER + 0.08 ? 0.001 : 0.28 + (i % 5) * 0.11;
+      rockDummy.position.set(x, y + s * 0.05, z);
+      rockDummy.rotation.set(i * 0.4, a, i * 0.17);
+      rockDummy.scale.setScalar(s);
+      rockDummy.updateMatrix();
+      rocks.setMatrixAt(i, rockDummy.matrix);
+    }
+    rocks.instanceMatrix.needsUpdate = true;
+  };
+  group.add(rocks);
 
   // ============================================================================================================= water
   {
@@ -705,6 +761,21 @@ export async function createWorld({ air, scene, say, turn }) {
       sky.position.copy(camera.position);
       // the grass parts round whoever walks in it
       U.uPush.value[0].set(feet.x, feet.z, 1.1, 0.5 + 0.25 * Math.min(1, speed / 4));
+      const touch = groundCoat.uContact.value;
+      touch[0].set(feet.x, feet.z, 0.62, 0.4);
+      const near = [];
+      for (const col of colliders) {
+        if (col.tree?.down) continue;
+        const d = Math.hypot(col.x - feet.x, col.z - feet.z);
+        if (d < 14) near.push({ d, col });
+      }
+      near.sort((a, b) => a.d - b.d);
+      for (let i = 0; i < 3; i++) {
+        const col = near[i]?.col;
+        if (col) touch[i + 1].set(col.x, col.z, Math.max(0.7, col.r + 0.3), 0.26);
+        else touch[i + 1].set(0, 0, 1, 0);
+      }
+      if (Math.hypot(camera.position.x - rockAnchor.x, camera.position.z - rockAnchor.z) > 6) placeRocks(feet.x, feet.z);
     },
   });
 }

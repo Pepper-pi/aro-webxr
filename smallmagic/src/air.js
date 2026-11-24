@@ -27,7 +27,7 @@ export function createAir() {
     uSkyCol: { value: lin('#9eb0ea', 0.55) },
     uHaze: { value: lin('#c9b6e0') },
     uHazeSun: { value: lin('#f3ddc0') },
-    uAirK: { value: 0.0044 },
+    uAirK: { value: 0.0056 },
     uWind: { value: new THREE.Vector4(0.86, 0.5, 0.55, 0) },
     uPush: { value: [new THREE.Vector4(0, 0, 1, 0), new THREE.Vector4(0, 0, 1, 0), new THREE.Vector4(0, 0, 1, 0), new THREE.Vector4(0, 0, 1, 0)] },
     uFlat: { value: [0, 1, 2, 3].map(() => new THREE.Vector4(0, 0, 1, 0)) },

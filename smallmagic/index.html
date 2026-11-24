@@ -140,7 +140,7 @@
       #lures { position: fixed; left: max(12px, env(safe-area-inset-left)); bottom: calc(max(22px, env(safe-area-inset-bottom)) + 210px); z-index: 7; display: flex; flex-direction: column; gap: 6px; }
       #lures button, #bookBtn, #eve { pointer-events: auto; border-radius: 999px; border: 2px solid rgba(241, 217, 164, 0.7); background: rgba(20, 12, 36, 0.55); color: #f6ead0; font: 12px/1.1 Georgia, serif; letter-spacing: 0.04em; padding: 7px 10px; }
       #lures button.on, #eve.on { background: #f1d9a4; color: #24160c; }
-      #hp { position: fixed; left: max(12px, env(safe-area-inset-left)); top: max(12px, env(safe-area-inset-top)); z-index: 7; color: #fff6dc; font: 700 16px Georgia, serif; text-shadow: 0 1px 2px #000; pointer-events: none; }
+      #hp { position: fixed; left: max(12px, env(safe-area-inset-left)); top: max(12px, env(safe-area-inset-top)); z-index: 7; min-height: 36px; padding: 6px 14px; color: #f7f2ff; font: 700 15px Georgia, serif; letter-spacing: 0.04em; pointer-events: none; background: linear-gradient(180deg, rgba(210, 186, 255, 0.28), rgba(24, 12, 40, 0.55)); border: 1px solid rgba(214, 170, 255, 0.55); border-radius: 999px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 8px 16px rgba(0, 0, 0, 0.28); backdrop-filter: blur(12px); }
       #hp.hurt { color: #ff7a7a; }
       #hearthUse { position: fixed; left: 50%; bottom: 18%; transform: translateX(-50%); z-index: 8; }
       #buddySay { position: fixed; left: 50%; top: 18%; transform: translateX(-50%); z-index: 8; color: #fff6dc; font: 600 16px Georgia, serif; text-shadow: 0 1px 2px #000; pointer-events: none; }

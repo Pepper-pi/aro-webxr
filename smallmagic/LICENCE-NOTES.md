@@ -12,8 +12,8 @@ Code MIT (`LICENSE`). The world is drawn by code in `src/`: there are no models,
 | Five footsteps on grass | `public/sfx/step1.ogg` to `step5.ogg` | Kenney's Impact Sounds, CC0 1.0 (`public/LICENSES/CC0-1.0.txt`) |
 | Seven spell medallions | `public/ui/1.webp` to `7.webp` | Made for this game with an image model (Nano Banana 2.1), from Patch's direction and the game's cover; no other source |
 | Sound made in code | `src/sound.js` | Patch, MIT |
-| Hands, the walking character | `public/figure/AvatarSample_B.vrm` | VRoid AvatarSample_B. Share and change it. Not CC0. Do not sell the unmodified file. |
-| Map body, samples A, B, and C | `public/figure/hires/` | Official VRoid Hub AvatarSample A, B, and C, re-encoded. High is capped at 2048. Phone is capped at 512. Not CC0, not MIT, not Apache. Do not label them public domain. Credit VRoid Project / pixiv. |
+| Map body and Hands, samples A, B, and C | `public/figure/hires/` | Official VRoid Hub AvatarSample A, B, and C, re-encoded. High is capped at 2048. Phone is capped at 512. Not CC0, not MIT, not Apache. Do not label them public domain. Credit VRoid Project / pixiv. The older `public/figure/AvatarSample_B.vrm` is not loaded as the player. |
+| Meadow grass and path detail | `public/ground/cc0/` | Poly Haven, CC0. aerial_grass_rock diffuse and normal, brown_mud_leaves_01 diffuse, 1k JPG. |
 | City block | `public/city/kenney/` | Kenney Fantasy Town Kit 2.0, CC0. Trees from that kit are not included. |
 | Maren Reed | `public/hearth/people/maren-reed.vrm` | Derived from VRoid AvatarSample_A. Not a public-domain licence. Not the unmodified sample. |
 | Bram | `public/hearth/people/bram-vroid.vrm` | Derived from VRoid AvatarSample_B. Not a public-domain licence. Not the unmodified sample. |

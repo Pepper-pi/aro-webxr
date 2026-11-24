@@ -29,7 +29,7 @@ const LEAN = /* glsl */ `
   // the wind comes over the meadow in gusts
   float gGust = aNoise(gW * 0.055 - uWind.xy * uNow * 0.85); gGust *= gGust;
   float gFlutter = sin(uNow * (2.3 + seed.w * 1.7) + seed.z * 40.0 + gW.x * 0.7);
-  vec2 gLean = gFace * (0.16 + 0.26 * seed.w) + uWind.xy * uWind.z * (0.22 + 0.95 * gGust) + gOwn * gFlutter * 0.06 * uWind.z;
+  vec2 gLean = gFace * (0.16 + 0.26 * seed.w) + uWind.xy * uWind.z * (0.28 + 1.05 * gGust) + gOwn * gFlutter * 0.1 * uWind.z;
   // and it bends away from whoever is in it
   for (int i = 0; i < 4; i++) { vec2 dv = gW - uPush[i].xy; float dl = length(dv); gLean += (dv / max(dl, 0.05)) * (1.0 - smoothstep(0.0, uPush[i].z, dl)) * uPush[i].w; }
   // a gust lays it flat along the way it blows; frost holds it stiff

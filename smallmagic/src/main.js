@@ -100,7 +100,7 @@ lap('world');
 say('Warming the hands');
 await turn();
 const walker = new Walker(world);
-const avatar = createAvatar(scene, { phone });
+const avatar = createAvatar(scene, { phone, world });
 const staff = q.has('nostaff') ? null : createStaff({ air, atlas: world.atlas });
 const castDisc = createCastDisc(scene);
 let discOn = true;
@@ -440,6 +440,7 @@ settingsEl?.querySelectorAll('[data-gfx]').forEach((b) => b.addEventListener('po
   post.grade = !low;
   zones.setDetail(low || phone);
   avatar.setTier(low || phone ? 'Phone' : 'High');
+  arms.load({ letter: settings.look, tier: armTier() });
   fitView();
   e.preventDefault(); e.stopPropagation();
 }));
@@ -452,6 +453,7 @@ document.querySelectorAll('[data-look]').forEach((b) => b.addEventListener('poin
   settings.look = b.getAttribute('data-look') || 'B';
   try { localStorage.setItem('aro-look', settings.look); } catch { /* private mode */ }
   avatar.setLetter(settings.look);
+  arms.load({ letter: settings.look, tier: armTier() });
   showLook();
   e.preventDefault(); e.stopPropagation();
 }));
@@ -530,7 +532,8 @@ document.getElementById('gunFire')?.addEventListener('pointerup', (e) => { gun.f
 document.getElementById('gunNade')?.addEventListener('pointerup', (e) => { gun.toss(); e.preventDefault(); e.stopPropagation(); });
 document.getElementById('vol')?.addEventListener('input', (e) => { if (sound) sound.volume = Number(e.target.value) / 100; });
 const arms = createArms(scene);
-arms.load();
+const armTier = () => (phone || settings.gfx === 'low' ? 'Phone' : 'High');
+arms.load({ letter: settings.look, tier: armTier() });
 const sword = new THREE.Group();
 const steel = new THREE.MeshBasicMaterial({ color: '#e7eef6' });
 const gripMat = new THREE.MeshBasicMaterial({ color: '#6b3a22' });

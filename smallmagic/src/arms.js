@@ -1,6 +1,5 @@
-// First-person arms from the walking character, AvatarSample_B by VRoid.
-// The file may be shared and changed. It is not CC0: do not sell the unmodified file.
-// @pixiv/three-vrm is MIT. The model is loaded only after Hands mode is turned on.
+// First-person arms from the same hires AvatarSample A/B/C the map body uses.
+// Those files are not CC0. @pixiv/three-vrm is MIT.
 import * as THREE from 'three';
 
 const E = new THREE.Euler();
@@ -17,18 +16,30 @@ export function createArms(scene) {
   rig.add(hemi, sun);
   let vrm = null;
   let pending = null;
+  let key = '';
   let aligned = false;
+  let letter = 'B';
+  let tier = 'Phone';
   const headAt = new THREE.Vector3();
 
-  function load() {
-    if (pending) return pending;
+  function load(next = {}) {
+    if (next.letter === 'A' || next.letter === 'B' || next.letter === 'C') letter = next.letter;
+    if (next.tier === 'High' || next.tier === 'Phone') tier = next.tier;
+    const want = `${letter}-${tier}`;
+    if (pending && key === want) return pending;
+    const mine = want;
+    key = want;
+    aligned = false;
     pending = (async () => {
       const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
-      const { VRMLoaderPlugin } = await import('@pixiv/three-vrm');
+      const { VRMLoaderPlugin, VRMUtils } = await import('@pixiv/three-vrm');
       const loader = new GLTFLoader();
       loader.register((parser) => new VRMLoaderPlugin(parser));
-      const gltf = await loader.loadAsync('./figure/AvatarSample_B.vrm');
+      const gltf = await loader.loadAsync(`./figure/hires/AvatarSample_${letter}_${tier}.vrm`);
+      if (key !== mine) return;
+      if (vrm) rig.remove(vrm.scene);
       vrm = gltf.userData.vrm;
+      VRMUtils.rotateVRM0(vrm);
       vrm.scene.traverse((o) => {
         o.frustumCulled = false;
         if (/face|hair/i.test(o.name)) o.visible = false;
@@ -37,7 +48,7 @@ export function createArms(scene) {
       rig.add(vrm.scene);
     })().catch((err) => {
       console.warn('arms unavailable', err);
-      vrm = null;
+      if (key === mine) vrm = null;
     });
     return pending;
   }

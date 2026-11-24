@@ -32,7 +32,7 @@ const JIGGLE = {
   full: { hair: [0.38, 0.12, 0.3], cloth: [0.42, 0.14, 0.32], bust: [1.15, 0.02, 0.58], body: [0.5, 0.1, 0.36] },
 };
 
-export function createAvatar(scene, { phone = false } = {}) {
+export function createAvatar(scene, { phone = false, world = null } = {}) {
   const group = new THREE.Group();
   group.name = 'player-avatar';
   group.visible = false;
@@ -192,10 +192,10 @@ export function createAvatar(scene, { phone = false } = {}) {
     const jogW = band(speed, 2.4, 3.8, 7.4, 9.2);
     const sprintW = smooth(speed, 7.6, 10.5);
     const moving = Math.max(walkW, Math.max(jogW, sprintW));
-    const swing = (0.42 * walkW + 0.62 * jogW + 0.9 * sprintW) * (walker.grounded ? 1 : 0.35);
+    const swing = Math.min(1.15, (0.34 + speed * 0.055) * (walker.grounded ? 1 : 0.35));
     ease += (swing - ease) * (1 - Math.exp(-dt * 5));
-    const stride = 1.25 + jogW * 0.45 + sprintW * 0.7;
-    const rate = speed > 0.2 && walker.grounded ? Math.min(speed / stride, 2.65) : 0;
+    const stride = 0.95 + speed * 0.15;
+    const rate = speed > 0.2 && walker.grounded ? Math.min(speed / stride, 3.15) : 0;
     phase = (phase + rate * dt) % 1;
     const s = Math.sin(phase * Math.PI * 2);
     const breathe = Math.sin(performance.now() * 0.0016) * (moving > 0.2 ? 0.012 : 0.03);
@@ -231,6 +231,56 @@ export function createAvatar(scene, { phone = false } = {}) {
     }
   }
 
+  const footA = new THREE.Vector3();
+  const footB = new THREE.Vector3();
+  const dusts = [];
+  const dustGeo = new THREE.SphereGeometry(0.07, 5, 4);
+  for (let i = 0; i < 6; i++) {
+    const puff = new THREE.Mesh(dustGeo, new THREE.MeshBasicMaterial({ color: '#e4d2b4', transparent: true, opacity: 0, depthWrite: false }));
+    puff.visible = false;
+    puff.userData.life = 0;
+    scene.add(puff);
+    dusts.push(puff);
+  }
+  let prevStep = 0;
+  function puffAt(x, y, z) {
+    const puff = dusts.find((d) => d.userData.life <= 0) || dusts[0];
+    puff.visible = true;
+    puff.userData.life = 1;
+    puff.position.set(x, y + 0.05, z);
+    puff.scale.setScalar(0.4);
+    puff.material.opacity = 0.42;
+  }
+  function plantFeet() {
+    if (!world?.ground || !bones.leftFoot || !bones.rightFoot) return;
+    group.updateMatrixWorld(true);
+    bones.leftFoot.updateWorldMatrix(true, false);
+    bones.rightFoot.updateWorldMatrix(true, false);
+    bones.leftFoot.getWorldPosition(footA);
+    bones.rightFoot.getWorldPosition(footB);
+    const gA = world.ground(footA.x, footA.z);
+    const gB = world.ground(footB.x, footB.z);
+    const sink = Math.min(footA.y - gA, footB.y - gB);
+    group.position.y -= THREE.MathUtils.clamp(sink, -0.14, 0.16);
+    const step = Math.sin(phase * Math.PI * 2);
+    if (world.pathAt && walkerSpeed > 1.2) {
+      if (prevStep <= 0 && step > 0 && world.pathAt(footA.x, footA.z) > 0.42) puffAt(footA.x, gA, footA.z);
+      if (prevStep > 0 && step <= 0 && world.pathAt(footB.x, footB.z) > 0.42) puffAt(footB.x, gB, footB.z);
+    }
+    prevStep = step;
+  }
+  let walkerSpeed = 0;
+  function tickDust(dt) {
+    for (const puff of dusts) {
+      if (puff.userData.life <= 0) continue;
+      puff.userData.life -= dt * 1.7;
+      puff.position.y += dt * 0.28;
+      puff.scale.setScalar(0.4 + (1 - puff.userData.life) * 0.7);
+      puff.material.opacity = Math.max(0, puff.userData.life) * 0.4;
+      if (puff.userData.life <= 0) puff.visible = false;
+    }
+  }
+
   const pending = load().catch((err) => { console.warn('avatar', err); });
 
   return {
@@ -261,9 +311,12 @@ export function createAvatar(scene, { phone = false } = {}) {
       if (!vrm || !group.visible) return;
       group.position.set(walker.feet.x, walker.feet.y, walker.feet.z);
       group.rotation.y = walker.yaw;
+      walkerSpeed = walker.speed || 0;
       gait(dt, walker);
+      plantFeet();
       stepSprings(dt);
       stepMaterials(dt);
+      tickDust(dt);
     },
   };
 }
