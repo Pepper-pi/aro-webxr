@@ -918,7 +918,7 @@ export function createDuel({ scene, world, camera, living }) {
       return true;
     }
     if (raid) return false;
-    if (bout && !bout.over) {
+    {
       const pet = actors.pet.g.position;
       const foe = actors.foe.g.position;
       const dx = foe.x - pet.x;
@@ -940,14 +940,6 @@ export function createDuel({ scene, world, camera, living }) {
       );
       return true;
     }
-    const pet = actors.pet.g.position;
-    const foe = actors.foe.g.position;
-    const x = root.position.x + (pet.x + foe.x) * 0.5;
-    const z = root.position.z + (pet.z + foe.z) * 0.5;
-    const y = root.position.y;
-    cam.position.set(x + 7.2, y + 3.4 - dip * 1.35, z + 6.4);
-    cam.lookAt(x, y + 0.9 - dip * 0.35, z);
-    return true;
   }
 
   MOVE_IDS.forEach((id, i) => {

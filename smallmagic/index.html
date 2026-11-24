@@ -188,6 +188,8 @@
       #arGrade { position: fixed; inset: 0; z-index: 4; pointer-events: none; display: none; box-shadow: inset 0 0 120px 28px rgba(180, 110, 40, 0.38); background: radial-gradient(circle at 50% 70%, rgba(255, 196, 120, 0.08), transparent 55%); }
       #arGrade.on { display: block; }
       #arGrade.dusk { box-shadow: inset 0 0 110px 22px rgba(70, 30, 110, 0.4); }
+      #arRecenter { position: fixed; right: max(12px, env(safe-area-inset-right)); bottom: max(88px, env(safe-area-inset-bottom)); z-index: 8; min-height: 40px; border-radius: 999px; border: 1px solid #f1d9a4; background: rgba(20, 12, 28, 0.82); color: #f6ead0; font: 14px Georgia, serif; padding: 6px 12px; }
+      #arRecenter[hidden] { display: none; }
       #wanderBar { position: fixed; left: 50%; bottom: max(8px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 8; display: flex; gap: 8px; align-items: center; color: #fff6dc; font: 13px Georgia, serif; letter-spacing: 0.03em; text-shadow: 0 1px 2px #000; pointer-events: none; }
       #wanderBar[hidden] { display: none; }
       #wanderBar button { pointer-events: auto; color: #f6ead0; background: rgba(20, 12, 28, 0.42); border: 1px solid rgba(241, 217, 164, 0.65); border-radius: 999px; min-height: 28px; padding: 3px 10px; font: 13px Georgia, serif; }
@@ -693,6 +695,7 @@
     <button id="eve" type="button" hidden>Evening</button>
     <button id="dusk" type="button">Dusk</button>
     <button id="ar" type="button">AR</button>
+    <button id="arRecenter" type="button" hidden>Recenter</button>
     <div id="arGrade"></div>
     <div id="wanderBar" hidden><span id="wanderSteps">0 m</span><button id="wanderMute" type="button">Soft</button><button id="wanderJournal" type="button">Journal</button></div>
     <p id="wanderHint" hidden></p>

@@ -83,6 +83,14 @@ export function createAR(scene, camera, world, zones) {
   );
   floorRing.rotation.x = -Math.PI / 2;
   root.add(floorRing);
+  const reticle = new THREE.Mesh(
+    new THREE.RingGeometry(0.42, 0.55, 28),
+    new THREE.MeshBasicMaterial({ color: '#ffe7a8', transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }),
+  );
+  reticle.rotation.x = -Math.PI / 2;
+  reticle.name = 'ar-reticle';
+  reticle.visible = false;
+  root.add(reticle);
   const rift = new THREE.Group();
   rift.name = 'ar-rift';
   const arch = new THREE.Mesh(
@@ -154,7 +162,7 @@ export function createAR(scene, camera, world, zones) {
     body.scale.set(1, 1, 2.2);
     const glow = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), new THREE.MeshBasicMaterial({ color: '#fff3c4', transparent: true, opacity: 0.22, depthWrite: false }));
     g.add(wing, wingR, body, glow);
-    g.scale.setScalar(2.5);
+    g.scale.setScalar(4.2);
     root.add(g);
     butterflies.push({ g, wing, wingR, a: i * 1.3, r: 1.6 + (i % 3) * 0.55 });
   }
@@ -179,7 +187,7 @@ export function createAR(scene, camera, world, zones) {
   const motes = [];
   for (let i = 0; i < 12; i++) {
     const m = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.03, 0),
+      new THREE.OctahedronGeometry(0.07, 0),
       new THREE.MeshBasicMaterial({ color: '#fff1c4', transparent: true, opacity: 0.85, depthWrite: false }),
     );
     m.userData.base = new THREE.Color('#fff1c4');
@@ -210,6 +218,16 @@ export function createAR(scene, camera, world, zones) {
   let path = 'park';
   let xrOn = false;
   let xrSession = null;
+  let hitSource = null;
+  let refSpace = null;
+  let latestHit = null;
+  let floorSet = false;
+  let anchorX = 0;
+  let anchorZ = 0;
+  let cam = null;
+  let guestT = 0;
+  let guestNoted = false;
+  const recenterBtn = document.getElementById('arRecenter');
   const fires = [];
   const critters = [];
   const saved = new Map();
@@ -294,7 +312,7 @@ export function createAR(scene, camera, world, zones) {
     const fx = Math.sin(yaw);
     const fz = Math.cos(yaw);
     anchored = [];
-    const depth = 2.4;
+    const depth = 2.2;
     const gx = walker.feet.x + fx * depth;
     const gz = walker.feet.z + fz * depth;
     pick.forEach((b) => {
@@ -358,7 +376,16 @@ export function createAR(scene, camera, world, zones) {
       xrOn = true;
       path = 'xr';
       plate.visible = false;
-      session.addEventListener('end', () => { renderer.xr.enabled = false; xrOn = false; xrSession = null; if (on) { path = videoTex ? 'camera' : 'park'; plate.visible = true; } });
+      session.addEventListener('end', () => {
+        renderer.xr.enabled = false;
+        xrOn = false;
+        xrSession = null;
+        hitSource = null;
+        refSpace = null;
+        latestHit = null;
+        if (on) { path = videoTex ? 'camera' : 'park'; plate.visible = true; }
+      });
+      armHitTest(session);
       return true;
     } catch {
       return false;
@@ -377,6 +404,7 @@ export function createAR(scene, camera, world, zones) {
       riftLife = 0;
       while (critters.length) root.remove(critters.pop().g);
       while (fires.length) root.remove(fires.pop().g);
+      if (recenterBtn) recenterBtn.hidden = true;
       if (video) {
         video.srcObject?.getTracks?.().forEach((t) => t.stop());
         video = null;
@@ -386,10 +414,23 @@ export function createAR(scene, camera, world, zones) {
       return;
     }
     riftLife = 3.4;
+    guestT = 0;
+    guestNoted = false;
+    floorSet = false;
     floorY = walker ? walker.feet.y + 0.15 : 0;
+    if (walker) {
+      anchorX = walker.feet.x + Math.sin(walker.yaw) * 2.2;
+      anchorZ = walker.feet.z + Math.cos(walker.yaw) * 2.2;
+    }
     path = 'park';
+    if (recenterBtn) recenterBtn.hidden = false;
     shake = reduced ? 0 : 0.55;
-    if (walker) { layHome(walker); plant(walker); }
+    if (walker) {
+      layHome(walker);
+      plant(walker);
+      anchorX = rift.position.x;
+      anchorZ = rift.position.z;
+    }
     tryFeed();
     if (renderer) tryXR(renderer);
   }
@@ -471,6 +512,100 @@ export function createAR(scene, camera, world, zones) {
       bright = (s / (data.length / 4)) / 255;
     } catch { bright = dusk ? 0.4 : 0.72; }
   }
+  async function armHitTest(session) {
+    // A future glasses runtime can fill latestHit the same way: a pose in front of the viewer.
+    try {
+      const viewerSpace = await session.requestReferenceSpace('viewer');
+      refSpace = await session.requestReferenceSpace('local-floor').catch(() => session.requestReferenceSpace('local'));
+      hitSource = await session.requestHitTestSource({ space: viewerSpace });
+      const pump = (time, frame) => {
+        if (!xrOn) return;
+        session.requestAnimationFrame(pump);
+        if (!frame || !hitSource) return;
+        const results = frame.getHitTestResults(hitSource);
+        if (!results.length) return;
+        const pose = results[0].getPose(viewerSpace);
+        if (!pose) return;
+        const p = pose.transform.position;
+        latestHit = { x: p.x, y: p.y, z: p.z, t: performance.now() };
+      };
+      session.requestAnimationFrame(pump);
+    } catch { hitSource = null; }
+  }
+  function hitPoint(camera) {
+    if (latestHit && camera && performance.now() - latestHit.t < 250) {
+      const local = new THREE.Vector3(latestHit.x, latestHit.y, latestHit.z);
+      local.applyMatrix4(camera.matrixWorld);
+      return local;
+    }
+    return null;
+  }
+  function shiftCluster(dx, dz) {
+    life.forEach((p) => { p.x += dx; p.z += dz; });
+    butterflies.forEach((b) => { b.x += dx; b.z += dz; });
+    motes.forEach((m) => { m.userData.home.x += dx; m.userData.home.z += dz; });
+    critters.forEach((c) => { c.x += dx; c.z += dz; });
+    goals.forEach((g) => { g.x += dx; g.z += dz; });
+    anchored.forEach((b) => { b.g.position.x += dx; b.g.position.z += dz; });
+    rift.position.x += dx;
+    rift.position.z += dz;
+    critter.userData.x += dx;
+    critter.userData.z += dz;
+  }
+  function placeAnchor(x, z, y) {
+    shiftCluster(x - rift.position.x, z - rift.position.z);
+    floorSet = true;
+    anchorX = x;
+    anchorZ = z;
+    floorY = y;
+    zones.toast?.('The floor is set.');
+  }
+  function recenter(walker) {
+    if (!walker) return;
+    floorSet = false;
+    latestHit = null;
+    const nx = walker.feet.x + Math.sin(walker.yaw) * 2.2;
+    const nz = walker.feet.z + Math.cos(walker.yaw) * 2.2;
+    shiftCluster(nx - rift.position.x, nz - rift.position.z);
+    anchorX = nx;
+    anchorZ = nz;
+    floorY = walker.feet.y + 0.15;
+    zones.toast?.('Floor recentered.');
+  }
+  const tapNdc = new THREE.Vector2();
+  const tapRay = new THREE.Raycaster();
+  addEventListener('pointerup', (e) => {
+    if (!on || !cam) return;
+    if (e.target?.closest?.('button, #settings, #menu, #spells, #petPrompt, #stick, #cast, #spell, #petHud')) return;
+    tapNdc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+    tapRay.setFromCamera(tapNdc, cam);
+    const guest = anchored[0]?.g?.position;
+    if (guest) {
+      const spot = hitFloor(tapRay.ray.origin, tapRay.ray.direction);
+      if (spot && Math.hypot(spot.x - guest.x, spot.z - guest.z) < 1.1) return;
+    }
+    const detected = hitPoint(cam);
+    const spot = detected || hitFloor(tapRay.ray.origin, tapRay.ray.direction);
+    if (spot) placeAnchor(spot.x, spot.z, spot.y);
+  });
+  recenterBtn?.addEventListener('pointerup', (e) => {
+    recenter(lastWalker);
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  let lastWalker = null;
+  function spawnMark(x, z, color) {
+    const cap = phone ? 4 : 8;
+    if (fires.length >= cap) return;
+    if (fires.some((f) => Math.hypot(f.g.position.x - x, f.g.position.z - z) < 0.7)) return;
+    const g = new THREE.Group();
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(0.55, 16), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.62, depthWrite: false, side: THREE.DoubleSide }));
+    disc.rotation.x = -Math.PI / 2;
+    g.add(disc);
+    g.position.set(x, floorY + 0.04, z);
+    root.add(g);
+    fires.push({ g, life: 2.6, mark: true });
+  }
   function spawnFire(x, z) {
     const cap = phone ? 3 : 6;
     if (fires.length >= cap) return;
@@ -491,6 +626,8 @@ export function createAR(scene, camera, world, zones) {
   }
   function update(dt, walker, camera, extra) {
     if (!on || !walker) return;
+    lastWalker = walker;
+    cam = camera || cam;
     livingRoll = extra?.living || livingRoll;
     if (livingRoll && !critters.length) rollCritters(walker);
     const k = 1 - Math.exp(-dt * 7);
@@ -498,7 +635,18 @@ export function createAR(scene, camera, world, zones) {
     gyro.roll += (wantR - gyro.roll) * k;
     const eye = walker.feet.y + 1.55;
     const wantFloor = eye - 1.4;
-    floorY += (wantFloor - floorY) * (1 - Math.exp(-dt * 1.4));
+    if (!floorSet) floorY += (wantFloor - floorY) * (1 - Math.exp(-dt * 1.4));
+    else if (!hitSource && Math.abs(wantFloor - floorY) > 0.08) floorY += (wantFloor - floorY) * (1 - Math.exp(-dt * 0.15));
+    const detected = hitPoint(camera);
+    reticle.visible = true;
+    if (!floorSet) {
+      if (detected) reticle.position.set(detected.x, detected.y + 0.02, detected.z);
+      else reticle.position.set(anchorX, floorY + 0.02, anchorZ);
+      reticle.material.opacity = 0.45 + Math.sin(performance.now() * 0.008) * 0.25;
+    } else {
+      reticle.position.set(anchorX, floorY + 0.02, anchorZ);
+      reticle.material.opacity = 0.72;
+    }
     shake = Math.max(0, shake - dt * 0.8);
     const yaw = walker.yaw;
     const fx = Math.sin(yaw);
@@ -584,12 +732,15 @@ export function createAR(scene, camera, world, zones) {
       if (tell) tell.material.opacity = 0.16 + Math.sin(t * 2) * 0.06;
     });
     const marks = extra?.spells?.marks || [];
-    for (const m of marks) if (m.k === 'fire') spawnFire(m.x, m.z);
+    for (const m of marks) {
+      if (m.k === 'fire') spawnFire(m.x, m.z);
+      else spawnMark(m.x, m.z, m.status === 'chill' ? '#d8fbff' : '#e7c8ff');
+    }
     for (let i = fires.length - 1; i >= 0; i--) {
       const f = fires[i];
       f.life -= dt;
       f.g.children.forEach((w, n) => {
-        if (n === 0) return;
+        if (n === 0) { w.material.opacity = Math.max(0, f.life / (f.mark ? 2.6 : 6)) * 0.6; return; }
         w.position.y = 0.15 + Math.sin(t * 8 + w.userData.i) * 0.08;
         w.material.opacity = Math.max(0, f.life / 6) * 0.7;
       });
@@ -622,7 +773,29 @@ export function createAR(scene, camera, world, zones) {
         const a = t * 1.4 + i;
         s.position.set(Math.cos(a) * 0.9, 0.05, Math.sin(a) * 0.9);
       });
-    } else rift.visible = false;
+    } else {
+      rift.visible = false;
+      const guest = anchored[0];
+      const home = goals[0];
+      if (guest && home) {
+        guestT += dt;
+        const dist = Math.hypot(walker.feet.x - guest.g.position.x, walker.feet.z - guest.g.position.z);
+        const sniffX = home.x + Math.cos(guestT * 0.55) * 0.85;
+        const sniffZ = home.z + Math.sin(guestT * 0.4) * 0.65;
+        if (dist < 2.3) {
+          guest.g.rotation.y = Math.atan2(walker.feet.x - guest.g.position.x, walker.feet.z - guest.g.position.z);
+          if (!guestNoted) {
+            guestNoted = true;
+            zones.toast?.('It sniffs your hand. Tap it to befriend, or cast to fight.');
+          }
+        } else {
+          guest.g.position.x += (sniffX - guest.g.position.x) * Math.min(1, dt * 1.4);
+          guest.g.position.z += (sniffZ - guest.g.position.z) * Math.min(1, dt * 1.4);
+          guest.g.rotation.y = Math.atan2(sniffX - guest.g.position.x, sniffZ - guest.g.position.z);
+        }
+        guest.g.position.y = floorY;
+      }
+    }
   }
 
   return {
@@ -633,5 +806,7 @@ export function createAR(scene, camera, world, zones) {
     get shake() { return reduced ? 0 : shake; },
     get xr() { return xrOn; },
     get path() { return path; },
+    get placed() { return floorSet ? (hitSource ? 'hit-test' : 'tap') : 'estimate'; },
+    recenter,
   };
 }

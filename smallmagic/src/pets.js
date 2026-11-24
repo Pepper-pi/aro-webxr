@@ -357,7 +357,7 @@ export function createPets({ scene, world, walker, living, zones, duel }) {
     wear(row.kind);
     const sky = living.weather || 'clear';
     const rate = sky === 'fog' ? 1.4 : 3.2;
-    const back = sky === 'wind' ? 1.7 : 1.25;
+    const back = typeof floorY === 'number' ? 0.55 : (sky === 'wind' ? 1.7 : 1.25);
     const tx = walker.feet.x - Math.sin(walker.yaw) * back;
     const tz = walker.feet.z - Math.cos(walker.yaw) * back;
     const before = Math.hypot(tx - root.position.x, tz - root.position.z);
