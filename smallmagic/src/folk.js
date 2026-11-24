@@ -111,9 +111,12 @@ export function createFolk({ scene, world, living, zones, phone }) {
     model.scale.setScalar((1.6 * scale) / h);
     model.position.y -= new THREE.Box3().setFromObject(model).min.y;
     const mixer = new THREE.AnimationMixer(model);
-    const clip = gltf.animations.find((a) => /idle/i.test(a.name)) || gltf.animations[0];
-    if (clip) mixer.clipAction(clip).play();
-    return { model, mixer, head: headOf(model) };
+    const idleClip = gltf.animations.find((a) => /idle/i.test(a.name)) || gltf.animations[0];
+    const walkClip = gltf.animations.find((a) => /walk/i.test(a.name));
+    const idle = idleClip ? mixer.clipAction(idleClip) : null;
+    const walk = walkClip ? mixer.clipAction(walkClip) : null;
+    idle?.play();
+    return { model, mixer, head: headOf(model), idle, walk };
   }
 
   function markFind(mesh, id, tier, x, z) {
@@ -157,7 +160,7 @@ export function createFolk({ scene, world, living, zones, phone }) {
       node.rotation.y = home.yaw || 0;
       root.add(node);
       people.push({
-        node, mixer: made.mixer, head: made.head, home, seed, rnd,
+        node, mixer: made.mixer, head: made.head, idle: made.idle, walk: made.walk, moving: false, home, seed, rnd,
         pace: 0.65 + rnd() * 0.7,
         look: rnd() * Math.PI * 2,
         act: ACTS[Math.floor(rnd() * ACTS.length)],
@@ -180,7 +183,7 @@ export function createFolk({ scene, world, living, zones, phone }) {
       node.position.set(x, world.ground(x, z), z);
       root.add(node);
       people.push({
-        node, mixer: made.mixer, head: made.head, home: spot, seed: hash(kind), rnd: rngOf(hash(kind)),
+        node, mixer: made.mixer, head: made.head, idle: made.idle, walk: made.walk, moving: false, home: spot, seed: hash(kind), rnd: rngOf(hash(kind)),
         pace: kind === 'lost-kid' ? 0.45 : 0.8,
         look: 0.4,
         act: kind === 'boba-vendor' ? 'read' : kind === 'traveling-bard' ? 'stretch' : 'window',
@@ -200,7 +203,14 @@ export function createFolk({ scene, world, living, zones, phone }) {
 
   function stepPerson(p, dt, walker, dist) {
     if (dist > near) return;
-    p.mixer?.update(dt * p.pace);
+    const wantWalk = p.act === 'walk' && p.inside <= 0;
+    if (wantWalk !== p.moving) {
+      p.moving = wantWalk;
+      const on = wantWalk && p.walk ? p.walk : p.idle;
+      const off = on === p.walk ? p.idle : p.walk;
+      if (on) { on.reset().fadeIn(0.18).play(); off?.fadeOut(0.18); }
+    }
+    p.mixer?.update(dt * (wantWalk ? Math.max(0.85, p.pace) : p.pace));
     const bubble = p.node.children.find((c) => c.isSprite);
     if (p.inside > 0) {
       p.inside -= dt;

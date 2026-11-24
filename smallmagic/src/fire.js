@@ -31,7 +31,9 @@ export function createFire({ world, air, fx, flames }) {
     for (const i of [...active]) {
       const k = i * 4;
       if (fuel[i] > 0) {
-        heat[i] = Math.min(1, heat[i] + dt * 0.85);
+        const wet = world.rain ? 0.45 : 1;
+        heat[i] = Math.min(1, heat[i] + dt * 0.85 * wet);
+        if (world.rain) heat[i] = Math.max(0, heat[i] - dt * 0.55);
         fuel[i] -= dt * 0.17 * (0.75 + 0.5 * Math.random());
         data[k] = Math.max(data[k], Math.min(255, (1 - Math.max(fuel[i], 0) / Math.max(full[i], 0.05)) * 255));
         if (heat[i] > 0.5 && reach[i] > 0) for (const [dx, dz] of NEAR) {
@@ -62,6 +64,7 @@ export function createFire({ world, air, fx, flames }) {
         if (tree.frost > 0.5) tree.burning = 0;
         else if (tree.burnt < 1) { tree.burnt = Math.min(1, tree.burnt + dt / 11); if (Math.random() < dt * 0.6) { const a = Math.random() * 6.28, d = Math.random() * tree.r * 0.8; light(at(tree.x + Math.cos(a) * d, tree.z + Math.sin(a) * d), 0.05, 0.5); } }
         else tree.burning = Math.max(0, tree.burning - dt * 0.4);
+        if (tree.burnt > 0.92) { tree.down = true; tree.burning = Math.max(0, tree.burning - dt * 0.8); }
         world.treeChanged(tree);
         if (tree.burning > 0.3 && (!tg || tree.burning > tg.burning)) tg = tree;
       }

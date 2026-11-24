@@ -57,7 +57,9 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
   sigil.visible = false;
   world.root.add(sigil);
   let selected = 0, down = false, hold = 0, sealPower = 0, cooldown = 0, coolMax = 1, kick = 0, beamPower = 0, beamKind = 'frost', channel = false, tether = false, leash = false;
-  const wait = (t) => { cooldown = coolMax = t; };
+  const slotLeft = SPELLS.map(() => 0);
+  const slotMax = SPELLS.map(() => 1);
+  const wait = (t) => { cooldown = coolMax = t; slotLeft[selected] = t; slotMax[selected] = Math.max(0.05, t); };
   const beamTo = V(0, 0, -1);
   const select = (i) => { if (channel) { channel = false; blast.cancel(); } if (tether) { tether = false; hole.release(); } if (leash) { leash = false; twister.release(); } selected = ((i % SPELLS.length) + SPELLS.length) % SPELLS.length; hold = 0; onSelect?.(selected); };
   if (dom) {
@@ -169,11 +171,11 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     const r = 2.2 + 5.2 * big;
     const had = frostHere(p.x, p.z, Math.max(1.8, r * 0.4));
     world.mark(p.x, p.z, r, 1, 0.5 + 0.5 * big);
-    marks.push({ x: p.x, z: p.z, r: 1.6 + 1.4 * big, d: 8 + 12 * big, k: 'arcane', status: 'chill', chill: 2.6 + 5.2 * big });
+    marks.push({ x: p.x, z: p.z, r: 1.6 + 1.4 * big, d: 8 + 12 * big, k: 'arcane', status: 'chill', chill: (2.6 + 5.2 * big) * (world.rain ? 1.35 : 1) });
     stamp('frost', p.x, p.z, 0.75 + big * 0.4);
     frostPatch(p, r);
-    const glacier = big > 0.85 && had > 40;
-    const wall = !glacier && (big > 0.62 || had > 22);
+    const glacier = big > 0.82 && had > 16;
+    const wall = !glacier && (big > 0.55 || had > 8);
     if (glacier || wall) raiseIce(p, glacier ? 'glacier' : 'wall', vel);
     const n = glacier ? 10 : wall ? 6 : 5;
     for (let i = 0; i < n; i++) {
@@ -190,8 +192,13 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
       const near = Math.hypot(tree.x - p.x, tree.z - p.z);
       if (near > reach) continue;
       const close = near < reach * 0.45;
-      tree.frost = Math.min(1, (tree.frost || 0) + (0.35 + 0.65 * big) * (close ? 1 : 0.55));
-      if (tree.frost > 0.4) tree.burning = 0;
+      const wasBurning = tree.burning > 0;
+      tree.frost = Math.min(1, (tree.frost || 0) + (0.35 + 0.65 * big) * (close ? 1 : 0.55) * (world.rain ? 1.35 : 1));
+      if (tree.frost > 0.4) {
+        if (wasBurning) fx.spawn({ kind: 2, x: tree.x, y: tree.y + tree.h * 0.45, z: tree.z, vy: 0.8, life: 1.4, size: [0.8, 2.2], colour: [0.9, 0.95, 1], alpha: 0.45, drag: 0.4 });
+        tree.burning = 0;
+      }
+      if (tree.burnt > 0.92) tree.down = true;
       world.treeChanged(tree);
     }
   }
@@ -285,7 +292,9 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
   }
   const api = {
     get selected() { return selected; }, select,
-    get cast() { return cast; }, set hear(fn) { heard = fn; },
+    get cast() { return cast; },
+    get slotCool() { return slotLeft.map((t, i) => (t > 0.02 ? Math.min(1, t / slotMax[i]) : 0)); },
+    set hear(fn) { heard = fn; },
     press() { down = true; }, release() { down = false; },
     cancel() { down = false; hold = 0; },
     refresh() { cooldown = 0; },
@@ -317,6 +326,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
         hit.water = hit.point.y <= world.water + 0.05;
       }
       cooldown = Math.max(0, cooldown - dt);
+      for (let i = 0; i < slotLeft.length; i++) slotLeft[i] = Math.max(0, slotLeft[i] - dt);
       let power = 1, circle = 0, seal = 0, target = null;
       if (down && cooldown <= 0) hold += dt;
       const pace = (typeof localStorage !== 'undefined' && (() => { try { return (JSON.parse(localStorage.getItem('aro-hub') || '{}').people?.lumen?.fp || 0) >= 90; } catch { return false; } })()) ? 0.68 : 1.1;
@@ -460,7 +470,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
             melt(target.x, target.z, spread * 0.9 * Math.min(1, hold));
             fire.regrow(target.x, target.z, spread, dt * 0.9);
             world.mark(target.x, target.z, spread, 3, dt * 0.7);
-            for (let t = 1; t < world.trees.length; t++) { const tree = world.trees[t]; if (tree === hit.tree || Math.hypot(tree.x - target.x, tree.z - target.z) < spread * 0.8) { if (tree.burning <= 0) tree.burnt = Math.max(0, tree.burnt - dt * 0.3); tree.frost = Math.max(0, tree.frost - dt * 0.6); world.treeChanged(tree); } }
+            for (let t = 1; t < world.trees.length; t++) { const tree = world.trees[t]; if (tree.down) continue; if (tree === hit.tree || Math.hypot(tree.x - target.x, tree.z - target.z) < spread * 0.8) { if (tree.burning <= 0 && tree.burnt < 0.9) tree.burnt = Math.max(0, tree.burnt - dt * 0.3); tree.frost = Math.max(0, tree.frost - dt * 0.6); world.treeChanged(tree); } }
           }
         }
         hold += 0;

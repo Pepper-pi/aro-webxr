@@ -249,6 +249,9 @@ export function createTwister({ air, world, fx, fire, ruin, scene }) {
       else if (p < 0.34) fx.spawn({ ...o, kind: 2, life: 2 + 1.2 * Math.random(), size: [0.9, 3.6], colour: onWater || frostLevel > 0.4 ? [0.9, 0.95, 1] : fireLevel > 0.4 ? [0.12, 0.1, 0.1] : [0.78, 0.7, 0.58], alpha: 0.34, drag: 0.3 });
       else if (!onWater && grass > 0.3) fx.spawn({ ...o, kind: 4, life: 3 + 1.5 * Math.random(), size: [0.1, 0.1], colour: fireLevel > 0.5 && Math.random() < 0.5 ? [1, 0.45, 0.08] : pick(LEAF), rot: Math.random() * 6.283, spin: rnd(9) });
     }
+    const spin = performance.now() * 0.001;
+    world.blow?.(base.x, base.z, Math.cos(spin), Math.sin(spin), 6 + reach, dt);
+    world.swirl?.(base.x, base.z, 7 + reach * 0.4, dt);
   }
   function trees(dt) {
     for (let t = 1; t < world.trees.length; t++) {

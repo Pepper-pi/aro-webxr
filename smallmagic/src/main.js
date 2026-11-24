@@ -950,12 +950,19 @@ function tickStep(dt, draw) {
   wander.update(dt, walker, camera, ar.on);
   if (zones.name === 'meadow') folk.update(dt, walker);
   street.sky = living.weather;
+  world.rain = living.weather === 'rain';
   street.update(dt, walker, ar.on || zones.name === 'hub' || duel.active);
   duel.update(dt);
   if (hexes.layer) hexes.layer.visible = zones.name === 'meadow' && !playtest;
   hexes.update(dt);
   const spellBox = document.getElementById('spells');
-  if (spellBox) spellBox.hidden = !!(previewOn || zones.name === 'hub' || zones.rodOut || (wheel && castDisc?.ready));
+  if (spellBox) {
+    const closed = !!(previewOn || zones.name === 'hub' || zones.rodOut || (wheel && castDisc?.ready));
+    spellBox.classList.toggle('shut', closed && spellBox.classList.contains('ring'));
+    if (!spellBox.classList.contains('ring') || !closed) spellBox.hidden = closed;
+    else if (!spellBox._shut) spellBox._shut = setTimeout(() => { if (spellBox.classList.contains('shut')) spellBox.hidden = true; spellBox._shut = 0; }, 320);
+    if (!closed) { clearTimeout(spellBox._shut); spellBox._shut = 0; spellBox.hidden = false; }
+  }
   if (spells) {
     const on = !!(wheel && castDisc?.ready);
     spells.hideMark = on;
@@ -973,6 +980,7 @@ function tickStep(dt, draw) {
     const c = spells.cast;
     kitBar.charge(c.holding ? c.charge : blast.charge > 0 ? blast.charge : c.pour || hole.phase === 'open' || twister.phase === 'gather' || twister.phase === 'live' ? 1 : 0);
     kitBar.cool(c.cool || 0);
+    kitBar.paint?.(spells.slotCool);
   }
   // (the day goes dark red for a blast being gathered, and violet for a singularity)
   // (and the grey of a storm for a whirlwind)
@@ -1192,6 +1200,7 @@ if (!capture) {
   addEventListener('keydown', (e) => {
     useDevice('keys');
     if (e.code === 'KeyH') hint.classList.toggle('off');
+    if (settings.class === 'mage' && spells && /^Digit[1-7]$/.test(e.code)) spells.select(Number(e.code.slice(5)) - 1);
     if (!begun) { if (!['F11', 'F12'].includes(e.code) && !e.ctrlKey && !e.metaKey && !e.altKey) start(false); return; }
     if (e.code === 'KeyP') setPaused(!paused);
   });

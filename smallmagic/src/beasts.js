@@ -733,7 +733,8 @@ export function createBeasts(scene, ground, world) {
           if (!same && b.hitAt && now - b.hitAt < 180) continue;
           b.hitAt = now;
           if (m.once != null) { b.seen = m.once; b.blastFall = fall; }
-          const dealt = (again ? m.d * 0.4 : m.d) * addFall * (b.marked && m.hunt ? 1.5 : 1);
+          const brittle = 1 + Math.min(0.85, (b.chill || 0) / 5);
+          const dealt = (again ? m.d * 0.4 : m.d) * addFall * (b.marked && m.hunt ? 1.5 : 1) * brittle;
           b.hp -= dealt;
           b.flash = 0.28;
           if (m.k === 'fire') {
@@ -879,9 +880,10 @@ export function createBeasts(scene, ground, world) {
           b.g.position.z += (dz / dist) * pace * slow * dt;
           b.g.rotation.y = Math.atan2(dx, dz);
         }
-        if (b.burn > 0) { b.burn -= dt; b.hp -= 7 * dt; if (b.hp <= 0) { b.dead = true; b.g.visible = false; b.back = 12; b.burn = 0; dropAt(b); b.boss = false; } }
+        const wet = world?.rain ? 1.8 : 1;
+        if (b.burn > 0) { b.burn -= dt * wet; b.hp -= 7 * dt; if (b.hp <= 0) { b.dead = true; b.g.visible = false; b.back = 12; b.burn = 0; dropAt(b); b.boss = false; } }
         else b.burn = 0;
-        if (b.chill > 0) b.chill -= dt; else b.chill = 0;
+        if (b.chill > 0) b.chill -= dt * (world?.rain ? 0.45 : 1); else b.chill = 0;
         if (b.bleed > 0) { b.bleed -= dt; b.hp -= 5 * dt; if (b.hp <= 0) { b.dead = true; b.g.visible = false; b.back = 12; b.bleed = 0; dropAt(b); } }
         if (b.siphon > 0) { b.siphon -= dt; b.hp -= 3.5 * dt; }
         const flame = b.g.getObjectByName('flame');

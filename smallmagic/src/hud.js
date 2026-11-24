@@ -79,6 +79,8 @@ export function spellBar(box, spells, art = 'ui/', opt = {}) {
     // The painted medallion, over what is drawn here. If its picture is not there, the drawn one stands in for it.
     // The painted medallions are not in this copy. The drawn emblem stands in for them.
     const key = document.createElement('i'); key.textContent = i + 1; it.appendChild(key);
+    const chg = document.createElement('b'); chg.className = 'chg'; it.appendChild(chg);
+    const cd = document.createElement('b'); cd.className = 'cd'; it.appendChild(cd);
     row.appendChild(it);
     return it;
   });
@@ -96,11 +98,28 @@ export function spellBar(box, spells, art = 'ui/', opt = {}) {
     charge(v) {
       v = Math.max(0, Math.min(1, v));
       if (Math.abs(v - told) < 0.01 && !(v === 0 && told !== 0)) return;
-      told = v; items[now]?.style.setProperty('--g', v.toFixed(2));
+      told = v;
+      items.forEach((it, i) => {
+        const on = i === now;
+        it.style.setProperty('--g', on ? v.toFixed(2) : '0');
+        const label = it.querySelector('.chg');
+        if (label) label.textContent = on && v > 0.04 ? String(Math.round(v * 100)) : '';
+      });
     },
     cool(v) {
       v = Math.max(0, Math.min(1, v));
       items[now]?.style.setProperty('--cd', v.toFixed(2));
+    },
+    /** One cooldown, 0 to 1, for every slot. The dark sweep and the number both follow it. */
+    paint(levels) {
+      levels?.forEach((v, i) => {
+        const n = Math.max(0, Math.min(1, v || 0));
+        const it = items[i];
+        if (!it) return;
+        it.style.setProperty('--cd', n.toFixed(2));
+        const label = it.querySelector('.cd');
+        if (label) label.textContent = n > 0.08 ? n.toFixed(1) : '';
+      });
     },
   };
 }
