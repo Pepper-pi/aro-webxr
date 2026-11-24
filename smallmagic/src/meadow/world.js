@@ -804,6 +804,15 @@ export async function createWorld({ air, scene, say, turn }) {
     way: new THREE.CatmullRomCurve3(WAY.map(([x, z]) => V(x, 0, z))).getPoints(160).map((p) => [p.x, p.z]),
     fov: 62, far: 6000, sun: SUN,
     counts: { dabs: dabs.count, pieces: solids.count },
+    /** Burn and frost already written on the ground at one step, each 0 to 1. */
+    coat(x, z) {
+      const cell = MAP.size / STATE;
+      const i = Math.floor((x - MAP.x0) / cell);
+      const j = Math.floor((z - MAP.z0) / cell);
+      if (i < 0 || j < 0 || i >= STATE || j >= STATE) return { burn: 0, frost: 0 };
+      const k = (j * STATE + i) * 4;
+      return { burn: state[k] / 255, frost: state[k + 1] / 255 };
+    },
     /** Writes to what has been done to the ground: channel 0 burnt, 1 frozen, 2 wet, 3 overgrown; amount -1 to 1. */
     mark(x, z, radius, channel, amount) {
       const cell = MAP.size / STATE, i0 = Math.max(0, Math.floor((x - radius - MAP.x0) / cell)), i1 = Math.min(STATE - 1, Math.ceil((x + radius - MAP.x0) / cell)), j0 = Math.max(0, Math.floor((z - radius - MAP.z0) / cell)), j1 = Math.min(STATE - 1, Math.ceil((z + radius - MAP.z0) / cell));

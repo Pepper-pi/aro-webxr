@@ -711,6 +711,35 @@ export function createBeasts(scene, ground, world) {
       best.wait = Math.max(best.wait, 0.3);
       return true;
     },
+    ray(ray) {
+      let best = null;
+      let dist = 14;
+      for (const b of all) {
+        if (b.dead || b.kept || b.where !== 'meadow') continue;
+        const hits = ray.intersectObject(b.g, true);
+        if (hits[0] && hits[0].distance < dist) { best = b; dist = hits[0].distance; }
+      }
+      if (!best) return null;
+      return { n: all.indexOf(best), kind: best.kind, hp: best.hp, max: best.max, x: best.g.position.x, z: best.g.position.z };
+    },
+    nearest(x, z, reach = 2.8) {
+      let best = null;
+      let dist = reach;
+      for (const b of all) {
+        if (b.dead || b.kept || b.where !== 'meadow') continue;
+        const d = Math.hypot(b.g.position.x - x, b.g.position.z - z);
+        if (d < dist) { best = b; dist = d; }
+      }
+      if (!best) return null;
+      return { n: all.indexOf(best), kind: best.kind, hp: best.hp, max: best.max, dist, x: best.g.position.x, z: best.g.position.z };
+    },
+    keep(n) {
+      const b = all[n];
+      if (!b || b.kept || b.dead) return false;
+      b.kept = true;
+      b.g.visible = false;
+      return true;
+    },
     near(x, z) {
       let best = 99;
       for (const b of all) if (!b.dead && b.where === 'meadow') best = Math.min(best, Math.hypot(b.g.position.x - x, b.g.position.z - z));
@@ -795,6 +824,7 @@ export function createBeasts(scene, ground, world) {
       lake.visible = zone === 'lake';
       for (const b of all) {
         if (b.where !== zone) continue;
+        if (b.kept) { b.g.visible = false; continue; }
         if (b.dead) {
           if (b.dying > 0) {
             b.dying -= dt;

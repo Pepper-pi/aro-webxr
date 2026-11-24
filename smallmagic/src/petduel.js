@@ -8,8 +8,14 @@ const PET_KEY = 'aro-pet';
 const BEATS = { fire: 'frost', frost: 'earth', earth: 'wind', wind: 'fire' };
 const ELEM = { fire: 'Ember', frost: 'Rime', wind: 'Gust', earth: 'Quake' };
 const FOE_TYPE = { fox: 'fire', wolf: 'frost', deer: 'earth', boar: 'earth', bunny: 'wind', slime: 'frost', goblin: 'earth', bear: 'earth', cow: 'earth', crab: 'earth', fish: 'frost' };
-const MOB = { fox: 'mobs/cc0/fox.glb', wolf: 'mobs/cc0/wolf.glb', deer: 'mobs/cc0/deer.glb' };
-const TALL = { fox: 1.05, wolf: 1.15, deer: 1.35 };
+const MOB = {
+  fox: 'mobs/cc0/fox.glb', wolf: 'mobs/cc0/wolf.glb', deer: 'mobs/cc0/deer.glb',
+  bunny: 'mobs/cc0/bunny.glb', cow: 'mobs/cc0/cow.glb', crab: 'mobs/cc0/crab.glb', fish: 'mobs/cc0/fish.glb',
+};
+const TALL = { fox: 1.05, wolf: 1.15, deer: 1.35, bunny: 0.72, cow: 1.15, crab: 0.55, fish: 0.42 };
+const MOVE_IDS = ['petSlam', 'petElemBtn', 'petGuard', 'petNip'];
+const MOVE_LABELS = ['Leap Slam', 'Ember', 'Guard', 'Nip'];
+const BEAT = { chill: 'burn', burn: 'growth', growth: 'bleed', bleed: 'wind', wind: 'chill' };
 
 function loadPet() {
   try {
@@ -197,13 +203,14 @@ export function createDuel({ scene, world, camera, living }) {
     root.add(m);
     debris.push(m);
   }
-  const PHASES = [
+  const LOOP = [
     { id: 'read', name: 'Wind-up', dur: 3.6 },
     { id: 'charge', name: 'Charge', dur: 2.6 },
-    { id: 'breath', name: 'Break', dur: 3.2 },
     { id: 'embers', name: 'Embers', dur: 4.2 },
     { id: 'whirl', name: 'Whirl', dur: 4 },
   ];
+  const BREAK = { id: 'breath', name: 'Break', dur: 3.2 };
+  let bout = null;
   let freeze = false;
   let showBars = false;
   let ai = 1.2;
@@ -236,12 +243,12 @@ export function createDuel({ scene, world, camera, living }) {
     } catch { return; }
     const loader = new GLTFLoader();
     const cache = {};
-    for (const kind of ['fox', 'wolf', 'deer']) {
+    for (const kind of Object.keys(MOB)) {
       try { cache[kind] = await loader.loadAsync(new URL(MOB[kind], document.baseURI).href); } catch { /* stand-in stays */ }
     }
     function wear(actor, kind) {
       const gltf = cache[kind];
-      if (!gltf) return;
+      if (!gltf || actor.g.getObjectByName(`mob-${kind}`)) return;
       const model = SkeletonUtils.clone(gltf.scene);
       fit(model, TALL[kind] || 1);
       const mixer = new THREE.AnimationMixer(model);
@@ -410,6 +417,160 @@ export function createDuel({ scene, world, camera, living }) {
       if (book) book.textContent = entry ? `Bestiary · ${entry.name} · ${fromRaid || won ? `defeated ${entry.defeated || 1}` : 'seen'}` : 'Bestiary updated';
     }
     if (hud) hud.hidden = true;
+    hideRaidBar();
+  }
+
+  function showKind(actor, kind) {
+    let found = false;
+    actor.g.traverse((o) => {
+      if (!o.name?.startsWith?.('mob-')) return;
+      o.visible = o.name === `mob-${kind}`;
+      if (o.visible) found = true;
+    });
+    const stand = actor.g.getObjectByName('standin');
+    if (stand) stand.visible = !found;
+  }
+  function resetMoveLabels() {
+    MOVE_IDS.forEach((id, i) => {
+      const b = document.getElementById(id);
+      if (b) b.textContent = MOVE_LABELS[i];
+    });
+  }
+  function raidBarPaint() {
+    const bar = document.getElementById('raidBar');
+    const name = document.getElementById('raidName');
+    const hp = document.getElementById('raidHp');
+    if (!bar) return;
+    bar.hidden = false;
+    if (name) name.textContent = `${actors.foe.name} · ${Math.max(0, Math.ceil(actors.foe.hp))}`;
+    if (hp) hp.style.width = `${Math.max(0, (actors.foe.hp / actors.foe.max) * 100)}%`;
+  }
+  function hideRaidBar() {
+    const bar = document.getElementById('raidBar');
+    if (bar) bar.hidden = true;
+  }
+  function groundHere() {
+    const coat = world.coat?.(root.position.x, root.position.z) || { burn: 0, frost: 0 };
+    const iced = (world.iceCols || []).some((c) => Math.hypot(c.x - root.position.x, c.z - root.position.z) < (c.r || 0.4) + 2.2);
+    return { burn: Math.max(coat.burn || 0, magic.flames?.() || 0), frost: Math.max(coat.frost || 0, iced ? 0.55 : 0) };
+  }
+  function nearRock(local) {
+    for (const p of pads) {
+      const dx = (p.position.x || 0) - local.x;
+      const dz = (p.position.z || 0) - local.z;
+      if (Math.hypot(dx, dz) < 2.15) return true;
+    }
+    return false;
+  }
+  function strike(actor, other, move, local) {
+    const ground = groundHere();
+    let dmg = (move.pow || 0) + (actor.power || 0);
+    let note = '';
+    if (move.slam && nearRock(local)) { dmg += 6; note = ' · jump-off'; }
+    if (move.el === 'chill' && ground.frost > 0.22) { dmg = Math.round(dmg * 1.35); note = ' · frost'; }
+    if (move.el === 'burn' && ground.burn > 0.22) { dmg = Math.round(dmg * 1.35); note = ' · burn'; }
+    if (BEAT[move.el] === other.element) { dmg = Math.round(dmg * 1.25); note += ' · ring'; }
+    other.hp = Math.max(0, other.hp - dmg);
+    if (move.heal) actor.hp = Math.min(actor.max, actor.hp + move.heal);
+    actors.pet.hp = bout.mine.hp;
+    actors.pet.max = bout.mine.max;
+    actors.foe.hp = bout.wild.hp;
+    actors.foe.max = bout.wild.max;
+    magic.note?.(`${actor.name} · ${move.name} · ${dmg}${note}`);
+    bars();
+  }
+  function finishBout(won) {
+    const mine = bout.mine;
+    bout.over = true;
+    active = false;
+    showBars = false;
+    const gain = won ? 26 : 8;
+    const summary = magic.onBout?.({ won, kind: mine.kind, gain }) || {};
+    if (card) {
+      card.hidden = false;
+      const result = document.getElementById('petResult');
+      const title = document.getElementById('petTitle');
+      const xp = document.getElementById('petXp');
+      const book = document.getElementById('petBook');
+      if (result) result.textContent = won ? 'Your pet holds the ring.' : 'Your pet sits down.';
+      if (title) title.textContent = mine.name;
+      if (xp) xp.textContent = summary.line || `+${gain} XP`;
+      if (book) book.textContent = summary.book || `${mine.element} · level ${mine.level || 1}`;
+    }
+    if (hud) hud.hidden = true;
+    bout = null;
+  }
+  function choose(i) {
+    if (!bout || bout.over || bout.queue) return;
+    const mineMove = bout.mine.moves[i];
+    if (!mineMove) return;
+    const foeMove = bout.wild.moves[Math.floor(Math.random() * bout.wild.moves.length)];
+    const mineFirst = bout.mine.speed >= bout.wild.speed;
+    bout.queue = mineFirst
+      ? [['mine', mineMove], ['wild', foeMove]]
+      : [['wild', foeMove], ['mine', mineMove]];
+    bout.wait = 0.12;
+  }
+  function boutStep(dt) {
+    if (!bout || bout.over) return;
+    if (!bout.queue) return;
+    bout.wait -= dt;
+    if (bout.wait > 0) return;
+    const step = bout.queue.shift();
+    if (!step) { bout.queue = null; return; }
+    const [who, move] = step;
+    const actor = who === 'mine' ? bout.mine : bout.wild;
+    const other = who === 'mine' ? bout.wild : bout.mine;
+    const local = who === 'mine' ? actors.pet.g.position : actors.foe.g.position;
+    if (actor.hp > 0 && other.hp > 0) strike(actor, other, move, local);
+    bout.wait = 0.55;
+    if (!bout.queue.length) bout.queue = null;
+    if (bout.wild.hp <= 0) { finishBout(true); return; }
+    if (bout.mine.hp <= 0) finishBout(false);
+  }
+  function beginBout(mine, wild) {
+    placeArena();
+    raid = null;
+    hideRaidBar();
+    bout = {
+      mine: { ...mine, hp: mine.max, moves: mine.moves },
+      wild: { ...wild, hp: wild.max, moves: wild.moves },
+      queue: null,
+      wait: 0,
+      over: false,
+    };
+    actors.pet.name = mine.name;
+    actors.pet.max = mine.max;
+    actors.pet.hp = mine.max;
+    actors.pet.type = mine.element === 'burn' ? 'fire' : mine.element === 'chill' ? 'frost' : mine.element === 'wind' ? 'wind' : 'earth';
+    actors.foe.name = wild.name;
+    actors.foe.max = wild.max;
+    actors.foe.hp = wild.max;
+    actors.foe.type = 'earth';
+    actors.pet.g.position.set(-2.15, 0, 1.35);
+    actors.foe.g.position.set(2.15, 0, 2.05);
+    actors.pet.g.visible = true;
+    actors.foe.g.visible = true;
+    showKind(actors.pet, mine.kind);
+    showKind(actors.foe, wild.kind);
+    const face = (a, b) => { a.rotation.y = Math.atan2(b.position.x - a.position.x, b.position.z - a.position.z); };
+    face(actors.pet.g, actors.foe.g);
+    face(actors.foe.g, actors.pet.g);
+    if (actors.foe.g.userData.baseScale) actors.foe.g.scale.setScalar(actors.foe.g.userData.baseScale);
+    root.visible = true;
+    active = true;
+    freeze = false;
+    showBars = true;
+    slam = null;
+    showUi(true);
+    MOVE_IDS.forEach((id, i) => {
+      const b = document.getElementById(id);
+      if (b) b.textContent = mine.moves[i]?.name || MOVE_LABELS[i];
+    });
+    const el = document.getElementById('petElem');
+    if (el) el.textContent = `${mine.name} · ${mine.element}`;
+    bars();
+    magic.note?.(`${mine.name} faces ${wild.name}`);
   }
 
   function beginRaid(title = 'Hex brute') {
@@ -420,7 +581,10 @@ export function createDuel({ scene, world, camera, living }) {
     actors.foe.g.scale.setScalar(actors.foe.g.userData.baseScale * 1.45);
     actors.pet.g.visible = false;
     if (hud) hud.hidden = true;
-    raid = { i: 0, t: 0, struck: false, lit: false, spun: false, aimed: false, aim: { x: 0, z: 3 } };
+    showBars = false;
+    bout = null;
+    raid = { i: 0, t: 0, struck: false, lit: false, spun: false, aimed: false, aim: { x: 0, z: 3 }, intro: 2.2, broke: false, breathing: false };
+    raidBarPaint();
     magic.note?.(`${title} · Wind-up`);
     if (magic.walker) {
       const x = root.position.x + 0.2;
@@ -454,6 +618,8 @@ export function createDuel({ scene, world, camera, living }) {
     ai = 1.1;
     dip = 0;
     slam = null;
+    bout = null;
+    resetMoveLabels();
     showUi(true);
     const elem = document.getElementById('petElemBtn');
     if (elem) elem.textContent = ELEM[actors.pet.type];
@@ -537,6 +703,7 @@ export function createDuel({ scene, world, camera, living }) {
   function raidDown() {
     clearMarks();
     raid = null;
+    hideRaidBar();
     actors.pet.g.visible = true;
     magic.note?.('Down. The brute still stands.');
     end(false);
@@ -545,12 +712,14 @@ export function createDuel({ scene, world, camera, living }) {
     clearMarks();
     raid = null;
     raidClear = true;
+    hideRaidBar();
     actors.pet.g.visible = true;
     magic.note?.('The brute falls. The hex keeps the quiet.');
     end(true);
   }
   function raidStep(dt) {
-    const phase = PHASES[raid.i];
+    if (raid.intro > 0) raid.intro = Math.max(0, raid.intro - dt);
+    const phase = raid.breathing ? BREAK : LOOP[raid.i];
     raid.t += dt;
     const foe = actors.foe;
     const you = playerLocal();
@@ -610,21 +779,35 @@ export function createDuel({ scene, world, camera, living }) {
     for (const m of magic.marks?.() || []) {
       const dx = root.position.x + from.x - m.x;
       const dz = root.position.z + from.z - m.z;
-      if (Math.hypot(dx, dz) < (m.r || 1.5)) foe.hp -= (m.d || 8) * dt * 2;
+      if (Math.hypot(dx, dz) < (m.r || 1.5)) foe.hp -= Math.max(4, (m.d || 8) * 0.45);
     }
+    foe.hp = Math.max(0, foe.hp);
     foe.g.lookAt(root.position.x + you.x, foe.g.position.y, root.position.z + you.z);
-    bars();
-    if (foe.hp <= 0 || (phase.id === 'whirl' && raid.t >= phase.dur)) {
+    raidBarPaint();
+    if (foe.hp <= 0) {
       raidWin();
       return;
     }
-    if (raid.t >= phase.dur) {
-      raid.i += 1;
+    if (!raid.broke && !raid.breathing && foe.hp <= foe.max * 0.5) {
+      raid.broke = true;
+      raid.breathing = true;
       raid.t = 0;
       raid.struck = false;
       raid.lit = false;
       raid.aimed = false;
-      magic.note?.(`${foe.name} · ${PHASES[raid.i].name}`);
+      clearMarks();
+      magic.note?.(`${foe.name} · Break`);
+      return;
+    }
+    if (raid.t >= phase.dur) {
+      raid.breathing = false;
+      raid.i = (raid.i + 1) % LOOP.length;
+      raid.t = 0;
+      raid.struck = false;
+      raid.lit = false;
+      raid.spun = false;
+      raid.aimed = false;
+      magic.note?.(`${foe.name} · ${LOOP[raid.i].name}`);
     }
   }
 
@@ -634,6 +817,7 @@ export function createDuel({ scene, world, camera, living }) {
     if (!active && !freeze) return;
     hitch();
     if (raid) { raidStep(dt); return; }
+    if (bout) { boutStep(dt); return; }
     if (freeze) return;
     actors.pet.sta = Math.min(100, actors.pet.sta + dt * 14);
     actors.foe.sta = Math.min(100, actors.foe.sta + dt * 12);
@@ -682,6 +866,16 @@ export function createDuel({ scene, world, camera, living }) {
     else if (actors.pet.hp <= 0) end(false);
   }
   function look(cam) {
+    if (raid && raid.intro > 0) {
+      const u = 1 - raid.intro / 2.2;
+      const ang = -0.4 + u * 1.35;
+      const x = root.position.x + Math.sin(ang) * 8.2;
+      const z = root.position.z + Math.cos(ang) * 7.4;
+      cam.position.set(x, root.position.y + 4.4 - u * 1.5, z);
+      cam.lookAt(root.position.x + 1.2, root.position.y + 1.15, root.position.z);
+      return true;
+    }
+    if (raid) return false;
     const pet = actors.pet.g.position;
     const foe = actors.foe.g.position;
     const x = root.position.x + (pet.x + foe.x) * 0.5;
@@ -689,12 +883,17 @@ export function createDuel({ scene, world, camera, living }) {
     const y = root.position.y;
     cam.position.set(x + 7.2, y + 3.4 - dip * 1.35, z + 6.4);
     cam.lookAt(x, y + 0.9 - dip * 0.35, z);
+    return true;
   }
 
-  document.getElementById('petSlam')?.addEventListener('pointerup', (e) => { act('pet', 'slam'); e.preventDefault(); e.stopPropagation(); });
-  document.getElementById('petElemBtn')?.addEventListener('pointerup', (e) => { act('pet', 'elem'); e.preventDefault(); e.stopPropagation(); });
-  document.getElementById('petGuard')?.addEventListener('pointerup', (e) => { act('pet', 'guard'); e.preventDefault(); e.stopPropagation(); });
-  document.getElementById('petNip')?.addEventListener('pointerup', (e) => { act('pet', 'nip'); e.preventDefault(); e.stopPropagation(); });
+  MOVE_IDS.forEach((id, i) => {
+    document.getElementById(id)?.addEventListener('pointerup', (e) => {
+      if (bout) choose(i);
+      else act('pet', ['slam', 'elem', 'guard', 'nip'][i]);
+      e.preventDefault();
+      e.stopPropagation();
+    });
+  });
   document.getElementById('petClose')?.addEventListener('pointerup', (e) => {
     if (card) card.hidden = true;
     root.visible = false;
@@ -703,7 +902,9 @@ export function createDuel({ scene, world, camera, living }) {
   });
 
   return {
-    root, begin, beginRaid, pose, update, look, act, end, loading,
+    root, begin, beginRaid, beginBout, pose, update, look, act, end, loading, pick: choose,
+    get playerCam() { return !!(raid && raid.intro <= 0); },
+    get sweep() { return !!(raid && raid.intro > 0); },
     bind(next) { magic = { ...magic, ...next }; },
     get active() { return active; },
     get ready() { return ready; },

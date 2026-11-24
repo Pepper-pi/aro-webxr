@@ -15,6 +15,7 @@ import { createLiving } from './living.js';
 import { createFolk } from './folk.js';
 import { createWeather } from './weather.js';
 import { createDuel } from './petduel.js';
+import { createPets } from './pets.js';
 import { createAppeal } from './appeal.js';
 import { createMind } from './hearthmind.js';
 import { createHexes } from './hexes.js';
@@ -269,12 +270,15 @@ duel.bind({
   marks: () => spells?.marks || [],
   ignite(x, z, r) { fire.ignite(x, z, r, 0.8); },
   whirl(p) { twister.begin(p); },
+  flames() { return fire.near(duel.spot.x, duel.spot.z, 4) > 0 ? 0.5 : 0; },
 });
 hexes.onPortal = (h) => {
   if (playtest) return;
   zones.enter('meadow');
   duel.beginRaid(`${h.name} brute`);
 };
+const pets = createPets({ scene, world, walker, living, zones, duel });
+addEventListener('pointerup', (e) => { if (!playtest) pets.tap(e, camera); });
 const quest = createQuest({ walker, zones, spells });
 spellsBar.select(spells?.selected ?? 0);
 const discToggle = document.getElementById('discToggle');
@@ -829,7 +833,9 @@ function tickStep(dt, draw) {
   if (inp.any) sound?.wake();
   const bladeClose = settings.class === 'blade' && blade.drawn && blade.pad;
   const inHub = zones.name === 'hub';
-  const mapFollow = !free && !duel.active && !ar.on && !bladeClose && settings.viewBack && zones.name === 'meadow' && !zones.atLake;
+  const raidOwn = !!duel.playerCam;
+  const raidSweep = !!duel.sweep;
+  const mapFollow = !free && (!duel.active || raidOwn) && !raidSweep && !ar.on && !bladeClose && settings.viewBack && zones.name === 'meadow' && !zones.atLake;
   const stepInp = { ...inp, look: { x: inp.look.x, y: inp.look.y }, move: planted ? { x: 0, y: 0 } : inp.move, jump: planted ? false : inp.jump, sprint: planted ? false : inp.sprint };
   if (stepInp.turn) followCam.yaw -= stepInp.turn * 1.8 * dt;
   const orbiting = playtest && tour.t >= 28 && tour.t < 36;
@@ -859,11 +865,11 @@ function tickStep(dt, draw) {
     stepInp.look.y = 0;
   }
   walker.update(dt, stepInp);
-  if (duel.active) duel.look(camera);
+  if (duel.active && !raidOwn) duel.look(camera);
   else if (free) { camera.position.copy(free.position); camera.lookAt(free.target); }
   else walker.look(camera);
   if (ar.on && !free) { camera.rotateX(ar.gyro.pitch); camera.rotateZ(-ar.gyro.roll); }
-  const wantChase = !free && !bladeClose && !inHub && !mapFollow && (settings.class === 'mage' ? settings.viewBack : (settings.viewBack || walker.speed > 1.15));
+  const wantChase = !raidSweep && !free && !bladeClose && !inHub && !mapFollow && (settings.class === 'mage' ? settings.viewBack : (settings.viewBack || walker.speed > 1.15));
   const wantDist = settings.viewBack ? 4.4 : 2.5 + Math.min(2.1, Math.max(0, walker.speed - 1) * 0.32);
   chaseDist += ((wantChase ? wantDist : 0) - chaseDist) * Math.min(1, dt * 3.2);
   const chasing = mapFollow || chaseDist > 0.45;
@@ -895,6 +901,8 @@ function tickStep(dt, draw) {
     const a = zones.cityAngle || 0;
     camera.position.set(-2.35 + Math.sin(a) * 3.4, 1.28, 4.6 - Math.cos(a) * 0.8);
     camera.lookAt(-3.8, 0.72, -8);
+  } else if (raidSweep) {
+    duel.look(camera);
   } else if (mapFollow) {
     if (orbiting) {
       const u = Math.min(1, (tour.t - 28) / 8);
@@ -982,6 +990,7 @@ function tickStep(dt, draw) {
   ar.update(dt, walker);
   wander.update(dt, walker, camera, ar.on);
   if (zones.name === 'meadow') folk.update(dt, walker);
+  pets.update(dt, camera);
   street.sky = living.weather;
   world.rain = living.weather === 'rain';
   street.update(dt, walker, ar.on || zones.name === 'hub' || duel.active);
