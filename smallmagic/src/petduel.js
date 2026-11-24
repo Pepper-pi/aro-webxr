@@ -197,8 +197,19 @@ export function createDuel({ scene, world, camera, living }) {
     root.add(m);
     return m;
   });
+  const phoneRaid = typeof matchMedia === 'function' && (matchMedia('(pointer: coarse)').matches || innerWidth < 820);
+  const chargeRing = new THREE.Mesh(new THREE.RingGeometry(1.15, 1.42, 40), new THREE.MeshBasicMaterial({ color: '#ffb043', transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false }));
+  chargeRing.rotation.x = -Math.PI / 2;
+  chargeRing.position.y = 0.04;
+  chargeRing.visible = false;
+  root.add(chargeRing);
+  const shockRing = new THREE.Mesh(new THREE.RingGeometry(0.4, 0.7, 36), new THREE.MeshBasicMaterial({ color: '#fff6dc', transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+  shockRing.rotation.x = -Math.PI / 2;
+  shockRing.position.y = 0.08;
+  shockRing.visible = false;
+  root.add(shockRing);
   const debris = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < (phoneRaid ? 4 : 10); i++) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.16, 0.22), stone('#8a7560'));
     m.visible = false;
     root.add(m);
@@ -740,6 +751,7 @@ export function createDuel({ scene, world, camera, living }) {
   }
   function clearMarks() {
     warn.visible = false;
+    chargeRing.visible = false;
     lane.visible = false;
     patches.forEach((m) => { m.visible = false; });
     debris.forEach((m) => { m.visible = false; });
@@ -754,6 +766,7 @@ export function createDuel({ scene, world, camera, living }) {
   }
   function raidWin() {
     clearMarks();
+    shockRing.visible = false;
     raid = null;
     raidClear = true;
     hideRaidBar();
@@ -780,6 +793,12 @@ export function createDuel({ scene, world, camera, living }) {
         raid.aim = { x: you.x, z: you.z };
       }
       const hot = phase.id === 'charge';
+      const fill = Math.min(1, raid.t / Math.max(0.2, phase.dur));
+      chargeRing.visible = true;
+      chargeRing.position.set(from.x, 0.05, from.z);
+      chargeRing.scale.setScalar(0.45 + fill * (hot ? 3.1 : 2.4));
+      chargeRing.material.color.set(hot ? '#e23b32' : '#ffb043');
+      chargeRing.material.opacity = 0.22 + fill * 0.62;
       layLane(from, raid.aim, hot ? 0.72 : 0.28 + Math.sin(raid.t * 8) * 0.1);
       lane.material.color.set(hot ? '#e23b32' : '#ffb043');
       warn.visible = true;
@@ -794,6 +813,7 @@ export function createDuel({ scene, world, camera, living }) {
         else if (inLane(you, from, raid.aim) && magic.hurt?.(18)) raidDown();
       }
     } else if (phase.id === 'embers') {
+      chargeRing.visible = false;
       patches.forEach((m) => { m.visible = true; });
       if (!raid.lit) {
         raid.lit = true;
@@ -807,6 +827,7 @@ export function createDuel({ scene, world, camera, living }) {
         if (Math.hypot(you.x - m.position.x, you.z - m.position.z) < 1.25 && magic.hurt?.(8 * dt)) raidDown();
       }
     } else if (phase.id === 'whirl') {
+      chargeRing.visible = false;
       patches.forEach((m) => { m.visible = false; });
       if (!raid.spun) {
         raid.spun = true;
@@ -832,9 +853,39 @@ export function createDuel({ scene, world, camera, living }) {
     foe.hp = Math.max(0, foe.hp);
     foe.g.lookAt(root.position.x + you.x, foe.g.position.y, root.position.z + you.z);
     raidBarPaint();
-    if (foe.hp <= 0) {
-      raidWin();
+    if (raid.fanfare > 0) {
+      raid.fanfare = Math.max(0, raid.fanfare - dt);
+      shockRing.visible = true;
+      shockRing.position.set(from.x, 0.08, from.z);
+      const u = 1 - raid.fanfare / 1.15;
+      shockRing.scale.setScalar(0.6 + u * 7.5);
+      shockRing.material.opacity = Math.max(0, 0.85 * (1 - u));
+      if (raid.fanfare <= 0) raidWin();
       return;
+    }
+    if (foe.hp <= 0) {
+      raid.fanfare = 1.15;
+      chargeRing.visible = false;
+      magic.note?.('The brute falls.');
+      return;
+    }
+    if (raid.drama > 0) {
+      raid.drama = Math.max(0, raid.drama - dt);
+      const u = 1 - raid.drama / 1.15;
+      shockRing.visible = true;
+      shockRing.position.set(from.x, 0.08, from.z);
+      shockRing.scale.setScalar(0.4 + u * (3.2 + Math.min(2.4, (raid.margin || 0) * 0.15)));
+      shockRing.material.color.set('#fff1c4');
+      shockRing.material.opacity = Math.max(0, 0.7 * (1 - u));
+      const n = phoneRaid ? 3 : Math.min(debris.length, 4 + Math.round(Math.min(8, raid.margin || 0)));
+      debris.forEach((m, i) => {
+        m.visible = i < n;
+        if (!m.visible) return;
+        const fall = Math.min(1, u * 1.15);
+        const a = i * 1.3;
+        m.position.set(from.x + Math.cos(a) * (0.8 + i * 0.25), 3.4 * (1 - fall) + 0.15, from.z + Math.sin(a) * (0.8 + i * 0.25));
+      });
+      if (raid.drama <= 0) debris.forEach((m) => { m.visible = false; });
     }
     if (!raid.broke && !raid.breathing && foe.hp <= foe.max * 0.5) {
       raid.broke = true;
@@ -843,6 +894,8 @@ export function createDuel({ scene, world, camera, living }) {
       raid.struck = false;
       raid.lit = false;
       raid.aimed = false;
+      raid.margin = Math.max(0, foe.max * 0.5 - foe.hp);
+      raid.drama = 1.15;
       clearMarks();
       magic.note?.(`${foe.name} · Break`);
       return;
@@ -914,6 +967,15 @@ export function createDuel({ scene, world, camera, living }) {
     else if (actors.pet.hp <= 0) end(false);
   }
   function look(cam) {
+    if (raid && (raid.drama > 0 || raid.fanfare > 0)) {
+      const beat = raid.fanfare > 0 ? raid.fanfare : raid.drama;
+      const u = 1 - beat / 1.15;
+      const tilt = Math.sin(u * Math.PI) * (0.12 + Math.min(0.2, (raid.margin || 4) * 0.018));
+      cam.position.set(root.position.x + 1.6, root.position.y + 3.1, root.position.z + 6.4);
+      cam.lookAt(root.position.x, root.position.y + 1.15, root.position.z);
+      cam.rotateZ(raid.fanfare > 0 ? 0 : tilt);
+      return true;
+    }
     if (raid && raid.intro > 0) {
       const u = 1 - raid.intro / 2.2;
       const ang = -0.4 + u * 1.35;
@@ -991,7 +1053,7 @@ export function createDuel({ scene, world, camera, living }) {
       bars();
       return true;
     },
-    get playerCam() { return !!(raid && raid.intro <= 0); },
+    get playerCam() { return !!(raid && raid.intro <= 0 && !(raid.drama > 0) && !(raid.fanfare > 0)); },
     get sweep() { return !!(raid && raid.intro > 0); },
     bind(next) { magic = { ...magic, ...next }; },
     get active() { return active; },

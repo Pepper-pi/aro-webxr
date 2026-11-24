@@ -378,7 +378,21 @@ export function createTwister({ air, world, fx, fire, ruin, scene }) {
         const frozen = ci >= 0 && cj >= 0 && ci < cell.N && cj < cell.N && cell.data[(cj * cell.N + ci) * 4 + 1] > 110, onWater = world.ground(base.x, base.z) < world.water;
         fireLevel = Math.max(0, Math.min(1, fireLevel + (hot > 2 ? 0.7 : -0.06) * dt));
         frostLevel = fireLevel > 0.15 ? Math.max(0, frostLevel - dt) : Math.max(0, Math.min(1, frostLevel + (frozen ? 0.7 : -0.08) * dt));
-        spout += ((onWater ? 1 : 0) - spout) * Math.min(1, dt * 1.5);
+        const raining = !!world.rain;
+        spout += (((onWater || raining) ? 1 : 0) - spout) * Math.min(1, dt * 1.5);
+        if (raining && phase === 'live') {
+          const phoneTw = typeof matchMedia === 'function' && (matchMedia('(pointer: coarse)').matches || innerWidth < 820);
+          const budget = (phoneTw ? 8 : 28) * dt;
+          for (let i = 0; i < Math.floor(budget) + (Math.random() < budget % 1 ? 1 : 0); i++) {
+            const a = Math.random() * 6.283;
+            const rr = 0.4 + Math.random() * 1.6;
+            fx.spawn({
+              kind: 1, x: base.x + Math.cos(a) * rr, y: base.y + 0.4 + Math.random() * 6, z: base.z + Math.sin(a) * rr,
+              vx: -Math.sin(a) * 3, vy: 4 + Math.random() * 5, vz: Math.cos(a) * 3,
+              life: 0.7 + Math.random() * 0.5, size: [0.04, 0.012], colour: [0.72, 0.88, 1], alpha: 0.7,
+            });
+          }
+        }
         if (fireLevel > 0.2) {
           for (const [x, z] of fire.drain(base.x, base.z, 7, 2.2, dt)) {
             const y = world.ground(x, z);

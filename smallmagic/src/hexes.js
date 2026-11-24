@@ -75,13 +75,14 @@ export function createHexes(scene, world, camera, walker, zones) {
     const glow = ribbon(at.x, at.z, def.accent);
     const outer = edgeLine(at.x, at.z, SIZE * 1.22, '#ffe27a');
     const aurora = auroraOf();
+    const pillar = eventPillar();
     outer.visible = false;
     const runes = new THREE.Group();
     for (let i = 0; i < 6; i++) {
       const a = i * TAU / 6 - Math.PI / 6;
       const x = Math.cos(a) * SIZE;
       const z = Math.sin(a) * SIZE;
-      const rune = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), new THREE.MeshBasicMaterial({ color: def.accent }));
+      const rune = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), new THREE.MeshBasicMaterial({ color: def.accent, transparent: true, opacity: 0.9 }));
       rune.scale.set(1, 0.35, 1);
       rune.position.set(x, world.ground(at.x + x, at.z + z) + 0.06, z);
       runes.add(rune);
@@ -97,7 +98,7 @@ export function createHexes(scene, world, camera, walker, zones) {
     const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.45, 6.5, 6), new THREE.MeshBasicMaterial({ color: def.accent, transparent: true, opacity: 0.9 }));
     beacon.visible = false;
     beacon.position.y = 1.8;
-    node.add(fill, edge, glow, outer, runes, beacon, aurora);
+    node.add(fill, edge, glow, outer, runes, beacon, aurora, pillar);
     if (water) node.add(water);
     if (stones) node.add(stones);
     const dress = dressOf(def, at.x, at.z);
@@ -110,7 +111,7 @@ export function createHexes(scene, world, camera, walker, zones) {
     herb.visible = def.theme === 'Forest Creek' || def.theme === 'Sunlit Meadow';
     node.add(herb);
     group.add(node);
-    return { ...def, ...at, node, fill, edge, glow, outer, aurora, runes, motes, water, beacon, herb, dress, chest, got: false, pulse: 0, chestT: 0, celebrated: tierOf(xp[def.id] || 0), waved: false, wave: null };
+    return { ...def, ...at, node, fill, edge, glow, outer, aurora, pillar, runes, motes, water, beacon, herb, dress, chest, got: false, pulse: 0, chestT: 0, celebrated: tierOf(xp[def.id] || 0), waved: false, wave: null };
   });
 
   function fillMesh(cx, cz, color) {
@@ -172,6 +173,25 @@ export function createHexes(scene, world, camera, walker, zones) {
       glow.position.set(x, y + 0.03, z);
       g.add(stone, glow);
     }
+    return g;
+  }
+  const EVENT_COLOR = { surge: '#7ec8ff', boss: '#e23b32', bloom: '#7dff9a', weather: '#f2d15a' };
+  function eventPillar() {
+    const phoneHex = typeof matchMedia === 'function' && (matchMedia('(pointer: coarse)').matches || innerWidth < 820);
+    const g = new THREE.Group();
+    const sheets = phoneHex ? 2 : 4;
+    for (let i = 0; i < sheets; i++) {
+      const sheet = new THREE.Mesh(
+        new THREE.PlaneGeometry(3.4, 16),
+        new THREE.MeshBasicMaterial({ color: '#fff1c4', transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false }),
+      );
+      sheet.position.y = 8.2;
+      sheet.rotation.y = (i / sheets) * Math.PI;
+      sheet.frustumCulled = false;
+      g.add(sheet);
+    }
+    g.visible = false;
+    g.frustumCulled = false;
     return g;
   }
   function auroraOf() {
@@ -500,9 +520,23 @@ export function createHexes(scene, world, camera, walker, zones) {
       h.beacon.visible = t >= 3;
       if (h.beacon.visible) h.beacon.position.y = 1.6 + Math.sin(time * 2 + h.q) * 0.15;
       h.runes.children.forEach((r, i) => {
+        const inside = here === h;
+        const pulse = inside ? 1 + Math.sin(time * 5 + i) * 0.34 : 1;
         r.position.y = world.ground(h.x + r.position.x, h.z + r.position.z) + (t >= 2 ? 0.55 + Math.sin(time * 2 + i) * 0.12 : 0.32);
-        r.scale.setScalar(t >= 2 ? 1.35 : 1);
+        r.scale.set(pulse * (t >= 2 ? 1.35 : 1), 0.35 * pulse, pulse * (t >= 2 ? 1.35 : 1));
+        if (r.material) r.material.opacity = inside ? 0.95 : 0.72;
       });
+      if (h.pillar) {
+        h.pillar.visible = !!h.event;
+        if (h.event) {
+          const col = EVENT_COLOR[h.event.kind] || '#fff1c4';
+          h.pillar.children.forEach((s, i) => {
+            s.material.color.set(col);
+            s.material.opacity = 0.28 + Math.sin(time * 0.9 + i) * 0.08;
+            s.rotation.y = time * 0.12 + (i / Math.max(1, h.pillar.children.length)) * Math.PI;
+          });
+        }
+      }
       if (t >= 2 && !h.extraFlowers) {
         const extra = new THREE.Group();
         for (let i = 0; i < 8; i++) {
@@ -619,11 +653,16 @@ export function createHexes(scene, world, camera, walker, zones) {
       bloom: { name: 'Gather bloom', reward: 'Herb · +18 Resonance' },
       weather: { name: 'Weather shift', reward: '+16 Resonance' },
     };
-    if (here && !here.event && (here.cool || 0) <= 0) {
-      const rolled = watch?.rollSeeded?.('beast', `${here.id}|${here.clears || 0}`, watch.context(here.id)) || { tier: 'common' };
-      let kind = rolled.tier === 'mythic' ? 'boss' : rolled.tier === 'rare' || rolled.tier === 'epic' ? 'surge' : ['bloom', 'weather', 'surge'][(here.q + here.r + 7) % 3];
-      if (!FIGHT[here.id]) kind = (here.q + here.r) % 2 ? 'bloom' : 'weather';
-      here.event = { ...EV[kind], kind, t: 0, tier: rolled.tier };
+    for (const h of built) {
+      if (h.event || (h.cool || 0) > 0) continue;
+      const rolled = watch?.rollSeeded?.('beast', `${h.id}|${h.clears || 0}`, watch?.context?.(h.id)) || { tier: 'common' };
+      let kind = rolled.tier === 'mythic' ? 'boss' : rolled.tier === 'rare' || rolled.tier === 'epic' ? 'surge' : ['bloom', 'weather', 'surge'][(h.q + h.r + 7) % 3];
+      if (!FIGHT[h.id]) kind = (h.q + h.r) % 2 ? 'bloom' : 'weather';
+      h.event = { ...EV[kind], kind, t: 0, tier: rolled.tier, live: false };
+    }
+    if (here?.event && !here.event.live) {
+      here.event.live = true;
+      const kind = here.event.kind;
       if (kind === 'weather' && watch) {
         const skies = ['clear', 'rain', 'fog', 'wind'];
         const now = watch.weather || 'clear';
@@ -639,7 +678,8 @@ export function createHexes(scene, world, camera, walker, zones) {
         here.waved = true;
         here.wave = zones.beginWave(here, FIGHT[here.id], 1, 1);
       }
-    } else if (here?.event) {
+    }
+    if (here?.event?.live) {
       here.event.t += dt;
       if (here.event.kind === 'surge' && watch && here.event.t > 1 && !here.event.noted) {
         here.event.noted = true;

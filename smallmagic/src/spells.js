@@ -170,10 +170,14 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     }
     rememberIce(g, kind === 'glacier' ? 16 : 12, cols);
   }
+  function wetAt(x, z) {
+    return !!world.rain || world.ground(x, z) < world.water + 0.45;
+  }
   function freezeLand(p, big, vel) {
-    const r = 2.2 + 5.2 * big;
+    const wet = wetAt(p.x, p.z);
+    const r = (2.2 + 5.2 * big) * (wet ? 1.7 : 1);
     const had = frostHere(p.x, p.z, Math.max(1.8, r * 0.4));
-    world.mark(p.x, p.z, r, 1, 0.5 + 0.5 * big);
+    world.mark(p.x, p.z, r, 1, (0.5 + 0.5 * big) * (world.rain ? 1.35 : 1));
     marks.push({ x: p.x, z: p.z, r: 1.6 + 1.4 * big, d: 8 + 12 * big, k: 'arcane', status: 'chill', chill: (2.6 + 5.2 * big) * (world.rain ? 1.35 : 1) });
     stamp('frost', p.x, p.z, 0.75 + big * 0.4);
     frostPatch(p, r);
@@ -225,6 +229,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     melt(p.x, p.z, r * 1.2);
     if (!onWater) fire.ignite(p.x, p.z, r, 0.6);
     stamp('fire', p.x, p.z, 0.85 + big * 0.35);
+    if (!onWater) scorch(p.x, p.z, r * (0.55 + 0.25 * big));
     for (let t = 1; t < world.trees.length; t++) { const tree = world.trees[t]; if (tree.clumps.some(([x, y, z, cr]) => Math.hypot(x - p.x, y - p.y, z - p.z) < cr + 0.6 + 1.5 * big)) { tree.frost = 0; fire.kindle(tree); world.treeChanged(tree); } }
   }
   /** Takes frost off the ground within r of a place. Says how much there was. */
@@ -249,7 +254,48 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
   }
 
   const marks = [];
-  let pourMark = 0, boomPhase = '', boomId = 0, windMark = 0, stormMark = 0, bloomMark = 0, stormStamp = false, holeStamp = false;
+  let pourMark = 0, boomPhase = '', boomId = 0, windMark = 0, stormMark = 0, bloomMark = 0, flowerMark = 0, stormStamp = false, holeStamp = false;
+  const phoneFx = typeof matchMedia === 'function' && (matchMedia('(pointer: coarse)').matches || innerWidth < 820);
+  const scorches = [];
+  const blooms = [];
+  function scorch(x, z, radius) {
+    const cap = phoneFx ? 4 : 8;
+    while (scorches.length >= cap) {
+      const old = scorches.shift();
+      old.mesh.parent?.remove(old.mesh);
+    }
+    const mesh = new THREE.Mesh(
+      new THREE.CircleGeometry(radius, 20),
+      new THREE.MeshBasicMaterial({ color: '#24140e', transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false }),
+    );
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(x, world.ground(x, z) + 0.045, z);
+    host().add(mesh);
+    scorches.push({ mesh, life: 9, max: 9 });
+  }
+  function bloomFlowers(x, z, spread) {
+    const cap = phoneFx ? 6 : 14;
+    const n = phoneFx ? 3 : 7;
+    for (let i = 0; i < n; i++) {
+      while (blooms.length >= cap) {
+        const old = blooms.shift();
+        old.mesh.parent?.remove(old.mesh);
+      }
+      const a = Math.random() * 6.283;
+      const r = spread * (0.25 + Math.random() * 0.7);
+      const px = x + Math.cos(a) * r;
+      const pz = z + Math.sin(a) * r;
+      const colors = ['#ff8cb8', '#fff6e4', '#ffd84d', '#5cb828', '#80d133'];
+      const mesh = new THREE.Mesh(
+        new THREE.CircleGeometry(0.16 + Math.random() * 0.1, 6),
+        new THREE.MeshBasicMaterial({ color: colors[i % colors.length], transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }),
+      );
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.set(px, world.ground(px, pz) + 0.05, pz);
+      host().add(mesh);
+      blooms.push({ mesh, life: 12, max: 12 });
+    }
+  }
   const brands = [];
   const BRAND = {
     fire: ['#2c1810', 16, 1.7],
@@ -408,7 +454,10 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
         if (spell.key === 'frost') {
           // Cold streams from the staff to the place in lines that show against anything, with ice in it. Where it
           // lands it rolls outward along the ground, and the frost spreads from there for as long as it is poured.
-          const far = Math.min(hit.dist, reach), spread = 1.2 + 4.3 * (1 - Math.exp(-hold * 0.55)), n = 200 * dt;
+          const far = Math.min(hit.dist, reach);
+          const wetPour = !!world.rain || (target && world.ground(target.x, target.z) < world.water + 0.45);
+          const spread = (1.2 + 4.3 * (1 - Math.exp(-hold * 0.55))) * (wetPour ? 1.7 : 1);
+          const n = (phoneFx ? 70 : 200) * dt;
           for (let q = Math.floor(n) + (Math.random() < n % 1 ? 1 : 0); q > 0; q--) {
             const sp = 16 + 6 * Math.random(), wide = sp * 0.055, pick = Math.random(), life = Math.min(1.1, far / sp);
             const vx = dir.x * sp + rnd(wide), vy = dir.y * sp + rnd(wide), vz = dir.z * sp + rnd(wide);
@@ -443,7 +492,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
           // on it. Where it lands light wells up out of the ground, leaves wind upward round it, and the meadow
           // comes back, and more than back, in a ring that widens for as long as it is poured.
           if (target) {
-            const far = tmp.copy(target).sub(tip).length(), spread = 1.4 + 4.4 * (1 - Math.exp(-hold * 0.5)), G = 7, n = 150 * dt;
+            const far = tmp.copy(target).sub(tip).length(), spread = 1.4 + 4.4 * (1 - Math.exp(-hold * 0.5)), G = 7, n = (phoneFx ? 48 : 150) * dt;
             const PETALS = [[1, 0.55, 0.75], [1, 0.97, 0.9], [1, 0.85, 0.3], [0.35, 0.72, 0.16], [0.5, 0.82, 0.2]];
             U.uSeal.value.z = spread;
             for (let q = Math.floor(n) + (Math.random() < n % 1 ? 1 : 0); q > 0; q--) {
@@ -455,7 +504,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
               else if (pick < 0.78) fx.spawn({ ...o, kind: 6, size: [0.1, 0.6], colour: [0.35, 0.9, 0.25], alpha: 0.16 });
               else fx.spawn({ ...o, kind: 4, size: [0.012, 0.085], colour: PETALS[Math.floor(Math.random() * PETALS.length)], rot: Math.random() * 6.283, spin: rnd(9) });
             }
-            const n2 = 150 * dt;
+            const n2 = (phoneFx ? 40 : 150) * dt;
             for (let q = Math.floor(n2) + (Math.random() < n2 % 1 ? 1 : 0); q > 0; q--) {
               const a = Math.random() * 6.283, r = spread * Math.sqrt(Math.random()), x = target.x + Math.cos(a) * r, z = target.z + Math.sin(a) * r, y = world.ground(x, z), pick = Math.random();
               const c = Math.random() < 0.4 ? [1, 0.9, 0.45] : [0.5, 1, 0.35];
@@ -468,11 +517,15 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
               else fx.spawn({ kind: 6, x, y: y + 0.6, z, life: 1 + 0.6 * Math.random(), size: [1.0, 2.4], colour: [0.6, 1, 0.3], alpha: 0.09 });
             }
             // where it has just reached, the flowers come out: a puff of petals and a wink of light at the edge of it
-            const n3 = 22 * dt;
+            const n3 = (phoneFx ? 6 : 22) * dt;
             for (let q = Math.floor(n3) + (Math.random() < n3 % 1 ? 1 : 0); q > 0; q--) {
               const a = Math.random() * 6.283, r = spread * (0.8 + 0.2 * Math.random()), x = target.x + Math.cos(a) * r, z = target.z + Math.sin(a) * r, y = world.ground(x, z), petal = PETALS[Math.floor(Math.random() * 3)];
               fx.spawn({ kind: 3, x, y: y + 0.35, z, life: 0.4, size: [0.3, 0.08], colour: [1, 0.95, 0.6] });
               for (let k = 0; k < 6; k++) fx.spawn({ kind: 4, x, y: y + 0.35, z, vx: rnd(1.3), vy: 1.4 + 1.6 * Math.random(), vz: rnd(1.3), life: 0.9 + 0.6 * Math.random(), size: [0.07, 0.1], colour: petal, grav: -4, drag: 0.6, rot: Math.random() * 6.283, spin: rnd(10) });
+            }
+            if (spell.key === 'growth' && hold > 0.35 && performance.now() - flowerMark > 700) {
+              flowerMark = performance.now();
+              bloomFlowers(target.x, target.z, spread);
             }
             melt(target.x, target.z, spread * 0.9 * Math.min(1, hold));
             fire.regrow(target.x, target.z, spread, dt * 0.9);
@@ -612,6 +665,14 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
       if (hole.phase === 'open' && !holeStamp) { holeStamp = true; stamp('singularity', hole.ground.x, hole.ground.z); }
       if (hole.phase !== 'open' && hole.phase !== 'shut') holeStamp = false;
       if (spell.key === 'growth' && down && target) { bloomMark -= dt; if (bloomMark <= 0) { bloomMark = 1.3; stamp('growth', target.x, target.z, 0.7); } }
+      for (const list of [scorches, blooms]) {
+        for (let i = list.length - 1; i >= 0; i--) {
+          const s = list[i];
+          s.life -= dt;
+          if (s.mesh.material) s.mesh.material.opacity = Math.max(0, (s.life / s.max) * 0.85);
+          if (s.life <= 0) { s.mesh.parent?.remove(s.mesh); list.splice(i, 1); }
+        }
+      }
       for (let i = brands.length - 1; i >= 0; i--) {
         const b = brands[i];
         b.life -= dt;
