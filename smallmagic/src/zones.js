@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { createBeasts, PACKS, patchWebKitImageBitmap } from './beasts.js';
 import { createHearthShell } from './hearthroom.js';
 import { createCityBlock } from './cityblock.js';
-import { createCompanion } from './maren.js';
+import { createCompanion, rareFollowRate } from './maren.js';
 import { TUNE } from './rider.js';
 import { buildVillage } from './cabins.js';
 import { createTown } from './town.js';
@@ -350,7 +350,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       const people = loadedPeople;
       await Promise.all(Object.entries(COMPANIONS).map(async ([id, spec]) => {
         try {
-          ctls[id] = await createCompanion(new URL(spec.url, document.baseURI).href, { ...spec, low: detail === 'low' });
+          ctls[id] = await createCompanion(new URL(spec.url, document.baseURI).href, { ...spec, id, low: detail === 'low' });
         } catch (err) {
           console.warn(id, err);
         }
@@ -1617,8 +1617,9 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         const backZ = walker.feet.z + fz * 1.6 - fx * 1.35;
         buddyTag.visible = true;
         buddyRing.visible = true;
-        buddyBody.position.x += (backX - buddyBody.position.x) * Math.min(1, dt * 3);
-        buddyBody.position.z += (backZ - buddyBody.position.z) * Math.min(1, dt * 3);
+        const pace = rareFollowRate(buddy) || 3;
+        buddyBody.position.x += (backX - buddyBody.position.x) * Math.min(1, dt * pace);
+        buddyBody.position.z += (backZ - buddyBody.position.z) * Math.min(1, dt * pace);
         buddyBody.position.y = world.ground(buddyBody.position.x, buddyBody.position.z);
         buddyBody.rotation.x = 0;
         buddyBody.rotation.z = 0;

@@ -96,19 +96,46 @@ function sampleQuat(track, time, out) {
   out.copy(_qa).slerp(_qb, u);
 }
 
-function buildIdle(vrm) {
+// One companion id in four. The tell is how they stand and walk, not a light show.
+export function isRareNpc(id) {
+  let h = 2166136261;
+  for (const c of String(id || '')) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+  return (h >>> 0) % 4 === 0;
+}
+
+const MANNER = { maren: 'tend', sable: 'still', bram: 'sure', lumen: 'glance' };
+const FOLLOW = { tend: 1.55, still: 1.35, sure: 4.4, glance: 1.9 };
+
+export function rareFollowRate(id) {
+  if (!isRareNpc(id)) return null;
+  return FOLLOW[MANNER[id] || 'still'];
+}
+
+function buildIdle(vrm, manner) {
+  const slow = manner === 'still' || manner === 'glance' || manner === 'tend';
+  const sure = manner === 'sure';
+  const amp = manner === 'still' ? 0.28 : sure ? 0.75 : slow ? 0.55 : 1;
+  const scale = (frames) => frames.map(([x, y, z]) => [x * amp, y * amp, z * amp]);
   const keys = {
-    hips: [[0, 0.03, 0], [0, -0.025, 0.02], [0, -0.03, 0], [0, 0.025, -0.02], [0, 0.03, 0]],
-    spine: [[0.02, 0, 0], [0.05, 0.02, 0.012], [0.02, 0, 0], [0.045, -0.02, -0.01], [0.02, 0, 0]],
-    chest: [[0.03, 0, 0], [0.07, 0, 0.01], [0.025, 0, 0], [0.065, 0, -0.01], [0.03, 0, 0]],
-    neck: [[0, 0.03, 0], [0.02, -0.04, 0], [0, -0.02, 0], [0.015, 0.04, 0], [0, 0.03, 0]],
-    head: [[0, 0.05, 0], [0.03, -0.06, 0.01], [0, -0.04, 0], [0.02, 0.06, -0.01], [0, 0.05, 0]],
-    leftUpperArm: [[0, 0, 0], [0.05, 0, 0.05], [0.01, 0, 0], [0.04, 0, -0.03], [0, 0, 0]],
-    rightUpperArm: [[0, 0, 0], [0.04, 0, -0.05], [0.01, 0, 0], [0.05, 0, 0.04], [0, 0, 0]],
-    leftLowerArm: [[0, 0, 0], [0.08, 0.04, 0], [0.02, 0, 0], [0.06, -0.02, 0], [0, 0, 0]],
-    rightLowerArm: [[0, 0, 0], [0.06, -0.03, 0], [0.02, 0, 0], [0.08, 0.04, 0], [0, 0, 0]],
+    hips: scale([[0, 0.03, 0], [0, -0.025, 0.02], [0, -0.03, 0], [0, 0.025, -0.02], [0, 0.03, 0]]),
+    spine: scale([[0.02, 0, 0], [0.05, 0.02, 0.012], [0.02, 0, 0], [0.045, -0.02, -0.01], [0.02, 0, 0]]),
+    chest: scale(sure
+      ? [[-0.02, 0, 0], [0.01, 0, 0.01], [-0.02, 0, 0], [0.0, 0, -0.01], [-0.02, 0, 0]]
+      : [[0.03, 0, 0], [0.07, 0, 0.01], [0.025, 0, 0], [0.065, 0, -0.01], [0.03, 0, 0]]),
+    neck: scale([[0, 0.03, 0], [0.02, -0.04, 0], [0, -0.02, 0], [0.015, 0.04, 0], [0, 0.03, 0]]),
+    head: scale(manner === 'glance'
+      ? [[0, 0.05, 0], [0.02, -0.16, 0.01], [0, 0.02, 0], [0.02, 0.14, -0.01], [0, 0.05, 0]]
+      : [[0, 0.05, 0], [0.03, -0.06, 0.01], [0, -0.04, 0], [0.02, 0.06, -0.01], [0, 0.05, 0]]),
+    leftUpperArm: scale([[0, 0, 0], [0.05, 0, 0.05], [0.01, 0, 0], [0.04, 0, -0.03], [0, 0, 0]]),
+    rightUpperArm: scale(manner === 'tend'
+      ? [[0, 0, 0], [0.35, 0.1, -0.2], [0.08, 0, -0.05], [0.05, 0, 0.04], [0, 0, 0]]
+      : [[0, 0, 0], [0.04, 0, -0.05], [0.01, 0, 0], [0.05, 0, 0.04], [0, 0, 0]]),
+    leftLowerArm: scale([[0, 0, 0], [0.08, 0.04, 0], [0.02, 0, 0], [0.06, -0.02, 0], [0, 0, 0]]),
+    rightLowerArm: scale(manner === 'tend'
+      ? [[0, 0, 0], [0.45, -0.05, 0], [0.12, 0, 0], [0.08, 0.04, 0], [0, 0, 0]]
+      : [[0, 0, 0], [0.06, -0.03, 0], [0.02, 0, 0], [0.08, 0.04, 0], [0, 0, 0]]),
   };
-  const times = [0, 1, 2, 3, 4];
+  const times = sure ? [0, 0.7, 1.4, 2.1, 2.8] : slow ? [0, 1.6, 3.2, 4.8, 6.4] : [0, 1, 2, 3, 4];
   const tracks = [];
   const bones = [];
   for (const [name, frames] of Object.entries(keys)) {
@@ -243,7 +270,21 @@ export async function createCompanion(url, opts = {}) {
   root.userData.fit = root.scale.x;
   shapeBody(vrm, opts.shape || {});
   tuneSprings(vrm, low);
-  const idle = buildIdle(vrm);
+  const manner = isRareNpc(opts.id) ? (MANNER[opts.id] || 'still') : null;
+  const idle = buildIdle(vrm, manner);
+  let ring = null;
+  if (manner) {
+    ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.28, 0.36, 28),
+      new THREE.MeshBasicMaterial({ color: '#f4e6c4', transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.025;
+    ring.name = 'rare-feet';
+    root.add(ring);
+  }
+  const here = new THREE.Vector3();
+  const there = new THREE.Vector3();
 
   const gaze = new THREE.Object3D();
   gaze.name = 'maren-gaze';
@@ -313,6 +354,11 @@ export async function createCompanion(url, opts = {}) {
     if (camera) {
       camera.getWorldPosition(gaze.position);
       if (!gaze.parent) camera.parent?.add(gaze) || vrm.scene.parent?.add(gaze);
+    }
+    if (ring) {
+      const eye = camera ? (camera.getWorldPosition(there), root.getWorldPosition(here), here.distanceTo(there)) : 8;
+      const near = eye < 2.2 ? 1 : eye > 6.5 ? 0 : 1 - (eye - 2.2) / 4.3;
+      ring.material.opacity = near * 0.26;
     }
     vrm.update(detail ? Math.min(dt, 1 / 30) : dt);
   }
