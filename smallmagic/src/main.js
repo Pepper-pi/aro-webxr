@@ -273,6 +273,9 @@ function applyKit(next) {
   if (castBtn) castBtn.textContent = 'Use';
 }
 function useAttack(which, index, down) {
+  const drawing = which === 'ranger' && RANGER_ATK[index]?.key === 'draw';
+  if (sound && down && !drawing) sound.cast(which);
+  if (sound && drawing) sound.cast(down ? 'draw' : 'ranger');
   if (which === 'gunner') {
     if (index === 1) { if (down) gun.toss(); return; }
     if (down) gun.arm(); else gun.release();
@@ -447,7 +450,8 @@ if (sound && !capture) {
 }
 
 if (sound && spells) spells.hear = (what, o) => sound.cue(what, o);
-if (sound) living.hear = () => sound.chime();
+if (sound) living.hear = (tier) => sound.chime(tier || 'rare');
+if (sound && !capture) document.addEventListener('visibilitychange', () => { if (document.hidden) sound.sleep(); });
 
 // The one clock. Everything that moves is a function of it; `pace` is how fast it runs (1 as a rule).
 const clock = { pace: 1 };
@@ -675,7 +679,44 @@ document.getElementById('spin')?.addEventListener('pointerup', (e) => {
 });
 document.getElementById('gunFire')?.addEventListener('pointerup', (e) => { gun.fire(); e.preventDefault(); e.stopPropagation(); });
 document.getElementById('gunNade')?.addEventListener('pointerup', (e) => { gun.toss(); e.preventDefault(); e.stopPropagation(); });
-document.getElementById('vol')?.addEventListener('input', (e) => { if (sound) sound.volume = Number(e.target.value) / 100; });
+function readAudio() {
+  try { return JSON.parse(localStorage.getItem('aro-audio') || '{}'); } catch { return {}; }
+}
+function applyAudio() {
+  if (!sound) return;
+  const saved = readAudio();
+  const master = Number.isFinite(saved.master) ? saved.master : 65;
+  const music = Number.isFinite(saved.music) ? saved.music : 50;
+  const sfx = Number.isFinite(saved.sfx) ? saved.sfx : 70;
+  sound.volume = master / 100;
+  sound.music = music / 100;
+  sound.sfx = sfx / 100;
+  const vol = document.getElementById('vol');
+  const mus = document.getElementById('music');
+  const fx = document.getElementById('sfx');
+  if (vol) vol.value = String(master);
+  if (mus) mus.value = String(music);
+  if (fx) fx.value = String(sfx);
+}
+function storeAudio() {
+  const vol = document.getElementById('vol');
+  const mus = document.getElementById('music');
+  const fx = document.getElementById('sfx');
+  try {
+    localStorage.setItem('aro-audio', JSON.stringify({
+      master: Number(vol?.value ?? 65),
+      music: Number(mus?.value ?? 50),
+      sfx: Number(fx?.value ?? 70),
+    }));
+  } catch { /* private mode */ }
+}
+applyAudio();
+document.getElementById('vol')?.addEventListener('input', (e) => { if (sound) sound.volume = Number(e.target.value) / 100; storeAudio(); sound?.ui(); });
+document.getElementById('music')?.addEventListener('input', (e) => { if (sound) sound.music = Number(e.target.value) / 100; storeAudio(); });
+document.getElementById('sfx')?.addEventListener('input', (e) => { if (sound) sound.sfx = Number(e.target.value) / 100; storeAudio(); });
+addEventListener('pointerup', (e) => {
+  if (e.target?.closest?.('button')) sound?.ui();
+});
 const arms = createArms(scene);
 const armTier = () => (phone || settings.gfx === 'low' ? 'Phone' : 'High');
 const sword = new THREE.Group();
@@ -727,16 +768,35 @@ const warden = createWarden({ scene, camera, world, zones, walker, pets, ground:
 const alchemist = createAlchemist({ scene, camera, world, zones, walker, fire, living, ground: groundAt });
 const summoner = createSummoner({ scene, camera, world, zones, walker, staff, beam });
 const puppet = createPuppetmaster({ scene, world, zones, walker });
+function buzz(kind) {
+  const phoneTap = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  if (!phoneTap || typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
+  const ms = kind === 'bite' ? 28 : kind === 'catch' ? 22 : 16;
+  try { navigator.vibrate(ms); } catch { /* this phone stays still */ }
+}
 const classBind = {
   foe: () => (duel.active ? duel.foeSpot() : null),
   wound: (n, x, z) => duel.wound(n, x, z),
   mendPet: (n) => duel.mendPet(n),
+  snareRaid: (s) => duel.snareRaid(s),
+  smokeRaid: (s) => duel.smokeRaid(s),
+  buzz,
 };
 summoner.bind(classBind);
 ranger.bind(classBind);
 warden.bind(classBind);
 alchemist.bind(classBind);
 zones.ward = (n) => warden.soak(n);
+zones.buzz = buzz;
+world.cobble = (x, z) => zones.town?.nearCobble?.(x, z);
+let hitFreeze = 0;
+let hitShake = 0;
+zones.feel = (hit) => {
+  if (hit.heavy) hitFreeze = Math.max(hitFreeze, Math.min(0.07, 0.04 + (hit.dealt || 12) * 0.0012));
+  hitShake = Math.max(hitShake, Math.min(0.2, (hit.heavy ? 0.05 : 0.02) + (hit.dealt || 4) * 0.003));
+  sound?.hit?.({ heavy: !!hit.heavy, crit: !!hit.crit });
+  if (hit.heavy) buzz('hit');
+};
 duel.bind({ calm: () => warden.aura() });
 puppet.bind(classBind);
 if (settings.class !== 'mage') showClass();
@@ -924,6 +984,11 @@ function tick(frameDt) {
 }
 
 function tickStep(dt, draw) {
+  const frame = dt;
+  if (hitFreeze > 0) {
+    hitFreeze = Math.max(0, hitFreeze - frame);
+    dt *= 0.06;
+  }
   const xrLive = !!(ar.xr && renderer.xr.isPresenting);
   if (xrFrame) ar.sample(xrFrame);
   // (a blast all but stops time for the instant it lands)
@@ -957,7 +1022,7 @@ function tickStep(dt, draw) {
     if (settings.class === 'ranger') kitBar.charge?.(ranger.charge || 0);
     if (settings.class === 'warden') kitBar.charge?.(warden.calm || 0);
   } else if (spells) {
-    if (inp.cast !== null && inp.cast !== padCast) { padCast = inp.cast; if (padCast) spells.press(); else spells.release(); }
+    if (inp.cast !== null && inp.cast !== padCast) { padCast = inp.cast; if (padCast) { spells.press(); sound?.cast('mage'); } else spells.release(); }
     if (inp.spell) spells.select(spells.selected + inp.spell);
   }
   if (xrLive) {
@@ -1155,6 +1220,11 @@ function tickStep(dt, draw) {
     camera.lookAt(walker.feet.x + fx * 1.6, walker.feet.y + 1.15, walker.feet.z + fz * 1.6);
   }
   // (and shakes the eye)
+  if (!xrLive && hitShake > 0.002) {
+    hitShake = Math.max(0, hitShake - frame * 1.8);
+    camera.rotateX(Math.sin(performance.now() * 0.08) * hitShake);
+    camera.rotateZ(Math.sin(performance.now() * 0.05) * hitShake * 0.55);
+  }
   if (!xrLive && blast.shake + hole.shake + twister.shake > 0.002) { const s = blast.shake + hole.shake + twister.shake * 0.5; shaking += dt; camera.rotateX(Math.sin(shaking * 61) * Math.sin(shaking * 37 + 1) * 0.03 * s); camera.rotateY(Math.sin(shaking * 53 + 2) * Math.sin(shaking * 29) * 0.03 * s); camera.rotateZ(Math.sin(shaking * 47 + 4) * 0.018 * s); }
   camera.updateMatrixWorld(true);
   const showBody = !!avatar.ready && zones.name === 'meadow' && !ar.on && settings.viewBack && !free && followCam.dist > 1.15;
@@ -1265,6 +1335,10 @@ function tickStep(dt, draw) {
   fire.step(dt * pace, camera.position);
   fx.update(dt * pace);
   sound?.update(dt, { blast, hole, twister, ruin, camera, fire, cast: spells?.cast, world, walker });
+  if (sound) {
+    const bed = zones.atLake ? 'bed-lake' : (world.cobble?.(walker.feet.x, walker.feet.z) ? 'bed-town' : 'bed-meadow');
+    sound.bed(bed);
+  }
   // (the rim of the spell in hand fills as it is gathered, and stands full while it is poured or held open)
   if (spells && kit === 'mage') {
     const c = spells.cast;

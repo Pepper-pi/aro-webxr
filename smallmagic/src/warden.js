@@ -32,6 +32,7 @@ export function createWarden({ scene, camera, world, zones, walker, pets, ground
   let snareT = 0;
   let calmT = 0;
   let wound = null;
+  let snareRaid = null;
 
   function ahead(dist) {
     const yaw = walker.yaw;
@@ -59,6 +60,7 @@ export function createWarden({ scene, camera, world, zones, walker, pets, ground
     snare.position.set(at.x, gy(at.x, at.z) + 0.03, at.z);
     snare.visible = true;
     snareT = 8;
+    snareRaid?.(1.2);
     note = 'Warden · roots take the ground';
   }
 
@@ -137,6 +139,6 @@ export function createWarden({ scene, camera, world, zones, walker, pets, ground
     get guard() { return calmT; },
     get calm() { return calmT > 0 ? Math.min(1, calmT / 8) : 0; },
     aura() { return calmT > 0 ? 0.45 : 0; },
-    bind(next) { wound = next?.wound || wound; },
+    bind(next) { wound = next?.wound || wound; snareRaid = next?.snareRaid || snareRaid; },
   };
 }

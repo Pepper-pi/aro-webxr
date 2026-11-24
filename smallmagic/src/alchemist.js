@@ -20,6 +20,7 @@ export function createAlchemist({ scene, camera, world, zones, walker, fire, liv
   let note = 'Alchemist';
   let onKit = false;
   let wound = null;
+  let smokeRaid = null;
   const aim = new THREE.Vector3();
 
   function herbs() { return herbCount(); }
@@ -67,6 +68,7 @@ export function createAlchemist({ scene, camera, world, zones, walker, fire, liv
       note = 'Alchemist · the brew catches';
       row.spent = true;
     }
+    if (kind === 'smoke' || row.kind === 'smoke') smokeRaid?.(2);
     puddles.push(row);
   }
 
@@ -155,6 +157,6 @@ export function createAlchemist({ scene, camera, world, zones, walker, fire, liv
     update,
     get note() { return note; },
     get hot() { return 0; },
-    bind(next) { wound = next?.wound || wound; },
+    bind(next) { wound = next?.wound || wound; smokeRaid = next?.smokeRaid || smokeRaid; },
   };
 }

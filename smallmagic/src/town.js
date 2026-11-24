@@ -83,6 +83,7 @@ export function createTown(parent, world, { low = false } = {}) {
   const porches = [];
   const glows = [];
   let square = { well: null, benches: [], stalls: [], notice: null };
+  let cobbles = [];
   let noticeNear = false;
   let built = null;
   let quality = low ? 'low' : 'high';
@@ -117,6 +118,8 @@ export function createTown(parent, world, { low = false } = {}) {
     porches.length = 0;
     glows.length = 0;
     square = { well: null, benches: [], stalls: [], notice: null };
+    cobbles = [];
+    cobbles = [];
   }
 
   function buildSquare(bag, simple) {
@@ -295,6 +298,7 @@ export function createTown(parent, world, { low = false } = {}) {
       mesh.receiveShadow = true;
       mesh.frustumCulled = false;
       root.add(mesh);
+      cobbles = tiles;
     }
   }
 
@@ -454,6 +458,24 @@ export function createTown(parent, world, { low = false } = {}) {
     doors,
     porches,
     get square() { return square; },
+    nearCobble(x, z) {
+      for (let i = 0; i < cobbles.length; i++) {
+        const t = cobbles[i];
+        const dx = t.x - x;
+        const dz = t.z - z;
+        if (dx * dx + dz * dz < 0.5) return true;
+      }
+      return false;
+    },
+    nearCobble(x, z) {
+      for (let i = 0; i < cobbles.length; i++) {
+        const t = cobbles[i];
+        const dx = t.x - x;
+        const dz = t.z - z;
+        if (dx * dx + dz * dz < 0.5) return true;
+      }
+      return false;
+    },
     setQuality(next) {
       const pick = next ? 'low' : 'high';
       if (pick === quality) return;

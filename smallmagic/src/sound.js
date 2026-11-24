@@ -42,15 +42,18 @@ export function createSound({ offline = 0 } = {}) {
   };
 
   // ---- what everything passes through
-  const mix = G(1), hush = G(1), ears = F('lowpass', 20000, 0.5), pre = G(0.5), press = ctx.createDynamicsCompressor(), soft = ctx.createWaveShaper(), out = G(0.9);
+  const mix = G(1), hush = G(1), ears = F('lowpass', 20000, 0.5), pre = G(0.5), press = ctx.createDynamicsCompressor(), soft = ctx.createWaveShaper(), out = G(0.58);
+  const music = G(0.5), sfx = G(0.7);
   Object.assign(press.threshold, { value: -6 }); Object.assign(press.knee, { value: 6 }); Object.assign(press.ratio, { value: 8 }); Object.assign(press.attack, { value: 0.003 }); Object.assign(press.release, { value: 0.3 });
   soft.curve = Float32Array.from({ length: 2049 }, (_, i) => Math.tanh(((i - 1024) / 1024) * 1.5) / Math.tanh(1.5));
   soft.oversample = '2x';
+  music.connect(mix);
+  sfx.connect(mix);
   chain(mix, hush, ears, pre, press, soft, out, ctx.destination);
   // (the ringing of ears is not dulled with the rest: it is inside the head)
   const ringing = G(1); ringing.connect(pre);
   // (what is always there, wind and the like, steps back for what is loud)
-  const beds = G(1); beds.connect(mix);
+  const beds = G(1); beds.connect(music);
 
   // the air round about: a burst of noise dying away, duller as it dies, with a few early returns
   const room = ctx.createConvolver(), roomIn = G(1);
@@ -106,6 +109,8 @@ export function createSound({ offline = 0 } = {}) {
     await Promise.all([1, 2, 3, 4, 5].map(async (i) => { try { const r = await fetch(`sfx/step${i}.ogg`); if (r.ok) buffers[`free${i}`] = await ctx.decodeAudioData(await r.arrayBuffer()); } catch { /* none */ } }));
     await Promise.all([1, 2, 3, 4].map(async (i) => { try { const r = await fetch(`sfx/grass${i}.ogg`); if (r.ok) buffers[`soft${i}`] = await ctx.decodeAudioData(await r.arrayBuffer()); } catch { /* none */ } }));
     await Promise.all([1, 2, 3].map(async (i) => { try { const r = await fetch(`sfx/wade${i}.ogg`); if (r.ok) buffers[`wade${i}`] = await ctx.decodeAudioData(await r.arrayBuffer()); } catch { /* none */ } }));
+    const feel = ['ui-click', 'hit-heavy', 'hit-light', 'crit', 'cobble1', 'cobble2', 'cobble3', 'blade', 'draw', 'loose', 'book', 'cloth', 'flask', 'glass', 'mage', 'gun', 'warden', 'chime-common', 'chime-uncommon', 'chime-rare', 'chime-epic', 'chime-mythic', 'bed-meadow', 'bed-town', 'bed-lake'];
+    await Promise.all(feel.map(async (name) => { try { const r = await fetch(`sfx/feel/${name}.ogg`); if (r.ok) buffers[name] = await ctx.decodeAudioData(await r.arrayBuffer()); } catch { /* the tone stands in */ } }));
     // (turned round now, not in the middle of a spell)
     // (said once, where an agent or a person looking will see it; not an error)
     if (!names.length) console.info('Sound: playing with no recordings, only what is made in code. MISSING_ASSETS.md in the repo says what the published game adds and how to get it: node tools/sounds.mjs fetch');
@@ -122,7 +127,7 @@ export function createSound({ offline = 0 } = {}) {
     return back[name];
   };
   /** Plays a recording, if it is there. */
-  function play(name, { at = t(), gain = 1, rate = 1, pan = 0, low = 0, air = 0, hills = 0, to = mix, loop = false, fadeIn = 0, shape = null, rev = false, from = 0, bend = null, high = 0 } = {}) {
+  function play(name, { at = t(), gain = 1, rate = 1, pan = 0, low = 0, air = 0, hills = 0, to = sfx, loop = false, fadeIn = 0, shape = null, rev = false, from = 0, bend = null, high = 0 } = {}) {
     const b = rev ? turned(name) : buffers[name];
     if (!b) return null;
     const s = ctx.createBufferSource(), g = G(gain);
@@ -888,6 +893,7 @@ export function createSound({ offline = 0 } = {}) {
   /** What is under their feet: water, ground a spell froze or burnt, something built, the path, or grass. */
   function underfoot(world, walker) {
     const f = walker.feet, S = world.state, g = world.ground(f.x, f.z);
+    if (world.cobble?.(f.x, f.z)) return 'cobble';
     if (typeof world.wade === 'function' && world.wade(f.x, f.z)) return 'water';
     if (g < world.water + 0.04) return 'water';
     const i = Math.floor((f.x - S.x0) / S.cell), j = Math.floor((f.z - S.z0) / S.cell);
@@ -907,6 +913,8 @@ export function createSound({ offline = 0 } = {}) {
     const o = { at, gain: (0.06 + 0.04 * hard) * (0.75 + 0.4 * R()), rate: 0.82 + 0.36 * R(), pan: 0.12 * foot, air: 0.05 };
     const heard = surface === 'water'
       ? play(`wade${1 + Math.floor(R() * 3)}`, o)
+      : surface === 'cobble'
+        ? play(`cobble${1 + Math.floor(R() * 3)}`, { ...o, gain: o.gain * 0.85 })
       : (surface === 'grass' || surface === 'dirt')
         ? play(`soft${1 + Math.floor(R() * 4)}`, { ...o, low: 2400 })
         : null;
@@ -1000,24 +1008,54 @@ export function createSound({ offline = 0 } = {}) {
     }
     wanderBus.gain.setTargetAtTime(on && !quiet ? 0.5 : 0, t(), 0.5);
   }
-  function chime() {
-    if (quiet) return;
-    const at = t();
-    [523.25, 659.25, 783.99].forEach((f, i) => {
-      const o = O('sine', f);
-      const e = G(0.0001);
-      env(e.gain, at + i * 0.14, [[0, 0.0001], [0.03, 0.06], [0.85, 0.0001]], true);
-      chain(o, e, beds);
-      o.start(at + i * 0.14);
-      o.stop(at + i * 0.14 + 0.95);
-    });
+  const CHIME = { common: 'chime-common', uncommon: 'chime-uncommon', rare: 'chime-rare', epic: 'chime-epic', mythic: 'chime-mythic' };
+  function chime(tier = 'rare') {
+    if (quiet || ctx.state !== 'running') return;
+    const name = CHIME[tier] || CHIME.rare;
+    if (!play(name, { gain: tier === 'mythic' ? 0.42 : 0.28, rate: 1, to: sfx })) {
+      const at = t();
+      [523.25, 659.25, 783.99].forEach((f, i) => {
+        const o = O('sine', f);
+        const e = G(0.0001);
+        env(e.gain, at + i * 0.14, [[0, 0.0001], [0.03, 0.06], [0.85, 0.0001]], true);
+        chain(o, e, music);
+        o.start(at + i * 0.14);
+        o.stop(at + i * 0.14 + 0.95);
+      });
+    }
+  }
+  const CAST = { mage: 'mage', blade: 'blade', gunner: 'gun', summoner: 'book', puppet: 'cloth', warden: 'warden', ranger: 'loose', alchemist: 'flask', draw: 'draw' };
+  function cast(which) {
+    if (quiet || ctx.state !== 'running') return;
+    const name = CAST[which];
+    if (name) play(name, { gain: 0.34, rate: 0.92 + R() * 0.12 });
+  }
+  function hit({ heavy = false, crit = false } = {}) {
+    if (quiet || ctx.state !== 'running') return;
+    if (crit) play('crit', { gain: 0.36 });
+    play(heavy ? 'hit-heavy' : 'hit-light', { gain: heavy ? 0.4 : 0.22, rate: 0.9 + R() * 0.15 });
+  }
+  function ui() {
+    if (quiet || ctx.state !== 'running') return;
+    play('ui-click', { gain: 0.22, rate: 0.96 + R() * 0.08 });
+  }
+  let bedName = '';
+  let bedNode = null;
+  function bed(name) {
+    if (!name || name === bedName || quiet) return;
+    bedName = name;
+    try { bedNode?.stop(); } catch { /* already ended */ }
+    bedNode = play(name, { gain: 0.16, loop: true, to: music, fadeIn: 1.2, low: 1600 });
   }
   return {
     ctx, ready,
     /** The sound card wakes at the first key or click: until then a page may make no sound. */
     wake() { if (!offline && ctx.state !== 'running') ctx.resume(); },
     sleep() { if (!offline && ctx.state === 'running') ctx.suspend(); },
-    get volume() { return volume; }, set volume(v) { volume = v; out.gain.setTargetAtTime(quiet ? 0 : 0.9 * v, t(), 0.03); },
+    get volume() { return volume; }, set volume(v) { volume = v; out.gain.setTargetAtTime(quiet ? 0 : 0.58 * v, t(), 0.03); },
+    set music(v) { music.gain.setTargetAtTime(Math.max(0, v), t(), 0.05); },
+    set sfx(v) { sfx.gain.setTargetAtTime(Math.max(0, v), t(), 0.05); },
+    cast, hit, ui, bed,
     get quiet() { return quiet; }, set quiet(v) { quiet = v; out.gain.setTargetAtTime(v ? 0 : 0.9 * volume, t(), 0.03); if (wanderBus) wanderBus.gain.setTargetAtTime(v ? 0 : wanderBus.gain.value, t(), 0.2); },
     wander, chime,
     cue, stepsAt,

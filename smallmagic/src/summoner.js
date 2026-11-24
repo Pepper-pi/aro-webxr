@@ -138,6 +138,7 @@ export function createSummoner({ scene, world, zones, walker, camera, staff, bea
         if (page.fill >= 1 && !page.kind) {
           page.kind = target.kind;
           zones.toast?.(`${NAMES[target.kind]} caught on a page.`);
+          magic.buzz?.('catch');
         }
       }
     } else if (staff) staff.cast?.('#c9a6ff', spirits.length ? 0.35 : 0.12, 0, 0, dt);

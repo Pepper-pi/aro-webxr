@@ -777,6 +777,7 @@ export function createBeasts(scene, ground, world) {
           const dealt = (again ? m.d * 0.4 : m.d) * addFall * (b.marked && m.hunt ? 1.5 : 1) * brittle;
           b.hp -= dealt;
           b.flash = 0.28;
+          b.flinch = Math.max(b.flinch || 0, dealt >= 12 ? 0.5 : 0.22);
           if (m.k === 'fire') {
             b.burn = Math.max(b.burn, 3.4);
             for (const other of all) {
@@ -802,7 +803,7 @@ export function createBeasts(scene, ground, world) {
           if (!same && shown < 3) {
             shown++;
             b.stack = (b.stack || 0) + 1;
-            onHit?.({ x: b.g.position.x, y: b.g.position.y + 1.2, z: b.g.position.z, n: Math.round(dealt), k: m.k || 'fire', through: again, blast: !!m.blast });
+            onHit?.({ x: b.g.position.x, y: b.g.position.y + 1.2, z: b.g.position.z, n: Math.round(dealt), k: m.k || 'fire', through: again, blast: !!m.blast, heavy: dealt >= 12, hunt: !!(b.marked && m.hunt) });
           }
           if (b.hp <= 0) {
             b.dead = true; b.back = 12; b.stack = 0; b.burn = 0; b.chill = 0; dropAt(b); b.boss = false;

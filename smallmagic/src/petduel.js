@@ -764,14 +764,18 @@ export function createDuel({ scene, world, camera, living }) {
   function raidStep(dt) {
     if (raid.intro > 0) raid.intro = Math.max(0, raid.intro - dt);
     const phase = raid.breathing ? BREAK : LOOP[raid.i];
-    raid.t += dt * (1 - Math.min(0.55, magic.calm?.() || 0));
+    if (raid.snare > 0) raid.snare = Math.max(0, raid.snare - dt);
+    if (raid.lost > 0) raid.lost = Math.max(0, raid.lost - dt);
+    const snared = raid.snare > 0 ? 0.42 : 1;
+    raid.t += dt * snared * (1 - Math.min(0.55, magic.calm?.() || 0));
     const foe = actors.foe;
     const you = playerLocal();
     const from = { x: foe.g.position.x, z: foe.g.position.z };
     lane.visible = false;
     warn.visible = false;
     if (phase.id === 'read' || phase.id === 'charge') {
-      if (!raid.aimed) {
+      if (raid.lost > 0) raid.aimed = false;
+      else if (!raid.aimed) {
         raid.aimed = true;
         raid.aim = { x: you.x, z: you.z };
       }
@@ -964,6 +968,8 @@ export function createDuel({ scene, world, camera, living }) {
     foeSpot() {
       return { x: root.position.x + actors.foe.g.position.x, y: root.position.y + 0.9, z: root.position.z + actors.foe.g.position.z };
     },
+    snareRaid(seconds = 1.2) { if (raid) raid.snare = Math.max(raid.snare || 0, seconds); },
+    smokeRaid(seconds = 2) { if (raid) { raid.lost = Math.max(raid.lost || 0, seconds); raid.aimed = false; } },
     wound(n, x, z) {
       if (!active || n <= 0) return false;
       const spot = { x: root.position.x + actors.foe.g.position.x, z: root.position.z + actors.foe.g.position.z };

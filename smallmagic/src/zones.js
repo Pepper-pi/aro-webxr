@@ -1253,6 +1253,18 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   world.root.add(life);
   let cityAngle = 0;
   const pool = [];
+  const sparks = [];
+  let feel = null;
+  function sparkle(x, y, z) {
+    for (let i = 0; i < 6; i++) {
+      const bit = new THREE.Mesh(new THREE.OctahedronGeometry(0.06, 0), new THREE.MeshBasicMaterial({ color: i % 2 ? '#fff6dc' : '#e7c56a' }));
+      bit.position.set(x + (Math.random() - 0.5) * 0.4, y + 0.2, z + (Math.random() - 0.5) * 0.4);
+      bit.userData.v = new THREE.Vector3((Math.random() - 0.5) * 1.4, 1.2 + Math.random(), (Math.random() - 0.5) * 1.4);
+      bit.userData.life = 0.45;
+      scene.add(bit);
+      sparks.push(bit);
+    }
+  }
   const blasts = [];
   const blastGeo = new THREE.SphereGeometry(0.4, 10, 8);
   enter('hub');
@@ -1378,6 +1390,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     get cityAngle() { return cityAngle; },
     get cityReady() { return Promise.all([canal.ready, ruin.ready]); },
     get town() { return town; },
+    set feel(fn) { feel = fn; },
     showBook,
     stickRod() {
       if (!hold.visible) return;
@@ -1482,7 +1495,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         boom.userData.big = hit.through ? 0.9 : 2.4;
         scene.add(boom);
         blasts.push(boom);
-        const color = hit.k === 'arcane' ? '#d7a6ff' : '#ffb043';
+        const color = hit.hunt ? '#ffe27a' : hit.k === 'arcane' ? '#d7a6ff' : '#ffb043';
         const key = `${hit.n}-${hit.k}`;
         let sprite = pool.find((s) => s.userData.life <= 0);
         if (!sprite) {
@@ -1496,8 +1509,11 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
           sprite.material.map = numeral(String(hit.n), color).material.map;
           sprite.userData.key = key;
         }
-        sprite.userData.life = 0.9;
+        sprite.userData.life = hit.hunt ? 1.15 : 0.9;
+        sprite.userData.rise = hit.heavy ? 2.4 : 1.6;
         sprite.position.set(hit.x, hit.y, hit.z);
+        if (hit.hunt) sparkle(hit.x, hit.y, hit.z);
+        feel?.({ dealt: hit.n, heavy: !!hit.heavy, crit: !!hit.hunt });
         sprite.visible = true;
         sprite.material.opacity = 1;
         const mark = document.getElementById('xmark');
@@ -1574,12 +1590,21 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       for (const s of pool) {
         if (s.userData.life <= 0) continue;
         s.userData.life -= dt;
-        const u = 1 - s.userData.life / 0.9;
-        const pop = u < 0.16 ? 0.45 + (u / 0.16) * 0.95 : 1.4 - (u - 0.16) * 0.28;
-        s.scale.set(1.8 * pop, 0.9 * pop, 1);
-        s.position.y += dt * 1.4;
+        const span = s.userData.rise > 2 ? 1.15 : 0.9;
+        const u = 1 - s.userData.life / span;
+        const pop = u < 0.18 ? 0.35 + (u / 0.18) * 1.35 : 1.7 - (u - 0.18) * 0.45;
+        s.scale.set(2.1 * pop, 1.05 * pop, 1);
+        s.position.y += dt * (s.userData.rise || 1.6);
         s.material.opacity = s.userData.life > 0.28 ? 1 : Math.max(0, s.userData.life / 0.28);
         if (s.userData.life <= 0) s.visible = false;
+      }
+      for (let i = sparks.length - 1; i >= 0; i--) {
+        const bit = sparks[i];
+        bit.userData.life -= dt;
+        bit.position.addScaledVector(bit.userData.v, dt);
+        bit.userData.v.y -= dt * 2.2;
+        bit.scale.setScalar(Math.max(0.05, bit.userData.life * 2));
+        if (bit.userData.life <= 0) { scene.remove(bit); sparks.splice(i, 1); }
       }
       for (let i = blasts.length - 1; i >= 0; i--) {
         const m = blasts[i];
@@ -1808,6 +1833,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
           if (biteIn <= 0) {
             phase = 'bite';
             biteLeft = 5.2;
+            this.buzz?.('bite');
             fight = 0.08;
             dip = 1;
             splashAt(bobber.position.x, bobber.position.z, dusk);

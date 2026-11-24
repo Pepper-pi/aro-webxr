@@ -178,7 +178,7 @@ export function createLiving({ zones } = {}) {
     }
     data.seen[key] = entry;
     write(BOOK, data);
-    if ((extra.shimmer || rarity.shimmer.includes(spec.tier)) && entry.seen === 1) hear?.();
+    if ((extra.shimmer || rarity.shimmer.includes(spec.tier)) && entry.seen === 1) hear?.(extra.tier || spec.tier || 'rare');
     if (extra.defeated) {
       entry.defeated = (entry.defeated || 0) + 1;
       entry.notes.push('Defeated in a pet duel.');
@@ -342,7 +342,7 @@ export function createLiving({ zones } = {}) {
     set weather(v) { weather = v || ''; const data = store(); data.stalls = null; data.quest = null; write(MEM, data); },
     shiftSky(v) { weather = v || ''; },
     set hear(fn) { hear = fn; },
-    chime() { hear?.(); },
+    chime(tier) { hear?.(tier || 'rare'); },
     resetMemory() { const data = store(); data.memory = []; data.quest = null; write(MEM, data); },
   };
 }

@@ -33,6 +33,8 @@ Code MIT. The world and everything in it is made in code by Patch.
 - Hands mode can ask the camera for a prototype tracker. That code is `@mediapipe/tasks-vision` (Apache-2.0), loaded from the network only after the toggle is turned on. It is not stored in this repo. If the camera is refused, the drawn arms stay.
 - Softer meadow steps, `sfx/grass1.ogg` to `grass4.ogg`: Kenney RPG Audio (kenney.nl), CC0 1.0.
 - Water steps, `sfx/wade1.ogg` to `wade3.ogg`: rubberduck, "40 CC0 water / splash / slime SFX" (OpenGameArt), CC0 1.0. Shortened.
+- Class moves, hits, cobble steps, UI clicks, and rarity chimes in `sfx/feel/`: Kenney, CC0 1.0. Impact Sounds (hits, bell, glass, concrete steps), Interface Sounds (clicks, confirmations, bong), RPG Audio (knife, draw, chop, book, cloth, pot), and Digital Audio (phase jump, laser). https://kenney.nl/assets/impact-sounds https://kenney.nl/assets/interface-sounds https://kenney.nl/assets/rpg-audio https://kenney.nl/assets/digital-audio
+- Calm beds `sfx/feel/bed-meadow.ogg`, `bed-town.ogg`, and `bed-lake.ogg`: short loops made from Kenney Digital Audio tones (`lowThreeTone`, `threeTone1`, `highUp`), low-pass filtered. The source tones are CC0 1.0.
 - The published game also plays recordings from the Sonniss GDC Game Audio Bundles (sonniss.com), under their
   licence: free to use in a game, not to pass on as files. They are not part of this game's open licence, and are not
   in its repo: `MISSING_ASSETS.md` there names each one.
