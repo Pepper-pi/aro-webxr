@@ -1136,7 +1136,7 @@ function tickStep(dt, draw) {
     stepInp.look.x = 0;
     stepInp.look.y = 0;
   }
-  walker.update(dt, stepInp);
+  walker.update(frame, stepInp);
   if (xrLive) {
     if (!xrHeld) xrHeld = { x: walker.feet.x, z: walker.feet.z, yaw: walker.yaw };
     renderer.xr.updateCamera(camera);
@@ -1301,7 +1301,14 @@ function tickStep(dt, draw) {
   }
   ar.update(dt, walker, camera, { twister, spells, living });
   wander.update(dt, walker, camera, ar.on);
-  if (zones.name === 'meadow') folk.update(dt, walker, zones.dusk);
+  if (zones.name === 'meadow') {
+    const big = blast.phase === 'fall' || blast.phase === 'boom' || hole.phase === 'open' || hole.phase === 'shut' || twister.phase === 'live' || twister.phase === 'slam';
+    folk.update(dt, walker, zones.dusk, {
+      weather: living.weather,
+      big,
+      pet: pets.root?.visible ? pets.root.position : null,
+    });
+  }
   const petStand = xrLive ? { x: camera.position.x, z: camera.position.z, yaw: walker.yaw } : null;
   pets.update(dt, camera, ar.on ? ar.floorY : null, petStand);
   const xrLine = document.getElementById('xrCheck');
@@ -1336,7 +1343,8 @@ function tickStep(dt, draw) {
   fx.update(dt * pace);
   sound?.update(dt, { blast, hole, twister, ruin, camera, fire, cast: spells?.cast, world, walker });
   if (sound) {
-    const bed = zones.atLake ? 'bed-lake' : (world.cobble?.(walker.feet.x, walker.feet.z) ? 'bed-town' : 'bed-meadow');
+    const night = zones.dusk || new Date().getHours() >= 19 || new Date().getHours() < 6;
+    const bed = zones.atLake ? (night ? 'bed-lake-night' : 'bed-lake') : (world.cobble?.(walker.feet.x, walker.feet.z) ? 'bed-town' : 'bed-meadow');
     sound.bed(bed);
   }
   // (the rim of the spell in hand fills as it is gathered, and stands full while it is poured or held open)

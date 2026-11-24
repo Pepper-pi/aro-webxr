@@ -109,7 +109,7 @@ export function createSound({ offline = 0 } = {}) {
     await Promise.all([1, 2, 3, 4, 5].map(async (i) => { try { const r = await fetch(`sfx/step${i}.ogg`); if (r.ok) buffers[`free${i}`] = await ctx.decodeAudioData(await r.arrayBuffer()); } catch { /* none */ } }));
     await Promise.all([1, 2, 3, 4].map(async (i) => { try { const r = await fetch(`sfx/grass${i}.ogg`); if (r.ok) buffers[`soft${i}`] = await ctx.decodeAudioData(await r.arrayBuffer()); } catch { /* none */ } }));
     await Promise.all([1, 2, 3].map(async (i) => { try { const r = await fetch(`sfx/wade${i}.ogg`); if (r.ok) buffers[`wade${i}`] = await ctx.decodeAudioData(await r.arrayBuffer()); } catch { /* none */ } }));
-    const feel = ['ui-click', 'hit-heavy', 'hit-light', 'crit', 'cobble1', 'cobble2', 'cobble3', 'blade', 'draw', 'loose', 'book', 'cloth', 'flask', 'glass', 'mage', 'gun', 'warden', 'chime-common', 'chime-uncommon', 'chime-rare', 'chime-epic', 'chime-mythic', 'bed-meadow', 'bed-town', 'bed-lake'];
+    const feel = ['ui-click', 'hit-heavy', 'hit-light', 'crit', 'cobble1', 'cobble2', 'cobble3', 'blade', 'draw', 'loose', 'book', 'cloth', 'flask', 'glass', 'mage', 'gun', 'warden', 'chime-common', 'chime-uncommon', 'chime-rare', 'chime-epic', 'chime-mythic', 'bed-meadow', 'bed-town', 'bed-lake', 'bed-lake-night'];
     await Promise.all(feel.map(async (name) => { try { const r = await fetch(`sfx/feel/${name}.ogg`); if (r.ok) buffers[name] = await ctx.decodeAudioData(await r.arrayBuffer()); } catch { /* the tone stands in */ } }));
     // (turned round now, not in the middle of a spell)
     // (said once, where an agent or a person looking will see it; not an error)
@@ -1045,7 +1045,7 @@ export function createSound({ offline = 0 } = {}) {
     if (!name || name === bedName || quiet) return;
     bedName = name;
     try { bedNode?.stop(); } catch { /* already ended */ }
-    bedNode = play(name, { gain: 0.16, loop: true, to: music, fadeIn: 1.2, low: 1600 });
+    bedNode = play(name, { gain: 0.2, loop: true, to: music, fadeIn: 1.6 });
   }
   return {
     ctx, ready,

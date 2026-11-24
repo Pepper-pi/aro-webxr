@@ -58,6 +58,52 @@ function aura(color, lite) {
   return g;
 }
 
+function footTell(color) {
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(0.32, 0.44, 20),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false }),
+  );
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.03;
+  ring.name = 'tell';
+  return ring;
+}
+function propUmbrella() {
+  const g = new THREE.Group();
+  g.name = 'brolly';
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.9, 5), new THREE.MeshLambertMaterial({ color: '#6a5344' }));
+  pole.position.set(0.2, 1.15, 0.04);
+  const cap = new THREE.Mesh(new THREE.ConeGeometry(0.36, 0.16, 8), new THREE.MeshLambertMaterial({ color: '#c45a4a' }));
+  cap.position.set(0.2, 1.6, 0.04);
+  g.add(pole, cap);
+  g.visible = false;
+  return g;
+}
+function propLantern() {
+  const g = new THREE.Group();
+  g.name = 'lantern';
+  const glow = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 5), new THREE.MeshBasicMaterial({ color: '#ffd27a' }));
+  glow.position.set(-0.22, 0.82, 0.08);
+  g.add(glow);
+  g.visible = false;
+  return g;
+}
+function say(sprite, text) {
+  if (!sprite?.material?.map?.image) return;
+  const c = sprite.material.map.image;
+  const g = c.getContext('2d');
+  g.clearRect(0, 0, 128, 64);
+  if (text) {
+    g.fillStyle = 'rgba(20, 12, 28, 0.82)';
+    g.fillRect(8, 8, 112, 48);
+    g.fillStyle = '#fff6dc';
+    g.font = '26px Georgia';
+    g.textAlign = 'center';
+    g.fillText(text, 64, 42);
+  }
+  sprite.material.map.needsUpdate = true;
+  sprite.visible = !!text;
+}
 function plant(color) {
   const g = new THREE.Group();
   const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.35, 5), new THREE.MeshLambertMaterial({ color: '#3d6a34' }));
@@ -158,7 +204,10 @@ export function createFolk({ scene, world, living, zones, phone }) {
       const home = spots[i % spots.length];
       const made = body(seed, 1);
       const node = new THREE.Group();
-      node.add(made.model, emote());
+      const bubble = emote();
+      const brolly = propUmbrella();
+      const lantern = propLantern();
+      node.add(made.model, bubble, brolly, lantern);
       node.position.set(home.x, world.ground(home.x, home.z), home.z);
       node.rotation.y = home.yaw || 0;
       root.add(node);
@@ -166,8 +215,13 @@ export function createFolk({ scene, world, living, zones, phone }) {
         node, mixer: made.mixer, head: made.head, idle: made.idle, walk: made.walk, moving: false, home, seed, rnd,
         pace: 0.65 + rnd() * 0.7,
         look: rnd() * Math.PI * 2,
-        act: ACTS[Math.floor(rnd() * ACTS.length)],
+        act: 'sweep',
+        plan: ['sweep', 'water', 'notice', 'well'].map((_, k) => ['sweep', 'water', 'notice', 'well'][(i + k + (seed % 2)) % 4]),
         t: rnd() * 4,
+        react: '',
+        reactT: 0,
+        waveCool: 2 + rnd() * 3,
+        bubble, brolly, lantern,
         from: home,
         to: spots[(i + 1) % spots.length],
         goal: spots[(i + 1) % spots.length],
@@ -184,8 +238,8 @@ export function createFolk({ scene, world, living, zones, phone }) {
           : (square?.benches?.[0] || spots[0]);
       const made = body(hash(kind), kind === 'lost-kid' ? 0.72 : 1);
       const node = new THREE.Group();
-      node.add(made.model, emote());
-      node.add(aura(TELL[visit.tier] || TELL.rare, phone));
+      const bubble = emote();
+      node.add(made.model, bubble, footTell(TELL[visit.tier] || TELL.rare));
       const x = spot.x + 1.4;
       const z = spot.z + 1.1;
       node.position.set(x, world.ground(x, z), z);
@@ -196,7 +250,7 @@ export function createFolk({ scene, world, living, zones, phone }) {
         look: 0.4,
         act: kind === 'boba-vendor' ? 'read' : kind === 'traveling-bard' ? 'stretch' : 'sit',
         t: 0, from: spot, to: spot, goal: spot, bench: square?.benches?.[0] || spot, stall: square?.stalls?.[0] || spot, well: square?.well || spot, pair: null, inside: 0,
-        tier: visit.tier, id: kind, visitor: true,
+        tier: visit.tier, id: kind, visitor: true, bubble, brolly: null, lantern: null, plan: ['sit'], react: '', reactT: 0, waveCool: 4,
       });
       finds.push({ id: kind, tier: visit.tier, x, z, mesh: node, seen: false, shimmer: true });
     }
@@ -209,7 +263,29 @@ export function createFolk({ scene, world, living, zones, phone }) {
     living.sight(row.id, { where: 'meadow', tier: row.tier, shimmer: !!row.shimmer, ctx: living.context('meadow') });
   }
 
-  function stepPerson(p, dt, walker, dist, dusk) {
+  function spotFor(p, act) {
+    if (act === 'sweep' || act === 'home') return p.home;
+    if (act === 'water') return { x: (p.well?.x || p.home.x) + 1.35, z: (p.well?.z || p.home.z) + 0.4, yaw: p.well?.yaw || 0 };
+    if (act === 'notice') return zones.town?.square?.notice || p.stall || p.home;
+    if (act === 'well' || act === 'chat') return p.well || p.home;
+    return p.home;
+  }
+  function go(p, act) {
+    const spot = spotFor(p, act);
+    if (Math.hypot(spot.x - p.node.position.x, spot.z - p.node.position.z) > 1.1) {
+      p.next = act;
+      p.goal = spot;
+      p.act = 'walk';
+    } else p.act = act;
+    p.t = 0;
+  }
+  function schedule(p, dusk) {
+    const hour = new Date().getHours();
+    if (dusk || hour >= 19 || hour < 6) return 'home';
+    const band = hour < 11 ? 0 : hour < 15 ? 1 : 2;
+    return (p.plan || ['sweep', 'water', 'notice', 'well'])[band] || 'sweep';
+  }
+  function stepPerson(p, dt, walker, dist, dusk, extra, visitor) {
     if (dist > near) return;
     const wantWalk = p.act === 'walk' && p.inside <= 0;
     if (wantWalk !== p.moving) {
@@ -260,39 +336,80 @@ export function createFolk({ scene, world, living, zones, phone }) {
       p.node.scale.y = 1 + Math.sin(performance.now() * 0.004 + p.look) * 0.03;
     } else if (p.act === 'sweep') {
       p.node.rotation.y = (p.home.yaw || 0) + Math.sin(performance.now() * 0.003 * p.pace) * 0.35;
-    } else if (p.act === 'window' || p.act === 'read' || p.act === 'feed') {
-      const face = p.stall || p.home;
-      p.node.rotation.y = (face?.yaw || 0) + p.look * 0.1;
+    } else if (p.act === 'window' || p.act === 'read' || p.act === 'feed' || p.act === 'notice' || p.act === 'water') {
+      const face = p.act === 'water' ? (p.well || p.home) : (p.stall || p.home);
+      p.node.rotation.y = (face?.yaw || 0) + Math.sin(performance.now() * 0.002 + p.look) * 0.2;
+    } else if (p.act === 'home') {
+      p.node.rotation.y = p.home.yaw || 0;
+    } else if (p.act === 'watch' && visitor) {
+      p.node.rotation.y = Math.atan2(visitor.node.position.x - p.node.position.x, visitor.node.position.z - p.node.position.z);
+    } else if (p.act === 'search') {
+      p.node.rotation.y += dt * 0.6;
     }
     if (p.act !== 'sit') p.node.position.y = y;
     p.t += dt;
-    if (dusk && !p.visitor && p.act !== 'gather' && p.next !== 'gather') {
-      p.next = 'gather';
-      p.goal = p.well || p.home;
-      p.act = 'walk';
-      p.t = 0;
+    const rain = extra?.weather === 'rain';
+    if (p.brolly) p.brolly.visible = !!(rain && p.act !== 'home' && p.react !== 'gasp');
+    if (p.lantern) p.lantern.visible = p.act === 'home' || (dusk && p.act === 'walk' && p.next === 'home');
+    if (!p.visitor && p.reactT <= 0) {
+      if (rain && p.seed % 2 === 0) {
+        if (p.duty !== 'eave') { p.duty = 'eave'; go(p, 'home'); }
+      } else {
+        const due = schedule(p, dusk);
+        if (due !== p.duty) { p.duty = due; go(p, due); }
+      }
     }
-    if (p.act !== 'walk' && p.t > 6 + (p.seed % 4) && !p.visitor && !dusk) {
-      p.t = 0;
-      const next = ACTS[Math.floor(p.rnd() * ACTS.length)];
-      const spot = next === 'sit' ? (p.bench || p.home) : (next === 'window' || next === 'read' ? (p.stall || p.home) : null);
-      if (spot && Math.hypot(spot.x - p.node.position.x, spot.z - p.node.position.z) > 1.2) {
-        p.next = next;
-        p.goal = spot;
+    if (p.visitor) {
+      p.node.rotation.z = Math.sin(performance.now() * 0.0015 + p.look) * 0.03;
+    }
+    if (!p.visitor && visitor && p.reactT <= 0 && p.act !== 'walk') {
+      const kind = visitor.id;
+      const line = kind === 'boba-vendor' ? (p.stall || visitor.home) : kind === 'traveling-bard' ? (p.well || visitor.home) : (visitor.home || p.bench);
+      const queue = kind === 'boba-vendor' ? (p.seed % 3) * 0.7 : kind === 'lost-kid' ? 1.2 : 0.8;
+      const gx = line.x + Math.cos(p.seed) * queue;
+      const gz = line.z + Math.sin(p.seed) * queue;
+      if (Math.hypot(gx - p.node.position.x, gz - p.node.position.z) > 1.4) {
+        p.next = kind === 'lost-kid' ? 'search' : 'watch';
+        p.goal = { x: gx, z: gz, yaw: 0 };
         p.act = 'walk';
-      } else p.act = next;
+        p.t = 0;
+      } else if (kind === 'lost-kid') {
+        p.act = 'search';
+        say(p.bubble, '?');
+      } else p.act = 'watch';
     }
-    if (dist < 5 && p.head) {
-      const face = Math.atan2(walker.feet.x - p.node.position.x, walker.feet.z - p.node.position.z);
+    if (extra?.big && dist < 9 && p.react !== 'gasp') {
+      p.react = 'gasp';
+      p.reactT = 1.6;
+      say(p.bubble, '!');
+      const away = Math.atan2(p.node.position.x - walker.feet.x, p.node.position.z - walker.feet.z);
+      p.goal = { x: p.node.position.x + Math.sin(away) * 1.4, z: p.node.position.z + Math.cos(away) * 1.4, yaw: 0 };
+      p.act = 'walk';
+      p.next = p.duty || 'sweep';
+    } else if (dist < 3.4 && p.waveCool <= 0 && p.reactT <= 0 && !p.visitor) {
+      p.react = 'wave';
+      p.reactT = 1.1;
+      p.waveCool = 8;
+      say(p.bubble, 'hi');
+      p.node.rotation.y = Math.atan2(walker.feet.x - p.node.position.x, walker.feet.z - p.node.position.z);
+    }
+    if (p.reactT > 0) {
+      p.reactT -= dt;
+      if (p.reactT <= 0) { p.react = ''; say(p.bubble, ''); }
+    } else if (p.waveCool > 0) p.waveCool -= dt;
+    const pet = extra?.pet;
+    const lookAt = pet && Math.hypot(pet.x - p.node.position.x, pet.z - p.node.position.z) < 6 ? pet : (dist < 5 ? walker.feet : null);
+    if (lookAt && p.head) {
+      const face = Math.atan2(lookAt.x - p.node.position.x, lookAt.z - p.node.position.z);
       const spin = Math.atan2(Math.sin(face - p.node.rotation.y), Math.cos(face - p.node.rotation.y));
-      p.head.rotation.y = THREE.MathUtils.clamp(spin, -0.6, 0.6);
+      p.head.rotation.y = THREE.MathUtils.clamp(spin, -0.7, 0.7);
     } else if (p.head) p.head.rotation.y *= 0.9;
-    if (bubble) bubble.visible = !!p.pair && dist < detail;
+    if (!p.react && p.act !== 'search') bubble.visible = !!p.pair && dist < detail;
   }
 
   return {
     ready,
-    update(dt, walker, dusk) {
+    update(dt, walker, dusk, extra) {
       if (!people.length && finds.length === 0) return;
       for (const row of finds) discover(row, walker);
       for (const b of zones.live?.() || []) {
@@ -301,12 +418,13 @@ export function createFolk({ scene, world, living, zones, phone }) {
         b.noted = true;
         living.sight(b.kind, { where: b.where || 'meadow', tier: b.tier, shimmer: true, ctx: living.context('meadow') });
       }
+      const visitor = people.find((p) => p.visitor);
       const active = [];
       for (const p of people) {
         const dist = Math.hypot(walker.feet.x - p.node.position.x, walker.feet.z - p.node.position.z);
         if (dist > near) continue;
         active.push(p);
-        stepPerson(p, dt, walker, dist, dusk);
+        stepPerson(p, dt, walker, dist, dusk, extra, visitor);
       }
       for (let i = 0; i < active.length; i++) {
         const a = active[i];
