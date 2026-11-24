@@ -121,6 +121,7 @@ scene.add(fx.group);
 say('Raising the walls');
 await turn();
 const ruin = (q.has('noruin') || phone) ? null : await createRuin({ air, meadow: world, scene, fx, say, turn }).catch((e) => { console.warn('no buildings:', e); return null; });
+if (ruin?.mesh) ruin.mesh.visible = false;
 if (ruin) world.blockers = (f) => ruin.block(f);
 lap('ruin');
 const flames = createFlames(air);

@@ -6,6 +6,7 @@ import { createCityBlock } from './cityblock.js';
 import { createCompanion } from './maren.js';
 import { TUNE } from './rider.js';
 import { buildVillage } from './cabins.js';
+import { createTown } from './town.js';
 
 const mat = (color) => new THREE.MeshBasicMaterial({ color });
 const lit = (color) => new THREE.MeshLambertMaterial({ color });
@@ -102,6 +103,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   ruin.root.visible = false;
   scene.add(canal.root, ruin.root);
   const village = buildVillage(world.root, world, air);
+  const town = createTown(world.root, world, { low: detail === 'low' });
   world.blow = (x, z, dx, dz, r) => village.blow(x, z, dx, dz, r);
   world.pound = (x, z, r) => village.pound(x, z, r);
   world.addLoose = (mesh, v, life) => village.addLoose(mesh, v, life);
@@ -1352,6 +1354,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       for (const ctl of Object.values(ctls)) ctl.setDetail(!!low);
       canal.setGlow(!low);
       ruin.setGlow(!low);
+      town.setQuality(!!low);
     },
     marenPose(name) { ctls.maren?.pose(name); },
     set cityAngle(v) { cityAngle = v || 0; },
@@ -1640,6 +1643,10 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         buddyRing.visible = false;
       }
       life.visible = name === 'meadow';
+      if (name === 'meadow') {
+        const into = town.update(dt, walker, dusk);
+        if (into) enter('hub');
+      }
       if (name === 'block') canal.tick(dt);
       if (name === 'ruin') ruin.tick(dt);
       const cityFolk = { sable: [-0.15, -3.5, 0.4], lumen: [0.35, 1.15, -0.5] };

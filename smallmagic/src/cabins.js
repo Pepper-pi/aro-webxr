@@ -33,12 +33,6 @@ function beam(parent, mat, ax, ay, az, bx, by, bz) {
   parent.add(m);
   return m;
 }
-function box(parent, mat, w, h, d, x, y, z) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-  m.position.set(x, y, z);
-  m.castShadow = m.receiveShadow = true;
-  parent.add(m);
-}
 function roof(parent, mat, w, d, h) {
   const run = d / 2 + 0.5;
   for (const side of [-1, 1]) {
@@ -49,33 +43,11 @@ function roof(parent, mat, w, d, h) {
     parent.add(m);
   }
 }
-function windowAt(parent, glow, x, y, z) {
-  const glass = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.4), glow);
-  glass.position.set(x, y, z);
-  parent.add(glass);
-}
-
 function house(parent, mats, o) {
+  // The visible house is the Kenney kit in town.js. This group stays so a storm can still pull a piece loose.
   const g = new THREE.Group();
-  const W = o.w / 2, D = o.d / 2, door = o.door / 2, t = 0.28;
-  box(g, mats.wood, o.w, o.h, t, 0, o.h / 2, -D);
-  box(g, mats.wood, t, o.h, o.d, -W, o.h / 2, 0);
-  box(g, mats.wood, t, o.h, o.d, W, o.h / 2, 0);
-  box(g, mats.wood, (o.w - o.door) / 2, o.h, t, -(W + door) / 2, o.h / 2, D);
-  box(g, mats.wood, (o.w - o.door) / 2, o.h, t, (W + door) / 2, o.h / 2, D);
-  if (o.h > 1.85) box(g, mats.wood, o.door, o.h - 1.75, t, 0, 1.75 + (o.h - 1.75) / 2, D);
-  roof(g, mats.roof, o.w, o.d, o.h);
-  windowAt(g, mats.glow, o.win ?? -o.w * 0.28, o.h * 0.55, D + 0.2);
-  if (o.loft) {
-    const fl = new THREE.Mesh(new THREE.BoxGeometry(o.w - 0.4, 0.1, o.d * 0.55), mats.roof);
-    fl.position.set(0, o.h * 0.55, -o.d * 0.12);
-    g.add(fl);
-  }
-  if (o.bar) {
-    const bar = new THREE.Mesh(new THREE.BoxGeometry(o.w * 0.45, 0.8, 0.4), mats.wood);
-    bar.position.set(-o.w * 0.1, 0.45, -D + 0.6);
-    g.add(bar);
-  }
+  void mats;
+  void o.w;
   g.position.set(o.x, o.y, o.z);
   g.userData.cabin = true;
   parent.add(g);
