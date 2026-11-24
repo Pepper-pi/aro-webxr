@@ -247,6 +247,27 @@ export async function createCompanion(url, opts = {}) {
       herb.rotation.z = -0.5;
       chest.add(herb);
     }
+    if (opts.id === 'lumen') {
+      const cloak = new THREE.Mesh(
+        new THREE.ConeGeometry(0.2, 0.62, 7, 1, true),
+        new THREE.MeshBasicMaterial({ color: '#4a2868', side: THREE.DoubleSide }),
+      );
+      cloak.name = 'lumen-cloak';
+      cloak.position.set(0, -0.08, 0.04);
+      cloak.rotation.x = 0.4;
+      chest.add(cloak);
+      vrm.scene.traverse((o) => {
+        if (o.isMesh && /hair/i.test(o.name || '')) o.scale.y *= 1.22;
+      });
+      const head = vrm.humanoid.getRawBoneNode('head');
+      if (head) {
+        const hood = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), new THREE.MeshBasicMaterial({ color: '#3a2058' }));
+        hood.name = 'lumen-hood';
+        hood.scale.set(1.15, 0.62, 1.05);
+        hood.position.set(0, 0.08, -0.02);
+        head.add(hood);
+      }
+    }
   }
   const relax = (name, x, y, z) => {
     const node = vrm.humanoid.getRawBoneNode(name);

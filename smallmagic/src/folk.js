@@ -84,6 +84,7 @@ export function createFolk({ scene, world, living, zones, phone }) {
     const loader = new GLTFLoader();
     const loaded = await Promise.all(FILES.map((path) => loader.loadAsync(new URL(path, document.baseURI).href).catch(() => null)));
     templates = loaded.filter(Boolean);
+    if (zones.town?.ready) await zones.town.ready;
     spawn();
   })().catch((err) => console.warn('folk', err));
 
@@ -145,9 +146,11 @@ export function createFolk({ scene, world, living, zones, phone }) {
       markFind(mesh, rolled.tier === 'rare' || rolled.tier === 'mythic' ? 'glowwisp' : 'moonherb', rolled.tier, x, z);
     });
     const visit = living.rollSeeded('npc', 'visitor', ctx);
+    const square = zones.town?.square;
     const porches = () => zones.town?.porches || [];
     const doors = porches();
-    const spots = doors.length ? doors : [{ x: -10, z: 33, yaw: 0, y: world.ground(-10, 33) }];
+    const spots = (square?.benches?.length ? [...square.benches, ...(square.stalls || []), square.well].filter(Boolean) : null)
+      || (doors.length ? doors : [{ x: -4, z: 24, yaw: 0, y: world.ground(-4, 24) }]);
     const n = Math.min(cap, Math.max(2, spots.length));
     for (let i = 0; i < n; i++) {
       const seed = hash(`folk|${i}|${ctx.weather}`);
@@ -168,12 +171,17 @@ export function createFolk({ scene, world, living, zones, phone }) {
         from: home,
         to: spots[(i + 1) % spots.length],
         goal: spots[(i + 1) % spots.length],
+        bench: square?.benches?.[i % Math.max(1, square.benches.length)] || home,
+        stall: square?.stalls?.[i % Math.max(1, square.stalls.length)] || home,
+        well: square?.well || home,
         pair: null, inside: 0, tier: 'common',
       });
     }
     if (visit.shimmer) {
       const kind = visit.tier === 'mythic' ? 'lost-kid' : (hash(ctx.weather) % 2 ? 'boba-vendor' : 'traveling-bard');
-      const spot = spots[spots.length - 1] || spots[0];
+      const spot = kind === 'boba-vendor' ? (square?.stalls?.[0] || spots[0])
+        : kind === 'traveling-bard' ? (square?.well || spots[0])
+          : (square?.benches?.[0] || spots[0]);
       const made = body(hash(kind), kind === 'lost-kid' ? 0.72 : 1);
       const node = new THREE.Group();
       node.add(made.model, emote());
@@ -186,8 +194,8 @@ export function createFolk({ scene, world, living, zones, phone }) {
         node, mixer: made.mixer, head: made.head, idle: made.idle, walk: made.walk, moving: false, home: spot, seed: hash(kind), rnd: rngOf(hash(kind)),
         pace: kind === 'lost-kid' ? 0.45 : 0.8,
         look: 0.4,
-        act: kind === 'boba-vendor' ? 'read' : kind === 'traveling-bard' ? 'stretch' : 'window',
-        t: 0, from: spot, to: spot, goal: spot, pair: null, inside: 0,
+        act: kind === 'boba-vendor' ? 'read' : kind === 'traveling-bard' ? 'stretch' : 'sit',
+        t: 0, from: spot, to: spot, goal: spot, bench: square?.benches?.[0] || spot, stall: square?.stalls?.[0] || spot, well: square?.well || spot, pair: null, inside: 0,
         tier: visit.tier, id: kind, visitor: true,
       });
       finds.push({ id: kind, tier: visit.tier, x, z, mesh: node, seen: false, shimmer: true });
@@ -201,7 +209,7 @@ export function createFolk({ scene, world, living, zones, phone }) {
     living.sight(row.id, { where: 'meadow', tier: row.tier, shimmer: !!row.shimmer, ctx: living.context('meadow') });
   }
 
-  function stepPerson(p, dt, walker, dist) {
+  function stepPerson(p, dt, walker, dist, dusk) {
     if (dist > near) return;
     const wantWalk = p.act === 'walk' && p.inside <= 0;
     if (wantWalk !== p.moving) {
@@ -233,26 +241,46 @@ export function createFolk({ scene, world, living, zones, phone }) {
       p.node.position.z += (dz / len) * step;
       p.node.rotation.y = Math.atan2(dx, dz);
       if (len < 0.4) {
-        const back = p.goal === p.to ? p.from : p.to;
-        p.goal = back;
-        p.inside = p.visitor ? 0 : 4 + (p.seed % 5);
-        if (!p.inside) p.act = 'read';
+        if (p.next) {
+          p.act = p.next;
+          p.next = null;
+        } else {
+          const back = p.goal === p.to ? p.from : p.to;
+          p.goal = back;
+          p.act = dusk ? 'gather' : 'read';
+          if (p.act === 'gather') p.goal = p.well || p.goal;
+        }
       }
     } else if (p.act === 'sit') {
       p.node.position.y = y - 0.35;
+      if (p.bench) p.node.rotation.y = p.bench.yaw;
+    } else if (p.act === 'gather') {
+      if (p.well) p.node.rotation.y = Math.atan2(p.well.x - p.node.position.x, p.well.z - p.node.position.z);
     } else if (p.act === 'stretch') {
       p.node.scale.y = 1 + Math.sin(performance.now() * 0.004 + p.look) * 0.03;
     } else if (p.act === 'sweep') {
       p.node.rotation.y = (p.home.yaw || 0) + Math.sin(performance.now() * 0.003 * p.pace) * 0.35;
     } else if (p.act === 'window' || p.act === 'read' || p.act === 'feed') {
-      p.node.rotation.y = (p.home.yaw || 0) + Math.PI + p.look * 0.15;
+      const face = p.stall || p.home;
+      p.node.rotation.y = (face?.yaw || 0) + p.look * 0.1;
     }
     if (p.act !== 'sit') p.node.position.y = y;
     p.t += dt;
-    if (p.act !== 'walk' && p.t > 6 + (p.seed % 4)) {
+    if (dusk && !p.visitor && p.act !== 'gather' && p.next !== 'gather') {
+      p.next = 'gather';
+      p.goal = p.well || p.home;
+      p.act = 'walk';
       p.t = 0;
-      p.act = ACTS[Math.floor(p.rnd() * ACTS.length)];
-      if (p.act === 'walk' && !p.visitor) p.goal = p.home === p.goal ? p.home : p.goal;
+    }
+    if (p.act !== 'walk' && p.t > 6 + (p.seed % 4) && !p.visitor && !dusk) {
+      p.t = 0;
+      const next = ACTS[Math.floor(p.rnd() * ACTS.length)];
+      const spot = next === 'sit' ? (p.bench || p.home) : (next === 'window' || next === 'read' ? (p.stall || p.home) : null);
+      if (spot && Math.hypot(spot.x - p.node.position.x, spot.z - p.node.position.z) > 1.2) {
+        p.next = next;
+        p.goal = spot;
+        p.act = 'walk';
+      } else p.act = next;
     }
     if (dist < 5 && p.head) {
       const face = Math.atan2(walker.feet.x - p.node.position.x, walker.feet.z - p.node.position.z);
@@ -264,7 +292,7 @@ export function createFolk({ scene, world, living, zones, phone }) {
 
   return {
     ready,
-    update(dt, walker) {
+    update(dt, walker, dusk) {
       if (!people.length && finds.length === 0) return;
       for (const row of finds) discover(row, walker);
       for (const b of zones.live?.() || []) {
@@ -278,7 +306,7 @@ export function createFolk({ scene, world, living, zones, phone }) {
         const dist = Math.hypot(walker.feet.x - p.node.position.x, walker.feet.z - p.node.position.z);
         if (dist > near) continue;
         active.push(p);
-        stepPerson(p, dt, walker, dist);
+        stepPerson(p, dt, walker, dist, dusk);
       }
       for (let i = 0; i < active.length; i++) {
         const a = active[i];

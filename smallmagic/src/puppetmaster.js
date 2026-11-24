@@ -109,6 +109,7 @@ export function createPuppetmaster({ scene, world, zones, walker }) {
   let strikeCool = 0;
   let trapCool = 0;
   let taunt = 0;
+  let land = 0;
   const magic = {};
 
   function foeAt() {
@@ -253,12 +254,18 @@ export function createPuppetmaster({ scene, world, zones, walker }) {
         const hz = tank.position.z + Math.cos(tank.rotation.y) * 0.9;
         fighter.visible = true;
         fighter.scale.setScalar(0.25 + u * 0.75);
+        const landY = world.ground(hx, hz);
         fighter.position.set(
           tank.position.x + (hx - tank.position.x) * u,
-          tank.position.y + 1.05 + Math.sin(u * Math.PI) * 1.15,
+          (tank.position.y + 1.05) * (1 - u) + landY * u + Math.sin(u * Math.PI) * 1.05,
           tank.position.z + (hz - tank.position.z) * u,
         );
-        if (pop >= 1) { nest = 'out'; fighter.scale.setScalar(1); }
+        if (pop >= 1) {
+          nest = 'out';
+          fighter.scale.set(1, 0.82, 1);
+          fighter.position.y = landY;
+          land = 0.22;
+        }
       } else if (nest === 'returning') {
         pop = Math.max(0, pop - dt / 0.65);
         const u = pop;
@@ -266,19 +273,25 @@ export function createPuppetmaster({ scene, world, zones, walker }) {
         const hz = tank.position.z + Math.cos(tank.rotation.y) * 0.9;
         fighter.visible = u > 0.02;
         fighter.scale.setScalar(0.25 + u * 0.75);
+        const landY = world.ground(hx, hz);
         fighter.position.set(
           tank.position.x + (hx - tank.position.x) * u,
-          tank.position.y + 1.05 + Math.sin(u * Math.PI) * 0.8,
+          (tank.position.y + 1.05) * (1 - u) + landY * u + Math.sin(u * Math.PI) * 0.7,
           tank.position.z + (hz - tank.position.z) * u,
         );
         if (pop <= 0) { nest = 'in'; fighter.visible = false; }
       } else if (nest === 'out') {
         const tx = foe ? foe.x : tank.position.x + Math.sin(tank.rotation.y) * 1.4;
         const tz = foe ? foe.z : tank.position.z + Math.cos(tank.rotation.y) * 1.4;
-        const fy = world.ground(tx, tz) + 0.9 + Math.sin(performance.now() * 0.004) * 0.08;
         fighter.position.x += (tx - fighter.position.x) * Math.min(1, dt * 2.4);
         fighter.position.z += (tz - fighter.position.z) * Math.min(1, dt * 2.4);
-        fighter.position.y += (fy - fighter.position.y) * Math.min(1, dt * 4);
+        const gy = world.ground(fighter.position.x, fighter.position.z);
+        fighter.position.y += (gy - fighter.position.y) * Math.min(1, dt * 8);
+        if (land > 0) {
+          land = Math.max(0, land - dt);
+          const squash = Math.sin((land / 0.22) * Math.PI);
+          fighter.scale.set(1 + squash * 0.12, 1 - squash * 0.18, 1 + squash * 0.12);
+        } else fighter.scale.set(1, 1, 1);
         const limb = fighter.getObjectByName('limb');
         if (limb) limb.position.z += (0.05 - limb.position.z) * Math.min(1, dt * 4);
       }

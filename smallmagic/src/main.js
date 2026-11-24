@@ -1044,7 +1044,7 @@ function tickStep(dt, draw) {
   }
   ar.update(dt, walker, camera, { twister, spells, living });
   wander.update(dt, walker, camera, ar.on);
-  if (zones.name === 'meadow') folk.update(dt, walker);
+  if (zones.name === 'meadow') folk.update(dt, walker, zones.dusk);
   pets.update(dt, camera, ar.on ? ar.floorY : null);
   street.sky = living.weather;
   world.rain = living.weather === 'rain';

@@ -81,6 +81,8 @@ export function createTown(parent, world, { low = false } = {}) {
   const doors = [];
   const porches = [];
   const glows = [];
+  let square = { well: null, benches: [], stalls: [], notice: null };
+  let noticeNear = false;
   let built = null;
   let quality = low ? 'low' : 'high';
   let cool = 0;
@@ -112,6 +114,132 @@ export function createTown(parent, world, { low = false } = {}) {
     doors.length = 0;
     porches.length = 0;
     glows.length = 0;
+    square = { well: null, benches: [], stalls: [], notice: null };
+  }
+
+  function buildSquare(bag, simple) {
+    const cx = -4;
+    const cz = 24;
+    const y0 = world.ground(cx, cz);
+    const stone = new THREE.MeshLambertMaterial({ color: '#b7aa96' });
+    const wood = new THREE.MeshLambertMaterial({ color: '#6a3a22' });
+    const well = new THREE.Group();
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.16, 8, 18), stone);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.28;
+    const basin = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.22, 16), new THREE.MeshLambertMaterial({ color: '#7eb8c9' }));
+    basin.position.y = 0.16;
+    well.add(ring, basin);
+    const posts = simple ? 0 : 4;
+    for (let i = 0; i < posts; i++) {
+      const a = (i / posts) * Math.PI * 2;
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.7, 0.08), new THREE.MeshLambertMaterial({ color: '#e7c56a' }));
+      post.position.set(Math.cos(a) * 0.95, 0.55, Math.sin(a) * 0.95);
+      well.add(post);
+    }
+    well.position.set(cx, y0, cz);
+    root.add(well);
+    square.well = { x: cx, z: cz, y: y0, yaw: 0 };
+    const stallN = simple ? 2 : 3;
+    for (let i = 0; i < stallN; i++) {
+      const a = (0.4 + i * (Math.PI * 2 / 3));
+      const x = cx + Math.cos(a) * 3.5;
+      const z = cz + Math.sin(a) * 3.5;
+      const y = world.ground(x, z);
+      const yaw = Math.atan2(cx - x, cz - z);
+      put(bag, 'stall-red', x, y, z, yaw, 1, 1, 1);
+      square.stalls.push({ x, z, y, yaw });
+    }
+    const benchN = simple ? 2 : 3;
+    for (let i = 0; i < benchN; i++) {
+      const a = i * (Math.PI * 2 / 3);
+      const x = cx + Math.cos(a) * 2.25;
+      const z = cz + Math.sin(a) * 2.25;
+      const y = world.ground(x, z);
+      const yaw = Math.atan2(cx - x, cz - z);
+      const bench = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.12, 0.34), wood);
+      bench.position.set(x, y + 0.32, z);
+      bench.rotation.y = yaw;
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.28, 0.08), wood);
+      leg.position.set(0.4, -0.16, 0);
+      const leg2 = leg.clone();
+      leg2.position.x = -0.4;
+      bench.add(leg, leg2);
+      root.add(bench);
+      square.benches.push({ x, z, y, yaw });
+    }
+    const lampN = simple ? 2 : 4;
+    for (let i = 0; i < lampN; i++) {
+      const a = Math.PI / 4 + i * (Math.PI * 2 / lampN);
+      const x = cx + Math.cos(a) * 4.5;
+      const z = cz + Math.sin(a) * 4.5;
+      const y = world.ground(x, z);
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 1.5, 6), wood);
+      post.position.set(x, y + 0.75, z);
+      const glow = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), new THREE.MeshBasicMaterial({ color: '#ffd27a' }));
+      glow.position.set(x, y + 1.55, z);
+      root.add(post, glow);
+    }
+    const plantN = simple ? 2 : 4;
+    for (let i = 0; i < plantN; i++) {
+      const a = i * (Math.PI * 2 / plantN) + 0.4;
+      const x = cx + Math.cos(a) * 1.35;
+      const z = cz + Math.sin(a) * 1.35;
+      const y = world.ground(x, z);
+      const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.14, 0.22, 6), new THREE.MeshLambertMaterial({ color: '#8a5a3a' }));
+      pot.position.set(x, y + 0.12, z);
+      const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 5), new THREE.MeshLambertMaterial({ color: '#3d8f4a' }));
+      leaf.position.set(x, y + 0.32, z);
+      root.add(pot, leaf);
+    }
+    const nx = cx + 2.2;
+    const nz = cz - 3.4;
+    const ny = world.ground(nx, nz);
+    const board = new THREE.Group();
+    const plank = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.9, 0.08), wood);
+    plank.position.y = 1.15;
+    const paper = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 0.62), new THREE.MeshBasicMaterial({ color: '#f6ead0' }));
+    paper.position.set(0, 1.18, 0.05);
+    const stand = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.1, 0.08), wood);
+    stand.position.y = 0.55;
+    board.add(plank, paper, stand);
+    board.position.set(nx, ny, nz);
+    board.rotation.y = Math.atan2(cx - nx, cz - nz);
+    board.name = 'square-notice';
+    root.add(board);
+    square.notice = { x: nx, z: nz, y: ny };
+    const tiles = [];
+    const step = simple ? 2.5 : 1.2;
+    const targets = ['cottage', 'keep', 'abbey-a'].map((id) => doors.find((d) => d.id === id)).filter(Boolean);
+    for (const door of targets) {
+      const dx = door.x - cx;
+      const dz = door.z - cz;
+      const len = Math.hypot(dx, dz) || 1;
+      const n = Math.max(2, Math.floor(len / step));
+      for (let i = 1; i < n; i++) {
+        const t = i / n;
+        const x = cx + dx * t;
+        const z = cz + dz * t;
+        tiles.push({ x, z, yaw: Math.atan2(dx, dz) });
+      }
+    }
+    if (tiles.length) {
+      const geo = new THREE.BoxGeometry(0.9, 0.05, 0.55);
+      const mat = new THREE.MeshLambertMaterial({ color: '#c4b49a' });
+      const mesh = new THREE.InstancedMesh(geo, mat, tiles.length);
+      const dummy = new THREE.Object3D();
+      tiles.forEach((tile, i) => {
+        dummy.position.set(tile.x, world.ground(tile.x, tile.z) + 0.03, tile.z);
+        dummy.rotation.set(0, tile.yaw, 0);
+        dummy.scale.set(1, 1, 1);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i, dummy.matrix);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.receiveShadow = true;
+      mesh.frustumCulled = false;
+      root.add(mesh);
+    }
   }
 
   function put(bag, name, x, y, z, yaw, sx, sy, sz) {
@@ -218,6 +346,7 @@ export function createTown(parent, world, { low = false } = {}) {
         }
       } else wing(bag, { ...plot, yaw }, look[plot.id], simple);
     }
+    buildSquare(bag, simple);
     const dummy = new THREE.Object3D();
     for (const [name, spots] of Object.entries(bag)) {
       const src = built[name];
@@ -257,6 +386,7 @@ export function createTown(parent, world, { low = false } = {}) {
     ready,
     doors,
     porches,
+    get square() { return square; },
     setQuality(next) {
       const pick = next ? 'low' : 'high';
       if (pick === quality) return;
@@ -268,6 +398,12 @@ export function createTown(parent, world, { low = false } = {}) {
       if (panes) panes.material.opacity = dusk && quality === 'high' ? 0.85 : 0;
       const playing = document.body.classList.contains('playtest');
       const now = performance.now();
+      if (square.notice && !playing) {
+        const nd = Math.hypot(walker.feet.x - square.notice.x, walker.feet.z - square.notice.z);
+        const close = nd < 1.7;
+        if (close && !noticeNear) { noticeNear = true; return 'board'; }
+        if (!close) noticeNear = false;
+      }
       for (const door of doors) {
         const dist = Math.hypot(walker.feet.x - door.x, walker.feet.z - door.z);
         const near = dist < 3.4;

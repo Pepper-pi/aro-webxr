@@ -1662,7 +1662,8 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       life.visible = name === 'meadow';
       if (name === 'meadow') {
         const into = town.update(dt, walker, dusk);
-        if (into) enter('hub');
+        if (into === 'board') { if (panel?.hidden) showBoard(); }
+        else if (into) enter('hub');
       }
       if (name === 'block') canal.tick(dt);
       if (name === 'ruin') ruin.tick(dt);
