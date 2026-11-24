@@ -250,6 +250,31 @@ const blast = createBlast({ air, world, fx, fire, ruin, scene });
 const hole = createHole({ air, world, fx, fire, ruin, scene });
 const twister = createTwister({ air, world, fx, fire, ruin, scene });
 const spells = staff ? createSpells({ world, air, fx, fire, staff, beam, ruin, blast, hole, twister, camera, walker, dom: renderer.domElement, onSelect: (i) => { if (kit === 'mage') kitBar.select(i); } }) : null;
+duel.bind({
+  walker,
+  hurt(n) {
+    zones.nick(n);
+    const hp = document.getElementById('hp');
+    if (hp) {
+      hp.classList.add('hurt');
+      clearTimeout(hp._t);
+      hp._t = setTimeout(() => hp.classList.remove('hurt'), 280);
+    }
+    if (zones.hearts > 0) return false;
+    zones.setHearts(70);
+    return true;
+  },
+  note(text) { zones.toast(text); },
+  cols: () => world.iceCols || [],
+  marks: () => spells?.marks || [],
+  ignite(x, z, r) { fire.ignite(x, z, r, 0.8); },
+  whirl(p) { twister.begin(p); },
+});
+hexes.onPortal = (h) => {
+  if (playtest) return;
+  zones.enter('meadow');
+  duel.beginRaid(`${h.name} brute`);
+};
 const quest = createQuest({ walker, zones, spells });
 spellsBar.select(spells?.selected ?? 0);
 const discToggle = document.getElementById('discToggle');
@@ -389,6 +414,14 @@ document.getElementById('setX')?.addEventListener('pointerup', (e) => {
   const menu = document.getElementById('menu');
   if (menu) menu.hidden = true;
   if (settingsEl) settingsEl.hidden = true;
+  e.preventDefault();
+  e.stopPropagation();
+});
+document.getElementById('raidTest')?.addEventListener('pointerup', (e) => {
+  if (settingsEl) settingsEl.hidden = true;
+  document.getElementById('menu') && (document.getElementById('menu').hidden = true);
+  zones.enter('meadow');
+  duel.beginRaid('Hex brute');
   e.preventDefault();
   e.stopPropagation();
 });

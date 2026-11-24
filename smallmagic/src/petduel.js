@@ -171,6 +171,39 @@ export function createDuel({ scene, world, camera, living }) {
   foePlane.renderOrder = 5;
 
   let active = false;
+  let raid = null;
+  let raidClear = false;
+  let magic = {};
+  const warn = new THREE.Mesh(new THREE.RingGeometry(0.8, 1.15, 28), new THREE.MeshBasicMaterial({ color: '#ffb043', transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false }));
+  warn.rotation.x = -Math.PI / 2;
+  warn.position.y = 0.06;
+  warn.visible = false;
+  root.add(warn);
+  const lane = new THREE.Mesh(new THREE.BoxGeometry(1, 0.04, 1), new THREE.MeshBasicMaterial({ color: '#e23b32', transparent: true, opacity: 0.55, depthWrite: false }));
+  lane.visible = false;
+  root.add(lane);
+  const patches = [[1.4, -0.6], [-1.2, 1.1]].map(([x, z]) => {
+    const m = new THREE.Mesh(new THREE.CircleGeometry(1.25, 20), new THREE.MeshBasicMaterial({ color: '#ff7a1c', transparent: true, opacity: 0.62, side: THREE.DoubleSide, depthWrite: false }));
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(x, 0.05, z);
+    m.visible = false;
+    root.add(m);
+    return m;
+  });
+  const debris = [];
+  for (let i = 0; i < 5; i++) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.16, 0.22), stone('#8a7560'));
+    m.visible = false;
+    root.add(m);
+    debris.push(m);
+  }
+  const PHASES = [
+    { id: 'read', name: 'Wind-up', dur: 3.6 },
+    { id: 'charge', name: 'Charge', dur: 2.6 },
+    { id: 'breath', name: 'Break', dur: 3.2 },
+    { id: 'embers', name: 'Embers', dur: 4.2 },
+    { id: 'whirl', name: 'Whirl', dur: 4 },
+  ];
   let freeze = false;
   let showBars = false;
   let ai = 1.2;
@@ -360,21 +393,42 @@ export function createDuel({ scene, world, camera, living }) {
     savePet(row);
     actors.pet.level = level;
     actors.pet.xp = row.xp;
-    const entry = won ? living?.defeat?.(foeKind) : living?.sight?.(foeKind, { where: 'duel' });
+    const fromRaid = raidClear;
+    const entry = fromRaid
+      ? living?.sight?.('myth-stag', { where: 'raid', tier: 'mythic', shimmer: true, drop: true, defeated: true })
+      : (won ? living?.defeat?.(foeKind) : living?.sight?.(foeKind, { where: 'duel' }));
+    if (raidClear) raidClear = false;
     if (card) {
       card.hidden = false;
       const result = document.getElementById('petResult');
       const title = document.getElementById('petTitle');
       const xp = document.getElementById('petXp');
       const book = document.getElementById('petBook');
-      if (result) result.textContent = won ? 'Win' : 'Lose';
-      if (title) title.textContent = row.name;
+      if (result) result.textContent = fromRaid ? 'The brute falls. The hex keeps the quiet.' : (won ? 'Win' : 'Lose');
+      if (title) title.textContent = fromRaid ? 'Loot · myth horn' : row.name;
       if (xp) xp.textContent = `+${gain} XP · level ${level}${rose ? ' · level up' : ''}`;
-      if (book) book.textContent = entry ? `Bestiary · ${entry.name} · ${won ? `defeated ${entry.defeated}` : 'seen'}` : 'Bestiary updated';
+      if (book) book.textContent = entry ? `Bestiary · ${entry.name} · ${fromRaid || won ? `defeated ${entry.defeated || 1}` : 'seen'}` : 'Bestiary updated';
     }
     if (hud) hud.hidden = true;
   }
 
+  function beginRaid(title = 'Hex brute') {
+    begin({ foe: 'wolf' });
+    actors.foe.name = title;
+    actors.foe.hp = actors.foe.max = 70;
+    if (!actors.foe.g.userData.baseScale) actors.foe.g.userData.baseScale = actors.foe.g.scale.x || 1;
+    actors.foe.g.scale.setScalar(actors.foe.g.userData.baseScale * 1.45);
+    actors.pet.g.visible = false;
+    if (hud) hud.hidden = true;
+    raid = { i: 0, t: 0, struck: false, lit: false, spun: false, aimed: false, aim: { x: 0, z: 3 } };
+    magic.note?.(`${title} · Wind-up`);
+    if (magic.walker) {
+      const x = root.position.x + 0.2;
+      const z = root.position.z + 4.2;
+      magic.walker.place(x, z, Math.PI);
+      magic.walker.feet.y = world.ground(x, z);
+    }
+  }
   function begin({ foe = 'deer' } = {}) {
     placeArena();
     owned();
@@ -391,6 +445,8 @@ export function createDuel({ scene, world, camera, living }) {
     const face = (a, b) => { a.rotation.y = Math.atan2(b.position.x - a.position.x, b.position.z - a.position.z); };
     face(actors.pet.g, actors.foe.g);
     face(actors.foe.g, actors.pet.g);
+    actors.pet.g.visible = true;
+    if (actors.foe.g.userData.baseScale) actors.foe.g.scale.setScalar(actors.foe.g.userData.baseScale);
     root.visible = true;
     active = true;
     freeze = false;
@@ -432,11 +488,152 @@ export function createDuel({ scene, world, camera, living }) {
     bars();
   }
 
+  function worldOf(local) {
+    return { x: root.position.x + local.x, z: root.position.z + local.z };
+  }
+  function playerLocal() {
+    const w = magic.walker;
+    if (!w) return { x: 0, z: 4 };
+    return { x: w.feet.x - root.position.x, z: w.feet.z - root.position.z };
+  }
+  function iceBlocks(ax, az, bx, bz) {
+    const cols = magic.cols?.() || [];
+    for (const c of cols) {
+        const lx = c.x - root.position.x;
+        const lz = c.z - root.position.z;
+        const dx = bx - ax;
+        const dz = bz - az;
+        const len = Math.hypot(dx, dz) || 1;
+        const t = Math.max(0, Math.min(1, ((lx - ax) * dx + (lz - az) * dz) / (len * len)));
+        const px = ax + dx * t;
+        const pz = az + dz * t;
+      if (Math.hypot(lx - px, lz - pz) < (c.r || 0.4) + 0.35) return true;
+    }
+    return false;
+  }
+  function inLane(you, from, to) {
+    const dx = to.x - from.x;
+    const dz = to.z - from.z;
+    const len2 = dx * dx + dz * dz || 1;
+    const t = Math.max(0, Math.min(1, ((you.x - from.x) * dx + (you.z - from.z) * dz) / len2));
+    return Math.hypot(you.x - (from.x + dx * t), you.z - (from.z + dz * t)) < 0.78;
+  }
+  function layLane(from, to, opacity) {
+    const dx = to.x - from.x;
+    const dz = to.z - from.z;
+    const len = Math.hypot(dx, dz) || 0.2;
+    lane.visible = true;
+    lane.position.set((from.x + to.x) / 2, 0.07, (from.z + to.z) / 2);
+    lane.rotation.set(0, Math.atan2(dx, dz), 0);
+    lane.scale.set(1.5, 1, len);
+    lane.material.opacity = opacity;
+  }
+  function clearMarks() {
+    warn.visible = false;
+    lane.visible = false;
+    patches.forEach((m) => { m.visible = false; });
+    debris.forEach((m) => { m.visible = false; });
+  }
+  function raidDown() {
+    clearMarks();
+    raid = null;
+    actors.pet.g.visible = true;
+    magic.note?.('Down. The brute still stands.');
+    end(false);
+  }
+  function raidWin() {
+    clearMarks();
+    raid = null;
+    raidClear = true;
+    actors.pet.g.visible = true;
+    magic.note?.('The brute falls. The hex keeps the quiet.');
+    end(true);
+  }
+  function raidStep(dt) {
+    const phase = PHASES[raid.i];
+    raid.t += dt;
+    const foe = actors.foe;
+    const you = playerLocal();
+    const from = { x: foe.g.position.x, z: foe.g.position.z };
+    lane.visible = false;
+    warn.visible = false;
+    if (phase.id === 'read' || phase.id === 'charge') {
+      if (!raid.aimed) {
+        raid.aimed = true;
+        raid.aim = { x: you.x, z: you.z };
+      }
+      const hot = phase.id === 'charge';
+      layLane(from, raid.aim, hot ? 0.72 : 0.28 + Math.sin(raid.t * 8) * 0.1);
+      lane.material.color.set(hot ? '#e23b32' : '#ffb043');
+      warn.visible = true;
+      warn.position.set(raid.aim.x, 0.06, raid.aim.z);
+      warn.scale.setScalar(hot ? 1.15 : 1.35);
+      warn.material.color.set(hot ? '#e23b32' : '#ffb043');
+      warn.material.opacity = hot ? 0.8 : 0.4;
+      if (hot && raid.t > 1.6 && !raid.struck) {
+        raid.struck = true;
+        const held = iceBlocks(from.x, from.z, raid.aim.x, raid.aim.z);
+        if (held) magic.note?.('The ice holds the charge.');
+        else if (inLane(you, from, raid.aim) && magic.hurt?.(18)) raidDown();
+      }
+    } else if (phase.id === 'embers') {
+      patches.forEach((m) => { m.visible = true; });
+      if (!raid.lit) {
+        raid.lit = true;
+        for (const m of patches) {
+          const at = worldOf(m.position);
+          magic.ignite?.(at.x, at.z, 1.5);
+        }
+      }
+      for (const m of patches) {
+        if (!raid) break;
+        if (Math.hypot(you.x - m.position.x, you.z - m.position.z) < 1.25 && magic.hurt?.(8 * dt)) raidDown();
+      }
+    } else if (phase.id === 'whirl') {
+      patches.forEach((m) => { m.visible = false; });
+      if (!raid.spun) {
+        raid.spun = true;
+        const at = worldOf({ x: 0, z: 0 });
+        magic.whirl?.({ x: at.x, y: root.position.y + 0.2, z: at.z });
+        debris.forEach((m, i) => {
+          m.visible = true;
+          m.position.set(Math.cos(i * 1.2) * 3.4, 0.25, Math.sin(i * 1.2) * 3.4);
+        });
+      }
+      debris.forEach((m) => {
+        m.position.x += (0 - m.position.x) * Math.min(1, dt * 1.6);
+        m.position.z += (0 - m.position.z) * Math.min(1, dt * 1.6);
+        m.position.y = 0.35 + Math.sin(raid.t * 6 + m.position.x) * 0.22;
+      });
+    }
+    if (!raid) return;
+    for (const m of magic.marks?.() || []) {
+      const dx = root.position.x + from.x - m.x;
+      const dz = root.position.z + from.z - m.z;
+      if (Math.hypot(dx, dz) < (m.r || 1.5)) foe.hp -= (m.d || 8) * dt * 2;
+    }
+    foe.g.lookAt(root.position.x + you.x, foe.g.position.y, root.position.z + you.z);
+    bars();
+    if (foe.hp <= 0 || (phase.id === 'whirl' && raid.t >= phase.dur)) {
+      raidWin();
+      return;
+    }
+    if (raid.t >= phase.dur) {
+      raid.i += 1;
+      raid.t = 0;
+      raid.struck = false;
+      raid.lit = false;
+      raid.aimed = false;
+      magic.note?.(`${foe.name} · ${PHASES[raid.i].name}`);
+    }
+  }
+
   function update(dt) {
     if (!root.visible) return;
     mixers.forEach((m) => m.update(dt));
     if (!active && !freeze) return;
     hitch();
+    if (raid) { raidStep(dt); return; }
     if (freeze) return;
     actors.pet.sta = Math.min(100, actors.pet.sta + dt * 14);
     actors.foe.sta = Math.min(100, actors.foe.sta + dt * 12);
@@ -506,7 +703,8 @@ export function createDuel({ scene, world, camera, living }) {
   });
 
   return {
-    root, begin, pose, update, look, act, end, loading,
+    root, begin, beginRaid, pose, update, look, act, end, loading,
+    bind(next) { magic = { ...magic, ...next }; },
     get active() { return active; },
     get ready() { return ready; },
     get spot() { return root.position; },

@@ -347,7 +347,11 @@ export function createHexes(scene, world, camera, walker, zones) {
       bar.style.width = `${Math.round(u * 100)}%`;
     }
     if (spawns) spawns.textContent = `${h.spawns} ${h.features}`;
-    if (next) next.textContent = t >= 3 ? 'This hex is at its highest tier.' : h.next;
+    const eventEl = document.getElementById('hexEvent');
+    const rewardEl = document.getElementById('hexReward');
+    if (eventEl) eventEl.textContent = h.event ? `Event · ${h.event.name}` : 'No event yet. Stand in the hex.';
+    if (rewardEl) rewardEl.textContent = h.event ? `Reward · ${h.event.reward}` : (t >= 3 ? 'Mythic beacon · raid portal' : 'Clear an event to raise Resonance.');
+    if (next) next.textContent = t >= 3 ? 'Tier III holds a Mythic beacon. Walk into it for the raid.' : h.next;
     openId = h.id;
     if (card) card.hidden = false;
     const quest = document.getElementById('quest');
@@ -499,10 +503,36 @@ export function createHexes(scene, world, camera, walker, zones) {
         r.position.y = world.ground(h.x + r.position.x, h.z + r.position.z) + (t >= 2 ? 0.55 + Math.sin(time * 2 + i) * 0.12 : 0.32);
         r.scale.setScalar(t >= 2 ? 1.35 : 1);
       });
+      if (t >= 2 && !h.extraFlowers) {
+        const extra = new THREE.Group();
+        for (let i = 0; i < 8; i++) {
+          const flower = new THREE.Mesh(new THREE.CircleGeometry(0.1, 6), new THREE.MeshBasicMaterial({ color: i % 2 ? '#fff1a8' : '#f4a0c4', side: THREE.DoubleSide }));
+          const x = -1.6 + (i % 4) * 1.05;
+          const z = 1.5 + Math.floor(i / 4) * 0.9;
+          flower.position.set(x, world.ground(h.x + x, h.z + z) + 0.09, z);
+          flower.rotation.x = -Math.PI / 2;
+          extra.add(flower);
+        }
+        h.node.add(extra);
+        h.extraFlowers = extra;
+      }
+      if (h.extraFlowers) h.extraFlowers.visible = t >= 2;
+      if (t >= 3 && !h.landmark) {
+        const glow = new THREE.Mesh(new THREE.CircleGeometry(1.35, 18), new THREE.MeshBasicMaterial({ color: h.accent, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }));
+        glow.rotation.x = -Math.PI / 2;
+        glow.position.y = 0.08;
+        h.node.add(glow);
+        h.landmark = glow;
+      }
+      if (h.landmark) {
+        h.landmark.visible = t >= 3;
+        h.landmark.material.opacity = 0.4 + Math.sin(time * 2 + h.q) * 0.15;
+      }
       h.motes.forEach((m, i) => {
         const a = time * (0.4 + t * 0.15) + i;
-        const rad = 2 + (i % 4);
+        const rad = 2 + (i % 4) + (t >= 2 ? 0.6 : 0);
         m.position.set(Math.cos(a) * rad, 0.8 + (i % 3) * 0.35 + (t - 1) * 0.4, Math.sin(a) * rad);
+        m.scale.setScalar(t >= 2 ? 1.7 : 1);
         m.visible = true;
       });
       if (h.water) {
@@ -582,6 +612,58 @@ export function createHexes(scene, world, camera, walker, zones) {
         zones?.waveCleared?.();
       }
     }
+    const EV = {
+      surge: { name: 'Rare surge', reward: '+24 Resonance' },
+      boss: { name: 'Mini-boss', reward: '+36 Resonance' },
+      bloom: { name: 'Gather bloom', reward: 'Herb · +18 Resonance' },
+      weather: { name: 'Weather shift', reward: '+16 Resonance' },
+    };
+    if (here && !here.event && (here.cool || 0) <= 0) {
+      const rolled = watch?.rollSeeded?.('beast', here.id, watch.context(here.id)) || { tier: 'common' };
+      let kind = rolled.tier === 'mythic' ? 'boss' : rolled.tier === 'rare' || rolled.tier === 'epic' ? 'surge' : ['bloom', 'weather', 'surge'][(here.q + here.r + 7) % 3];
+      if (!FIGHT[here.id]) kind = (here.q + here.r) % 2 ? 'bloom' : 'weather';
+      here.event = { ...EV[kind], kind, t: 0, tier: rolled.tier };
+      if (kind === 'weather' && watch) {
+        const skies = ['clear', 'rain', 'fog', 'wind'];
+        const now = watch.weather || 'clear';
+        const nextSky = skies[(skies.indexOf(now) + 1) % skies.length];
+        if (watch.shiftSky) watch.shiftSky(nextSky);
+        else watch.weather = nextSky;
+        here.event.reward = `${nextSky} · +16 Resonance`;
+      }
+      if (openId === here.id) paint(here);
+      if (banner) { banner.hidden = false; banner.textContent = `${here.name} · ${here.event.name}`; bannerT = 2.6; }
+      if (kind === 'bloom' && here.herb) here.herb.visible = true;
+      if (kind === 'boss' && FIGHT[here.id] && zones?.beginWave && !here.waved) {
+        here.waved = true;
+        here.wave = zones.beginWave(here, FIGHT[here.id], 1, 1);
+      }
+    } else if (here?.event) {
+      here.event.t += dt;
+      if (here.event.kind === 'surge' && watch && here.event.t > 1 && !here.event.noted) {
+        here.event.noted = true;
+        const kind = (FIGHT[here.id] || ['deer'])[0];
+        watch.sight(kind, { where: here.id, tier: here.event.tier, shimmer: true });
+      }
+      const cleared = here.event.kind === 'boss' ? here.wave?.done : here.event.t >= (here.event.kind === 'bloom' ? 10 : 12);
+      if (cleared) {
+        const gain = here.event.kind === 'boss' ? 36 : here.event.kind === 'surge' ? 24 : here.event.kind === 'bloom' ? 18 : 16;
+        grant(here.id, gain);
+        zones?.toast?.(`${here.event.name} clear · +${gain} Resonance`);
+        here.event = null;
+        here.cool = 28;
+        if (openId === here.id) paint(here);
+      }
+    }
+    for (const h of built) if (h.cool > 0) h.cool = Math.max(0, h.cool - dt);
+    if (here && tier(here) >= 3 && here.beacon?.visible) {
+      const door = Math.hypot(walker.feet.x - here.x, walker.feet.z - here.z);
+      if (door < 2.3 && (here.portalCool || 0) <= 0) {
+        here.portalCool = 8;
+        onPortal?.(here);
+      }
+    }
+    for (const h of built) if (h.portalCool > 0) h.portalCool -= dt;
     if (here) {
       here._acc = (here._acc || 0) + dt;
         if (here._acc > 8) {
@@ -643,6 +725,7 @@ export function createHexes(scene, world, camera, walker, zones) {
 
   let mapFrame = null;
   let watch = null;
+  let onPortal = null;
   function hit(sx, sy) {
     if (!mapFrame) return null;
     const { cx, cz, span, W, H } = mapFrame;
@@ -663,5 +746,6 @@ export function createHexes(scene, world, camera, walker, zones) {
     foe() { return (FIGHT[openId] || ['deer'])[0]; },
     root: ROOT,
     set watch(v) { watch = v; },
+    set onPortal(fn) { onPortal = fn; },
   };
 }

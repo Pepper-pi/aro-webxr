@@ -340,6 +340,7 @@ export function createLiving({ zones } = {}) {
     rollSeeded,
     get weather() { return weatherNow(); },
     set weather(v) { weather = v || ''; const data = store(); data.stalls = null; data.quest = null; write(MEM, data); },
+    shiftSky(v) { weather = v || ''; },
     set hear(fn) { hear = fn; },
     resetMemory() { const data = store(); data.memory = []; data.quest = null; write(MEM, data); },
   };
