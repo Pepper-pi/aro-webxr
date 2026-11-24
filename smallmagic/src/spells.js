@@ -258,42 +258,94 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
   const phoneFx = typeof matchMedia === 'function' && (matchMedia('(pointer: coarse)').matches || innerWidth < 820);
   const scorches = [];
   const blooms = [];
+  const stemGeo = new THREE.PlaneGeometry(0.04, 0.36);
+  const petalGeo = new THREE.PlaneGeometry(0.08, 0.12);
+  const headGeo = new THREE.CircleGeometry(0.07, 5);
+  const FLOWER = ['#ff8cb8', '#fff6e4', '#ffd84d', '#5cb828', '#80d133'];
+  function blot(radius, seed) {
+    const shape = new THREE.Shape();
+    const n = 10;
+    for (let i = 0; i <= n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const wobble = 0.55 + 0.45 * Math.abs(Math.sin(seed * 2.1 + i * 1.7));
+      const x = Math.cos(a) * radius * wobble;
+      const y = Math.sin(a) * radius * wobble * (0.75 + 0.25 * Math.abs(Math.cos(seed + i)));
+      if (i === 0) shape.moveTo(x, y);
+      else shape.lineTo(x, y);
+    }
+    return new THREE.ShapeGeometry(shape);
+  }
+  function dropMark(entry) {
+    entry.mesh.parent?.remove(entry.mesh);
+    entry.mesh.traverse((o) => { if (o.geometry && o.geometry !== stemGeo && o.geometry !== petalGeo && o.geometry !== headGeo) o.geometry.dispose(); });
+    entry.mats?.forEach((m) => m.dispose());
+  }
   function scorch(x, z, radius) {
     const cap = phoneFx ? 4 : 8;
-    while (scorches.length >= cap) {
-      const old = scorches.shift();
-      old.mesh.parent?.remove(old.mesh);
+    while (scorches.length >= cap) dropMark(scorches.shift());
+    const g = new THREE.Group();
+    const seed = Math.random() * 8;
+    const ash = new THREE.MeshBasicMaterial({ color: '#6a3a22', transparent: true, opacity: 0.46, side: THREE.DoubleSide, depthWrite: false });
+    const haze = new THREE.MeshBasicMaterial({ color: '#c46a32', transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false });
+    ash.userData.base = 0.46;
+    haze.userData.base = 0.2;
+    const disc = new THREE.Mesh(blot(radius, seed), ash);
+    const glow = new THREE.Mesh(blot(radius * 1.28, seed + 1.4), haze);
+    disc.rotation.x = glow.rotation.x = -Math.PI / 2;
+    g.add(glow, disc);
+    const flecks = [];
+    const mats = [ash, haze];
+    const n = phoneFx ? 3 : 6;
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * 6.283;
+      const rr = radius * (0.12 + Math.random() * 0.72);
+      const ember = new THREE.MeshBasicMaterial({ color: i % 2 ? '#ffb15a' : '#ff6a2a', transparent: true, opacity: 0.85, depthWrite: false });
+      const f = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.05), ember);
+      f.position.set(Math.cos(a) * rr, 0.08, Math.sin(a) * rr);
+      f.userData.home = f.position.y;
+      g.add(f);
+      flecks.push(f);
+      mats.push(ember);
     }
-    const mesh = new THREE.Mesh(
-      new THREE.CircleGeometry(radius, 20),
-      new THREE.MeshBasicMaterial({ color: '#24140e', transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false }),
-    );
-    mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(x, world.ground(x, z) + 0.045, z);
-    host().add(mesh);
-    scorches.push({ mesh, life: 9, max: 9 });
+    g.position.set(x, world.ground(x, z) + 0.04, z);
+    host().add(g);
+    scorches.push({ mesh: g, life: 9, max: 9, flecks, mats });
   }
   function bloomFlowers(x, z, spread) {
     const cap = phoneFx ? 6 : 14;
     const n = phoneFx ? 3 : 7;
     for (let i = 0; i < n; i++) {
-      while (blooms.length >= cap) {
-        const old = blooms.shift();
-        old.mesh.parent?.remove(old.mesh);
-      }
+      while (blooms.length >= cap) dropMark(blooms.shift());
       const a = Math.random() * 6.283;
-      const r = spread * (0.25 + Math.random() * 0.7);
+      const r = spread * (0.2 + Math.random() * 0.75);
       const px = x + Math.cos(a) * r;
       const pz = z + Math.sin(a) * r;
-      const colors = ['#ff8cb8', '#fff6e4', '#ffd84d', '#5cb828', '#80d133'];
-      const mesh = new THREE.Mesh(
-        new THREE.CircleGeometry(0.16 + Math.random() * 0.1, 6),
-        new THREE.MeshBasicMaterial({ color: colors[i % colors.length], transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }),
-      );
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.position.set(px, world.ground(px, pz) + 0.05, pz);
-      host().add(mesh);
-      blooms.push({ mesh, life: 12, max: 12 });
+      const g = new THREE.Group();
+      const stemMat = new THREE.MeshBasicMaterial({ color: '#3c8f2c', side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false });
+      const petalMat = new THREE.MeshBasicMaterial({ color: FLOWER[i % FLOWER.length], side: THREE.DoubleSide, transparent: true, opacity: 0.92, depthWrite: false });
+      stemMat.userData.base = 0.95;
+      petalMat.userData.base = 0.92;
+      const stem = new THREE.Mesh(stemGeo, stemMat);
+      stem.position.y = 0.18;
+      const stemB = new THREE.Mesh(stemGeo, stemMat);
+      stemB.position.y = 0.18;
+      stemB.rotation.y = Math.PI / 2;
+      g.add(stem, stemB);
+      for (let k = 0; k < 4; k++) {
+        const p = new THREE.Mesh(petalGeo, petalMat);
+        p.position.y = 0.36;
+        p.rotation.y = k * Math.PI / 2;
+        p.rotation.x = 1.05;
+        g.add(p);
+      }
+      const head = new THREE.Mesh(headGeo, petalMat);
+      head.position.y = 0.4;
+      g.add(head);
+      g.position.set(px, world.ground(px, pz), pz);
+      g.rotation.y = Math.random() * 6.283;
+      g.scale.setScalar(0.08);
+      host().add(g);
+      blooms.push({ mesh: g, life: 12, max: 12, phase: Math.random() * 6.28, mats: [stemMat, petalMat] });
     }
   }
   const brands = [];
@@ -669,8 +721,21 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
         for (let i = list.length - 1; i >= 0; i--) {
           const s = list[i];
           s.life -= dt;
-          if (s.mesh.material) s.mesh.material.opacity = Math.max(0, (s.life / s.max) * 0.85);
-          if (s.life <= 0) { s.mesh.parent?.remove(s.mesh); list.splice(i, 1); }
+          const fade = Math.max(0, s.life / s.max);
+          const age = s.max - s.life;
+          if (s.phase != null) {
+            const pop = Math.min(1, age / 0.42);
+            const sway = Math.sin(age * 2.5 + s.phase) * 0.22;
+            s.mesh.scale.setScalar(0.12 + 0.88 * pop);
+            s.mesh.rotation.z = sway;
+            s.mesh.rotation.x = sway * 0.45;
+          }
+          s.mats?.forEach((m) => { if (m.userData.base) m.opacity = fade * m.userData.base; });
+          s.flecks?.forEach((f, k) => {
+            f.position.y = (f.userData.home || 0.08) + Math.sin(age * 7 + k) * 0.035;
+            f.material.opacity = fade * (0.35 + 0.65 * Math.abs(Math.sin(age * 9 + k)));
+          });
+          if (s.life <= 0) { dropMark(s); list.splice(i, 1); }
         }
       }
       for (let i = brands.length - 1; i >= 0; i--) {

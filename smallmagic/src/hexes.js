@@ -30,6 +30,22 @@ const HEXES = [
     next: 'Tier II gilds the stones. Tier III lifts a beacon.' },
 ];
 
+function eventBand(date = new Date()) {
+  const day = date.getFullYear() * 400 + date.getMonth() * 32 + date.getDate();
+  return day * 10 + Math.floor(date.getHours() / 4);
+}
+function mix32(n) {
+  let x = n >>> 0;
+  x = Math.imul(x ^ (x >>> 16), 2246822519);
+  x = Math.imul(x ^ (x >>> 13), 3266489917);
+  return (x ^ (x >>> 16)) >>> 0;
+}
+function eventPicks(list, band) {
+  const count = (mix32(band) % 2) + 1;
+  const order = list.map((h, i) => ({ h, k: mix32(band + i * 97 + (h.q + 8) * 13 + (h.r + 8) * 29) }));
+  order.sort((a, b) => a.k - b.k || a.h.id.localeCompare(b.h.id));
+  return order.slice(0, count).map((o) => o.h);
+}
 function axial(q, r) {
   const x = SIZE * Math.sqrt(3) * (q + r / 2);
   const z = SIZE * 1.5 * r;
@@ -58,6 +74,8 @@ const FIGHT = {
   bloom: ['cow', 'slime'],
   shore: ['crab', 'fish'],
 };
+
+export { eventBand, eventPicks };
 
 export function createHexes(scene, world, camera, walker, zones) {
   const group = new THREE.Group();
@@ -653,10 +671,19 @@ export function createHexes(scene, world, camera, walker, zones) {
       bloom: { name: 'Gather bloom', reward: 'Herb · +18 Resonance' },
       weather: { name: 'Weather shift', reward: '+16 Resonance' },
     };
-    for (const h of built) {
-      if (h.event || (h.cool || 0) > 0) continue;
-      const rolled = watch?.rollSeeded?.('beast', `${h.id}|${h.clears || 0}`, watch?.context?.(h.id)) || { tier: 'common' };
-      let kind = rolled.tier === 'mythic' ? 'boss' : rolled.tier === 'rare' || rolled.tier === 'epic' ? 'surge' : ['bloom', 'weather', 'surge'][(h.q + h.r + 7) % 3];
+    const band = eventBand();
+    const picks = eventPicks(built, band);
+    if (band !== shownBand) {
+      shownBand = band;
+      for (const h of built) {
+        if (h.held != null && h.held !== band) h.held = null;
+        if (h.event && !picks.includes(h) && !(h === here && h.event.live)) h.event = null;
+      }
+    }
+    for (const h of picks) {
+      if (h.event || h.held === band) continue;
+      const rolled = watch?.rollSeeded?.('beast', `${h.id}|${band}`, watch?.context?.(h.id)) || { tier: 'common' };
+      let kind = rolled.tier === 'mythic' ? 'boss' : rolled.tier === 'rare' || rolled.tier === 'epic' ? 'surge' : ['bloom', 'weather', 'surge'][(h.q + h.r + band) % 3];
       if (!FIGHT[h.id]) kind = (h.q + h.r) % 2 ? 'bloom' : 'weather';
       h.event = { ...EV[kind], kind, t: 0, tier: rolled.tier, live: false };
     }
@@ -694,11 +721,10 @@ export function createHexes(scene, world, camera, walker, zones) {
         watch?.chime?.();
         here.event = null;
         here.clears = (here.clears || 0) + 1;
-        here.cool = 28;
+        here.held = band;
         if (openId === here.id) paint(here);
       }
     }
-    for (const h of built) if (h.cool > 0) h.cool = Math.max(0, h.cool - dt);
     if (here && tier(here) >= 3 && here.beacon?.visible) {
       const door = Math.hypot(walker.feet.x - here.x, walker.feet.z - here.z);
       if (door < 2.3 && (here.portalCool || 0) <= 0) {
@@ -768,6 +794,7 @@ export function createHexes(scene, world, camera, walker, zones) {
 
   let mapFrame = null;
   let watch = null;
+  let shownBand = -1;
   let onPortal = null;
   function hit(sx, sy) {
     if (!mapFrame) return null;
