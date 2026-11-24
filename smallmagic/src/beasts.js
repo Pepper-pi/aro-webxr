@@ -208,6 +208,18 @@ function toonTex(hex) {
   return tex;
 }
 
+function swayStill(b) {
+  const gaitT = performance.now() * 0.009 + (b.homeX || 0);
+  if (b.model) {
+    if (b.restY == null) b.restY = b.model.position.y;
+    b.model.position.y = b.restY + Math.sin(gaitT * 1.7) * 0.035;
+  }
+  if (b.faceYaw == null) b.faceYaw = b.g.rotation.y;
+  b.g.rotation.y = b.faceYaw + Math.sin(gaitT * 0.45) * 0.32;
+  b.g.rotation.z = Math.sin(gaitT * 0.8) * 0.05;
+  b.g.scale.y = 1.4 * (1 + Math.sin(gaitT * 1.7) * 0.028);
+}
+
 function plantFeet(b) {
   const model = b.model;
   if (!model) return;
@@ -805,7 +817,9 @@ export function createBeasts(scene, ground, world) {
         const aggro = !!(foe?.fight && fd < 9 && zone === 'meadow');
         if (b.busy && !aggro) {
           b.g.position.y = ground(b.g.position.x, b.g.position.z);
+          const held = !b.clips?.walk && !b.clips?.run;
           if (b.flinch > 0) { b.flinch -= dt; b.g.rotation.z = Math.sin(b.flinch * 40) * 0.25; }
+          else if (held) swayStill(b);
           else b.g.rotation.z = 0;
           continue;
         }
@@ -893,7 +907,12 @@ export function createBeasts(scene, ground, world) {
         const moving = dist > 0.15 || (aggro && fd > 2.3);
         const gaitT = performance.now() * 0.009 + b.homeX;
         const step = moving ? Math.sin(gaitT * 2) : Math.sin(gaitT) * 0.2;
-        b.g.position.y = ground(b.g.position.x, b.g.position.z) + (still && moving ? Math.abs(step) * 0.07 : 0);
+        const breathe = still ? Math.sin(gaitT * 1.7) * 0.03 : 0;
+        b.g.position.y = ground(b.g.position.x, b.g.position.z) + (still && moving ? Math.abs(step) * 0.07 : 0) + (still ? Math.abs(breathe) * 0.35 : 0);
+        if (still && b.model) {
+          if (!moving && !aggro) swayStill(b);
+          else b.faceYaw = Math.atan2(aggro ? fx : dx, aggro ? fz : dz);
+        }
         if (still && (moving || aggro)) {
           b.g.rotation.y = Math.atan2(aggro ? fx : dx, aggro ? fz : dz);
           b.g.rotation.z = step * 0.16;
@@ -941,7 +960,7 @@ export function createBeasts(scene, ground, world) {
           b.flash -= dt;
           b.g.scale.y = 1.4 * (b.clips ? 0.94 : 0.72);
           b.g.position.x += (Math.random() - 0.5) * 0.04;
-        } else b.g.scale.y = 1.4;
+        } else b.g.scale.y = 1.4 * (still ? 1 + Math.sin(gaitT * 1.7) * 0.02 : 1);
         if (b.flinch > 0) b.flinch -= dt;
         const blob = b.g.getObjectByName('blob');
         if (blob) blob.scale.y = 0.72 + Math.sin(performance.now() * 0.004 + b.homeX) * 0.08;

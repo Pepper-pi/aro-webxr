@@ -287,7 +287,7 @@ export async function createWorld({ air, scene, say, turn }) {
           vec3 refl = mix(uSkyLow, uSkyHigh, clamp(reflect(-V, N).y * 1.4, 0.0, 1.0));
           vec3 col = mix(lit(bed, 0.75, 1.0), refl * 1.05, clamp(0.12 + fres * 0.85, 0.0, 1.0));
           // painted streaks of light on it, and where the sun is, glints
-          col += vec3(1.0) * smoothstep(0.6, 0.74, r1 * 0.6 + r2 * 0.4) * 0.07;
+          col += vec3(1.0) * smoothstep(0.6, 0.74, r1 * 0.6 + r2 * 0.4) * 0.12;
           col += uSunCol * smoothstep(0.93, 0.97, aNoise(xz * vec2(3.0, 9.0) + vec2(uNow * 1.1, uNow * 0.3))) * pow(max(dot(reflect(-V, N), uSun), 0.0), 6.0) * 5.0;
           // a pale line where it meets the land
           float foam = 1.0 - smoothstep(0.02, 0.09, depth + (aNoise(xz * 4.0 + uNow * 0.25) - 0.5) * 0.06);

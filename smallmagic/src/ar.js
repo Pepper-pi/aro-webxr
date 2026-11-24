@@ -131,7 +131,7 @@ export function createAR(scene, camera, world, zones) {
     lakeMotes.push(m);
   }
   const butterflies = [];
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < 5; i++) {
     const g = new THREE.Group();
     const wing = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.28), new THREE.MeshBasicMaterial({ color: i % 2 ? '#f2c14e' : '#f4fbff', side: THREE.DoubleSide, transparent: true, opacity: 0.92 }));
     const wingR = wing.clone();
@@ -139,9 +139,11 @@ export function createAR(scene, camera, world, zones) {
     wingR.position.x = -0.22;
     const body = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 5), new THREE.MeshBasicMaterial({ color: '#5a3a28' }));
     body.scale.set(1, 1, 2.2);
-    g.add(wing, wingR, body);
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), new THREE.MeshBasicMaterial({ color: '#fff3c4', transparent: true, opacity: 0.22, depthWrite: false }));
+    g.add(wing, wingR, body, glow);
+    g.scale.setScalar(2.5);
     root.add(g);
-    butterflies.push({ g, wing, wingR, a: i * 0.7, r: 1.3 + (i % 3) * 0.85 });
+    butterflies.push({ g, wing, wingR, a: i * 1.3, r: 1.6 + (i % 3) * 0.55 });
   }
   const groundGlow = new THREE.Mesh(
     new THREE.CircleGeometry(1.35, 24),
@@ -346,14 +348,14 @@ export function createAR(scene, camera, world, zones) {
       );
     });
     butterflies.forEach((b, i) => {
-      const a = t * 0.7 + b.a;
-      const x = walker.feet.x + fx * 1.6 + Math.cos(a) * b.r;
-      const z = walker.feet.z + fz * 1.6 + Math.sin(a) * b.r * 0.6;
-      b.g.position.set(x, world.ground(x, z) + 0.95 + Math.sin(t * 2.2 + i) * 0.28, z);
+      const a = t * 0.32 + b.a;
+      const x = walker.feet.x + fx * 2.2 + Math.cos(a) * b.r;
+      const z = walker.feet.z + fz * 2.2 + Math.sin(a * 0.8) * b.r * 0.7;
+      b.g.position.set(x, world.ground(x, z) + 1.25 + Math.sin(t * 0.9 + i) * 0.22, z);
       b.g.lookAt(walker.feet.x, b.g.position.y, walker.feet.z);
-      const flap = Math.sin(t * 14 + i);
-      b.wing.rotation.y = flap * 0.8;
-      b.wingR.rotation.y = -flap * 0.8;
+      const flap = Math.sin(t * 5.5 + i);
+      b.wing.rotation.y = flap * 0.7;
+      b.wingR.rotation.y = -flap * 0.7;
     });
     groundGlow.position.set(walker.feet.x + fx * 2.1, world.ground(walker.feet.x + fx * 2.1, walker.feet.z + fz * 2.1) + 0.05, walker.feet.z + fz * 2.1);
     groundGlow.material.opacity = 0.16 + Math.sin(t * 2) * 0.06;

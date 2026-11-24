@@ -465,6 +465,18 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   bobber.scale.setScalar(0.55);
   bobber.visible = false;
   scene.add(bobber);
+  const dragon = new THREE.Group();
+  const dBody = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), mat('#3a6a78'));
+  dBody.scale.set(1, 0.45, 2.4);
+  const dWing = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.08), new THREE.MeshBasicMaterial({ color: '#d7fff4', side: THREE.DoubleSide, transparent: true, opacity: 0.7 }));
+  const dWingR = dWing.clone();
+  dWing.position.x = 0.1;
+  dWingR.position.x = -0.1;
+  dragon.add(dBody, dWing, dWingR);
+  dragon.scale.setScalar(2.8);
+  dragon.visible = false;
+  scene.add(dragon);
+  let bobberRip = 0;
 
   scene.add(meadowRing, hub);
   const beasts = createBeasts(scene, (x, z) => world.ground(x, z), world);
@@ -1707,6 +1719,13 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
           if (shotT > 1.1) { shotT = -1; shot.visible = false; }
         }
         stars.position.copy(camera.position);
+        dragon.visible = true;
+        const da = tt * 0.42;
+        dragon.position.set(-50 + Math.cos(da) * 5.2, world.water + 0.9 + Math.sin(tt * 1.3) * 0.1, -39 + Math.sin(da * 0.75) * 2.4);
+        dragon.rotation.y = -da;
+        const flap = Math.sin(tt * 16);
+        dWing.rotation.z = flap * 0.55;
+        dWingR.rotation.z = -flap * 0.55;
         bio.material.uniforms.uNow.value = tt;
         if (dusk) {
           shoreGlow.material.opacity = 0.55 + Math.abs(Math.sin(tt * 2.2)) * 0.4;
@@ -1718,6 +1737,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         fishShade.forEach((s) => { s.visible = false; });
         fly.visible = false;
         wisps.forEach((w) => { w.visible = false; });
+        dragon.visible = false;
       }
       const wantZ = phase === 'aim' ? 0.28 : (phase === 'bite' || phase === 'reel') ? 0.36 : (fishing ? 0.08 : 0);
       fishZoom += (wantZ - fishZoom) * Math.min(1, dt * 2.4);
@@ -1810,6 +1830,10 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
             pos.setXYZ(i, tipW.x + (end.x - tipW.x) * t, tipW.y + (end.y - tipW.y) * t - sag, tipW.z + (end.z - tipW.z) * t);
           }
           pos.needsUpdate = true;
+        }
+        if (bobber.visible) {
+          bobberRip -= dt;
+          if (bobberRip <= 0) { splashAt(bobber.position.x, bobber.position.z, dusk); bobberRip = 0.48; }
         }
         if (bobber.visible && phase !== 'bite') {
           const u = (performance.now() * 0.0007) % 1;
