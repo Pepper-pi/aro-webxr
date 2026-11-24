@@ -48,7 +48,7 @@ import { createAlchemist } from './alchemist.js';
 import { createSummoner } from './summoner.js';
 
 const q = new URLSearchParams(location.search);
-const capture = q.has('capture'), testing = q.has('patch-test');
+const capture = q.has('capture'), testing = q.has('patch-test'), playtest = q.has('playtest');
 if (q.has('shot')) document.body.classList.add('shot');
 const timings = {};
 let mark = performance.now();
@@ -57,7 +57,7 @@ const loading = document.getElementById('loading');
 // The cover is over everything while the meadow is made, and until they begin.
 const title = document.getElementById('title'), bar = document.getElementById('sigil');
 if (capture) title?.remove();
-let shown = true, loaded = false, told = 0.02, begun = capture, paused = false;
+let shown = true, loaded = false, told = 0.02, begun = capture || playtest, paused = false;
 const say = (text) => { told = Math.min(0.95, told + 0.1); if (loading) loading.textContent = text; bar?.style.setProperty('--p', told); };
 const turn = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -339,6 +339,13 @@ try {
   const savedJiggle = localStorage.getItem('aro-jiggle');
   if (savedJiggle === 'off' || savedJiggle === 'soft' || savedJiggle === 'full') settings.jiggle = savedJiggle;
 } catch { /* private mode */ }
+if (playtest) {
+  const qq = q.get('q');
+  if (qq === 'low' || qq === 'high') settings.gfx = qq;
+  const look = (q.get('look') || '').toUpperCase();
+  if (look === 'A' || look === 'B' || look === 'C') settings.look = look;
+  avatar.setTier(settings.gfx === 'low' ? 'Phone' : 'High');
+}
 if (settings.look !== 'B') avatar.setLetter(settings.look);
 avatar.setJiggle(settings.jiggle);
 document.querySelectorAll('[data-gfx]').forEach((b) => b.classList.toggle('on', b.getAttribute('data-gfx') === settings.gfx));
@@ -582,7 +589,21 @@ const warden = createWarden({ scene, camera, world, zones, walker });
 const alchemist = createAlchemist({ scene, camera, world, zones, walker });
 const summoner = createSummoner({ scene, camera, world, zones, walker });
 camera.layers.enable(9);
-let padCast = false, forceDraw = false, chaseDist = 0, greetWho = '', lakeWide = false;
+let padCast = false, forceDraw = false, chaseDist = 0, greetWho = '', greetUntil = 0, lakeWide = false, playFrames = 0;
+const tour = { t: 0, done: false };
+function playMove() {
+  const t = tour.t;
+  const blank = { move: { x: 0, y: 0 }, walk: false, sprint: false, strafe: false, jump: false, look: { x: 0, y: 0 }, zoom: 0, turn: 0, device: 'keyboard', cast: null, spell: 0, pause: false, any: false };
+  if (t < 3 || t >= 56) return blank;
+  if (t < 13) return { ...blank, move: { x: 0, y: 1 }, walk: true, any: true, turn: Math.sin((t - 3) * 0.9) * 0.45 };
+  if (t < 21) return { ...blank, move: { x: 0, y: 1 }, any: true };
+  if (t < 31) {
+    const u = t - 21;
+    return { ...blank, move: { x: 0, y: 1 }, sprint: true, any: true, turn: u < 3.2 ? 0.7 : u < 6.4 ? -0.75 : 0.15 };
+  }
+  if (t < 51) return { ...blank, move: { x: 0, y: 1 }, any: true };
+  return blank;
+}
 let free = null;
 let shaking = 0;
 const blastAt = new THREE.Vector3();
@@ -620,7 +641,7 @@ function pullFollow(from, to) {
     const vv = vx * vx + vz * vz;
     const t = vv > 1e-4 ? Math.min(1, Math.max(0, ((c.x - from.x) * vx + (c.z - from.z) * vz) / vv)) : 0;
     const px = from.x + vx * t, pz = from.z + vz * t;
-    if (Math.hypot(px - c.x, pz - c.z) < c.r + 0.3) span = Math.min(span, Math.max(0.45, t * span - 0.2));
+    if (Math.hypot(px - c.x, pz - c.z) < c.r + 0.3) span = Math.min(span, Math.max(1.65, t * span - 0.2));
   }
   return span;
 }
@@ -640,6 +661,7 @@ function applyFollow(dt) {
   const floor = world.ground(aim.x, aim.z) + 0.4;
   if (aim.y < floor) aim.y = floor;
   const span = pullFollow(look, aim);
+  if (span < 1.65) { walker.look(camera); return; }
   const dir = aim.clone().sub(look);
   const len = dir.length() || 1;
   aim.copy(look).addScaledVector(dir.multiplyScalar(1 / len), span);
@@ -653,8 +675,33 @@ function applyFollow(dt) {
   camera.lookAt(followCam.look);
 }
 
-function tick(dt) {
-  dt = Math.min(dt, 1 / 20);
+function tick(frameDt) {
+  const fixed = playtest;
+  if (fixed) {
+    const prev = tour.t;
+    tour.t += 1 / 30;
+    if (prev < 45 && tour.t >= 45) {
+      walker.yaw += Math.PI;
+      followCam.yaw += Math.PI;
+    }
+  }
+  let budget = fixed ? 1 / 30 : Math.min(Math.max(frameDt || 0, 0), 0.25);
+  const slices = [];
+  while (budget > 1e-4) {
+    const h = Math.min(1 / 15, budget);
+    slices.push(h);
+    budget -= h;
+  }
+  if (!slices.length) slices.push(fixed ? 1 / 30 : 1 / 60);
+  for (let i = 0; i < slices.length; i++) tickStep(slices[i], i === slices.length - 1);
+  if (fixed) {
+    playFrames += 1;
+    const counter = document.getElementById('playframes');
+    if (counter) counter.textContent = String(playFrames);
+  }
+}
+
+function tickStep(dt, draw) {
   // (a blast all but stops time for the instant it lands)
   const pace = clock.pace * blast.pace * hole.pace;
   if (hopCool > 0) hopCool -= dt;
@@ -714,6 +761,7 @@ function tick(dt) {
     const card = document.getElementById('hearthGreet');
     if (who && who !== greetWho && walker.speed < 0.4) {
       greetWho = who;
+      greetUntil = performance.now() + 4000;
       const names = { maren: 'Maren', sable: 'Sable', bram: 'Bram', lumen: 'Lumen' };
       const ctx = { name: names[who] || who, weather: living.weather, dusk: zones.dusk };
       mind.talk(who, '', ctx).then((line) => {
@@ -728,6 +776,7 @@ function tick(dt) {
       greetWho = '';
       card.hidden = true;
     }
+    if (card && !card.hidden && performance.now() > greetUntil) card.hidden = true;
   }
   quest?.update();
   if (inp.any) sound?.wake();
@@ -735,7 +784,17 @@ function tick(dt) {
   const inHub = zones.name === 'hub';
   const mapFollow = !free && !duel.active && !ar.on && !bladeClose && settings.viewBack && zones.name === 'meadow' && !zones.atLake;
   const stepInp = { ...inp, look: { x: inp.look.x, y: inp.look.y }, move: planted ? { x: 0, y: 0 } : inp.move, jump: planted ? false : inp.jump, sprint: planted ? false : inp.sprint };
-  if (mapFollow) {
+  if (stepInp.turn) followCam.yaw -= stepInp.turn * 1.8 * dt;
+  const orbiting = playtest && tour.t >= 31 && tour.t < 39;
+  if (playtest) {
+    settings.viewBack = !(tour.t >= 51 && tour.t < 56);
+    if (tour.t >= 59 && !tour.done) {
+      tour.done = true;
+      const tag = document.getElementById('tourdne');
+      if (tag) tag.hidden = false;
+    }
+  }
+  if (mapFollow && !orbiting) {
     followCam.yaw -= stepInp.look.x;
     followCam.pitch = THREE.MathUtils.clamp(followCam.pitch + stepInp.look.y * 0.85, 0.08, 1.15);
     if (stepInp.zoom) followCam.want = THREE.MathUtils.clamp(followCam.want + stepInp.zoom * 0.38, 1.85, 7.2);
@@ -769,6 +828,8 @@ function tick(dt) {
     const z = Math.max(-5.2, Math.min(5.2, walker.feet.z - fz * dist));
     camera.position.set(x, walker.feet.y + 1.62, z);
     camera.lookAt(walker.feet.x + fx * 1.1, walker.feet.y + 1.05, walker.feet.z + fz * 1.1);
+    const headGap = Math.hypot(camera.position.x - walker.feet.x, camera.position.y - walker.feet.y - 1.5, camera.position.z - walker.feet.z);
+    if (headGap < 0.95) walker.look(camera);
   } else if (zones.atLake && !free && !duel.active) {
     const far = settings.viewBack;
     const dist = far ? 9.2 : 3.3;
@@ -782,6 +843,13 @@ function tick(dt) {
     camera.position.set(-2.35 + Math.sin(a) * 3.4, 1.28, 4.6 - Math.cos(a) * 0.8);
     camera.lookAt(-3.8, 0.72, -8);
   } else if (mapFollow) {
+    if (orbiting) {
+      const u = Math.min(1, (tour.t - 31) / 8);
+      followCam.yaw = walker.yaw + u * (Math.PI / 2);
+      followCam.pitch = 0.7;
+      followCam.want = 3.05;
+      followCam.dist += (3.05 - followCam.dist) * Math.min(1, dt * 2);
+    }
     applyFollow(dt);
   } else if (chasing) {
     const yaw = walker.yaw;
@@ -938,13 +1006,13 @@ function tick(dt) {
     });
     questEl.style.visibility = (open || zones.rodOut) ? 'hidden' : '';
   }
-  if (!q.has('fast') || forceDraw) post.render(scene, camera, hideStaff ? null : staff, SUN);
+  if (draw && (!q.has('fast') || forceDraw)) post.render(scene, camera, hideStaff ? null : staff, SUN);
   forceDraw = false;
 }
 
 // (the measuring tools were written for a figure seen from behind: these are the same handles on one seen from within)
 const head = new THREE.Vector3();
-const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar, wander, living, street, duel, appeal, mind, hexes, hub, ranger, warden, alchemist, avatar,
+const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar, wander, living, street, duel, appeal, mind, hexes, hub, ranger, warden, alchemist, avatar, playtest,
   THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, arms, blade, gun, summoner, tune: TUNE, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
   player: walker,
   follow: { get yaw() { return walker.yaw; }, set yaw(v) { walker.yaw = v; }, get pitch() { return walker.pitch; }, set pitch(v) { walker.pitch = v; }, want: 0, distance: 0, pivot: new THREE.Vector3() },
@@ -1015,10 +1083,35 @@ function run() {
   // (every frame also looks at the window's size itself, in case a resize was ever missed)
   const going = shown && begun && !paused && !capture;
   if (sound && !capture) { if (going) sound.wake(); else sound.sleep(); }
-  renderer.setAnimationLoop(going ? () => { if (innerWidth !== fitW || innerHeight !== fitH) fitView(); const now = performance.now(); tick((now - last) / 1000); last = now; } : null);
+  renderer.setAnimationLoop(going ? () => {
+    if (innerWidth !== fitW || innerHeight !== fitH) fitView();
+    if (playtest) tick(1 / 30);
+    else { const now = performance.now(); tick((now - last) / 1000); last = now; }
+  } : null);
 }
 fitView();
 loaded = true;
+if (playtest) {
+  try {
+    input.override = () => playMove();
+    input.lockable = false;
+    zones.enter('meadow');
+    title?.classList.add('gone');
+    document.getElementById('hint')?.classList.add('off');
+    const greet = document.getElementById('hearthGreet');
+    if (greet) greet.hidden = true;
+    const counter = document.createElement('div');
+    counter.id = 'playframes';
+    counter.textContent = '0';
+    const tag = document.createElement('div');
+    tag.id = 'tourdne';
+    tag.textContent = 'tour done';
+    tag.hidden = true;
+    document.body.append(counter, tag);
+  } catch (err) {
+    console.error('playtest', err);
+  }
+}
 run();
 const hint = document.getElementById('hint');
 if (capture) hint?.remove();
@@ -1038,7 +1131,7 @@ if (!capture) {
     if (begun) return;
     begun = true; byPad = pad;
     title.classList.add('gone'); setTimeout(() => title.remove(), 1400);
-    if (!pad && !testing) dom.requestPointerLock?.()?.catch?.(() => {});
+    if (!pad && !testing && !playtest) dom.requestPointerLock?.()?.catch?.(() => {});
     setTimeout(() => hint.classList.add('faded'), 12000);
     run();
   };
@@ -1053,7 +1146,7 @@ if (!capture) {
   });
   addEventListener('mousedown', () => {
     if (performance.now() - (input.touchAt || 0) < 700) return;
-    useDevice('keys'); if (!begun) start(false); else if (paused) { dom.requestPointerLock?.()?.catch?.(() => {}); setPaused(false); }
+    useDevice('keys'); if (!begun) start(false); else if (paused && !playtest) { dom.requestPointerLock?.()?.catch?.(() => {}); setPaused(false); }
   });
   addEventListener('pointerdown', (e) => {
     if (e.pointerType !== 'touch') return;

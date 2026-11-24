@@ -171,14 +171,17 @@ export function createAppeal(scene, world) {
       row.obj.getWorldPosition(tmp);
       const kick = (tmp.y - row.last.y) * 6 + Math.sin(t * 1.7 + row.loose) * 0.08;
       row.last.copy(tmp);
-      row.v += ((row.rest - row.a) * row.loose - row.v * 3.2 + kick * 4) * dt;
+      const step = Math.min(dt, 1 / 20);
+      row.v += ((row.rest - row.a) * row.loose - row.v * 3.2 + kick * 4) * step;
       row.a += row.v;
+      row.a = Math.max(row.rest - 0.35, Math.min(row.rest + 0.35, row.a));
       row.obj.rotation[row.axis] = row.a;
     }
     for (const pose of poses) {
-      euler.set(Math.sin(t * 0.9 + pose.phase) * 0.045, 0, Math.sin(t * 0.55 + pose.phase) * 0.05);
+      if (!pose.rest) pose.rest = pose.bone.quaternion.clone();
+      euler.set(Math.sin(t * 0.9 + pose.phase) * 0.04, 0, Math.sin(t * 0.55 + pose.phase) * 0.04);
       tilt.setFromEuler(euler);
-      pose.bone.quaternion.multiply(tilt);
+      pose.bone.quaternion.copy(pose.rest).multiply(tilt);
     }
     if (blend.visible) {
       core.rotation.y += dt * 0.8;

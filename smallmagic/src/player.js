@@ -21,6 +21,7 @@ export class Walker {
   update(dt, inp) {
     const w = this.world, f = this.feet;
     this.yaw -= inp.look.x;
+    if (inp.turn) this.yaw -= inp.turn * 1.8 * dt;
     this.pitch = THREE.MathUtils.clamp(this.pitch + inp.look.y, -1.35, 1.35);
     this.turned.set(inp.look.x, inp.look.y);
     // where they mean to go

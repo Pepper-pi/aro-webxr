@@ -49,7 +49,7 @@
       .sheet em { opacity: 0.55; font-style: normal; font-size: 1.4vh; }
 
       /* What they are told of the keys: written low in the picture for the first seconds, with no box round it. */
-      #hint { position: fixed; left: 50%; bottom: 3.6vh; transform: translateX(-50%); color: #f6ead0; font: 1.5vh/1.4 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif; letter-spacing: 0.16em; text-transform: uppercase; text-align: center; width: max-content; max-width: 86vw;
+      #hint { position: fixed; left: 50%; bottom: max(96px, calc(env(safe-area-inset-bottom) + 84px)); transform: translateX(-50%); color: #f6ead0; font: 1.5vh/1.4 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif; letter-spacing: 0.16em; text-transform: uppercase; text-align: center; width: max-content; max-width: 86vw; z-index: 6; pointer-events: none;
         text-shadow: 0 0 0.7vh rgba(8, 5, 20, 0.95), 0 0 0.3vh rgba(8, 5, 20, 0.9), 0 0.1vh 0.2vh rgba(8, 5, 20, 0.9); transition: opacity 2s; pointer-events: none; }
       #hint.faded { opacity: 0; }
       #touch { position: fixed; inset: 0; z-index: 6; pointer-events: none; }
@@ -144,7 +144,11 @@
       #hp.hurt { color: #ff7a7a; }
       #hearthUse { position: fixed; left: 50%; bottom: 18%; transform: translateX(-50%); z-index: 8; }
       #buddySay { position: fixed; left: 50%; top: 18%; transform: translateX(-50%); z-index: 8; color: #fff6dc; font: 600 16px Georgia, serif; text-shadow: 0 1px 2px #000; pointer-events: none; }
-      #hearthGreet { position: fixed; left: 50%; top: 12%; transform: translateX(-50%); z-index: 18; width: min(420px, 88vw); padding: 12px 14px; border-radius: 16px; background: rgba(236, 242, 248, 0.92); color: #1c2430; border: 1px solid rgba(255,255,255,0.8); box-shadow: 0 8px 16px rgba(20,28,36,0.16); backdrop-filter: blur(8px); font: 15px/1.4 Georgia, serif; }
+      #hearthGreet { position: fixed; left: 50%; top: 12%; transform: translateX(-50%); z-index: 6; width: min(420px, 88vw); padding: 12px 14px; border-radius: 16px; background: rgba(236, 242, 248, 0.92); color: #1c2430; border: 1px solid rgba(255,255,255,0.8); box-shadow: 0 8px 16px rgba(20,28,36,0.16); backdrop-filter: blur(8px); font: 15px/1.4 Georgia, serif; pointer-events: none; }
+      #atlas { z-index: 22; }
+      #playframes, #tourdne { position: fixed; z-index: 30; pointer-events: none; color: #fff6dc; font: 12px/1.2 ui-monospace, monospace; text-shadow: 0 1px 2px #000; }
+      #playframes { left: 8px; bottom: 8px; }
+      #tourdne { left: 50%; top: 18%; transform: translateX(-50%); padding: 8px 12px; border-radius: 999px; background: rgba(20, 12, 28, 0.82); border: 1px solid #f1d9a4; font: 16px Georgia, serif; }
       #hearthGreet[hidden] { display: none; }
       #hearthGreet .meta { letter-spacing: 0.12em; text-transform: uppercase; color: #6a5a3a; font-size: 12px; margin: 0 0 4px; }
       #cards { position: fixed; left: 50%; top: 30%; transform: translateX(-50%); z-index: 9; display: flex; gap: 8px; }

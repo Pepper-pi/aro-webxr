@@ -127,7 +127,21 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   const destTag = labelSprite('Meadow');
   destTag.position.y = 0.7;
   hubRing.add(destTag);
-  hub.add(hubRing);
+  hubRing.scale.setScalar(1.7);
+  destTag.scale.set(1 / 1.7, 1 / 1.7, 1);
+  const gate = new THREE.Group();
+  gate.position.copy(hubRing.position);
+  const glowMat = new THREE.MeshBasicMaterial({ color: '#ffe7a8' });
+  const postL = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.85, 0.14), glowMat);
+  postL.position.set(-0.95, 0.92, 0);
+  const postR = postL.clone();
+  postR.position.x = 0.95;
+  const lintel = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.14, 0.16), glowMat);
+  lintel.position.y = 1.84;
+  const veil = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.75), new THREE.MeshBasicMaterial({ color: '#fff3c4', transparent: true, opacity: 0.34, side: THREE.DoubleSide, depthWrite: false }));
+  veil.position.y = 0.92;
+  gate.add(postL, postR, lintel, veil);
+  hub.add(hubRing, gate);
   const friend = (tunic, x, z, yaw) => {
     const g = new THREE.Group();
     const cloth = mat(tunic);
@@ -1575,8 +1589,16 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       if (atlas && !atlas.hidden) drawMap();
       const gate = name === 'hub' ? hubRing.position : meadowRing.position;
       const d = Math.hypot(walker.feet.x - gate.x, walker.feet.z - gate.z);
-      if (d > 2.15) leftRing = true;
-      if (leftRing && performance.now() >= armUntil && d < 0.95) enter(name === 'hub' ? dest : 'hub');
+      if (name === 'hub') {
+        const fromMiddle = Math.hypot(walker.feet.x, walker.feet.z);
+        if (fromMiddle > 4.05 && walker.feet.x < -0.6 && d > 0.3) {
+          walker.feet.x += ((gate.x - walker.feet.x) / d) * 1.6 * dt;
+          walker.feet.z += ((gate.z - walker.feet.z) / d) * 1.6 * dt;
+        }
+      }
+      if (d > 2.4) leftRing = true;
+      const reach = name === 'hub' ? 1.65 : 0.95;
+      if (leftRing && performance.now() >= armUntil && d < reach) enter(name === 'hub' ? dest : 'hub');
       you.visible = name === 'hub' || buddyBody.visible || (showMage && name === 'meadow');
       if (you.visible) {
         const y = name === 'hub' ? 0 : world.ground(walker.feet.x, walker.feet.z);
@@ -1595,7 +1617,11 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         buddyBody.position.x += (backX - buddyBody.position.x) * Math.min(1, dt * 3);
         buddyBody.position.z += (backZ - buddyBody.position.z) * Math.min(1, dt * 3);
         buddyBody.position.y = world.ground(buddyBody.position.x, buddyBody.position.z);
-        buddyBody.lookAt(walker.feet.x, buddyBody.position.y, walker.feet.z);
+        buddyBody.rotation.x = 0;
+        buddyBody.rotation.z = 0;
+        const face = Math.atan2(walker.feet.x - buddyBody.position.x, walker.feet.z - buddyBody.position.z);
+        const spin = Math.atan2(Math.sin(face - buddyBody.rotation.y), Math.cos(face - buddyBody.rotation.y));
+        buddyBody.rotation.y += spin * 0.15;
         buddyT -= dt;
         if (buddyT <= 0 && buddySay) {
           buddyT = 7;
@@ -1656,7 +1682,11 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
           const bob = Math.sin(time * 1.6 + home[0]) * 0.03;
           const d = Math.hypot(walker.feet.x - p.g.position.x, walker.feet.z - p.g.position.z);
           if (d < 2.2) {
-            p.g.lookAt(walker.feet.x, 0, walker.feet.z);
+            p.g.rotation.x = 0;
+            p.g.rotation.z = 0;
+            const face = Math.atan2(walker.feet.x - p.g.position.x, walker.feet.z - p.g.position.z);
+            const spin = Math.atan2(Math.sin(face - p.g.rotation.y), Math.cos(face - p.g.rotation.y));
+            if (d > 0.45) p.g.rotation.y += spin * 0.18;
             p.mark.visible = true;
             nearPal = p;
             nearId = p.id;

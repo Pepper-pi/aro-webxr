@@ -16,7 +16,7 @@ export class Input {
     const typing = () => document.activeElement?.tagName === 'INPUT';
     const down = (e) => {
       if (typing()) return;
-      if (['Space', 'ArrowUp', 'ArrowDown', 'Tab', 'AltLeft', 'AltRight'].includes(e.code)) e.preventDefault();
+      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'AltLeft', 'AltRight'].includes(e.code)) e.preventDefault();
       if (!this.keys.has(e.code)) this.pressed.add(e.code);
       this.keys.add(e.code);
       if (e.code === 'CapsLock') this.walkToggle = !this.walkToggle;
@@ -60,6 +60,7 @@ export class Input {
   read(dt) {
     if (this.override) return this.override(dt);
     const k = this.keys;
+    const turn = (k.has('ArrowRight') ? 1 : 0) - (k.has('ArrowLeft') ? 1 : 0);
     let x = (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0);
     let y = (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0);
     let len = Math.hypot(x, y);
@@ -71,6 +72,7 @@ export class Input {
       strafe: (this.mouse.right && document.pointerLockElement === this.el) || k.has('KeyF'),
       jump: this.pressed.has('Space'),
       look: { x: this.mouse.x * this.sensitivity, y: this.mouse.y * this.sensitivity },
+      turn,
       zoom: this.mouse.wheel,
       device: 'keyboard',
       // (from a pad only: the cast held, a step to the next spell or the last, pause pressed, any button down)
