@@ -1,6 +1,7 @@
 // The player on the map. AvatarSample A, B, or C, re-encoded from the VRoid Hub originals.
 // High is capped at 2048. Phone is capped at 512. These files are not CC0.
 import * as THREE from 'three';
+import { driveLocomotion, loadLocomotion, retargetPose } from './locomotion.js';
 
 const LETTERS = ['A', 'B', 'C'];
 const _euler = new THREE.Euler();
@@ -44,6 +45,10 @@ export function createAvatar(scene, { phone = false, world = null } = {}) {
   let vrm = null;
   let bones = {};
   let rest = {};
+  let restWorld = {};
+  let motion = null;
+  let motionFailed = false;
+  const motionP = loadLocomotion().then((clip) => { motion = clip; return clip; }).catch((err) => { console.warn('motion', err); motionFailed = true; return null; });
   let phase = 0;
   let ease = 0;
   let turn = 0;
@@ -68,6 +73,8 @@ export function createAvatar(scene, { phone = false, world = null } = {}) {
       if (!node) continue;
       bones[name] = node;
       rest[name] = node.quaternion.clone();
+      restWorld[name] = node.getWorldQuaternion(new THREE.Quaternion());
+      if (name === 'hips') node.userData.restY = node.position.y;
     }
   }
 
@@ -180,7 +187,7 @@ export function createAvatar(scene, { phone = false, world = null } = {}) {
     vrm = next;
     group.add(root);
     captureRest();
-    dropArms();
+    if (motionFailed) dropArms();
     tuneSprings();
     ready.current = vrm;
   }
@@ -251,6 +258,72 @@ export function createAvatar(scene, { phone = false, world = null } = {}) {
     puff.scale.setScalar(0.4);
     puff.material.opacity = 0.42;
   }
+  const locks = { left: null, right: null };
+  const footW = new THREE.Vector3();
+  const pole = new THREE.Vector3();
+  const goal = new THREE.Vector3();
+  function solveLeg(upper, lower, foot, goalWorld, poleWorld) {
+    if (!upper || !lower || !foot) return;
+    upper.updateWorldMatrix(true, true);
+    const hip = new THREE.Vector3();
+    const knee = new THREE.Vector3();
+    const end = new THREE.Vector3();
+    upper.getWorldPosition(hip);
+    lower.getWorldPosition(knee);
+    foot.getWorldPosition(end);
+    const len1 = Math.max(0.05, hip.distanceTo(knee));
+    const len2 = Math.max(0.05, knee.distanceTo(end));
+    const parent = upper.parent;
+    if (!parent) return;
+    parent.updateWorldMatrix(true, false);
+    const inv = new THREE.Matrix4().copy(parent.matrixWorld).invert();
+    const aim = goalWorld.clone().applyMatrix4(inv).sub(upper.position);
+    const dist = THREE.MathUtils.clamp(aim.length() || 0.001, Math.abs(len1 - len2) + 0.001, len1 + len2 - 0.001);
+    aim.setLength(dist);
+    const poleL = poleWorld.clone().applyMatrix4(inv).sub(upper.position);
+    const z = aim.clone().normalize();
+    const x = new THREE.Vector3().crossVectors(poleL, z);
+    if (x.lengthSq() < 1e-8) x.set(1, 0, 0);
+    x.normalize();
+    const y = new THREE.Vector3().crossVectors(z, x).normalize();
+    const cosHip = THREE.MathUtils.clamp((len1 * len1 + dist * dist - len2 * len2) / (2 * len1 * dist), -1, 1);
+    const kneeDir = z.multiplyScalar(Math.cos(Math.acos(cosHip))).addScaledVector(y, Math.sin(Math.acos(cosHip)));
+    const axis = lower.position.clone();
+    if (axis.lengthSq() < 1e-8) return;
+    axis.normalize();
+    upper.quaternion.setFromUnitVectors(axis, kneeDir);
+    upper.updateWorldMatrix(true, true);
+    const invUpper = new THREE.Matrix4().copy(upper.matrixWorld).invert();
+    const toFoot = goalWorld.clone().applyMatrix4(invUpper).sub(lower.position);
+    if (toFoot.lengthSq() < 1e-8) return;
+    toFoot.normalize();
+    const footAxis = foot.position.clone();
+    if (footAxis.lengthSq() < 1e-8) return;
+    footAxis.normalize();
+    lower.quaternion.setFromUnitVectors(footAxis, toFoot);
+  }
+  function lockFeet(walker) {
+    if (tier === 'Phone' || !motion || !world?.ground) return;
+    const fx = Math.sin(walker.yaw);
+    const fz = Math.cos(walker.yaw);
+    for (const side of ['left', 'right']) {
+      const upper = bones[`${side}UpperLeg`];
+      const lower = bones[`${side}LowerLeg`];
+      const foot = bones[`${side}Foot`];
+      if (!foot) continue;
+      foot.updateWorldMatrix(true, false);
+      foot.getWorldPosition(footW);
+      const gy = world.ground(footW.x, footW.z);
+      const height = footW.y - gy;
+      if (locks[side] && (height > 0.12 || footW.distanceTo(locks[side]) > 0.22)) locks[side] = null;
+      if (!locks[side] && height < 0.07 && walker.grounded && walker.speed > 0.3) locks[side] = new THREE.Vector3(footW.x, gy + 0.02, footW.z);
+      if (!locks[side] || footW.distanceTo(locks[side]) > 0.22) continue;
+      locks[side].y = world.ground(locks[side].x, locks[side].z) + 0.02;
+      goal.copy(locks[side]);
+      pole.set(goal.x + fx, goal.y + 0.6, goal.z + fz);
+      solveLeg(upper, lower, foot, goal, pole);
+    }
+  }
   function plantFeet() {
     if (!world?.ground || !bones.leftFoot || !bones.rightFoot) return;
     group.updateMatrixWorld(true);
@@ -260,8 +333,10 @@ export function createAvatar(scene, { phone = false, world = null } = {}) {
     bones.rightFoot.getWorldPosition(footB);
     const gA = world.ground(footA.x, footA.z);
     const gB = world.ground(footB.x, footB.z);
-    const sink = Math.min(footA.y - gA, footB.y - gB);
-    group.position.y -= THREE.MathUtils.clamp(sink, -0.14, 0.16);
+    if (tier === 'Phone' || !motion) {
+      const sink = Math.min(footA.y - gA, footB.y - gB);
+      group.position.y -= THREE.MathUtils.clamp(sink, -0.14, 0.16);
+    }
     const step = Math.sin(phase * Math.PI * 2);
     if (world.pathAt && walkerSpeed > 1.2) {
       if (prevStep <= 0 && step > 0 && world.pathAt(footA.x, footA.z) > 0.42) puffAt(footA.x, gA, footA.z);
@@ -289,6 +364,7 @@ export function createAvatar(scene, { phone = false, world = null } = {}) {
     get tier() { return tier; },
     get jiggle() { return jiggle; },
     get ready() { return !!ready.current; },
+    get clips() { return !!motion; },
     whenReady: pending,
     setLetter(next) {
       const pick = LETTERS.includes(next) ? next : 'B';
@@ -312,7 +388,12 @@ export function createAvatar(scene, { phone = false, world = null } = {}) {
       group.position.set(walker.feet.x, walker.feet.y, walker.feet.z);
       group.rotation.y = walker.yaw;
       walkerSpeed = walker.speed || 0;
-      gait(dt, walker);
+      if (motionFailed && bones.hips && !bones.hips.userData.fell) { dropArms(); bones.hips.userData.fell = 1; }
+      if (motion) {
+        driveLocomotion(motion, walkerSpeed, dt);
+        retargetPose(motion, bones, rest, restWorld);
+        lockFeet(walker);
+      } else gait(dt, walker);
       plantFeet();
       stepSprings(dt);
       stepMaterials(dt);
