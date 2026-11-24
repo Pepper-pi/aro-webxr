@@ -105,8 +105,20 @@ const _src = new THREE.Quaternion();
 const _dst = new THREE.Quaternion();
 const _parent = new THREE.Quaternion();
 const _fix = new THREE.Quaternion();
+const _delta = new THREE.Quaternion();
+const _euler = new THREE.Euler(0, 0, 0, 'XYZ');
+// Jog leans about 6°. Sprint is authored at about 23° and, on the folded-knee frame, that reads as a squat.
+const PELVIS_PITCH = 8 * Math.PI / 180;
 
 export function retargetPose(motion, bones, restLocal, restWorld) {
+  const pelvis = motion.byName.pelvis;
+  const pelvisRest = motion.restLocal.pelvis;
+  if (pelvis && pelvisRest) {
+    _delta.copy(pelvisRest).invert().multiply(pelvis.quaternion);
+    _euler.setFromQuaternion(_delta, 'XYZ');
+    _euler.x = THREE.MathUtils.clamp(_euler.x, -PELVIS_PITCH, PELVIS_PITCH);
+    pelvis.quaternion.copy(pelvisRest).multiply(_fix.setFromEuler(_euler));
+  }
   motion.root.updateMatrixWorld(true);
   for (const [src, name] of motion.map) {
     const from = motion.byName[src];
@@ -120,7 +132,6 @@ export function retargetPose(motion, bones, restLocal, restWorld) {
     to.updateMatrixWorld(true);
   }
   const hips = bones.hips;
-  const pelvis = motion.byName.pelvis;
   if (hips && pelvis) {
     const bob = THREE.MathUtils.clamp(pelvis.position.y - motion.pelvisRest, -0.07, 0.08);
     hips.position.y = (hips.userData.restY ?? hips.position.y) + bob;

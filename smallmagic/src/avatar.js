@@ -260,6 +260,7 @@ export function createAvatar(scene, { phone = false, world = null } = {}) {
   }
   const locks = { left: null, right: null };
   const footW = new THREE.Vector3();
+  const hipW = new THREE.Vector3();
   const pole = new THREE.Vector3();
   const goal = new THREE.Vector3();
   function solveLeg(upper, lower, foot, goalWorld, poleWorld) {
@@ -310,17 +311,21 @@ export function createAvatar(scene, { phone = false, world = null } = {}) {
       const upper = bones[`${side}UpperLeg`];
       const lower = bones[`${side}LowerLeg`];
       const foot = bones[`${side}Foot`];
-      if (!foot) continue;
+      if (!foot || !upper) continue;
+      upper.getWorldPosition(hipW);
       foot.updateWorldMatrix(true, false);
       foot.getWorldPosition(footW);
       const gy = world.ground(footW.x, footW.z);
       const height = footW.y - gy;
-      if (locks[side] && (height > 0.12 || footW.distanceTo(locks[side]) > 0.22)) locks[side] = null;
-      if (!locks[side] && height < 0.07 && walker.grounded && walker.speed > 0.3) locks[side] = new THREE.Vector3(footW.x, gy + 0.02, footW.z);
-      if (!locks[side] || footW.distanceTo(locks[side]) > 0.22) continue;
+      // Held only while the ankle is within about 22 cm of the ground. A sprint step used to drop the lock because the whole body moved more than 22 cm.
+      if (locks[side] && height > 0.22) locks[side] = null;
+      if (!locks[side] && height < 0.16 && height > -0.08 && walker.grounded && walker.speed > 0.3) {
+        locks[side] = new THREE.Vector3(footW.x, gy + 0.02, footW.z);
+      }
+      if (!locks[side]) continue;
       locks[side].y = world.ground(locks[side].x, locks[side].z) + 0.02;
       goal.copy(locks[side]);
-      pole.set(goal.x + fx, goal.y + 0.6, goal.z + fz);
+      pole.set(hipW.x + fx * 0.45, hipW.y - 0.2, hipW.z + fz * 0.45);
       solveLeg(upper, lower, foot, goal, pole);
     }
   }
