@@ -47,7 +47,10 @@ export function createSummoner({ scene, world, zones, walker, camera, staff, bea
     const g = new THREE.Group();
     const body = new THREE.Mesh(new THREE.SphereGeometry(0.26, 8, 6), new THREE.MeshBasicMaterial({ color: '#d7c8ff', transparent: true, opacity: 0.7, depthWrite: false }));
     body.position.y = 0.32;
-    g.add(body);
+    const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.32, 16), new THREE.MeshBasicMaterial({ color: '#140e0a', transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide }));
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = 0.03;
+    g.add(body, shadow);
     return g;
   }
   async function wear(spirit) {
@@ -146,10 +149,10 @@ export function createSummoner({ scene, world, zones, walker, camera, staff, bea
       let tz = walker.feet.z + 1.1;
       if (foe) { tx = foe.x; tz = foe.z; }
       else if (target) { tx = target.x; tz = target.z; }
-      const y = world.ground(tx, tz);
       s.g.position.x += (tx - s.g.position.x) * Math.min(1, dt * 2.6);
       s.g.position.z += (tz - s.g.position.z) * Math.min(1, dt * 2.6);
-      s.g.position.y += (y - s.g.position.y) * Math.min(1, dt * 4);
+      const y = world.ground(s.g.position.x, s.g.position.z);
+      s.g.position.y += (y - s.g.position.y) * Math.min(1, dt * 6);
       s.bite -= dt;
       if (s.bite <= 0 && Math.hypot(tx - s.g.position.x, tz - s.g.position.z) < 1.7) {
         s.bite = 0.9;

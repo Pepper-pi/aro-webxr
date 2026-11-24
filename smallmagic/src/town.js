@@ -61,6 +61,16 @@ function prep(mesh) {
   const size = geo.boundingBox.getSize(new THREE.Vector3());
   const mat = mesh.material.clone();
   mat.side = THREE.FrontSide;
+  const crisp = !(typeof matchMedia === 'function' && (matchMedia('(pointer: coarse)').matches || innerWidth < 820));
+  for (const key of ['map', 'normalMap', 'roughnessMap', 'aoMap']) {
+    const tex = mat[key];
+    if (!tex) continue;
+    tex.generateMipmaps = true;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.anisotropy = crisp ? 16 : 2;
+    tex.needsUpdate = true;
+  }
   return { geo, mat, size };
 }
 

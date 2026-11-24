@@ -18,12 +18,12 @@ function dye(material, lit, shade) {
   if (material.shadeColorFactor?.set) material.shadeColorFactor.set(shade);
 }
 
-function sharpen(tex, max) {
+function sharpen(tex, max, aniso = 8) {
   if (!tex) return;
   tex.magFilter = THREE.LinearFilter;
   tex.minFilter = THREE.LinearMipmapLinearFilter;
   tex.generateMipmaps = true;
-  tex.anisotropy = 8;
+  tex.anisotropy = aniso;
   const img = tex.image;
   if (!max || !img || !img.width || Math.max(img.width, img.height) <= max) {
     tex.needsUpdate = true;
@@ -117,11 +117,11 @@ function buildIdle(vrm, manner) {
   const amp = manner === 'still' ? 0.28 : sure ? 0.75 : slow ? 0.55 : 1;
   const scale = (frames) => frames.map(([x, y, z]) => [x * amp, y * amp, z * amp]);
   const keys = {
-    hips: scale([[0, 0.03, 0], [0, -0.025, 0.02], [0, -0.03, 0], [0, 0.025, -0.02], [0, 0.03, 0]]),
-    spine: scale([[0.02, 0, 0], [0.05, 0.02, 0.012], [0.02, 0, 0], [0.045, -0.02, -0.01], [0.02, 0, 0]]),
+    hips: scale([[0.02, 0.05, 0.03], [-0.03, -0.02, 0.06], [0, -0.05, 0], [0.03, 0.02, -0.05], [0.02, 0.05, 0.03]]),
+    spine: scale([[0.03, 0, 0], [0.07, 0.03, 0.02], [0.02, 0, 0], [0.06, -0.03, -0.015], [0.03, 0, 0]]),
     chest: scale(sure
-      ? [[-0.02, 0, 0], [0.01, 0, 0.01], [-0.02, 0, 0], [0.0, 0, -0.01], [-0.02, 0, 0]]
-      : [[0.03, 0, 0], [0.07, 0, 0.01], [0.025, 0, 0], [0.065, 0, -0.01], [0.03, 0, 0]]),
+      ? [[-0.02, 0, 0], [0.04, 0, 0.015], [-0.02, 0, 0], [0.02, 0, -0.012], [-0.02, 0, 0]]
+      : [[0.02, 0, 0], [0.12, 0.02, 0.015], [0.03, 0, 0], [0.1, -0.02, -0.012], [0.02, 0, 0]]),
     neck: scale([[0, 0.03, 0], [0.02, -0.04, 0], [0, -0.02, 0], [0.015, 0.04, 0], [0, 0.03, 0]]),
     head: scale(manner === 'glance'
       ? [[0, 0.05, 0], [0.02, -0.16, 0.01], [0, 0.02, 0], [0.02, 0.14, -0.01], [0, 0.05, 0]]
@@ -154,7 +154,7 @@ function buildIdle(vrm, manner) {
     tracks.push(new THREE.QuaternionKeyframeTrack(`${name}.quaternion`, times, values));
     bones.push(node);
   }
-  return { clip: new THREE.AnimationClip('maren-idle', 4, tracks), bones, time: 0 };
+  return { clip: new THREE.AnimationClip('companion-idle', times[times.length - 1], tracks), bones, time: 0 };
 }
 
 function tuneSprings(vrm, low) {
@@ -223,6 +223,7 @@ export async function createCompanion(url, opts = {}) {
   // The normalized rig is a T-pose. Copying it onto the sample would hold her arms out.
   vrm.humanoid.autoUpdateHumanBones = false;
   const cap = low ? 192 : 0;
+  const aniso = low ? 2 : 16;
   vrm.scene.traverse((o) => {
     o.frustumCulled = false;
     if (!o.isMesh) return;
@@ -233,8 +234,8 @@ export async function createCompanion(url, opts = {}) {
       else if (BOTTOM.test(name)) dye(material, dyes.bottom, dyes.bottomShade);
       else if (SHOE.test(name)) dye(material, dyes.shoe, dyes.shoeShade);
       if (material.outlineWidthFactor != null) material.outlineWidthFactor = low ? 0 : 0.0015;
-        for (const key of ['map', 'shadeMultiplyTexture', 'normalMap']) {
-        if (material[key]) sharpen(material[key], cap);
+      for (const key of ['map', 'shadeMultiplyTexture', 'normalMap']) {
+        if (material[key]) sharpen(material[key], cap, aniso);
       }
     }
   });
@@ -270,10 +271,10 @@ export async function createCompanion(url, opts = {}) {
   root.userData.fit = root.scale.x;
   shapeBody(vrm, opts.shape || {});
   tuneSprings(vrm, low);
-  const manner = isRareNpc(opts.id) ? (MANNER[opts.id] || 'still') : null;
+  const manner = MANNER[opts.id] || 'still';
   const idle = buildIdle(vrm, manner);
   let ring = null;
-  if (manner) {
+  if (isRareNpc(opts.id)) {
     ring = new THREE.Mesh(
       new THREE.RingGeometry(0.28, 0.36, 28),
       new THREE.MeshBasicMaterial({ color: '#f4e6c4', transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }),
@@ -300,12 +301,13 @@ export async function createCompanion(url, opts = {}) {
   function setDetail(next) {
     detail = !!next;
     const max = detail ? 192 : 0;
+    const aniso = detail ? 2 : 16;
     vrm.scene.traverse((o) => {
       if (!o.isMesh) return;
       for (const material of [].concat(o.material || [])) {
         if (material.outlineWidthFactor != null) material.outlineWidthFactor = detail ? 0 : 0.0015;
         for (const key of ['map', 'shadeMultiplyTexture', 'normalMap']) {
-          if (material[key]) sharpen(material[key], max);
+          if (material[key]) sharpen(material[key], max, aniso);
         }
       }
     });

@@ -149,6 +149,7 @@ export function createPage(renderer) {
     set bloom(v) { bloomOn = !!v; },
     set direct(v) { direct = !!v; },
     set bloomStrength(v) { bloom.strength = v; },
+    set bloomThreshold(v) { bloom.threshold = v; },
     /** The ring a blast sends out, as the eye sees it: round a place in the world, so far out, so strong. */
     shock(camera, place, radius, power) {
       const u = print.uniforms.uShock.value, d = camera.position.distanceTo(place);

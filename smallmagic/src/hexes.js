@@ -600,15 +600,16 @@ export function createHexes(scene, world, camera, walker, zones) {
     if (here?.wave && !here.wave.done && zones?.waveAlive) {
       if (zones.waveAlive(here.wave) === 0 && here.wave.ids.length) {
         here.wave.done = true;
+        const bossEvent = here.event?.kind === 'boss';
         const have = xp[here.id] || 0;
         const t = tierOf(have);
         const gained = t < 3 ? Math.max(12, (t === 1 ? 40 : 110) - have) : 8;
-        grant(here.id, gained);
+        if (!bossEvent) grant(here.id, gained);
         const names = { tusk: 'Boar tusk', ruff: 'Wolf ruff', gel: 'Slime gel', bead: 'Goblin bead' };
         const got = (here.wave.drops || []).map((k) => names[k] || k);
         const rose = tierOf(xp[here.id] || 0) > t;
         const loot = rose ? (here.theme === 'Lakeshore' ? 'Trout' : here.theme === 'Hearth' ? 'Lantern wick' : 'Herb') : '';
-        zones?.toast?.([`${here.name} clear`, `+${gained} resonance`, ...got, loot].filter(Boolean).join(' · '));
+        zones?.toast?.([`${here.name} clear`, bossEvent ? '' : `+${gained} resonance`, ...got, loot].filter(Boolean).join(' · '));
         zones?.waveCleared?.();
       }
     }
@@ -619,7 +620,7 @@ export function createHexes(scene, world, camera, walker, zones) {
       weather: { name: 'Weather shift', reward: '+16 Resonance' },
     };
     if (here && !here.event && (here.cool || 0) <= 0) {
-      const rolled = watch?.rollSeeded?.('beast', here.id, watch.context(here.id)) || { tier: 'common' };
+      const rolled = watch?.rollSeeded?.('beast', `${here.id}|${here.clears || 0}`, watch.context(here.id)) || { tier: 'common' };
       let kind = rolled.tier === 'mythic' ? 'boss' : rolled.tier === 'rare' || rolled.tier === 'epic' ? 'surge' : ['bloom', 'weather', 'surge'][(here.q + here.r + 7) % 3];
       if (!FIGHT[here.id]) kind = (here.q + here.r) % 2 ? 'bloom' : 'weather';
       here.event = { ...EV[kind], kind, t: 0, tier: rolled.tier };
@@ -651,6 +652,7 @@ export function createHexes(scene, world, camera, walker, zones) {
         grant(here.id, gain);
         zones?.toast?.(`${here.event.name} clear · +${gain} Resonance`);
         here.event = null;
+        here.clears = (here.clears || 0) + 1;
         here.cool = 28;
         if (openId === here.id) paint(here);
       }

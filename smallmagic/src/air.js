@@ -23,8 +23,8 @@ export function createAir() {
   const uniforms = {
     uNow: { value: 0 },
     uSun: { value: SUN.clone() },
-    uSunCol: { value: lin('#ffe6c0', 1.16) },
-    uSkyCol: { value: lin('#9eb0ea', 0.55) },
+    uSunCol: { value: lin('#ffd7a4', 1.18) },
+    uSkyCol: { value: lin('#a9b6ee', 0.5) },
     uHaze: { value: lin('#c9b6e0') },
     uHazeSun: { value: lin('#f3ddc0') },
     uAirK: { value: 0.0056 },

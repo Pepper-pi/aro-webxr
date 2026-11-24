@@ -273,6 +273,14 @@ function fitMob(root, height, tint) {
     const hasVC = !!o.geometry?.attributes?.color;
     const blank = !src.map && color.r > 0.93 && color.g > 0.93 && color.b > 0.93;
     const maxc = Math.max(color.r, color.g, color.b);
+    if (src.map) {
+      const crisp = !(typeof matchMedia === 'function' && (matchMedia('(pointer: coarse)').matches || innerWidth < 820));
+      src.map.generateMipmaps = true;
+      src.map.minFilter = THREE.LinearMipmapLinearFilter;
+      src.map.magFilter = THREE.LinearFilter;
+      src.map.anisotropy = crisp ? 16 : 2;
+      src.map.needsUpdate = true;
+    }
     const mat = new THREE.MeshBasicMaterial({
       map: src.map || null,
       color,

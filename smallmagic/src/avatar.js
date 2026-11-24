@@ -158,7 +158,7 @@ export function createAvatar(scene, { phone = false, world = null } = {}) {
     const next = gltf.userData.vrm;
     VRMUtils.rotateVRM0(next);
     next.humanoid.autoUpdateHumanBones = false;
-    const maxAniso = tier === 'Phone' ? 1 : 8;
+    const maxAniso = tier === 'Phone' ? 2 : 16;
     next.scene.traverse((o) => {
       o.frustumCulled = false;
       if (!o.isMesh) return;
@@ -167,6 +167,9 @@ export function createAvatar(scene, { phone = false, world = null } = {}) {
         for (const key of ['map', 'shadeMultiplyTexture', 'normalMap']) {
           const tex = material[key];
           if (!tex) continue;
+          tex.generateMipmaps = true;
+          tex.minFilter = THREE.LinearMipmapLinearFilter;
+          tex.magFilter = THREE.LinearFilter;
           tex.anisotropy = maxAniso;
           tex.needsUpdate = true;
         }

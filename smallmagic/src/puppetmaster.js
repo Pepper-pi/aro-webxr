@@ -47,7 +47,10 @@ function barrelTank() {
   sack.name = 'sack';
   const face = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.22, 0.08), new THREE.MeshBasicMaterial({ color: IRON }));
   face.position.set(0, 0.7, 0.52);
-  g.add(belly, hoopA, hoopB, lid, sack, face);
+  const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.78, 18), new THREE.MeshBasicMaterial({ color: '#140e0a', transparent: true, opacity: 0.34, depthWrite: false, side: THREE.DoubleSide }));
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = 0.03;
+  g.add(belly, hoopA, hoopB, lid, sack, face, shadow);
   g.userData.lid = lid;
   g.userData.sack = sack;
   return g;
@@ -88,6 +91,13 @@ export function createPuppetmaster({ scene, world, zones, walker }) {
   trapRing.rotation.x = -Math.PI / 2;
   trapRing.visible = false;
   scene.add(trapRing);
+  const fighterShadow = new THREE.Mesh(
+    new THREE.CircleGeometry(0.34, 16),
+    new THREE.MeshBasicMaterial({ color: '#140e0a', transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide }),
+  );
+  fighterShadow.rotation.x = -Math.PI / 2;
+  fighterShadow.visible = false;
+  scene.add(fighterShadow);
   let deployed = false;
   let nest = 'in';
   let pop = 0;
@@ -216,6 +226,7 @@ export function createPuppetmaster({ scene, world, zones, walker }) {
     if (!on) {
       tank.visible = false;
       fighter.visible = false;
+      fighterShadow.visible = false;
       strings.forEach((s) => { s.visible = false; });
       zones.setGuard?.(0, 0);
       trapRing.visible = false;
@@ -271,6 +282,12 @@ export function createPuppetmaster({ scene, world, zones, walker }) {
         const limb = fighter.getObjectByName('limb');
         if (limb) limb.position.z += (0.05 - limb.position.z) * Math.min(1, dt * 4);
       }
+      if (fighter.visible) {
+        fighterShadow.visible = true;
+        fighterShadow.position.set(fighter.position.x, world.ground(fighter.position.x, fighter.position.z) + 0.03, fighter.position.z);
+        const lift = Math.max(0, fighter.position.y - fighterShadow.position.y);
+        fighterShadow.material.opacity = Math.max(0.08, 0.32 - lift * 0.12);
+      } else fighterShadow.visible = false;
       taunt -= dt;
       if (taunt <= 0) {
         taunt = 2.4;

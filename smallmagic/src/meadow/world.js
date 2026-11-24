@@ -207,7 +207,11 @@ export async function createWorld({ air, scene, say, turn }) {
     const t = new THREE.TextureLoader().load(file);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.colorSpace = color ? THREE.SRGBColorSpace : THREE.LinearSRGBColorSpace;
-    t.anisotropy = 4;
+    t.generateMipmaps = true;
+    t.minFilter = THREE.LinearMipmapLinearFilter;
+    t.magFilter = THREE.LinearFilter;
+    const phoneTex = typeof matchMedia === 'function' && (matchMedia('(pointer: coarse)').matches || innerWidth < 820);
+    t.anisotropy = phoneTex ? 2 : 16;
     return { value: t };
   };
   const groundCoat = {
@@ -215,6 +219,7 @@ export async function createWorld({ air, scene, say, turn }) {
     tGrassN: coatTex('ground/cc0/grass-normal.jpg', false),
     tDirtC: coatTex('ground/cc0/dirt-color.jpg', true),
     uContact: { value: [new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()] },
+    uSharp: { value: (typeof matchMedia === 'function' && (matchMedia('(pointer: coarse)').matches || innerWidth < 820)) ? 0 : 1 },
   };
   { const p = landNear.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, ground(p.getX(i), p.getZ(i))); landNear.computeVertexNormals(); }
   const landMat = (near) => {
@@ -222,7 +227,7 @@ export async function createWorld({ air, scene, say, turn }) {
       key: `land-${near}`,
       vertexPars: 'varying vec3 vWorld; varying vec3 vNw;',
       vertex: '#include <begin_vertex>\n  vWorld = position; vNw = normal;',
-      fragmentPars: 'varying vec3 vWorld; varying vec3 vNw; uniform sampler2D tGrassC; uniform sampler2D tGrassN; uniform sampler2D tDirtC; uniform vec4 uContact[4];',
+      fragmentPars: 'varying vec3 vWorld; varying vec3 vNw; uniform sampler2D tGrassC; uniform sampler2D tGrassN; uniform sampler2D tDirtC; uniform vec4 uContact[4]; uniform float uSharp;',
       fragment: /* glsl */ `
   vec2 xz = vWorld.xz, uv = mapUv(xz);
   float inMap = step(abs(uv.x - 0.5), 0.498) * step(abs(uv.y - 0.5), 0.498);
@@ -241,13 +246,14 @@ export async function createWorld({ air, scene, say, turn }) {
   // frost lies on whatever is there: grass, a path, a shore
   lCol = mix(lCol, uFrost * (0.78 + 0.14 * aNoise(xz * 2.2 + 3.0)), lSt.g * 0.85);
   vec2 coatUv = xz * 0.16;
-  vec3 grassAlb = texture2D(tGrassC, coatUv).rgb;
-  vec3 dirtAlb = texture2D(tDirtC, coatUv * 0.82 + 0.17).rgb;
+  float lodBias = -0.85 * uSharp * (1.0 - smoothstep(1.2, 12.0, lD));
+  vec3 grassAlb = texture2D(tGrassC, coatUv, lodBias).rgb;
+  vec3 dirtAlb = texture2D(tDirtC, coatUv * 0.82 + 0.17, lodBias).rgb;
   float worn = smoothstep(0.28, 0.78, lKind.r + (aNoise(xz * 1.7) - 0.5) * 0.18);
   vec3 coat = mix(grassAlb, dirtAlb, worn);
   coat = mix(coat, mix(grassAlb, dirtAlb, 0.45), smoothstep(0.2, 0.6, lKind.g));
   lCol = mix(lCol, lCol * coat * 1.45, inMap * 0.62);
-  vec3 gn = texture2D(tGrassN, coatUv).xyz * 2.0 - 1.0;
+  vec3 gn = texture2D(tGrassN, coatUv, lodBias).xyz * 2.0 - 1.0;
   vec3 lN = normalize(vNw + vec3(gn.x, 0.0, gn.y) * 0.22 * (1.0 - worn));
   float shade = 1.0;
   for (int i = 0; i < 4; i++) {
@@ -731,7 +737,7 @@ export async function createWorld({ air, scene, say, turn }) {
 
   // ============================================================================================================ the light
   // (the lamp is only there to throw shadows: see air.js)
-  const lamp = new THREE.DirectionalLight('#ffffff', Math.PI);
+  const lamp = new THREE.DirectionalLight('#ffe2b8', Math.PI * 0.9);
   lamp.position.copy(SUN).multiplyScalar(160).add(V(HOME[0], 0, HOME[1]));
   lamp.target.position.set(HOME[0], 0, HOME[1]);
   lamp.castShadow = true;
@@ -746,9 +752,11 @@ export async function createWorld({ air, scene, say, turn }) {
   scene.add(lamp, lamp.target);
   // A warm edge on characters, from the side the sun does not face. Painted surfaces
   // ignore this lamp; skinned figures and the walker's clothes take it.
-  const warmRim = new THREE.DirectionalLight('#ffb07a', 1.55);
+  const warmRim = new THREE.DirectionalLight('#ffb07a', 1.25);
   warmRim.position.set(90, 42, 110);
   scene.add(warmRim);
+  const fill = new THREE.HemisphereLight('#d5e4ff', '#e4c198', mobile ? 0.22 : 0.38);
+  scene.add(fill);
 
   const [sx, sz] = WAY[0];
   return Object.assign(world_, {

@@ -919,9 +919,11 @@ function tickStep(dt, draw) {
   chaseDist += ((wantChase ? wantDist : 0) - chaseDist) * Math.min(1, dt * 3.2);
   const chasing = mapFollow || chaseDist > 0.45;
   const inCity = zones.name === 'block' || zones.name === 'ruin';
-  post.bloom = inCity && settings.gfx !== 'low' && !(phone && ar.on);
+  const hiLook = settings.gfx !== 'low' && !phone && !ar.on;
+  post.bloom = hiLook && (inCity || zones.name === 'meadow' || zones.name === 'hub');
   post.direct = !!(phone && ar.on);
-  post.bloomStrength = phone ? 0.22 : 0.55;
+  post.bloomStrength = inCity ? 0.48 : 0.16;
+  post.bloomThreshold = inCity ? 0.9 : 0.7;
   if (zones.atLake && !lakeWide) { settings.viewBack = true; lakeWide = true; chaseLabel(); }
   if (!zones.atLake) lakeWide = false;
   if (inHub && !free && !duel.active) {
