@@ -91,6 +91,20 @@ export function createAR(scene, camera, world, zones) {
   reticle.name = 'ar-reticle';
   reticle.visible = false;
   root.add(reticle);
+  const panelCanvas = document.createElement('canvas');
+  panelCanvas.width = 512;
+  panelCanvas.height = 192;
+  const panelTex = new THREE.CanvasTexture(panelCanvas);
+  panelTex.colorSpace = THREE.SRGBColorSpace;
+  const panel = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.46, 0.17),
+    new THREE.MeshBasicMaterial({ map: panelTex, transparent: true, depthWrite: false, side: THREE.DoubleSide }),
+  );
+  panel.name = 'ar-hud';
+  panel.visible = false;
+  panel.renderOrder = 12;
+  root.add(panel);
+  let panelText = '';
   const rift = new THREE.Group();
   rift.name = 'ar-rift';
   const arch = new THREE.Mesh(
@@ -220,7 +234,12 @@ export function createAR(scene, camera, world, zones) {
   let xrSession = null;
   let hitSource = null;
   let refSpace = null;
+  let viewerSpace = null;
   let latestHit = null;
+  let xrRenderer = null;
+  let seated = false;
+  let localOrigin = false;
+  let selectHeld = false;
   let floorSet = false;
   let anchorX = 0;
   let anchorZ = 0;
@@ -367,27 +386,56 @@ export function createAR(scene, camera, world, zones) {
 
   async function tryXR(renderer) {
     if (!navigator.xr?.isSessionSupported) return false;
+    let mode = null;
     try {
-      if (!(await navigator.xr.isSessionSupported('immersive-ar'))) return false;
-      const session = await navigator.xr.requestSession('immersive-ar', { optionalFeatures: ['local-floor', 'hit-test'] });
+      if (await navigator.xr.isSessionSupported('immersive-ar')) mode = 'immersive-ar';
+      else if (await navigator.xr.isSessionSupported('immersive-vr')) mode = 'immersive-vr';
+    } catch { return false; }
+    if (!mode) return false;
+    let session = null;
+    try {
+      session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hit-test'] });
       renderer.xr.enabled = true;
-      await renderer.xr.setSession(session);
+      renderer.xr.setReferenceSpaceType('local-floor');
+      localOrigin = false;
+      try {
+        await renderer.xr.setSession(session);
+      } catch {
+        renderer.xr.setReferenceSpaceType('local');
+        localOrigin = true;
+        await renderer.xr.setSession(session);
+      }
+      xrRenderer = renderer;
       xrSession = session;
       xrOn = true;
       path = 'xr';
       plate.visible = false;
+      selectHeld = false;
+      session.addEventListener('selectstart', () => {
+        selectHeld = true;
+        if (!floorSet) {
+          const spot = hitPoint(cam);
+          if (spot) placeAnchor(spot.x, spot.z, spot.y);
+        }
+      });
+      session.addEventListener('selectend', () => { selectHeld = false; });
       session.addEventListener('end', () => {
-        renderer.xr.enabled = false;
+        selectHeld = false;
         xrOn = false;
         xrSession = null;
         hitSource = null;
         refSpace = null;
+        viewerSpace = null;
         latestHit = null;
+        panel.visible = false;
         if (on) { path = videoTex ? 'camera' : 'park'; plate.visible = true; }
+        renderer.xr.enabled = false;
       });
       armHitTest(session);
       return true;
     } catch {
+      try { session?.end(); } catch { /* already closed */ }
+      renderer.xr.enabled = false;
       return false;
     }
   }
@@ -400,6 +448,7 @@ export function createAR(scene, camera, world, zones) {
     button?.classList.toggle('on', on);
     if (button) button.textContent = on ? 'Field' : 'AR';
     if (!on) {
+      try { xrSession?.end(); } catch { /* the session is already gone */ }
       clearPlants();
       riftLife = 0;
       while (critters.length) root.remove(critters.pop().g);
@@ -513,32 +562,109 @@ export function createAR(scene, camera, world, zones) {
     } catch { bright = dusk ? 0.4 : 0.72; }
   }
   async function armHitTest(session) {
-    // A future glasses runtime can fill latestHit the same way: a pose in front of the viewer.
+    // Hit results are read on the WebXR frame Three already delivers. No second session loop.
     try {
-      const viewerSpace = await session.requestReferenceSpace('viewer');
+      viewerSpace = await session.requestReferenceSpace('viewer');
       refSpace = await session.requestReferenceSpace('local-floor').catch(() => session.requestReferenceSpace('local'));
       hitSource = await session.requestHitTestSource({ space: viewerSpace });
-      const pump = (time, frame) => {
-        if (!xrOn) return;
-        session.requestAnimationFrame(pump);
-        if (!frame || !hitSource) return;
-        const results = frame.getHitTestResults(hitSource);
-        if (!results.length) return;
-        const pose = results[0].getPose(viewerSpace);
-        if (!pose) return;
-        const p = pose.transform.position;
-        latestHit = { x: p.x, y: p.y, z: p.z, t: performance.now() };
-      };
-      session.requestAnimationFrame(pump);
     } catch { hitSource = null; }
   }
+  function sampleFrame(frame) {
+    if (!frame || !hitSource || !xrOn) return;
+    const space = xrRenderer?.xr?.getReferenceSpace?.() || refSpace || viewerSpace;
+    const results = frame.getHitTestResults(hitSource);
+    if (!results.length) return;
+    const pose = results[0].getPose(space);
+    if (!pose) return;
+    const p = pose.transform.position;
+    latestHit = { x: p.x, y: p.y, z: p.z, t: performance.now(), ref: space !== viewerSpace };
+  }
   function hitPoint(camera) {
-    if (latestHit && camera && performance.now() - latestHit.t < 250) {
-      const local = new THREE.Vector3(latestHit.x, latestHit.y, latestHit.z);
-      local.applyMatrix4(camera.matrixWorld);
-      return local;
+    if (!latestHit || performance.now() - latestHit.t > 250) return null;
+    if (latestHit.ref) return new THREE.Vector3(latestHit.x, latestHit.y, latestHit.z);
+    if (!camera) return null;
+    const local = new THREE.Vector3(latestHit.x, latestHit.y, latestHit.z);
+    local.applyMatrix4(camera.matrixWorld);
+    return local;
+  }
+  function viewName() {
+    if (xrOn) {
+      const vr = xrSession?.mode === 'immersive-vr';
+      if (hitSource) return vr ? 'WebXR VR with hit-test' : 'WebXR AR with hit-test';
+      return vr ? 'WebXR VR without hit-test' : 'WebXR without hit-test';
     }
-    return null;
+    if (on && path === 'camera') return 'iPhone camera';
+    return 'desktop park';
+  }
+  function paintPanel(text) {
+    if (text === panelText) return;
+    panelText = text;
+    const g = panelCanvas.getContext('2d');
+    g.clearRect(0, 0, 512, 192);
+    g.fillStyle = 'rgba(18, 12, 24, 0.86)';
+    g.fillRect(0, 0, 512, 192);
+    g.strokeStyle = '#f1d9a4';
+    g.lineWidth = 8;
+    g.strokeRect(6, 6, 500, 180);
+    g.fillStyle = '#f6ead0';
+    g.font = '42px Georgia, serif';
+    g.fillText(text, 28, 78);
+    g.font = '30px Georgia, serif';
+    g.fillText('Look, then tap to cast', 28, 138);
+    panelTex.needsUpdate = true;
+  }
+  function placePanel(camera) {
+    panel.visible = seated && xrOn;
+    if (!panel.visible || !camera) return;
+    const dir = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+    panel.position.copy(camera.position).addScaledVector(dir, 1.2);
+    panel.quaternion.copy(camera.quaternion);
+    paintPanel(viewName());
+  }
+  function seat(camera) {
+    if (seated || !xrOn || !camera) return;
+    const dir = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+    dir.y = 0;
+    if (dir.lengthSq() < 1e-6) dir.set(0, 0, -1);
+    dir.normalize();
+    const ny = localOrigin ? camera.position.y - 1.4 : 0;
+    const nx = camera.position.x + dir.x * 2.2;
+    const nz = camera.position.z + dir.z * 2.2;
+    shiftCluster(nx - rift.position.x, nz - rift.position.z);
+    floorY = ny;
+    anchorX = nx;
+    anchorZ = nz;
+    floorSet = false;
+    seated = true;
+    anchored.forEach((b, i) => {
+      const meadow = goals[i]?.scale || b.g.scale.x || 1;
+      b.g.scale.setScalar(meadow / 1.4);
+    });
+    butterflies.forEach((b) => b.g.scale.setScalar(1));
+  }
+  function unseat(walker) {
+    if (!seated) return;
+    butterflies.forEach((b) => b.g.scale.setScalar(4.2));
+    seated = false;
+    panel.visible = false;
+    if (!on) return;
+    anchored.forEach((b, i) => {
+      const meadow = goals[i]?.scale;
+      if (meadow) b.g.scale.setScalar(meadow);
+    });
+    clearPlants();
+    floorSet = false;
+    if (!walker) return;
+    floorY = walker.feet.y + 0.15;
+    layHome(walker);
+    plant(walker);
+    anchorX = rift.position.x;
+    anchorZ = rift.position.z;
+    riftLife = 3.4;
+    guestT = 0;
+    guestNoted = false;
   }
   function shiftCluster(dx, dz) {
     life.forEach((p) => { p.x += dx; p.z += dz; });
@@ -561,6 +687,23 @@ export function createAR(scene, camera, world, zones) {
     zones.toast?.('The floor is set.');
   }
   function recenter(walker) {
+    if (seated && cam) {
+      floorSet = false;
+      latestHit = null;
+      const dir = new THREE.Vector3();
+      cam.getWorldDirection(dir);
+      dir.y = 0;
+      if (dir.lengthSq() < 1e-6) dir.set(0, 0, -1);
+      dir.normalize();
+      const nx = cam.position.x + dir.x * 2.2;
+      const nz = cam.position.z + dir.z * 2.2;
+      shiftCluster(nx - rift.position.x, nz - rift.position.z);
+      anchorX = nx;
+      anchorZ = nz;
+      floorY = localOrigin ? cam.position.y - 1.4 : 0;
+      zones.toast?.('Floor recentered.');
+      return;
+    }
     if (!walker) return;
     floorSet = false;
     latestHit = null;
@@ -635,8 +778,8 @@ export function createAR(scene, camera, world, zones) {
     gyro.roll += (wantR - gyro.roll) * k;
     const eye = walker.feet.y + 1.55;
     const wantFloor = eye - 1.4;
-    if (!floorSet) floorY += (wantFloor - floorY) * (1 - Math.exp(-dt * 1.4));
-    else if (!hitSource && Math.abs(wantFloor - floorY) > 0.08) floorY += (wantFloor - floorY) * (1 - Math.exp(-dt * 0.15));
+    if (!seated && !floorSet) floorY += (wantFloor - floorY) * (1 - Math.exp(-dt * 1.4));
+    else if (!seated && !hitSource && floorSet && Math.abs(wantFloor - floorY) > 0.08) floorY += (wantFloor - floorY) * (1 - Math.exp(-dt * 0.15));
     const detected = hitPoint(camera);
     reticle.visible = true;
     if (!floorSet) {
@@ -749,7 +892,7 @@ export function createAR(scene, camera, world, zones) {
     if (riftLife > 0) {
       riftLife = Math.max(0, riftLife - dt);
       const open = Math.min(1, (3.4 - riftLife) / 0.45);
-      rift.scale.setScalar(0.35 + open * 1.15);
+      rift.scale.setScalar(seated ? 0.28 + open * 0.62 : 0.35 + open * 1.15);
       rift.position.y = floorY + 0.04;
       const fade = riftLife < 0.7 ? riftLife / 0.7 : 1;
       rift.visible = fade > 0.02;
@@ -796,6 +939,12 @@ export function createAR(scene, camera, world, zones) {
         guest.g.position.y = floorY;
       }
     }
+    placePanel(camera);
+    const check = document.getElementById('xrCheck');
+    if (check) {
+      const line = `XR self-check: ${viewName()}`;
+      if (check.textContent !== line) check.textContent = line;
+    }
   }
 
   return {
@@ -807,6 +956,8 @@ export function createAR(scene, camera, world, zones) {
     get xr() { return xrOn; },
     get path() { return path; },
     get placed() { return floorSet ? (hitSource ? 'hit-test' : 'tap') : 'estimate'; },
-    recenter,
+    get selectHeld() { return selectHeld; },
+    get seated() { return seated; },
+    viewName, sample: sampleFrame, seat, unseat, recenter,
   };
 }

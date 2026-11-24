@@ -345,7 +345,7 @@ export function createPets({ scene, world, walker, living, zones, duel }) {
     clipName = next === clips.walk ? 'walk' : 'idle';
   }
 
-  function update(dt, camera, floorY) {
+  function update(dt, camera, floorY, stand) {
     if (camera) cam = camera;
     const row = active();
     const here = zones.name === 'meadow' && !duel.active && row;
@@ -358,8 +358,10 @@ export function createPets({ scene, world, walker, living, zones, duel }) {
     const sky = living.weather || 'clear';
     const rate = sky === 'fog' ? 1.4 : 3.2;
     const back = typeof floorY === 'number' ? 0.55 : (sky === 'wind' ? 1.7 : 1.25);
-    const tx = walker.feet.x - Math.sin(walker.yaw) * back;
-    const tz = walker.feet.z - Math.cos(walker.yaw) * back;
+    const feet = stand || walker.feet;
+    const yaw = stand?.yaw ?? walker.yaw;
+    const tx = feet.x - Math.sin(yaw) * back;
+    const tz = feet.z - Math.cos(yaw) * back;
     const before = Math.hypot(tx - root.position.x, tz - root.position.z);
     root.position.x += (tx - root.position.x) * Math.min(1, dt * rate);
     root.position.z += (tz - root.position.z) * Math.min(1, dt * rate);
@@ -393,7 +395,7 @@ export function createPets({ scene, world, walker, living, zones, duel }) {
       root.position.y = y + Math.abs(Math.sin(t * 3)) * 0.05;
       root.rotation.z *= 0.85;
     }
-    const face = Math.atan2(walker.feet.x - root.position.x, walker.feet.z - root.position.z);
+    const face = Math.atan2(feet.x - root.position.x, feet.z - root.position.z);
     root.rotation.y += (face - root.rotation.y) * Math.min(1, dt * 4);
     const near = zones.nearestBeast?.(walker.feet.x, walker.feet.z, 2.6);
     if (near && near.n === calmN && walker.speed < 0.45) calmT += dt;

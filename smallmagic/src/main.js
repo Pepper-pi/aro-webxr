@@ -775,6 +775,10 @@ function applyFollow(dt) {
   camera.lookAt(followCam.look);
 }
 
+let xrFrame = null;
+let xrHeld = null;
+let xrSelectCast = false;
+const xrGaze = new THREE.Vector3();
 function tick(frameDt) {
   const fixed = playtest;
   const burst = q.has('clip') && tour.live ? 16 : 1;
@@ -806,6 +810,8 @@ function tick(frameDt) {
 }
 
 function tickStep(dt, draw) {
+  const xrLive = !!(ar.xr && renderer.xr.isPresenting);
+  if (xrFrame) ar.sample(xrFrame);
   // (a blast all but stops time for the instant it lands)
   const pace = clock.pace * blast.pace * hole.pace;
   if (hopCool > 0) hopCool -= dt;
@@ -842,6 +848,19 @@ function tickStep(dt, draw) {
   } else if (spells) {
     if (inp.cast !== null && inp.cast !== padCast) { padCast = inp.cast; if (padCast) spells.press(); else spells.release(); }
     if (inp.spell) spells.select(spells.selected + inp.spell);
+  }
+  if (xrLive) {
+    const down = !!ar.selectHeld;
+    if (down !== xrSelectCast) {
+      xrSelectCast = down;
+      const klass = settings.class;
+      if (klass === 'blade' || klass === 'gunner' || klass === 'summoner' || klass === 'puppet') useAttack(klass, atk, down);
+      else if (down) spells?.press();
+      else spells?.release();
+    }
+  } else if (xrSelectCast) {
+    xrSelectCast = false;
+    spells?.release();
   }
   zones.showMage(settings.class === 'mage' && settings.viewBack && zones.name !== 'hub' && !avatar.ready);
   zones.aim({
@@ -922,6 +941,22 @@ function tickStep(dt, draw) {
     stepInp.look.y = 0;
   }
   walker.update(dt, stepInp);
+  if (xrLive) {
+    if (!xrHeld) xrHeld = { x: walker.feet.x, z: walker.feet.z, yaw: walker.yaw };
+    renderer.xr.updateCamera(camera);
+    ar.seat(camera);
+    camera.getWorldDirection(xrGaze);
+    walker.feet.x = camera.position.x;
+    walker.feet.z = camera.position.z;
+    walker.feet.y = ar.floorY;
+    walker.yaw = Math.atan2(xrGaze.x, xrGaze.z);
+  } else if (xrHeld) {
+    const back = xrHeld;
+    xrHeld = null;
+    walker.place(back.x, back.z, back.yaw);
+    if (ar.on) ar.unseat(walker);
+  }
+  if (!xrLive) {
   if (duel.active && !raidOwn) duel.look(camera);
   else if (free) { camera.position.copy(free.position); camera.lookAt(free.target); }
   else walker.look(camera);
@@ -930,6 +965,7 @@ function tickStep(dt, draw) {
     const s = ar.shake;
     camera.rotateX(Math.sin(performance.now() * 0.05) * 0.012 * s);
     camera.rotateZ(Math.sin(performance.now() * 0.04) * 0.008 * s);
+  }
   }
   const wantChase = !ar.on && !raidSweep && !free && !bladeClose && !inHub && !mapFollow && (settings.class === 'mage' ? settings.viewBack : (settings.viewBack || walker.speed > 1.15));
   const wantDist = settings.viewBack ? 4.4 : 2.5 + Math.min(2.1, Math.max(0, walker.speed - 1) * 0.32);
@@ -943,7 +979,8 @@ function tickStep(dt, draw) {
   post.bloomThreshold = inCity ? 0.9 : 0.7;
   if (zones.atLake && !lakeWide) { settings.viewBack = true; lakeWide = true; chaseLabel(); }
   if (!zones.atLake) lakeWide = false;
-  if (inHub && !free && !duel.active) {
+  if (xrLive) { /* the viewer pose is the camera */ }
+  else if (inHub && !free && !duel.active) {
     const yaw = walker.yaw;
     const fx = Math.sin(yaw);
     const fz = Math.cos(yaw);
@@ -987,7 +1024,7 @@ function tickStep(dt, draw) {
     camera.lookAt(walker.feet.x + fx * 1.6, walker.feet.y + 1.15, walker.feet.z + fz * 1.6);
   }
   // (and shakes the eye)
-  if (blast.shake + hole.shake + twister.shake > 0.002) { const s = blast.shake + hole.shake + twister.shake * 0.5; shaking += dt; camera.rotateX(Math.sin(shaking * 61) * Math.sin(shaking * 37 + 1) * 0.03 * s); camera.rotateY(Math.sin(shaking * 53 + 2) * Math.sin(shaking * 29) * 0.03 * s); camera.rotateZ(Math.sin(shaking * 47 + 4) * 0.018 * s); }
+  if (!xrLive && blast.shake + hole.shake + twister.shake > 0.002) { const s = blast.shake + hole.shake + twister.shake * 0.5; shaking += dt; camera.rotateX(Math.sin(shaking * 61) * Math.sin(shaking * 37 + 1) * 0.03 * s); camera.rotateY(Math.sin(shaking * 53 + 2) * Math.sin(shaking * 29) * 0.03 * s); camera.rotateZ(Math.sin(shaking * 47 + 4) * 0.018 * s); }
   camera.updateMatrixWorld(true);
   const showBody = !!avatar.ready && zones.name === 'meadow' && !ar.on && settings.viewBack && !free && followCam.dist > 1.15;
   avatar.update(dt, walker, showBody);
@@ -1006,14 +1043,14 @@ function tickStep(dt, draw) {
   if (cut) flats[3].set(cut.x, cut.z, cut.r, 1);
   staff?.update(dt, walker, camera, world.sunAt?.(camera.position) ?? 1);
   const fishPull = zones.fishZoom || 0;
-  if (fishPull > 0.04 && !free && !chasing) {
+  if (!xrLive && fishPull > 0.04 && !free && !chasing) {
     const yaw = walker.yaw;
     camera.position.x -= Math.sin(yaw) * fishPull * 0.35;
     camera.position.y += fishPull * 0.08;
     camera.position.z -= Math.cos(yaw) * fishPull * 0.35;
   }
   const lean = gun?.lean || 0;
-  if (lean) {
+  if (!xrLive && lean) {
     const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
     camera.position.addScaledVector(right, lean);
   }
@@ -1064,7 +1101,13 @@ function tickStep(dt, draw) {
   ar.update(dt, walker, camera, { twister, spells, living });
   wander.update(dt, walker, camera, ar.on);
   if (zones.name === 'meadow') folk.update(dt, walker, zones.dusk);
-  pets.update(dt, camera, ar.on ? ar.floorY : null);
+  const petStand = xrLive ? { x: camera.position.x, z: camera.position.z, yaw: walker.yaw } : null;
+  pets.update(dt, camera, ar.on ? ar.floorY : null, petStand);
+  const xrLine = document.getElementById('xrCheck');
+  if (xrLine) {
+    const text = `XR self-check: ${ar.viewName()}`;
+    if (xrLine.textContent !== text) xrLine.textContent = text;
+  }
   street.sky = living.weather;
   world.rain = living.weather === 'rain';
   street.update(dt, walker, ar.on || zones.name === 'hub' || duel.active);
@@ -1152,7 +1195,8 @@ function tickStep(dt, draw) {
     questEl.style.visibility = (open || zones.rodOut) ? 'hidden' : '';
   }
   if (draw && (!q.has('fast') || forceDraw)) {
-    post.render(scene, camera, hideStaff ? null : staff, SUN);
+    if (renderer.xr.isPresenting) renderer.render(scene, camera);
+    else post.render(scene, camera, hideStaff ? null : staff, SUN);
     if (q.has('clip')) renderer.getContext().finish?.();
   }
   forceDraw = false;
@@ -1253,8 +1297,9 @@ function run() {
     setTimeout(pump, 40);
     return;
   }
-  renderer.setAnimationLoop(going ? () => {
-    if (innerWidth !== fitW || innerHeight !== fitH) fitView();
+  renderer.setAnimationLoop(going ? (time, frame) => {
+    xrFrame = frame || null;
+    if (!renderer.xr.isPresenting && (innerWidth !== fitW || innerHeight !== fitH)) fitView();
     if (playtest) tick(1 / 30);
     else { const now = performance.now(); tick((now - last) / 1000); last = now; }
   } : null);
