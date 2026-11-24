@@ -48,6 +48,7 @@ import { createRanger } from './ranger.js';
 import { createWarden } from './warden.js';
 import { createAlchemist } from './alchemist.js';
 import { createSummoner } from './summoner.js';
+import { createPuppetmaster } from './puppetmaster.js';
 
 const q = new URLSearchParams(location.search);
 const capture = q.has('capture'), testing = q.has('patch-test'), playtest = q.has('playtest');
@@ -176,7 +177,8 @@ document.getElementById('wardenBash')?.addEventListener('pointerup', (e) => { wa
 document.getElementById('wardenGuard')?.addEventListener('pointerup', (e) => { warden.raise(); e.preventDefault(); e.stopPropagation(); });
 document.getElementById('alchemistToss')?.addEventListener('pointerup', (e) => { alchemist.toss(); e.preventDefault(); e.stopPropagation(); });
 document.getElementById('alchemistSip')?.addEventListener('pointerup', (e) => { alchemist.sip(); e.preventDefault(); e.stopPropagation(); });
-document.getElementById('summonerStrike')?.addEventListener('pointerup', (e) => { summoner.strike(); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('summonerCatch')?.addEventListener('pointerdown', (e) => { summoner.catchStart(); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('summonerCatch')?.addEventListener('pointerup', (e) => { summoner.catchStop(); e.preventDefault(); e.stopPropagation(); });
 document.getElementById('summonerCall')?.addEventListener('pointerup', (e) => { summoner.summon(); e.preventDefault(); e.stopPropagation(); });
 const wrist = new THREE.Vector3();
 function wristPoint() {
@@ -208,12 +210,25 @@ const GUN_ATK = [
   { key: 'bolt', name: 'Fire', colour: '#ffb043', sides: 4 },
   { key: 'nade', name: 'Grenade', colour: '#9ee7ff', sides: 5 },
 ];
+const SUMMON_ATK = [
+  { key: 'catch', name: 'Catch', colour: '#c9a6ff', sides: 4 },
+  { key: 'summon', name: 'Summon', colour: '#7ee0ff', sides: 3 },
+];
+const PUPPET_ATK = [
+  { key: 'deploy', name: 'Deploy Tank', colour: '#8a5a32', sides: 4 },
+  { key: 'pop', name: 'Pop Fighter', colour: '#c4a574', sides: 3 },
+  { key: 'strike', name: 'Fighter Strike', colour: '#e7c56a', sides: 3 },
+  { key: 'trap', name: 'Set Trap', colour: '#ffb043', sides: 4 },
+  { key: 'bash', name: 'Tank Bash', colour: '#6a3a22', sides: 4 },
+  { key: 'recall', name: 'Recall', colour: '#9fd4ff', sides: 3 },
+];
+const KIT_ATK = { blade: BLADE_ATK, gunner: GUN_ATK, summoner: SUMMON_ATK, puppet: PUPPET_ATK };
 const spellsBar = spellBar(document.getElementById('spells'), SPELLS, 'ui/', { ring: true, onPick: (i) => spells?.select(i) });
 let kitBar = spellsBar;
 let kit = 'mage';
 let atk = 0;
 function applyKit(next) {
-  const want = next === 'blade' || next === 'gunner' ? next : 'mage';
+  const want = KIT_ATK[next] ? next : 'mage';
   if (want === kit) return;
   kit = want;
   atk = 0;
@@ -227,7 +242,7 @@ function applyKit(next) {
     if (castBtn) castBtn.textContent = 'Cast';
     return;
   }
-  kitBar = spellBar(box, want === 'blade' ? BLADE_ATK : GUN_ATK);
+  kitBar = spellBar(box, KIT_ATK[want]);
   kitBar.select(0);
   if (spellBtn) spellBtn.textContent = 'Attacks';
   if (castBtn) castBtn.textContent = 'Use';
@@ -236,6 +251,18 @@ function useAttack(which, index, down) {
   if (which === 'gunner') {
     if (index === 1) { if (down) gun.toss(); return; }
     if (down) gun.arm(); else gun.release();
+    return;
+  }
+  if (which === 'summoner') {
+    const key = SUMMON_ATK[index]?.key;
+    if (key === 'catch') { if (down) summoner.catchStart(); else summoner.catchStop(); }
+    else if (down) summoner.summon();
+    return;
+  }
+  if (which === 'puppet') {
+    const key = PUPPET_ATK[index]?.key;
+    if (key === 'bash') { if (down) puppet.bashStart(); else puppet.bashRelease(); return; }
+    if (down) puppet.use(key);
     return;
   }
   const key = BLADE_ATK[index]?.key;
@@ -459,7 +486,8 @@ function showClass() {
   if (gunBtn) { gunBtn.textContent = settings.class === 'gunner' ? 'Gunner: on' : 'Gunner: off'; gunBtn.classList.toggle('on', settings.class === 'gunner'); }
 }
 function pickClass(name) {
-  settings.class = name === 'blade' || name === 'gunner' || name === 'ranger' || name === 'warden' || name === 'alchemist' || name === 'summoner' ? name : 'mage';
+  const live = ['blade', 'gunner', 'summoner', 'puppet', 'ranger', 'warden', 'alchemist'];
+  settings.class = live.includes(name) ? name : 'mage';
   settings.blade = settings.class === 'blade';
   settings.gunner = settings.class === 'gunner';
   arms.load();
@@ -634,7 +662,15 @@ zones.whenClear(() => ranger.restock());
 zones.hexOf = (x, z) => hexes.at(x, z);
 const warden = createWarden({ scene, camera, world, zones, walker });
 const alchemist = createAlchemist({ scene, camera, world, zones, walker });
-const summoner = createSummoner({ scene, camera, world, zones, walker });
+const summoner = createSummoner({ scene, camera, world, zones, walker, staff, beam });
+const puppet = createPuppetmaster({ scene, world, zones, walker });
+const classBind = {
+  foe: () => (duel.active ? duel.foeSpot() : null),
+  wound: (n, x, z) => duel.wound(n, x, z),
+  mendPet: (n) => duel.mendPet(n),
+};
+summoner.bind(classBind);
+puppet.bind(classBind);
 camera.layers.enable(9);
 let padCast = false, forceDraw = false, chaseDist = 0, greetWho = '', greetUntil = 0, lakeWide = false, playFrames = 0;
 const tour = { t: 0, done: false, live: false };
@@ -762,23 +798,27 @@ function tickStep(dt, draw) {
   const inp = input.read(dt);
   const planted = zones.name !== 'hub' && settings.class === 'blade' && blade.pad;
   const melee = zones.name !== 'hub' && (settings.class === 'blade' || settings.class === 'gunner');
+  const summonerOn = zones.name !== 'hub' && settings.class === 'summoner';
+  const puppetOn = zones.name !== 'hub' && settings.class === 'puppet';
   const rangerOn = zones.name !== 'hub' && settings.class === 'ranger';
   const wardenOn = zones.name !== 'hub' && settings.class === 'warden';
   const alchemistOn = zones.name !== 'hub' && settings.class === 'alchemist';
-  const summonerOn = zones.name !== 'hub' && settings.class === 'summoner';
-  const previewOn = rangerOn || wardenOn || alchemistOn || summonerOn;
+  const previewOn = rangerOn || wardenOn || alchemistOn;
+  const kitOn = melee || summonerOn || puppetOn;
   if (previewOn) kit = settings.class;
-  else applyKit(melee ? settings.class : 'mage');
+  else applyKit(kitOn ? settings.class : 'mage');
   if (discToggle) discToggle.hidden = kit !== 'mage';
   if (zones.blocksMagic) {
     zones.castHeld(!!inp.cast, !padCast && !!inp.cast, padCast && !inp.cast);
     padCast = !!inp.cast;
     spells?.release();
-  } else if (melee) {
+  } else if (kitOn) {
     spells?.release();
-    const list = settings.class === 'blade' ? BLADE_ATK : GUN_ATK;
+    const list = KIT_ATK[settings.class] || BLADE_ATK;
     if (inp.spell) { atk = (atk + inp.spell + list.length) % list.length; kitBar.select(atk); }
     if (inp.cast !== null && inp.cast !== padCast) { const down = !!inp.cast; padCast = !!inp.cast; useAttack(settings.class, atk, down); }
+    if (settings.class === 'summoner') kitBar.charge?.(summoner.fill || 0);
+    if (settings.class === 'puppet') kitBar.charge?.(puppet.bash || 0);
   } else if (previewOn) {
     spells?.release();
     padCast = !!inp.cast;
@@ -967,10 +1007,13 @@ function tickStep(dt, draw) {
   if (wardenBar) wardenBar.hidden = !wardenOn;
   if (alchemistBar) alchemistBar.hidden = !alchemistOn;
   if (summonerBar) summonerBar.hidden = !summonerOn;
+  const puppetBar = document.getElementById('puppetBar');
+  if (puppetBar) puppetBar.hidden = !puppetOn;
   ranger?.update(dt, rangerOn);
   warden?.update(dt, wardenOn);
   alchemist?.update(dt, alchemistOn);
   summoner?.update(dt, summonerOn);
+  puppet?.update(dt, puppetOn);
   const armCharge = (discCharge || spells?.cast?.holding) ? Math.max(0.14, spells?.cast?.charge || 0) : 0;
   const handDisc = !!(ar.on || settings.hands);
   if (spells) spells.placeAr = !!ar.on;
@@ -1253,6 +1296,11 @@ if (!capture) {
     useDevice('keys');
     if (e.code === 'KeyH') hint.classList.toggle('off');
     if (settings.class === 'mage' && spells && /^Digit[1-7]$/.test(e.code)) spells.select(Number(e.code.slice(5)) - 1);
+    if ((settings.class === 'summoner' || settings.class === 'puppet') && /^Digit[1-6]$/.test(e.code)) {
+      const list = KIT_ATK[settings.class];
+      const i = Number(e.code.slice(5)) - 1;
+      if (list[i]) { atk = i; kitBar.select(i); }
+    }
     if (!begun) { if (!['F11', 'F12'].includes(e.code) && !e.ctrlKey && !e.metaKey && !e.altKey) start(false); return; }
     if (e.code === 'KeyP') setPaused(!paused);
   });

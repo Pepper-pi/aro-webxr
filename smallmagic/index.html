@@ -109,13 +109,26 @@
       #toast { position: fixed; left: 50%; top: 28%; transform: translateX(-50%); z-index: 16; max-width: min(420px, 86vw); padding: 12px 16px; border-radius: 14px; border: 2px solid #f1d9a4; background: rgba(28, 16, 12, 0.92); color: #fff6dc; font: 18px Georgia, serif; text-align: center; pointer-events: none; }
       #discActs { position: fixed; inset: 0; z-index: 8; pointer-events: none; }
       #discActs button { position: absolute; transform: translate(-50%, -50%); pointer-events: auto; min-width: 72px; min-height: 44px; border-radius: 999px; border: 2px solid #f1d9a4; background: rgba(20, 12, 28, 0.82); color: #fff6dc; font: 15px Georgia, serif; }
-      #rangerBar, #wardenBar, #alchemistBar, #summonerBar { position: fixed; right: 16px; bottom: 18%; z-index: 8; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+      #rangerBar, #wardenBar, #alchemistBar, #summonerBar, #puppetBar { position: fixed; right: 16px; bottom: 18%; z-index: 8; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
       #rangerBar button, #wardenBar button, #alchemistBar button, #summonerBar button { min-width: 88px; min-height: 44px; border-radius: 999px; border: 2px solid #c4a574; background: rgba(20, 12, 28, 0.82); color: #fff6dc; font: 16px Georgia, serif; }
       #rangerNote, #wardenNote, #alchemistNote, #rangerAmmo { margin: 0; color: #ffe7a4; font: 14px Georgia, serif; text-shadow: 0 1px 2px #000; }
       #rangerCharge { width: 120px; height: 10px; border-radius: 999px; border: 2px solid #f1d9a4; background: rgba(20, 12, 28, 0.7); overflow: hidden; }
       #rangerCharge i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #e7c56a, #fff1c4); }
-      #classPick { display: flex; flex-wrap: wrap; gap: 6px; }
-      #classPick button { flex: 1 1 30%; }
+      #classPick { display: flex; flex-direction: column; gap: 0; align-items: stretch; }
+      #classPick .live, #classPick .branch { display: flex; gap: 8px; }
+      #classPick .branch { margin-top: 0; }
+      #classPick .spell-branch { position: relative; height: 36px; }
+      #classPick .spell-branch .stem { position: absolute; left: 16.6%; top: 0; width: 1px; height: 18px; background: rgba(241, 217, 164, 0.9); }
+      #classPick .spell-branch .arm { position: absolute; left: 16.6%; width: 58.4%; top: 18px; height: 1px; background: rgba(241, 217, 164, 0.9); }
+      #classPick .spell-branch .arm::before, #classPick .spell-branch .arm::after { content: ''; position: absolute; top: 0; width: 1px; height: 16px; background: rgba(241, 217, 164, 0.9); }
+      #classPick .spell-branch .arm::before { left: 14%; }
+      #classPick .spell-branch .arm::after { right: 0; }
+      #classPick button.card { flex: 1; min-height: 0; text-align: left; padding: 10px 12px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.8); background: rgba(236, 242, 248, 0.9); color: #1c2430; box-shadow: 0 8px 16px rgba(20, 28, 36, 0.12); backdrop-filter: blur(8px); font: 14px/1.35 Georgia, serif; }
+      #classPick button.card.on { outline: 2px solid #e7c56a; }
+      #classPick button.card b { display: block; font-size: 16px; }
+      #classPick button.card i { font-style: normal; letter-spacing: 0.12em; text-transform: uppercase; font-size: 11px; color: #6a5a3a; }
+      #classPick button.card p { margin: 4px 0; }
+      #classPick button.card span { display: block; color: #3a4654; font-size: 13px; }
       #home, #crew { position: fixed; left: max(10px, env(safe-area-inset-left)); top: max(10px, env(safe-area-inset-top)); transform: none; z-index: 20; width: min(400px, 92vw); max-height: calc(100vh - 20px); overflow: hidden; display: flex; flex-direction: column; padding: 0; border: 1px solid rgba(180, 245, 255, 0.55); border-radius: 22px; background: linear-gradient(180deg, rgba(210, 186, 255, 0.18), rgba(12, 8, 28, 0.92)); color: #f4ecff; text-align: left; font: 15px/1.35 Georgia, serif; box-shadow: 0 16px 28px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.28); }
       #home[hidden], #crew[hidden] { display: none; }
       #home .sheetBody, #crew .sheetBody { overflow: auto; padding: 10px 12px 16px; }
@@ -585,9 +598,10 @@
       <p id="alchemistNote">Alchemist</p>
     </div>
     <div id="summonerBar" hidden>
-      <button id="summonerStrike" type="button">Strike</button>
-      <button id="summonerCall" type="button">Summon</button>
       <p id="summonerNote">Summoner</p>
+    </div>
+    <div id="puppetBar" hidden>
+      <p id="puppetNote">Puppetmaster</p>
     </div>
     <div id="discActs" hidden>
       <button id="discPrev" type="button">Prev</button>
@@ -608,18 +622,21 @@
       </div>
       <div data-pane="controls">
         <p>Class</p>
-        <div class="row" id="classPick">
-          <button type="button" data-class="mage" class="on">Mage</button>
-          <button type="button" data-class="blade">Warrior</button>
-          <button type="button" data-class="gunner">Gunner</button>
-          <button type="button" data-class="ranger">Ranger</button>
-          <button type="button" data-class="warden">Warden</button>
-          <button type="button" data-class="alchemist">Alchemist</button>
-          <button type="button" data-class="summoner">Summoner</button>
+        <div id="classPick">
+          <div class="live">
+            <button type="button" class="card on" data-class="mage"><b>Mage</b><i>Caster</i><p>Staffless. The ring at the chest is the spell.</p><span>Fire · Frost Bolt · Tornado</span></button>
+            <button type="button" class="card" data-class="blade"><b>Warrior</b><i>Striker</i><p>A sword on the blade rails. Close, and readable.</p><span>Slice · Pound · Block</span></button>
+            <button type="button" class="card" data-class="gunner"><b>Gunner</b><i>Striker</i><p>A blaster with a count, a reload, and a charged shot.</p><span>Fire · Grenade · Charged shot</span></button>
+          </div>
+          <div class="spell-branch" aria-hidden="true"><span class="stem"></span><span class="arm"></span></div>
+          <div class="branch">
+            <button type="button" class="card" data-class="summoner"><b>Summoner</b><i>Summon</i><p>The staff catches a spirit onto a page, then lets it out.</p><span>Catch · Summon · Spirit mend</span></button>
+            <button type="button" class="card" data-class="puppet"><b>Puppetmaster</b><i>Support</i><p>A barrel tank carries a fighter. They come out of each other.</p><span>Deploy Tank · Pop Fighter · Fighter Strike</span></button>
+          </div>
         </div>
-        <p class="note">Mage casts from the hands and the disc, with no staff. Zoom pulls the view back. Warrior draws the sword. Gunner fires the blaster. Ranger shoots and marks. Warden bashes and guards. Alchemist throws and sips. Summoner keeps the staff: a strike, and a familiar.</p>
+        <p class="note">Summoner and Puppetmaster branch from the Mage. They stay separate kits. The Mage has no staff. The Summoner keeps it.</p>
         <p class="deck">On deck</p>
-        <div class="deck-row"><span>The four kits above are in play. The staff stays with the Summoner.</span></div>
+        <div class="deck-row"><span>Warden · guard and bash. Still on deck.</span><span>Ranger · bow and mark. Still on deck.</span><span>Alchemist · toss and sip. Still on deck.</span></div>
         <div class="row"><button id="handsToggle" type="button">Hands mode: off</button></div>
         <div class="row"><button id="petArena" type="button">Pet duel arena</button></div>
         <div class="row"><button id="raidTest" type="button">Hex raid (test)</button></div>

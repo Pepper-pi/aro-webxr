@@ -44,6 +44,17 @@ const EMBLEMS = {
   slice: [{ d: 'M-8 7 L8 -7' }],
   bolt: [{ d: 'M3 -9 L-5 1 H1 L-3 9 L6 -1 H1 Z' }],
   nade: [{ d: 'M0 -8 V-3 M-5 0 A5 5 0 1 0 5 0' }],
+  catch: [{ d: 'M-8 6 H8 M0 6 V-2 M-4 -2 H4 M0 -2 V-8' }],
+  summon: [{ d: 'M0 8 C-6 2 -6 -4 0 -8 C6 -4 6 2 0 8 Z' }],
+  mend: [{ d: 'M0 -8 V8 M-8 0 H8' }],
+  strike: [{ d: 'M-7 7 L7 -7 M4 -7 H7 V-4' }],
+  siphon: [{ d: 'M-8 4 C-2 4 2 -4 8 -4 M8 -4 L4 -7 M8 -4 L4 -1' }],
+  trap: [{ d: 'M-7 -7 H7 V7 H-7 Z M-7 -7 L7 7 M7 -7 L-7 7' }],
+  guard: [{ d: 'M0 -8 C6 -4 7 2 0 8 C-7 2 -6 -4 0 -8 Z' }],
+  deploy: [{ d: 'M-6 6 H6 V-2 H-6 Z M-3 -2 V-7 H3 V-2' }],
+  pop: [{ d: 'M-6 4 H6 V-1 H-6 Z M0 -1 V-8' }],
+  bash: [{ d: 'M0 8 V-2 M-7 2 H7 M-4 -4 H4' }],
+  recall: [{ d: 'M6 0 H-6 M-6 0 L-1 -4 M-6 0 L-1 4' }],
 };
 
 const el = (tag, at, to) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); to?.appendChild(e); return e; };

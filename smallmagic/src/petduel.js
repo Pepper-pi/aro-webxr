@@ -903,6 +903,30 @@ export function createDuel({ scene, world, camera, living }) {
 
   return {
     root, begin, beginRaid, beginBout, pose, update, look, act, end, loading, pick: choose,
+    foeSpot() {
+      return { x: root.position.x + actors.foe.g.position.x, y: root.position.y + 0.9, z: root.position.z + actors.foe.g.position.z };
+    },
+    wound(n, x, z) {
+      if (!active || n <= 0) return false;
+      const spot = { x: root.position.x + actors.foe.g.position.x, z: root.position.z + actors.foe.g.position.z };
+      if (x != null && Math.hypot(spot.x - x, spot.z - z) > 4.8) return false;
+      if (raid) { actors.foe.hp = Math.max(0, actors.foe.hp - n); return true; }
+      if (bout && !bout.over) {
+        bout.wild.hp = Math.max(0, bout.wild.hp - n);
+        actors.foe.hp = bout.wild.hp;
+        if (bout.wild.hp <= 0) finishBout(true);
+        return true;
+      }
+      actors.foe.hp = Math.max(0, actors.foe.hp - n * 0.35);
+      return actors.foe.hp >= 0;
+    },
+    mendPet(n) {
+      if (!bout || bout.over || n <= 0) return false;
+      bout.mine.hp = Math.min(bout.mine.max, bout.mine.hp + n);
+      actors.pet.hp = bout.mine.hp;
+      bars();
+      return true;
+    },
     get playerCam() { return !!(raid && raid.intro <= 0); },
     get sweep() { return !!(raid && raid.intro > 0); },
     bind(next) { magic = { ...magic, ...next }; },

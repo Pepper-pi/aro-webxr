@@ -1258,6 +1258,8 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   enter('hub');
   markDest();
   let hearts = 100;
+  let guard = 0;
+  let guardT = 0;
   let arm = { fight: true };
   let showMage = false;
   let onClear = () => {};
@@ -1322,7 +1324,17 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     get atLake() { return atLake; },
     buddyAt() { return buddyBody.visible ? buddyBody.position : null; },
     get hearts() { return hearts; },
-    nick(n) { hearts = Math.max(0, hearts - n); },
+    nick(n) {
+      if (guard > 0 && n > 0) {
+        const use = Math.min(guard, n);
+        guard -= use;
+        n -= use;
+      }
+      hearts = Math.max(0, hearts - n);
+    },
+    setGuard(n, t = 8) { guard = Math.max(0, n); guardT = t; },
+    get guard() { return guardT > 0 ? guard : 0; },
+    ageGuard(dt) { guardT = Math.max(0, guardT - dt); if (guardT <= 0) guard = 0; },
     heal(n) {
       let cap = 100;
       try { if ((JSON.parse(localStorage.getItem('aro-hub') || '{}').people?.maren?.fp || 0) >= 90) cap = 120; } catch { /* cap stays 100 */ }
