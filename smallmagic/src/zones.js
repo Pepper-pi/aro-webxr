@@ -1360,6 +1360,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     set cityAngle(v) { cityAngle = v || 0; },
     get cityAngle() { return cityAngle; },
     get cityReady() { return Promise.all([canal.ready, ruin.ready]); },
+    get town() { return town; },
     showBook,
     stickRod() {
       if (!hold.visible) return;

@@ -12,6 +12,7 @@ import { createCastDisc } from './castdisc.js';
 import { createAR } from './ar.js';
 import { createWander } from './wander.js';
 import { createLiving } from './living.js';
+import { createFolk } from './folk.js';
 import { createWeather } from './weather.js';
 import { createDuel } from './petduel.js';
 import { createAppeal } from './appeal.js';
@@ -133,6 +134,7 @@ const appeal = createAppeal(scene, world);
 const mind = createMind();
 if (phone) { appeal.quality = 0; post.grade = 0; }
 const living = createLiving({ zones });
+const folk = createFolk({ scene, world, living, zones, phone });
 const street = createWeather(scene, world);
 const duel = createDuel({ scene, world, camera, living });
 const wander = createWander({
@@ -946,6 +948,7 @@ function tickStep(dt, draw) {
   }
   ar.update(dt, walker);
   wander.update(dt, walker, camera, ar.on);
+  if (zones.name === 'meadow') folk.update(dt, walker);
   street.sky = living.weather;
   street.update(dt, walker, ar.on || zones.name === 'hub' || duel.active);
   duel.update(dt);

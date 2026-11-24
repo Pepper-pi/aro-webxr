@@ -108,6 +108,11 @@ export function createLiving({ zones } = {}) {
     }
     return 'common';
   }
+  function rollSeeded(kind, salt, ctx = context()) {
+    const rng = mulberry32(hash(`${dayKey()}|${kind}|${salt}|${ctx.time}|${ctx.weather}|${ctx.season}`));
+    const tier = rollTier(ctx, rng);
+    return { tier, shimmer: rarity.shimmer.includes(tier), ctx };
+  }
   function roll(kind, ctx = context()) {
     const rng = mulberry32(hash(`${dayKey()}|${kind}|${ctx.hex}|${ctx.weather}|${Math.floor(performance.now() / 1000)}`));
     const pool = Object.entries(species).filter(([, row]) => row.kind === kind || (kind === 'find' && (row.kind === 'find' || row.kind === 'critter')));
@@ -129,7 +134,7 @@ export function createLiving({ zones } = {}) {
       id: key,
       name: spec.name,
       kind: spec.kind,
-      tier: spec.tier,
+      tier: extra.tier || spec.tier,
       seen: 0,
       first: dayKey(),
       where: [],
@@ -332,6 +337,7 @@ export function createLiving({ zones } = {}) {
     defeat(id) { return sight(id, { where: 'duel', drop: true, defeated: true }); },
     stalls, issueQuest, help, roster, book,
     findId: FIND_ID,
+    rollSeeded,
     get weather() { return weatherNow(); },
     set weather(v) { weather = v || ''; const data = store(); data.stalls = null; data.quest = null; write(MEM, data); },
     set hear(fn) { hear = fn; },

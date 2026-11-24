@@ -69,6 +69,7 @@ export function createTown(parent, world, { low = false } = {}) {
   root.name = 'town';
   parent.add(root);
   const doors = [];
+  const porches = [];
   const glows = [];
   let built = null;
   let quality = low ? 'low' : 'high';
@@ -99,6 +100,7 @@ export function createTown(parent, world, { low = false } = {}) {
       root.remove(child);
     }
     doors.length = 0;
+    porches.length = 0;
     glows.length = 0;
   }
 
@@ -163,6 +165,7 @@ export function createTown(parent, world, { low = false } = {}) {
     } else if (!simple) {
       place(0, y0, plot.d / 2 + 0.85, 0, 'stall-red', 0.9, 0.9, 0.9);
     }
+    porches.push({ id: plot.id, x: plot.x + ( -plot.w / 2 + sx * (frontDoor + 0.5)) * cos + (plot.d / 2 + 0.7) * sin, z: plot.z - (-plot.w / 2 + sx * (frontDoor + 0.5)) * sin + (plot.d / 2 + 0.7) * cos, yaw, y: y0 });
     if (plot.enter) {
       const lx = -plot.w / 2 + sx * (frontDoor + 0.5);
       const lz = plot.d / 2 + 0.35;
@@ -243,6 +246,7 @@ export function createTown(parent, world, { low = false } = {}) {
   return {
     ready,
     doors,
+    porches,
     setQuality(next) {
       const pick = next ? 'low' : 'high';
       if (pick === quality) return;
