@@ -24,7 +24,7 @@ function crackle(tex) {
   if (!g) return null;
   g.drawImage(img, 0, 0, w, h);
   g.strokeStyle = 'rgba(36, 18, 22, 0.62)';
-  g.lineWidth = Math.max(1, w / 420);
+  g.lineWidth = Math.max(2.5, w / 180);
   g.beginPath();
   for (let i = 0; i < 7; i++) {
     const x = (0.12 + i * 0.12) * w;
@@ -54,66 +54,123 @@ function crackle(tex) {
   return next;
 }
 
+function sigilTex(color) {
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 128;
+  const g = c.getContext('2d');
+  g.clearRect(0, 0, 128, 128);
+  g.strokeStyle = color;
+  g.lineWidth = 14;
+  g.lineCap = 'round';
+  g.beginPath();
+  g.arc(64, 72, 30, 0.3, Math.PI * 1.45);
+  g.moveTo(46, 58);
+  g.lineTo(84, 90);
+  g.moveTo(64, 18);
+  g.lineTo(64, 48);
+  g.moveTo(48, 34);
+  g.lineTo(80, 34);
+  g.stroke();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function crackStroke(parent, x, y, z, len, rotZ) {
+  const m = new THREE.Mesh(
+    new THREE.BoxGeometry(len, 0.014, 0.002),
+    new THREE.MeshBasicMaterial({ color: '#14080c' }),
+  );
+  m.position.set(x, y, z);
+  m.rotation.z = rotZ;
+  m.name = 'porcelain-crack';
+  parent.add(m);
+}
+
 function glazePorcelain(vrm) {
   const paint = (material, kind) => {
     if (!material?.color?.set) return;
+    material.emissive?.set?.('#000000');
+    if (material.emissiveIntensity != null) material.emissiveIntensity = 0;
     if (kind === 'eye') {
-      material.color.set('#ff7ad9');
-      material.emissive?.set?.('#ff4fa8');
-      if (material.emissiveIntensity != null) material.emissiveIntensity = 2.2;
-      material.shadeColorFactor?.set?.('#ff4fa8');
+      material.color.set('#ff5cbe');
+      material.emissive?.set?.('#ff4fa3');
+      if (material.emissiveIntensity != null) material.emissiveIntensity = 0.45;
+      material.shadeColorFactor?.set?.('#d44898');
       return;
     }
-    if (kind === 'skin') {
-      material.color.set('#fff8f6');
-      material.shadeColorFactor?.set?.('#f3ddd9');
-      material.emissive?.set?.('#000000');
-      if (material.emissiveIntensity != null) material.emissiveIntensity = 0;
-    }
-    if (kind === 'skin') {
+    if (kind === 'skin' || kind === 'cloth') {
       const rim = material.uniforms?.parametricRimColorFactor?.value;
       if (rim?.set) rim.set('#ff4fa8');
-      if (material.uniforms?.parametricRimFresnelPowerFactor) material.uniforms.parametricRimFresnelPowerFactor.value = 4.2;
-      if (material.uniforms?.parametricRimLiftFactor) material.uniforms.parametricRimLiftFactor.value = 0.02;
-      if (material.uniforms?.rimLightingMixFactor) material.uniforms.rimLightingMixFactor.value = 0.35;
-      if (material.uniforms?.shadingToonyFactor) material.uniforms.shadingToonyFactor.value = 0.08;
+      if (material.uniforms?.parametricRimFresnelPowerFactor) material.uniforms.parametricRimFresnelPowerFactor.value = 5.8;
+      if (material.uniforms?.parametricRimLiftFactor) material.uniforms.parametricRimLiftFactor.value = 0;
+      if (material.uniforms?.rimLightingMixFactor) material.uniforms.rimLightingMixFactor.value = kind === 'skin' ? 0.7 : 0.5;
     }
-    const baked = crackle(material.map);
+    if (kind === 'skin') {
+      material.color.set('#c5d2e0');
+      material.shadeColorFactor?.set?.('#b7c6d6');
+      if (material.uniforms?.shadingToonyFactor) material.uniforms.shadingToonyFactor.value = 0.04;
+    }
+    if (kind === 'cloth') {
+      material.color.set('#7a5578');
+      material.shadeColorFactor?.set?.('#a07898');
+    }
+    if (kind === 'hair') {
+      material.color.set('#2c2430');
+      material.shadeColorFactor?.set?.('#4a4050');
+    }
+    const baked = kind === 'eye' ? null : crackle(material.map);
     if (baked) material.map = baked;
   };
   vrm.scene.traverse((o) => {
     if (!o.isMesh) return;
     for (const material of [].concat(o.material || [])) {
       const name = `${material.name || ''} ${o.name || ''}`;
-      if (/eyeiris|eyehighlight|eyeextra/i.test(name)) paint(material, 'eye');
+      if (/eyeiris/i.test(name)) paint(material, 'eye');
       else if (/skin|face_00|body_00/i.test(name)) paint(material, 'skin');
-      else if (/tops|bottoms|cloth|hair/i.test(name)) paint(material, 'cloth');
+      else if (/hair/i.test(name)) paint(material, 'hair');
+      else if (/tops|bottoms|cloth/i.test(name)) paint(material, 'cloth');
     }
   });
-  const ringMat = new THREE.MeshStandardMaterial({ color: '#1c1416', metalness: 0.72, roughness: 0.22 });
+  const ringMat = new THREE.MeshStandardMaterial({ color: '#3a3034', metalness: 0.55, roughness: 0.28 });
   for (const boneName of ['leftLowerArm', 'rightLowerArm', 'leftHand', 'rightHand', 'leftLowerLeg', 'rightLowerLeg']) {
     const bone = vrm.humanoid.getRawBoneNode(boneName);
     if (!bone) continue;
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(boneName.includes('Hand') ? 0.02 : 0.034, 0.005, 6, 14), ringMat);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(boneName.includes('Hand') ? 0.022 : 0.036, 0.006, 6, 14), ringMat);
     ring.rotation.x = Math.PI / 2;
     ring.name = 'porcelain-joint';
     bone.add(ring);
   }
   const head = vrm.humanoid.getRawBoneNode('head');
   if (head) {
-    const glyph = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.045, 0.045),
-      new THREE.MeshBasicMaterial({ color: '#9a1830', transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }),
+    const red = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.09, 0.09),
+      new THREE.MeshBasicMaterial({ map: sigilTex('#c41830'), transparent: true, depthWrite: false, side: THREE.DoubleSide }),
     );
-    glyph.position.set(0.045, 0.01, 0.09);
-    glyph.name = 'porcelain-glyph';
-    head.add(glyph);
-    const mark = glyph.clone();
-    mark.material = glyph.material.clone();
-    mark.material.color.set('#1a1014');
-    mark.position.set(0, 0.07, 0.09);
-    mark.scale.set(0.55, 0.9, 1);
-    head.add(mark);
+    red.position.set(0.05, -0.01, 0.105);
+    red.name = 'porcelain-glyph';
+    head.add(red);
+    const black = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.07, 0.07),
+      new THREE.MeshBasicMaterial({ map: sigilTex('#14080c'), transparent: true, depthWrite: false, side: THREE.DoubleSide }),
+    );
+    black.position.set(-0.01, 0.055, 0.105);
+    black.name = 'porcelain-glyph';
+    head.add(black);
+    crackStroke(head, 0.0, 0.04, 0.1, 0.09, 0.15);
+    crackStroke(head, 0.04, -0.02, 0.1, 0.07, -0.9);
+    crackStroke(head, -0.03, 0.01, 0.1, 0.05, 0.4);
+  }
+  const neck = vrm.humanoid.getRawBoneNode('neck');
+  if (neck) {
+    crackStroke(neck, 0.0, 0.02, 0.045, 0.06, 0.2);
+    crackStroke(neck, 0.01, -0.02, 0.045, 0.05, -0.5);
+  }
+  for (const side of ['leftHand', 'rightHand']) {
+    const hand = vrm.humanoid.getRawBoneNode(side);
+    if (!hand) continue;
+    crackStroke(hand, 0, 0.01, 0.02, 0.04, side === 'leftHand' ? 0.4 : -0.4);
   }
 }
 

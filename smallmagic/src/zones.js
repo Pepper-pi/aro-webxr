@@ -415,8 +415,8 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
           low: detail === 'low',
           dyes: {
             hair: '#241018', hairShade: '#10080c',
-            top: '#1a1016', topShade: '#4a1824',
-            bottom: '#140c12', bottomShade: '#2a1018',
+            top: '#7a5578', topShade: '#a07898',
+            bottom: '#6a4868', bottomShade: '#8d6a84',
             shoe: '#2a181c', shoeShade: '#10080c',
           },
         });
@@ -425,9 +425,11 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         spot.position.set(3.15, 0, 2.4);
         spot.rotation.y = Math.PI;
         spot.add(healer.root);
-        const rim = new THREE.PointLight('#ff4fa8', 0.28, 1.8, 2);
-        rim.position.set(-0.7, 1.55, -0.35);
-        spot.add(rim);
+        const key = new THREE.PointLight('#f4f7ff', 2.1, 2.8, 2);
+        key.position.set(0.05, 1.62, 0.95);
+        const rim = new THREE.PointLight('#ff4fa8', 1.15, 2.2, 2);
+        rim.position.set(0.95, 1.4, -0.15);
+        spot.add(key, rim);
         hub.add(spot);
         porcelain = healer;
       } catch (err) {
