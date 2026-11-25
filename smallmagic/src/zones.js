@@ -375,6 +375,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     for (const child of [...host.children]) if (child.isMesh) host.remove(child);
   }
   let loadedPeople = null;
+  let porcelain = null;
   let dressBuddy = () => {};
   const ctls = {};
   const COMPANIONS = {
@@ -405,6 +406,33 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
           console.warn(id, err);
         }
       }));
+      try {
+        const healer = await createCompanion(new URL('hearth/people/sable-vroid.vrm', document.baseURI).href, {
+          id: 'porcelain',
+          porcelain: true,
+          charm: null,
+          height: 1.58,
+          low: detail === 'low',
+          dyes: {
+            hair: '#241018', hairShade: '#10080c',
+            top: '#1a1016', topShade: '#4a1824',
+            bottom: '#140c12', bottomShade: '#2a1018',
+            shoe: '#2a181c', shoeShade: '#10080c',
+          },
+        });
+        const spot = new THREE.Group();
+        spot.name = 'porcelain-healer';
+        spot.position.set(3.15, 0, 2.4);
+        spot.rotation.y = Math.PI;
+        spot.add(healer.root);
+        const rim = new THREE.PointLight('#ff4fa8', 0.28, 1.8, 2);
+        rim.position.set(-0.7, 1.55, -0.35);
+        spot.add(rim);
+        hub.add(spot);
+        porcelain = healer;
+      } catch (err) {
+        console.warn('porcelain', err);
+      }
       Object.assign(people, {
         maren: ctls.maren ? null : await file('hearth/people/maren.glb'),
         sable: ctls.sable ? null : await file('hearth/people/sable.glb'),
@@ -1695,7 +1723,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       if (d > 2.4) leftRing = true;
       const reach = name === 'hub' ? 1.65 : 0.95;
       if (leftRing && performance.now() >= armUntil && d < reach) enter(name === 'hub' ? dest : 'hub');
-      you.visible = name === 'hub' || buddyBody.visible || (showMage && name === 'meadow');
+      you.visible = name !== 'hub' && (buddyBody.visible || (showMage && name === 'meadow'));
       if (you.visible) {
         const y = name === 'hub' ? 0 : world.ground(walker.feet.x, walker.feet.z);
         you.position.set(walker.feet.x, y, walker.feet.z);
@@ -1762,6 +1790,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         ctl.feel({ mood: id === 'maren' ? marenMood : 'settled', greeting: nearId === id });
         ctl.update(dt, camera);
       }
+      porcelain?.update(dt, camera);
       for (const mixer of hearthMixers) mixer.update(dt);
       if (name === 'hub') {
         const flick = performance.now() * 0.001;

@@ -12,6 +12,111 @@ const _qa = new THREE.Quaternion();
 const _qb = new THREE.Quaternion();
 const _qout = new THREE.Quaternion();
 
+function crackle(tex) {
+  const img = tex?.image;
+  if (!img?.width || !img?.height) return null;
+  const w = Math.min(img.width, 1024);
+  const h = Math.min(img.height, 1024);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const g = canvas.getContext('2d');
+  if (!g) return null;
+  g.drawImage(img, 0, 0, w, h);
+  g.strokeStyle = 'rgba(36, 18, 22, 0.62)';
+  g.lineWidth = Math.max(1, w / 420);
+  g.beginPath();
+  for (let i = 0; i < 7; i++) {
+    const x = (0.12 + i * 0.12) * w;
+    g.moveTo(x, h * 0.05);
+    g.bezierCurveTo(x + w * 0.04, h * 0.3, x - w * 0.05, h * 0.55, x + w * 0.02, h * 0.92);
+  }
+  g.stroke();
+  g.strokeStyle = '#9a1830';
+  g.lineWidth = Math.max(2, w / 180);
+  g.beginPath();
+  g.arc(w * 0.28, h * 0.42, w * 0.045, 0.2, Math.PI * 1.3);
+  g.moveTo(w * 0.25, h * 0.4);
+  g.lineTo(w * 0.32, h * 0.46);
+  g.moveTo(w * 0.62, h * 0.22);
+  g.lineTo(w * 0.62, h * 0.34);
+  g.moveTo(w * 0.57, h * 0.28);
+  g.lineTo(w * 0.67, h * 0.28);
+  g.stroke();
+  g.strokeStyle = '#1a1014';
+  g.stroke();
+  const next = new THREE.CanvasTexture(canvas);
+  next.colorSpace = tex.colorSpace || THREE.SRGBColorSpace;
+  next.flipY = tex.flipY;
+  next.wrapS = tex.wrapS;
+  next.wrapT = tex.wrapT;
+  next.needsUpdate = true;
+  return next;
+}
+
+function glazePorcelain(vrm) {
+  const paint = (material, kind) => {
+    if (!material?.color?.set) return;
+    if (kind === 'eye') {
+      material.color.set('#ff7ad9');
+      material.emissive?.set?.('#ff4fa8');
+      if (material.emissiveIntensity != null) material.emissiveIntensity = 2.2;
+      material.shadeColorFactor?.set?.('#ff4fa8');
+      return;
+    }
+    if (kind === 'skin') {
+      material.color.set('#fff8f6');
+      material.shadeColorFactor?.set?.('#f3ddd9');
+      material.emissive?.set?.('#000000');
+      if (material.emissiveIntensity != null) material.emissiveIntensity = 0;
+    }
+    if (kind === 'skin') {
+      const rim = material.uniforms?.parametricRimColorFactor?.value;
+      if (rim?.set) rim.set('#ff4fa8');
+      if (material.uniforms?.parametricRimFresnelPowerFactor) material.uniforms.parametricRimFresnelPowerFactor.value = 4.2;
+      if (material.uniforms?.parametricRimLiftFactor) material.uniforms.parametricRimLiftFactor.value = 0.02;
+      if (material.uniforms?.rimLightingMixFactor) material.uniforms.rimLightingMixFactor.value = 0.35;
+      if (material.uniforms?.shadingToonyFactor) material.uniforms.shadingToonyFactor.value = 0.08;
+    }
+    const baked = crackle(material.map);
+    if (baked) material.map = baked;
+  };
+  vrm.scene.traverse((o) => {
+    if (!o.isMesh) return;
+    for (const material of [].concat(o.material || [])) {
+      const name = `${material.name || ''} ${o.name || ''}`;
+      if (/eyeiris|eyehighlight|eyeextra/i.test(name)) paint(material, 'eye');
+      else if (/skin|face_00|body_00/i.test(name)) paint(material, 'skin');
+      else if (/tops|bottoms|cloth|hair/i.test(name)) paint(material, 'cloth');
+    }
+  });
+  const ringMat = new THREE.MeshStandardMaterial({ color: '#1c1416', metalness: 0.72, roughness: 0.22 });
+  for (const boneName of ['leftLowerArm', 'rightLowerArm', 'leftHand', 'rightHand', 'leftLowerLeg', 'rightLowerLeg']) {
+    const bone = vrm.humanoid.getRawBoneNode(boneName);
+    if (!bone) continue;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(boneName.includes('Hand') ? 0.02 : 0.034, 0.005, 6, 14), ringMat);
+    ring.rotation.x = Math.PI / 2;
+    ring.name = 'porcelain-joint';
+    bone.add(ring);
+  }
+  const head = vrm.humanoid.getRawBoneNode('head');
+  if (head) {
+    const glyph = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.045, 0.045),
+      new THREE.MeshBasicMaterial({ color: '#9a1830', transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }),
+    );
+    glyph.position.set(0.045, 0.01, 0.09);
+    glyph.name = 'porcelain-glyph';
+    head.add(glyph);
+    const mark = glyph.clone();
+    mark.material = glyph.material.clone();
+    mark.material.color.set('#1a1014');
+    mark.position.set(0, 0.07, 0.09);
+    mark.scale.set(0.55, 0.9, 1);
+    head.add(mark);
+  }
+}
+
 function dye(material, lit, shade) {
   if (!material) return;
   if (material.color?.set) material.color.set(lit);
@@ -335,6 +440,7 @@ export async function createCompanion(url, opts = {}) {
     }
     if (opts.id === 'lumen') dressLumen(vrm, chest, low);
   }
+  if (opts.porcelain) glazePorcelain(vrm);
   const relax = (name, x, y, z) => {
     const node = vrm.humanoid.getRawBoneNode(name);
     if (node) node.rotation.set(x, y, z);
@@ -440,6 +546,15 @@ export async function createCompanion(url, opts = {}) {
       sampleQuat(track, idle.time, _qout);
       idle.bones[i].quaternion.copy(_qout);
     });
+    if (opts.porcelain) {
+      const head = vrm.humanoid.getRawBoneNode('head');
+      const spine = vrm.humanoid.getRawBoneNode('spine');
+      if (head) {
+        head.rotateZ(Math.sin(t * 0.55) * 0.09);
+        head.rotateX(Math.sin(t * 0.8) * 0.04);
+      }
+      if (spine) spine.rotateZ(Math.sin(t * 0.45) * 0.025);
+    }
     if (camera) {
       camera.getWorldPosition(gaze.position);
       if (!gaze.parent) camera.parent?.add(gaze) || vrm.scene.parent?.add(gaze);

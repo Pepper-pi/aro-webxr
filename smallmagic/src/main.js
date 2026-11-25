@@ -1227,7 +1227,7 @@ function tickStep(dt, draw) {
   }
   if (!xrLive && blast.shake + hole.shake + twister.shake > 0.002) { const s = blast.shake + hole.shake + twister.shake * 0.5; shaking += dt; camera.rotateX(Math.sin(shaking * 61) * Math.sin(shaking * 37 + 1) * 0.03 * s); camera.rotateY(Math.sin(shaking * 53 + 2) * Math.sin(shaking * 29) * 0.03 * s); camera.rotateZ(Math.sin(shaking * 47 + 4) * 0.018 * s); }
   camera.updateMatrixWorld(true);
-  const showBody = !!avatar.ready && zones.name === 'meadow' && !ar.on && settings.viewBack && !free && followCam.dist > 1.15;
+  const showBody = !!avatar.ready && !ar.on && !free && (zones.name === 'hub' || (zones.name === 'meadow' && settings.viewBack && followCam.dist > 1.15));
   avatar.update(dt, walker, showBody);
   world.update(dt, walker.feet, camera, walker.speed);
   const flats = air.uniforms.uFlat.value;
