@@ -279,7 +279,7 @@ function fitMob(root, height, tint) {
       src.map.minFilter = THREE.LinearMipmapLinearFilter;
       src.map.magFilter = THREE.LinearFilter;
       src.map.anisotropy = crisp ? 16 : 2;
-      src.map.needsUpdate = true;
+      if (src.map.image && src.map.image.width) src.map.needsUpdate = true;
     }
     const mat = new THREE.MeshBasicMaterial({
       map: src.map || null,

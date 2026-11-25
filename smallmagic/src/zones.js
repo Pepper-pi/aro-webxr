@@ -278,32 +278,82 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     const fitted = new THREE.Box3().setFromObject(root);
     root.position.y -= fitted.min.y;
   }
+  function bareColor(name, color, hasMap) {
+    if (hasMap) return color;
+    const n = (name || '').toLowerCase();
+    // These Quaternius files ship with no textures. The skin factor is nearly black, so the head reads as a silhouette.
+    if (/skin/.test(n)) return new THREE.Color('#e8b496');
+    if (/hair/.test(n)) return new THREE.Color('#c09070');
+    if (/shirt|top/.test(n)) return new THREE.Color('#6a8cbf');
+    if (/pant/.test(n)) return new THREE.Color('#3a4250');
+    if (/belt|shoe/.test(n)) return new THREE.Color('#4a3428');
+    if (/face|eye/.test(n)) return new THREE.Color('#f4efe8');
+    const lum = color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
+    if (lum < 0.06) return new THREE.Color('#e0b090');
+    return color;
+  }
   function toBasic(root, warm) {
     root.traverse((o) => {
       if (!o.isMesh) return;
       const list = [].concat(o.material);
       const next = list.map((m) => {
-        const color = m.color ? m.color.clone() : new THREE.Color('#ffffff');
+        const hasMap = !!(m.map && m.map.image && m.map.image.width);
+        let color = m.color ? m.color.clone() : new THREE.Color('#ffffff');
+        color = bareColor(m.name, color, hasMap);
         if (warm) {
           const hsl = { h: 0, s: 0, l: 0 };
           color.getHSL(hsl);
-          if (hsl.l > 0.5 || hsl.s < 0.2) color.set('#b86a32');
-          else color.lerp(new THREE.Color('#a86838'), 0.45);
+          if (hsl.l > 0.5 || hsl.s < 0.2) color.set('#c48862');
+          else color.lerp(new THREE.Color('#c48862'), 0.35);
         }
-        const basic = warm
-          ? new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide })
-          : new THREE.MeshBasicMaterial({
-            map: m.map || null,
-            color,
-            transparent: !!m.transparent,
-            opacity: m.opacity ?? 1,
-            side: THREE.DoubleSide,
-          });
+        const basic = new THREE.MeshBasicMaterial({
+          map: hasMap ? m.map : null,
+          color,
+          transparent: !!m.transparent,
+          opacity: m.opacity ?? 1,
+          side: THREE.DoubleSide,
+        });
         basic.name = m.name || '';
         return basic;
       });
       o.material = next.length === 1 ? next[0] : next;
       o.frustumCulled = false;
+    });
+    plainFace(root);
+  }
+  function plainFace(root) {
+    let mapped = false;
+    root.traverse((o) => {
+      if (o.isMesh && [].concat(o.material).some((m) => m.map && m.map.image && m.map.image.width)) mapped = true;
+    });
+    if (mapped) return;
+    let head = null;
+    root.traverse((o) => { if (!head && o.name === 'Head') head = o; });
+    if (!head || head.getObjectByName('plain-face')) return;
+    const g = new THREE.Group();
+    g.name = 'plain-face';
+    const skin = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 12), new THREE.MeshBasicMaterial({ color: '#f0c4a4' }));
+    skin.scale.set(0.95, 1.05, 0.82);
+    g.add(skin);
+    const eye = new THREE.MeshBasicMaterial({ color: '#2a241c' });
+    for (const side of [-1, 1]) {
+      const e = new THREE.Mesh(new THREE.SphereGeometry(0.015, 8, 6), eye);
+      e.position.set(side * 0.032, 0.015, 0.075);
+      g.add(e);
+    }
+    const hair = new THREE.Mesh(
+      new THREE.SphereGeometry(0.105, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.48),
+      new THREE.MeshBasicMaterial({ color: '#6b4030' }),
+    );
+    hair.position.y = 0.02;
+    g.add(hair);
+    g.position.set(0, 0.04, 0.08);
+    head.add(g);
+    root.traverse((o) => {
+      if (!o.isMesh) return;
+      for (const m of [].concat(o.material || [])) {
+        if (/^face$/i.test(m.name || '')) { m.transparent = true; m.opacity = 0; }
+      }
     });
   }
   function tintCloth(root, hex) {

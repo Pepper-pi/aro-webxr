@@ -58,8 +58,12 @@ Only one or two hexes, chosen from the clock’s four-hour band, hold an event. 
 - Flowers and the scorch are procedural meshes, not a downloaded kit.
 - Cobble is one bow, not a street network. Leaf meshes are still heavy and were left alone on purpose. Lumen left Maren's mesh on 25 November (Block 27).
 - Ambient beds are short CC0 previews. Meadow still has a little distant traffic, and a synthesized wind sits under them. Umbrellas are cones. The rare-visitor crowd only appears on a shimmer day. Pair-chat can interrupt a chore.
-- Porcelain healer is still later. Hawk rarity is the day’s seeded roll, not a stored spawn tier.
+- Hawk rarity is the day’s seeded roll, not a stored spawn tier.
 
 ## Block 27 — 25 November
 
-Lumen Pike no longer wears Maren's AvatarSample A mesh. Her file is an AvatarSample C derivation, dressed with an indigo mantle, pale braids, and a hand lantern. Porcelain healer, the hub fire color, and a new city block were left for a later pass.
+Lumen Pike no longer wears Maren's AvatarSample A mesh. Her file is an AvatarSample C derivation, dressed with an indigo mantle, pale braids, and a hand lantern.
+
+## Block 28 — 25 November
+
+The hub stand-in had no textures and a near-black skin color, so its head read as a black mask with white eye slits. It now has a skin-colored face. Empty textures are no longer marked for upload, which was blanking some VRM faces. The hearth fire is a soft warm white, with cooler light from the window. A first clothed porcelain healer stands in the hub.

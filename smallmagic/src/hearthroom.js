@@ -64,8 +64,8 @@ export function createHearthShell() {
   const wall = wood.clone();
   wall.repeat.set(3, 1.4);
   const stone = mapOf('hearth/textures/stone_wall_diff_1k.jpg', 2, 2);
-  const plank = new THREE.MeshStandardMaterial({ map: wood, roughness: 0.86, metalness: 0, color: '#6e5844' });
-  const boards = new THREE.MeshStandardMaterial({ map: wall, roughness: 0.84, metalness: 0, color: '#fff4e6' });
+  const plank = new THREE.MeshStandardMaterial({ map: wood, roughness: 0.86, metalness: 0, color: '#8a7560' });
+  const boards = new THREE.MeshStandardMaterial({ map: wall, roughness: 0.84, metalness: 0, color: '#e4e8ee' });
   const rock = new THREE.MeshStandardMaterial({ map: stone, roughness: 0.92, metalness: 0, color: '#f4efe8' });
 
   const floor = new THREE.Mesh(new THREE.BoxGeometry(11, 0.16, 14), plank);
@@ -152,14 +152,16 @@ export function createHearthShell() {
   plant(4.2, 1.8);
   plant(-4.4, 2.6);
 
-  const fireLight = new THREE.PointLight('#ffb060', 1.55, 7, 2);
+  const fireLight = new THREE.PointLight('#fff4e6', 0.72, 8, 2);
   fireLight.position.set(-3.2, 1.05, -4.7);
-  const bounce = new THREE.PointLight('#f6efe4', 0.35, 7, 2);
+  const bounce = new THREE.PointLight('#f7f1e8', 0.22, 7, 2);
   bounce.position.set(0.2, 1.5, 0.4);
-  const windowLight = new THREE.PointLight('#d5e4f4', 3.1, 16, 2);
+  const windowLight = new THREE.PointLight('#d5e4f8', 1.35, 16, 2);
   windowLight.position.set(4.4, 1.9, 0.2);
-  const hemi = new THREE.HemisphereLight('#f3f6fb', '#9aa8b4', 1.15);
-  root.add(fireLight, bounce, windowLight, hemi);
+  const moon = new THREE.DirectionalLight('#d7e6f8', 0.55);
+  moon.position.set(4.2, 3.2, 1.4);
+  const hemi = new THREE.HemisphereLight('#e4eef8', '#c8b8a4', 1.25);
+  root.add(fireLight, bounce, windowLight, moon, hemi);
 
   let painted = '';
   function paintWindow(dusk, weather) {
@@ -169,8 +171,8 @@ export function createHearthShell() {
     const next = paintSky(!!dusk, weather || 'clear');
     paneCanvas.getContext('2d').drawImage(next, 0, 0);
     paneTex.needsUpdate = true;
-    windowLight.color.set(dusk ? '#c9b4dc' : weather === 'rain' ? '#c5d4e4' : '#e4eef8');
-    windowLight.intensity = dusk ? 0.8 : 2.6;
+    windowLight.color.set(dusk ? '#c9b4dc' : weather === 'rain' ? '#c5d4e4' : '#d5e4f8');
+    windowLight.intensity = dusk ? 0.45 : 0.9;
   }
 
   function flicker(t) {
@@ -183,9 +185,80 @@ export function createHearthShell() {
       e.position.set(e.userData.x, 0.45 + u * 1.05, 0.35);
       e.material.opacity = (1 - u) * 0.85;
     });
-    fireLight.intensity = 1.35 + Math.sin(t * 11) * 0.18;
-    bounce.intensity = 0.32 + Math.sin(t * 11) * 0.04;
+    fireLight.intensity = 0.66 + Math.sin(t * 11) * 0.06;
+    bounce.intensity = 0.2 + Math.sin(t * 11) * 0.02;
   }
 
+  root.add(porcelainHealer());
+
   return { root, paintWindow, flicker, fireLight };
+}
+
+function porcelainSkin() {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = '#f4e6e4';
+  g.fillRect(0, 0, 256, 256);
+  g.strokeStyle = 'rgba(42, 24, 28, 0.45)';
+  g.lineWidth = 1;
+  g.beginPath();
+  g.moveTo(36, 18); g.bezierCurveTo(70, 60, 48, 120, 62, 210);
+  g.moveTo(200, 24); g.bezierCurveTo(160, 80, 188, 140, 170, 230);
+  g.moveTo(20, 140); g.bezierCurveTo(80, 150, 140, 130, 230, 160);
+  g.stroke();
+  g.strokeStyle = '#9a1830';
+  g.lineWidth = 2.5;
+  g.beginPath();
+  g.arc(78, 168, 16, 0.4, Math.PI * 1.35);
+  g.moveTo(70, 160); g.lineTo(86, 176);
+  g.stroke();
+  g.strokeStyle = '#1a1014';
+  g.lineWidth = 2;
+  g.beginPath();
+  g.moveTo(128, 36); g.lineTo(128, 68);
+  g.moveTo(114, 50); g.lineTo(142, 50);
+  g.stroke();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function porcelainHealer() {
+  const g = new THREE.Group();
+  g.name = 'porcelain-healer';
+  const skin = new THREE.MeshStandardMaterial({ map: porcelainSkin(), color: '#fff8f6', roughness: 0.16, metalness: 0.12 });
+  const cloth = new THREE.MeshStandardMaterial({ color: '#5a3050', roughness: 0.55 });
+  const joint = new THREE.MeshStandardMaterial({ color: '#1a1214', roughness: 0.4, metalness: 0.2 });
+  const red = new THREE.MeshStandardMaterial({ color: '#8a1830', roughness: 0.45 });
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 24, 18), skin);
+  head.scale.set(0.9, 1.08, 0.86);
+  head.position.y = 1.28;
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.045, 0.1, 8), joint);
+  neck.position.y = 1.14;
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.125, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), new THREE.MeshStandardMaterial({ color: '#2a1420', roughness: 0.35 }));
+  hair.position.y = 1.32;
+  const dress = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.3, 0.78, 14), cloth);
+  dress.position.y = 0.7;
+  const sash = new THREE.Mesh(new THREE.TorusGeometry(0.145, 0.016, 6, 18), red);
+  sash.rotation.x = Math.PI / 2;
+  sash.position.y = 0.96;
+  g.add(head, neck, hair, dress, sash);
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.016, 10, 8), new THREE.MeshBasicMaterial({ color: '#ff7ad4' }));
+    eye.position.set(side * 0.04, 1.3, 0.095);
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.028, 0.36, 8), cloth);
+    arm.position.set(side * 0.2, 0.98, 0);
+    arm.rotation.z = side * 0.15;
+    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), joint);
+    shoulder.position.set(side * 0.16, 1.14, 0);
+    g.add(eye, arm, shoulder);
+  }
+  const rim = new THREE.PointLight('#ff4fa8', 0.7, 2.4, 2);
+  rim.position.set(-0.45, 1.45, 0.35);
+  g.add(rim);
+  g.position.set(3.15, 0, 2.4);
+  g.rotation.y = Math.PI;
+  return g;
 }

@@ -171,7 +171,7 @@ export function createAvatar(scene, { phone = false, world = null } = {}) {
           tex.minFilter = THREE.LinearMipmapLinearFilter;
           tex.magFilter = THREE.LinearFilter;
           tex.anisotropy = maxAniso;
-          tex.needsUpdate = true;
+          if (tex.image && tex.image.width) tex.needsUpdate = true;
         }
       }
     });

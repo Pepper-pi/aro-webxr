@@ -25,16 +25,18 @@ function sharpen(tex, max, aniso = 8) {
   tex.generateMipmaps = true;
   tex.anisotropy = aniso;
   const img = tex.image;
-  if (!max || !img || !img.width || Math.max(img.width, img.height) <= max) {
-    tex.needsUpdate = true;
-    return;
+  // An empty image must not be uploaded. That leaves the face black and the eyes as white slits.
+  if (!img || !img.width || !img.height) return;
+  if (max && Math.max(img.width, img.height) > max) {
+    const scale = max / Math.max(img.width, img.height);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(img.width * scale));
+    canvas.height = Math.max(1, Math.round(img.height * scale));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    tex.image = canvas;
   }
-  const scale = max / Math.max(img.width, img.height);
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(img.width * scale));
-  canvas.height = Math.max(1, Math.round(img.height * scale));
-  canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-  tex.image = canvas;
   tex.needsUpdate = true;
 }
 
@@ -187,45 +189,55 @@ function tuneSprings(vrm, low) {
 function dressLumen(vrm, chest, low) {
   vrm.scene.traverse((o) => {
     if (!o.isMesh || !/hair/i.test(o.name || '')) return;
-    o.scale.x *= 1.12;
-    o.scale.y *= 0.74;
-    o.scale.z *= 1.06;
+    o.scale.x *= 1.06;
+    o.scale.y *= 0.82;
+    o.scale.z *= 1.04;
   });
   const head = vrm.humanoid.getRawBoneNode('head');
   const braids = [];
   if (head) {
-    const hair = new THREE.MeshStandardMaterial({ color: '#efe6ff', roughness: 0.48 });
-    const band = new THREE.MeshStandardMaterial({ color: '#e7c56a', roughness: 0.4, metalness: 0.18 });
+    const hair = new THREE.MeshLambertMaterial({ color: '#efe6ff' });
+    const band = new THREE.MeshLambertMaterial({ color: '#e7c56a' });
+    const bead = new THREE.SphereGeometry(0.012, 6, 5);
     for (const side of [-1, 1]) {
-      const braid = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.011, 0.26, 6), hair);
+      const braid = new THREE.Group();
       braid.name = 'lumen-braid';
-      braid.position.set(side * 0.1, -0.06, 0.03);
-      braid.rotation.z = side * 0.18;
-      braid.rotation.x = 0.35;
-      const tie = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.0035, 4, 8), band);
-      tie.position.y = 0.08;
+      for (let i = 0; i < 6; i++) {
+        const knot = new THREE.Mesh(bead, hair);
+        const t = i / 5;
+        knot.position.set(Math.sin(t * 4 + side) * 0.008, -t * 0.22, 0);
+        knot.scale.setScalar(1 - t * 0.35);
+        braid.add(knot);
+      }
+      const tie = new THREE.Mesh(new THREE.TorusGeometry(0.014, 0.0025, 4, 8), band);
+      tie.position.y = -0.04;
       tie.rotation.x = Math.PI / 2;
       braid.add(tie);
+      braid.position.set(side * 0.09, -0.02, 0.04);
+      braid.rotation.z = side * 0.22;
+      braid.rotation.x = 0.45;
       head.add(braid);
       braids.push(braid);
     }
   }
   if (chest) {
-    const cloth = new THREE.MeshStandardMaterial({ color: '#241848', roughness: 0.72, side: THREE.DoubleSide });
-    const trim = new THREE.MeshStandardMaterial({ color: '#e7c56a', roughness: 0.42, metalness: 0.16, side: THREE.DoubleSide });
-    const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.58, 1, 4), cloth);
+    const cloth = new THREE.MeshLambertMaterial({ color: '#2a2158', side: THREE.DoubleSide });
+    const trim = new THREE.MeshLambertMaterial({ color: '#e7c56a', side: THREE.DoubleSide });
+    const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.52, 6, 5), cloth);
     cape.name = 'lumen-mantle';
     const pos = cape.geometry.attributes.position;
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const y = pos.getY(i);
-      pos.setZ(i, -0.02 - Math.abs(x) * 0.22 + y * 0.04);
+      const hang = (y + 0.26) / 0.52;
+      pos.setZ(i, -0.01 - x * x * 0.55 + hang * 0.06);
+      pos.setY(i, y - Math.abs(x) * 0.08);
     }
     pos.needsUpdate = true;
     cape.geometry.computeVertexNormals();
-    cape.position.set(0, -0.02, 0.1);
-    const edge = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.028), trim);
-    edge.position.set(0, -0.27, 0.012);
+    cape.position.set(0, -0.04, 0.09);
+    const edge = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.018), trim);
+    edge.position.set(0, -0.24, 0.01);
     cape.add(edge);
     chest.add(cape);
   }
@@ -233,25 +245,25 @@ function dressLumen(vrm, chest, low) {
   if (hand) {
     const lamp = new THREE.Group();
     lamp.name = 'lumen-lantern';
-    const frame = new THREE.Mesh(
-      new THREE.BoxGeometry(0.055, 0.07, 0.055),
-      new THREE.MeshStandardMaterial({ color: '#3a2a18', roughness: 0.55 }),
+    const metal = new THREE.MeshLambertMaterial({ color: '#c4a05a' });
+    const cage = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.05, 8, 1, true), metal);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.016, 0.012, 8), metal);
+    cap.position.y = 0.028;
+    const foot = cap.clone();
+    foot.position.y = -0.028;
+    const glow = new THREE.Mesh(
+      new THREE.SphereGeometry(0.012, 8, 6),
+      new THREE.MeshBasicMaterial({ color: '#fff1c8' }),
     );
-    const pane = new THREE.Mesh(
-      new THREE.BoxGeometry(0.04, 0.045, 0.04),
-      new THREE.MeshBasicMaterial({ color: '#ffe1a0' }),
-    );
-    const handle = new THREE.Mesh(
-      new THREE.TorusGeometry(0.018, 0.003, 4, 8),
-      new THREE.MeshStandardMaterial({ color: '#e7c56a', roughness: 0.4, metalness: 0.2 }),
-    );
-    handle.position.y = 0.045;
+    const handle = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.002, 4, 8), metal);
+    handle.position.y = 0.04;
     handle.rotation.x = Math.PI / 2;
-    lamp.add(frame, pane, handle);
-    lamp.position.set(0.02, -0.06, 0.03);
+    lamp.add(cage, cap, foot, glow, handle);
+    lamp.position.set(0.01, -0.08, 0.02);
+    lamp.scale.setScalar(0.85);
     if (!low) {
-      const glow = new THREE.PointLight('#ffe1a0', 0.28, 1.4, 2);
-      lamp.add(glow);
+      const lampLight = new THREE.PointLight('#fff1c8', 0.08, 0.7, 2);
+      lamp.add(lampLight);
     }
     hand.add(lamp);
   }
@@ -433,7 +445,7 @@ export async function createCompanion(url, opts = {}) {
       if (!gaze.parent) camera.parent?.add(gaze) || vrm.scene.parent?.add(gaze);
     }
     const bits = vrm.scene.userData.lumenBits;
-    if (bits) bits.forEach((braid, i) => { braid.rotation.x = 0.35 + Math.sin(t * 1.6 + i) * 0.06; });
+    if (bits) bits.forEach((braid, i) => { braid.rotation.x = 0.45 + Math.sin(t * 1.6 + i) * 0.05; });
     if (ring) {
       const eye = camera ? (camera.getWorldPosition(there), root.getWorldPosition(here), here.distanceTo(there)) : 8;
       const near = eye < 2.2 ? 1 : eye > 6.5 ? 0 : 1 - (eye - 2.2) / 4.3;
