@@ -19,7 +19,7 @@ Code MIT (`LICENSE`). The world is drawn by code in `src/`: there are no models,
 | Maren Reed | `public/hearth/people/maren-reed.vrm` | Derived from VRoid AvatarSample_A. Not a public-domain licence. Not the unmodified sample. |
 | Bram | `public/hearth/people/bram-vroid.vrm` | Derived from VRoid AvatarSample_B. Not a public-domain licence. Not the unmodified sample. |
 | Sable | `public/hearth/people/sable-vroid.vrm` | Derived from VRoid AvatarSample_C. Not a public-domain licence. Not the unmodified sample. |
-| Lumen | same mesh as Maren Reed | Runtime recolor of the Maren derivation. Not a public-domain licence. |
+| Lumen Pike | `public/hearth/people/lumen-pike.vrm` | Derived from VRoid AvatarSample_C, then dressed in the game (mantle, braids, lantern). Not a public-domain licence. Not the unmodified sample. Not Maren's AvatarSample_A mesh. |
 | VRM loader | `@pixiv/three-vrm` | pixiv, MIT |
 | Recordings laid over it in the published game | not in the repo | Sonniss GDC Game Audio Bundles, their own licence; see `MISSING_ASSETS.md` |
 
