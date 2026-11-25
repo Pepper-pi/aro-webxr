@@ -331,7 +331,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     maren: { url: 'hearth/people/maren-reed.vrm', charm: 'sprig', height: 1.58, dyes: { hair: '#e7b08a', hairShade: '#7a4030', top: '#f3e2c0', topShade: '#a88458', bottom: '#b7d39a', bottomShade: '#4e6a3c', shoe: '#c4926e', shoeShade: '#5c3a28' } },
     bram: { url: 'hearth/people/bram-vroid.vrm', charm: null, height: 1.72, shape: { waist: 1.06, hips: 1.05 }, dyes: { hair: '#c4a574', hairShade: '#5c4030', top: '#9aaa72', topShade: '#4e5c34', bottom: '#5c4636', bottomShade: '#2e241c', shoe: '#6a5344', shoeShade: '#3a2c22' } },
     sable: { url: 'hearth/people/sable-vroid.vrm', charm: 'hook', height: 1.66, dyes: { hair: '#2c3844', hairShade: '#141820', top: '#4e8ea0', topShade: '#1e4c58', bottom: '#243038', bottomShade: '#12181c', shoe: '#4a4038', shoeShade: '#241c18' } },
-    lumen: { url: 'hearth/people/maren-reed.vrm', charm: 'bead', height: 1.56, shape: { waist: 0.95 }, dyes: { hair: '#e7c98a', hairShade: '#8a6840', top: '#f6e7c4', topShade: '#c4a56a', bottom: '#e2d0a8', bottomShade: '#8a7050', shoe: '#c4a070', shoeShade: '#6a4830' } },
+    lumen: { url: 'hearth/people/lumen-pike.vrm', charm: 'bead', height: 1.6, shape: { waist: 0.9, hips: 0.94 }, dyes: { hair: '#efe6ff', hairShade: '#6d5a96', top: '#2a2158', topShade: '#120c28', bottom: '#3a2a58', bottomShade: '#1a1028', shoe: '#c4a05a', shoeShade: '#5a4020' } },
   };
   let marenMood = 'settled';
   let hearthReady = Promise.resolve(false);

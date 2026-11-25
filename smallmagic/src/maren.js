@@ -184,6 +184,80 @@ function tuneSprings(vrm, low) {
   springs.setInitState();
 }
 
+function dressLumen(vrm, chest, low) {
+  vrm.scene.traverse((o) => {
+    if (!o.isMesh || !/hair/i.test(o.name || '')) return;
+    o.scale.x *= 1.12;
+    o.scale.y *= 0.74;
+    o.scale.z *= 1.06;
+  });
+  const head = vrm.humanoid.getRawBoneNode('head');
+  const braids = [];
+  if (head) {
+    const hair = new THREE.MeshStandardMaterial({ color: '#efe6ff', roughness: 0.48 });
+    const band = new THREE.MeshStandardMaterial({ color: '#e7c56a', roughness: 0.4, metalness: 0.18 });
+    for (const side of [-1, 1]) {
+      const braid = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.011, 0.26, 6), hair);
+      braid.name = 'lumen-braid';
+      braid.position.set(side * 0.1, -0.06, 0.03);
+      braid.rotation.z = side * 0.18;
+      braid.rotation.x = 0.35;
+      const tie = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.0035, 4, 8), band);
+      tie.position.y = 0.08;
+      tie.rotation.x = Math.PI / 2;
+      braid.add(tie);
+      head.add(braid);
+      braids.push(braid);
+    }
+  }
+  if (chest) {
+    const cloth = new THREE.MeshStandardMaterial({ color: '#241848', roughness: 0.72, side: THREE.DoubleSide });
+    const trim = new THREE.MeshStandardMaterial({ color: '#e7c56a', roughness: 0.42, metalness: 0.16, side: THREE.DoubleSide });
+    const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.58, 1, 4), cloth);
+    cape.name = 'lumen-mantle';
+    const pos = cape.geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      pos.setZ(i, -0.02 - Math.abs(x) * 0.22 + y * 0.04);
+    }
+    pos.needsUpdate = true;
+    cape.geometry.computeVertexNormals();
+    cape.position.set(0, -0.02, 0.1);
+    const edge = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.028), trim);
+    edge.position.set(0, -0.27, 0.012);
+    cape.add(edge);
+    chest.add(cape);
+  }
+  const hand = vrm.humanoid.getRawBoneNode('leftHand');
+  if (hand) {
+    const lamp = new THREE.Group();
+    lamp.name = 'lumen-lantern';
+    const frame = new THREE.Mesh(
+      new THREE.BoxGeometry(0.055, 0.07, 0.055),
+      new THREE.MeshStandardMaterial({ color: '#3a2a18', roughness: 0.55 }),
+    );
+    const pane = new THREE.Mesh(
+      new THREE.BoxGeometry(0.04, 0.045, 0.04),
+      new THREE.MeshBasicMaterial({ color: '#ffe1a0' }),
+    );
+    const handle = new THREE.Mesh(
+      new THREE.TorusGeometry(0.018, 0.003, 4, 8),
+      new THREE.MeshStandardMaterial({ color: '#e7c56a', roughness: 0.4, metalness: 0.2 }),
+    );
+    handle.position.y = 0.045;
+    handle.rotation.x = Math.PI / 2;
+    lamp.add(frame, pane, handle);
+    lamp.position.set(0.02, -0.06, 0.03);
+    if (!low) {
+      const glow = new THREE.PointLight('#ffe1a0', 0.28, 1.4, 2);
+      lamp.add(glow);
+    }
+    hand.add(lamp);
+  }
+  vrm.scene.userData.lumenBits = braids;
+}
+
 function charmOf(kind) {
   if (kind === 'hook') {
     const g = new THREE.Group();
@@ -247,27 +321,7 @@ export async function createCompanion(url, opts = {}) {
       herb.rotation.z = -0.5;
       chest.add(herb);
     }
-    if (opts.id === 'lumen') {
-      const cloak = new THREE.Mesh(
-        new THREE.ConeGeometry(0.2, 0.62, 7, 1, true),
-        new THREE.MeshBasicMaterial({ color: '#4a2868', side: THREE.DoubleSide }),
-      );
-      cloak.name = 'lumen-cloak';
-      cloak.position.set(0, -0.08, 0.04);
-      cloak.rotation.x = 0.4;
-      chest.add(cloak);
-      vrm.scene.traverse((o) => {
-        if (o.isMesh && /hair/i.test(o.name || '')) o.scale.y *= 1.22;
-      });
-      const head = vrm.humanoid.getRawBoneNode('head');
-      if (head) {
-        const hood = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), new THREE.MeshBasicMaterial({ color: '#3a2058' }));
-        hood.name = 'lumen-hood';
-        hood.scale.set(1.15, 0.62, 1.05);
-        hood.position.set(0, 0.08, -0.02);
-        head.add(hood);
-      }
-    }
+    if (opts.id === 'lumen') dressLumen(vrm, chest, low);
   }
   const relax = (name, x, y, z) => {
     const node = vrm.humanoid.getRawBoneNode(name);
@@ -378,6 +432,8 @@ export async function createCompanion(url, opts = {}) {
       camera.getWorldPosition(gaze.position);
       if (!gaze.parent) camera.parent?.add(gaze) || vrm.scene.parent?.add(gaze);
     }
+    const bits = vrm.scene.userData.lumenBits;
+    if (bits) bits.forEach((braid, i) => { braid.rotation.x = 0.35 + Math.sin(t * 1.6 + i) * 0.06; });
     if (ring) {
       const eye = camera ? (camera.getWorldPosition(there), root.getWorldPosition(here), here.distanceTo(there)) : 8;
       const near = eye < 2.2 ? 1 : eye > 6.5 ? 0 : 1 - (eye - 2.2) / 4.3;

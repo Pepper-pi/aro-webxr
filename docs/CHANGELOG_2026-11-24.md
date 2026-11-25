@@ -56,6 +56,10 @@ Only one or two hexes, chosen from the clock’s four-hour band, hold an event. 
 - A headless phone viewport saw two curtains, a brighter rune inside the hex, upright flower stems, and ember flecks. That pass is not a physical phone, and the break camera was not worn.
 - Event bands follow the wall clock, not the meadow’s dusk flag. If both curtains are cleared, the square stays quiet until the next band.
 - Flowers and the scorch are procedural meshes, not a downloaded kit.
-- Lumen is still AvatarSample A. Cobble is one bow, not a street network. Leaf meshes are still heavy and were left alone on purpose.
+- Cobble is one bow, not a street network. Leaf meshes are still heavy and were left alone on purpose. Lumen left Maren's mesh on 25 November (Block 27).
 - Ambient beds are short CC0 previews. Meadow still has a little distant traffic, and a synthesized wind sits under them. Umbrellas are cones. The rare-visitor crowd only appears on a shimmer day. Pair-chat can interrupt a chore.
 - Porcelain healer is still later. Hawk rarity is the day’s seeded roll, not a stored spawn tier.
+
+## Block 27 — 25 November
+
+Lumen Pike no longer wears Maren's AvatarSample A mesh. Her file is an AvatarSample C derivation, dressed with an indigo mantle, pale braids, and a hand lantern. Porcelain healer, the hub fire color, and a new city block were left for a later pass.
