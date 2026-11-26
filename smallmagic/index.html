@@ -225,6 +225,10 @@
       #canalSky[hidden] { display: none; }
       #starseed { position: fixed; left: 50%; top: calc(max(12px, env(safe-area-inset-top)) + 44px); transform: translateX(-50%); z-index: 8; min-height: 32px; padding: 3px 12px; border-radius: 999px; border: 1px solid #e6c27a; background: rgba(20, 12, 28, 0.82); color: #ffe1a4; font: 13px Georgia, serif; }
       #starseed[hidden] { display: none; }
+      #postcard { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 40; display: flex; gap: 8px; padding: 8px; border-radius: 16px; border: 1px solid rgba(241, 217, 164, 0.7); background: rgba(16, 10, 24, 0.72); }
+      #postcard[hidden] { display: none; }
+      #postcard button { min-height: 36px; padding: 4px 12px; border-radius: 999px; border: 1px solid #f1d9a4; background: rgba(241, 217, 164, 0.16); color: #fff6dc; font: 14px Georgia, serif; }
+      body.postcard > *:not(#view):not(#postcard) { visibility: hidden !important; pointer-events: none !important; }
       #discover { position: fixed; left: 50%; bottom: 16%; transform: translateX(-50%); z-index: 18; max-width: min(360px, 86vw); padding: 10px 16px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.8); background: rgba(236, 242, 248, 0.88); color: #1c2430; font: 16px Georgia, serif; text-align: center; pointer-events: none; backdrop-filter: blur(12px); box-shadow: 0 8px 18px rgba(20, 28, 36, 0.18); }
       #discover[hidden] { display: none; }
       @media (max-width: 700px) {
@@ -702,6 +706,16 @@
           <button type="button" data-jiggle="full">Full</button>
         </div>
         <p class="note">Hair, cloth, and the body's own spring bones. Soft is the default. Off holds them still. Full is looser, and a phone takes shorter steps.</p>
+        <p>Familiar</p>
+        <div class="row" id="familiarPick">
+          <button type="button" data-familiar="none">None</button>
+          <button type="button" data-familiar="moth">Moth</button>
+          <button type="button" data-familiar="crane">Crane</button>
+          <button type="button" data-familiar="wisp">Wisp</button>
+        </div>
+        <p class="note">An original moth, paper crane, or dew wisp at your shoulder. None sends it away. The choice stays in this browser.</p>
+        <div class="row"><button id="postcardOpen" type="button">Postcard view</button></div>
+        <p class="note">Hides the buttons. P on a desktop opens it. Esc, or Exit, brings them back.</p>
       </div>
       <div data-pane="graphics" hidden>
         <div class="row"><button type="button" data-gfx="low">Low</button><button type="button" data-gfx="high" class="on">High</button></div>
@@ -717,6 +731,8 @@
         <p>Effects</p>
         <input id="sfx" type="range" min="0" max="100" value="70">
         <p class="note">Sound starts after a tap. A silent phone stays quiet. Defaults sit in the middle.</p>
+        <div class="row"><button id="ambienceToggle" type="button">Ambience: off</button></div>
+        <p class="note">A generated hearth crackle, water wash, or deck breeze. Off until you ask. No recordings.</p>
       </div>
     </div>
     <button id="menubtn" type="button">Menu</button>
@@ -734,6 +750,7 @@
     <button id="bookBtn" type="button" hidden>Book</button>
     <button id="canalSky" type="button" hidden>Lantern rain</button>
     <button id="starseed" type="button" hidden>Starseed · Lantern Canal</button>
+    <div id="postcard" hidden><button id="postcardSave" type="button">Save Postcard</button><button id="postcardExit" type="button">Exit</button></div>
     <button id="eve" type="button" hidden>Evening</button>
     <button id="dusk" type="button">Dusk</button>
     <button id="ar" type="button">AR</button>

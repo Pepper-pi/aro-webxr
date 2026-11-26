@@ -50,6 +50,8 @@ import { createAlchemist } from './alchemist.js';
 import { migrateSave, rememberClass, savedClass } from './save.js';
 import { createSummoner } from './summoner.js';
 import { createPuppetmaster } from './puppetmaster.js';
+import { createFamiliar } from './familiar.js';
+import { createAmbience } from './ambience.js';
 
 const q = new URLSearchParams(location.search);
 const capture = q.has('capture'), testing = q.has('patch-test'), playtest = q.has('playtest');
@@ -66,7 +68,7 @@ let shown = true, loaded = false, told = 0.02, begun = capture || playtest, paus
 const say = (text) => { told = Math.min(0.95, told + 0.1); if (loading) loading.textContent = text; bar?.style.setProperty('--p', told); };
 const turn = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: capture });
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: true });
 useRenderer(renderer);
 const phone = matchMedia('(pointer: coarse)').matches || innerWidth < 820;
 renderer.setPixelRatio(capture ? 1 : Math.min(devicePixelRatio, phone ? 1.5 : 2));
@@ -87,6 +89,8 @@ function fitView() {
 addEventListener('resize', fitView);
 
 const scene = new THREE.Scene();
+const familiar = createFamiliar(scene);
+const ambience = createAmbience();
 lap('start');
 const air = createAir();
 const world = await createWorld({ air, renderer, scene, say, turn });
@@ -598,6 +602,7 @@ settingsEl?.querySelectorAll('[data-gfx]').forEach((b) => b.addEventListener('po
 function showLook() {
   document.querySelectorAll('[data-look]').forEach((b) => b.classList.toggle('on', b.getAttribute('data-look') === settings.look));
   document.querySelectorAll('[data-jiggle]').forEach((b) => b.classList.toggle('on', b.getAttribute('data-jiggle') === settings.jiggle));
+  document.querySelectorAll('[data-familiar]').forEach((b) => b.classList.toggle('on', b.getAttribute('data-familiar') === familiar.kind));
 }
 showLook();
 document.querySelectorAll('[data-look]').forEach((b) => b.addEventListener('pointerup', (e) => {
@@ -605,6 +610,11 @@ document.querySelectorAll('[data-look]').forEach((b) => b.addEventListener('poin
   try { localStorage.setItem('aro-look', settings.look); } catch { /* private mode */ }
   avatar.setLetter(settings.look);
   arms.load({ letter: settings.look, tier: armTier() });
+  showLook();
+  e.preventDefault(); e.stopPropagation();
+}));
+document.querySelectorAll('[data-familiar]').forEach((b) => b.addEventListener('pointerup', (e) => {
+  familiar.show(b.getAttribute('data-familiar'));
   showLook();
   e.preventDefault(); e.stopPropagation();
 }));
@@ -1235,7 +1245,7 @@ function tickStep(dt, draw) {
   }
   if (!xrLive && blast.shake + hole.shake + twister.shake > 0.002) { const s = blast.shake + hole.shake + twister.shake * 0.5; shaking += dt; camera.rotateX(Math.sin(shaking * 61) * Math.sin(shaking * 37 + 1) * 0.03 * s); camera.rotateY(Math.sin(shaking * 53 + 2) * Math.sin(shaking * 29) * 0.03 * s); camera.rotateZ(Math.sin(shaking * 47 + 4) * 0.018 * s); }
   camera.updateMatrixWorld(true);
-  const showBody = !!avatar.ready && !ar.on && !free && (zones.name === 'hub' || (zones.name === 'meadow' && settings.viewBack && followCam.dist > 1.15));
+  const showBody = !!avatar.ready && !ar.on && !free && (zones.name === 'hub' || zones.name === 'block' || zones.name === 'deck' || zones.atLake || (zones.name === 'meadow' && settings.viewBack && followCam.dist > 1.15));
   avatar.update(dt, walker, showBody);
   world.update(dt, walker.feet, camera, walker.speed);
   const flats = air.uniforms.uFlat.value;
@@ -1351,6 +1361,11 @@ function tickStep(dt, draw) {
   fire.step(dt * pace, camera.position);
   fx.update(dt * pace);
   sound?.update(dt, { blast, hole, twister, ruin, camera, fire, cast: spells?.cast, world, walker });
+  familiar.update(dt, walker, zones.name, phone || settings.gfx === 'low', camera);
+  {
+    const bed = zones.name === 'hub' ? 'hearth' : zones.name === 'deck' ? 'deck' : (zones.atLake || zones.name === 'block') ? 'water' : 'meadow';
+    ambience.scene(bed, zones.boardSky?.().weather === 'Lantern Rain');
+  }
   if (sound) {
     const night = zones.dusk || new Date().getHours() >= 19 || new Date().getHours() < 6;
     const bed = zones.atLake ? (night ? 'bed-lake-night' : 'bed-lake') : (world.cobble?.(walker.feet.x, walker.feet.z) ? 'bed-town' : 'bed-meadow');
@@ -1428,7 +1443,37 @@ function tickStep(dt, draw) {
 
 // (the measuring tools were written for a figure seen from behind: these are the same handles on one seen from within)
 const head = new THREE.Vector3();
-const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar, wander, living, street, duel, appeal, mind, hexes, hub, ranger, warden, alchemist, avatar, playtest,
+let postcard = false;
+function setPostcard(on) {
+  postcard = !!on;
+  document.body.classList.toggle('postcard', postcard);
+  const bar = document.getElementById('postcard');
+  if (bar) bar.hidden = !postcard;
+  if (postcard) {
+    const menu = document.getElementById('menu');
+    if (menu) menu.hidden = true;
+    document.exitPointerLock?.();
+  }
+}
+function savePostcard() {
+  const hideStaff = settings.class !== 'summoner';
+  if (renderer.xr.isPresenting) renderer.render(scene, camera);
+  else post.render(scene, camera, hideStaff ? null : staff, SUN);
+  const a = document.createElement('a');
+  a.href = renderer.domElement.toDataURL('image/png');
+  a.download = 'aro-postcard.png';
+  a.click();
+}
+document.getElementById('postcardOpen')?.addEventListener('pointerup', (e) => { setPostcard(true); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('postcardExit')?.addEventListener('pointerup', (e) => { setPostcard(false); e.preventDefault(); e.stopPropagation(); });
+document.getElementById('postcardSave')?.addEventListener('pointerup', (e) => { savePostcard(); e.preventDefault(); e.stopPropagation(); });
+const ambienceBtn = document.getElementById('ambienceToggle');
+if (ambienceBtn) {
+  const paintAmb = () => { ambienceBtn.textContent = ambience.on ? 'Ambience: on' : 'Ambience: off'; ambienceBtn.classList.toggle('on', ambience.on); };
+  paintAmb();
+  ambienceBtn.addEventListener('pointerup', (e) => { ambience.set(!ambience.on); paintAmb(); e.preventDefault(); e.stopPropagation(); });
+}
+const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar, wander, living, street, duel, appeal, mind, hexes, hub, ranger, warden, alchemist, avatar, playtest, familiar, setPostcard, savePostcard,
   THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, arms, blade, gun, summoner, tune: TUNE, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
   player: walker,
   follow: { get yaw() { return walker.yaw; }, set yaw(v) { walker.yaw = v; }, get pitch() { return walker.pitch; }, set pitch(v) { walker.pitch = v; }, want: 0, distance: 0, pivot: new THREE.Vector3() },
@@ -1592,7 +1637,8 @@ if (!capture) {
       if (list[i]) { atk = i; kitBar.select(i); }
     }
     if (!begun) { if (!['F11', 'F12'].includes(e.code) && !e.ctrlKey && !e.metaKey && !e.altKey) start(false); return; }
-    if (e.code === 'KeyP') setPaused(!paused);
+    if (e.code === 'KeyP') { setPostcard(!postcard); return; }
+    if (e.code === 'Escape' && postcard) { setPostcard(false); e.preventDefault(); return; }
   });
   addEventListener('mousedown', () => {
     if (performance.now() - (input.touchAt || 0) < 700) return;

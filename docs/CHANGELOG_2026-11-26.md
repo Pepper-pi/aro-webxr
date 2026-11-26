@@ -41,3 +41,7 @@ The sky-ship has an observation deck with planks, brass and rope, a helm, lanter
 ## Block 38
 
 The brass helm, and a Starseed pill on the deck and the canal, switch three skins of the same quay: Lantern Canal, Mossy Ruin Glade, and Steampunk Sky Port. The choice stays in the browser, so stepping off the deck shows that seed. The deck panorama is a cloud sea, soft ridges, twinkling lamps, amber lanterns, a compass rose, and drifting wisps. Phone keeps fewer of each.
+
+## Block 39
+
+Three original familiars can keep the shoulder in the meadow, the canal, Long Lake, and the sky deck: a lantern moth, a paper crane, and a dew wisp. None puts them away. The choice stays in the browser. Postcard view hides the buttons. P opens it, and Esc or Exit closes it. Save Postcard downloads the current frame. A generated ambience stays off until asked: hearth crackle, water and a soft chime, rain hiss on the canal, and a breeze on the deck.
