@@ -120,6 +120,39 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   moorTag.position.set(0, 1.85, 0);
   moor.add(moorDoor, moorMouth, moorStep, moorTag);
   canal.root.add(moor);
+  const SEED_NAMES = ['', 'Lantern Canal', 'Mossy Ruin Glade', 'Steampunk Sky Port'];
+  const readSeed = () => {
+    try {
+      const n = Number(localStorage.getItem('aro-starseed'));
+      if (n === 2 || n === 3) return n;
+    } catch { /* first visit */ }
+    return 1;
+  };
+  let starSeed = readSeed();
+  const paintSeed = () => {
+    const pill = document.getElementById('starseed');
+    if (pill) pill.textContent = `Starseed · ${SEED_NAMES[starSeed]}`;
+  };
+  const applySeed = (n, quiet) => {
+    starSeed = n === 2 ? 2 : n === 3 ? 3 : 1;
+    try { localStorage.setItem('aro-starseed', String(starSeed)); } catch { /* private mode */ }
+    canal.setSeed(starSeed);
+    paintSeed();
+    if (name === 'block') scene.fog = new THREE.Fog(...canal.fogFor(starSeed));
+    const el = document.getElementById('toast');
+    if (!quiet && el) {
+      el.hidden = false;
+      el.textContent = `Starseed · ${SEED_NAMES[starSeed]}`;
+      clearTimeout(el._t);
+      el._t = setTimeout(() => { el.hidden = true; }, 2200);
+    }
+  };
+  const cycleSeed = () => applySeed(starSeed === 3 ? 1 : starSeed + 1);
+  document.getElementById('starseed')?.addEventListener('pointerup', (e) => {
+    cycleSeed();
+    e.preventDefault();
+    e.stopPropagation();
+  });
   const setLanternRain = (on) => {
     lanternRain = !!on;
     canal.setRain(lanternRain && name === 'block');
@@ -1051,6 +1084,8 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     if (skyBtn) skyBtn.hidden = next !== 'block';
     canal.setRain(next === 'block' && lanternRain);
     skyDeck.root.visible = next === 'deck';
+    const pill = document.getElementById('starseed');
+    if (pill) pill.hidden = !(next === 'deck' || next === 'block');
     if (next === 'lake') {
       atLake = true;
       name = 'meadow';
@@ -1081,7 +1116,8 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       world.home = [0, 0]; world.edge = 9; world.colliders = [];
       world.blockers = null; world.walk = () => 0; world.wade = null;
       const block = next === 'ruin' ? ruin : canal;
-      scene.fog = new THREE.Fog(...block.fog);
+      if (next === 'block') canal.setSeed(starSeed);
+      scene.fog = new THREE.Fog(...(next === 'block' ? canal.fogFor(starSeed) : block.fog));
       if (back) { back.hidden = false; back.textContent = 'Hearth'; }
       if (menu) menu.hidden = true;
       hideBoard();
@@ -1303,6 +1339,11 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     b.addEventListener('contextmenu', (e) => e.preventDefault());
   });
   addEventListener('pointerup', (e) => {
+    if (name === 'deck' && !(e.target.closest && e.target.closest('button'))) {
+      ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+      ray.setFromCamera(ndc, camera);
+      if (ray.intersectObject(skyDeck.helm, true).length) cycleSeed();
+    }
     if (name !== 'hub' || (e.target.closest && e.target.closest('#cast, #spell, #stick, #board, #menu, #back, #menubtn, #reel, #catch, #fish, #dusk, #gear, #settings, #atlas'))) return;
     ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
     ray.setFromCamera(ndc, camera);
@@ -1487,6 +1528,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   }
   const blasts = [];
   const blastGeo = new THREE.SphereGeometry(0.4, 10, 8);
+  applySeed(starSeed, true);
   enter('hub');
   markDest();
   let hearts = 100;
@@ -1631,6 +1673,8 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     get fishZoom() { return fishZoom; },
     setDusk,
     setLanternRain,
+    setStarseed: applySeed,
+    get starseed() { return starSeed; },
     boardSky() {
       const h = new Date().getHours();
       let time = 'Day';
@@ -1966,7 +2010,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         skyDeck.tick(dt);
         const ed = Math.hypot(walker.feet.x - skyDeck.exit.x, walker.feet.z - skyDeck.exit.z);
         if (ed > 1.7) leftDeck = true;
-        if (leftDeck && performance.now() >= armUntil && ed < 1.05) enter(deckFrom || 'hub');
+        if (leftDeck && performance.now() >= armUntil && ed < 1.05) enter('block');
       }
       const cityFolk = { sable: [1.72, -0.6, -Math.PI / 2], lumen: [2.2, 2.7, 0.4] };
       for (const [id, ctl] of Object.entries(ctls)) {

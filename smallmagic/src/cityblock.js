@@ -65,6 +65,7 @@ function waterMaterial(color, deep, shine = 0) {
         uShine: { value: shine },
         uColor: { value: new THREE.Color(color) },
         uDeep: { value: new THREE.Color(deep) },
+        uLamp: { value: new THREE.Color('#ffb45a') },
     },
     vertexShader: `
       uniform float uTime;
@@ -84,6 +85,7 @@ function waterMaterial(color, deep, shine = 0) {
       uniform float uShine;
       uniform vec3 uColor;
       uniform vec3 uDeep;
+      uniform vec3 uLamp;
       varying vec2 vUv;
       varying float vWave;
       void main() {
@@ -94,7 +96,7 @@ function waterMaterial(color, deep, shine = 0) {
         for (int i = 0; i < 5; i++) {
           float d = length((vUv - vec2(0.7, lamps[i])) * vec2(0.85, 16.0));
           float tw = 0.7 + 0.3 * sin(uTime * 1.6 + lamps[i] * 9.0);
-          col += vec3(1.0, 0.74, 0.4) * exp(-d * 5.5) * tw * 0.55;
+          col += uLamp * exp(-d * 5.5) * tw * 0.55;
         }
         float streak = sin(vUv.y * 10.0 - uTime * 1.3 + vUv.x * 4.0);
         col += vec3(0.8, 0.92, 1.0) * smoothstep(0.45, 0.95, streak) * uShine * 0.16;
@@ -106,17 +108,21 @@ function waterMaterial(color, deep, shine = 0) {
   });
 }
 
-function skyDome(moss) {
-  const c = document.createElement('canvas');
-  c.width = 1024;
-  c.height = 512;
-  const g = c.getContext('2d');
+function paintCanalSky(g, seed) {
+  g.clearRect(0, 0, 1024, 512);
   const sky = g.createLinearGradient(0, 0, 0, 512);
-  if (moss) {
-    sky.addColorStop(0, '#163832');
-    sky.addColorStop(0.62, '#2c504c');
-    sky.addColorStop(0.84, '#4e6e66');
-    sky.addColorStop(1, '#7f9a86');
+  if (seed === 2) {
+    sky.addColorStop(0, '#12382e');
+    sky.addColorStop(0.4, '#2a6a48');
+    sky.addColorStop(0.62, '#c6a24a');
+    sky.addColorStop(0.78, '#7dba8a');
+    sky.addColorStop(1, '#1c3428');
+  } else if (seed === 3) {
+    sky.addColorStop(0, '#2a140c');
+    sky.addColorStop(0.28, '#6a3418');
+    sky.addColorStop(0.5, '#e09848');
+    sky.addColorStop(0.7, '#a86830');
+    sky.addColorStop(1, '#3a2414');
   } else {
     sky.addColorStop(0, '#07091e');
     sky.addColorStop(0.22, '#16143c');
@@ -127,28 +133,42 @@ function skyDome(moss) {
   }
   g.fillStyle = sky;
   g.fillRect(0, 0, 1024, 512);
-  if (!moss) {
-    g.fillStyle = 'rgba(255, 244, 220, 0.9)';
-    for (let i = 0; i < 160; i++) {
-      const x = (i * 97) % 1024;
-      const y = (i * 53) % 210;
-      const r = i % 9 === 0 ? 1.4 : 0.6;
-      g.globalAlpha = 0.35 + (i % 5) * 0.1;
-      g.beginPath();
-      g.arc(x, y, r, 0, Math.PI * 2);
-      g.fill();
-    }
-    g.globalAlpha = 1;
-    g.fillStyle = '#fff6d4';
+  g.fillStyle = seed === 2 ? 'rgba(230, 220, 160, 0.85)' : 'rgba(255, 244, 220, 0.9)';
+  const stars = seed === 2 ? 40 : 160;
+  for (let i = 0; i < stars; i++) {
+    const x = (i * 97) % 1024;
+    const y = (i * 53) % (seed === 3 ? 180 : 210);
+    g.globalAlpha = 0.35 + (i % 5) * 0.1;
+    g.beginPath();
+    g.arc(x, y, i % 9 === 0 ? 1.4 : 0.6, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.globalAlpha = 1;
+  if (seed !== 3) {
+    g.fillStyle = seed === 2 ? '#f3e2a4' : '#fff6d4';
     g.beginPath();
     g.arc(180, 78, 26, 0, Math.PI * 2);
     g.arc(196, 72, 22, 0, Math.PI * 2);
     g.fill('evenodd');
-  } else {
+  }
+}
+function skyDome(moss) {
+  const c = document.createElement('canvas');
+  c.width = 1024;
+  c.height = 512;
+  const g = c.getContext('2d');
+  if (moss) {
+    const sky = g.createLinearGradient(0, 0, 0, 512);
+    sky.addColorStop(0, '#163832');
+    sky.addColorStop(0.62, '#2c504c');
+    sky.addColorStop(0.84, '#4e6e66');
+    sky.addColorStop(1, '#7f9a86');
+    g.fillStyle = sky;
+    g.fillRect(0, 0, 1024, 512);
     g.fillStyle = 'rgba(210, 228, 220, 0.22)';
     g.beginPath(); g.ellipse(240, 400, 150, 16, 0, 0, Math.PI * 2); g.fill();
     g.beginPath(); g.ellipse(680, 430, 170, 18, 0, 0, Math.PI * 2); g.fill();
-  }
+  } else paintCanalSky(g, 1);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   const dome = new THREE.Mesh(
@@ -156,6 +176,8 @@ function skyDome(moss) {
     new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, depthWrite: false, fog: false }),
   );
   dome.frustumCulled = false;
+  dome.userData.skipTint = true;
+  if (!moss) dome.userData.paint = (seed) => { paintCanalSky(g, seed); tex.needsUpdate = true; };
   return dome;
 }
 
@@ -459,6 +481,7 @@ function dressCanal(root, lib, low, add) {
   root.add(embers);
   const mistMat = new THREE.MeshBasicMaterial({ color: '#f0c4a4', transparent: true, opacity: 0.22, depthWrite: false, fog: false });
   const mist = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 16), mistMat);
+  mist.name = 'canal-mist';
   mist.rotation.x = -Math.PI / 2;
   mist.position.set(-4.6, 0.28, 0);
   root.add(mist);
@@ -583,6 +606,62 @@ export function createCityBlock(seed = 1, low = false) {
   if (flies) { flies.frustumCulled = false; flies.name = 'fireflies'; }
   let glow = null;
   let glowOn = !low;
+  let dome = null;
+  let hemiLight = null;
+  let spores = null;
+  let steam = null;
+  let brassTrim = null;
+  let seeded = false;
+  let seedNow = 1;
+  const lampLights = [];
+  const sporeDummy = new THREE.Object3D();
+  function snapshot(host) {
+    host.traverse((o) => {
+      if (!o.isMesh || o.userData.skipTint) return;
+      for (const m of [].concat(o.material)) {
+        if (m?.color && !m.userData.base) m.userData.base = m.color.clone();
+      }
+    });
+  }
+  function applySeed(n) {
+    seedNow = n === 2 ? 2 : n === 3 ? 3 : 1;
+    if (!seeded) return;
+    const tint = seedNow === 2 ? '#6aaa84' : seedNow === 3 ? '#c08048' : '#ffffff';
+    const mix = seedNow === 1 ? 0 : seedNow === 2 ? 0.46 : 0.32;
+    const dye = new THREE.Color(tint);
+    root.traverse((o) => {
+      if (!o.isMesh || o.userData.skipTint) return;
+      for (const m of [].concat(o.material)) {
+        if (!m?.userData?.base) continue;
+        m.color.copy(m.userData.base);
+        if (mix) m.color.lerp(dye, mix);
+      }
+    });
+    dome?.userData.paint?.(seedNow);
+    const look = seedNow === 2
+      ? { water: '#3dba8a', deep: '#0e3a32', lamp: '#d7e7a4', sky: '#9ec8a4', ground: '#1c3424', hemi: 0.7 }
+      : seedNow === 3
+        ? { water: '#3a6878', deep: '#1a2830', lamp: '#ffb060', sky: '#e0a060', ground: '#3a2414', hemi: 0.72 }
+        : { water: '#3aa0b0', deep: '#0e3c4a', lamp: '#ffb45a', sky: '#c4a0b0', ground: '#6a4030', hemi: 0.78 };
+    water.material.uniforms.uColor.value.set(look.water);
+    water.material.uniforms.uDeep.value.set(look.deep);
+    water.material.uniforms.uLamp.value.set(look.lamp);
+    if (hemiLight) {
+      hemiLight.color.set(look.sky);
+      hemiLight.groundColor.set(look.ground);
+      hemiLight.intensity = look.hemi;
+    }
+    lampLights.forEach((light) => light.color.set(look.lamp));
+    if (spores) spores.visible = seedNow === 2;
+    if (steam) steam.visible = seedNow === 3;
+    if (brassTrim) brassTrim.visible = seedNow === 3;
+    const mist = root.getObjectByName('canal-mist');
+    if (mist) {
+      mist.visible = seedNow !== 3;
+      mist.material.color.set(seedNow === 2 ? '#b7e0c4' : '#f0c4a4');
+      mist.material.opacity = seedNow === 2 ? 0.34 : 0.22;
+    }
+  }
   const ready = kit().then((lib) => {
     const add = (name, spots, y, yaw, color, scale) => {
       const mesh = scatter(lib, name, spots, y, yaw, color || tint, scale || 1);
@@ -655,6 +734,7 @@ export function createCityBlock(seed = 1, low = false) {
       const light = new THREE.PointLight(moss ? '#d7e7a4' : '#ffb060', moss ? 1.6 : 3.2, 8, 2);
       light.position.set(x, 1.4, z);
       root.add(light);
+      lampLights.push(light);
     });
     const bulbs = [];
     [-4.5, -1, 2.5].forEach((z) => {
@@ -692,13 +772,64 @@ export function createCityBlock(seed = 1, low = false) {
     glows.visible = glowOn;
     root.add(glows);
     glow = glows;
-    root.add(skyDome(moss));
-    const fill = new THREE.HemisphereLight(moss ? '#8eaea4' : '#c4a0b0', moss ? '#2a3028' : '#6a4030', moss ? 0.55 : 0.78);
-    root.add(fill);
+    dome = skyDome(moss);
+    root.add(dome);
+    hemiLight = new THREE.HemisphereLight(moss ? '#8eaea4' : '#c4a0b0', moss ? '#2a3028' : '#6a4030', moss ? 0.55 : 0.78);
+    root.add(hemiLight);
     if (!moss) {
       const dressed = dressCanal(root, lib, low, add);
       dressTick = dressed.tick;
       setCityRain = dressed.setRain;
+      const sporeN = low ? 8 : 18;
+      spores = new THREE.InstancedMesh(new THREE.SphereGeometry(0.028, 5, 4), new THREE.MeshBasicMaterial({ color: '#f0d080' }), sporeN);
+      spores.name = 'glade-spores';
+      spores.frustumCulled = false;
+      spores.visible = false;
+      spores.userData.skipTint = true;
+      root.add(spores);
+      steam = new THREE.Group();
+      steam.name = 'port-steam';
+      const puffCanvas = document.createElement('canvas');
+      puffCanvas.width = 64;
+      puffCanvas.height = 64;
+      {
+        const g = puffCanvas.getContext('2d');
+        const wash = g.createRadialGradient(32, 32, 2, 32, 32, 30);
+        wash.addColorStop(0, 'rgba(255,236,220,0.7)');
+        wash.addColorStop(1, 'rgba(255,236,220,0)');
+        g.fillStyle = wash;
+        g.fillRect(0, 0, 64, 64);
+      }
+      const puffTex = new THREE.CanvasTexture(puffCanvas);
+      puffTex.colorSpace = THREE.SRGBColorSpace;
+      const puffMat = new THREE.MeshBasicMaterial({ map: puffTex, transparent: true, opacity: 0.85, depthWrite: false, fog: false });
+      for (let i = 0; i < (low ? 3 : 7); i++) {
+        const puff = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 0.5), puffMat.clone());
+        puff.position.set(-3.1, 0.7, -6 + i * (low ? 4 : 1.8));
+        puff.userData.z = puff.position.z;
+        steam.add(puff);
+      }
+      steam.visible = false;
+      root.add(steam);
+      brassTrim = new THREE.Group();
+      brassTrim.name = 'brass-trim';
+      const copper = new THREE.MeshStandardMaterial({ color: '#d4843a', metalness: 0.62, roughness: 0.32 });
+      copper.userData.base = copper.color.clone();
+      const band = new THREE.Mesh(new THREE.TorusGeometry(1.42, 0.045, 6, low ? 12 : 18, Math.PI), copper);
+      band.position.set(-4.6, 0.32, 0);
+      brassTrim.add(band);
+      for (let z = -6; z <= 6; z += low ? 6 : 3) {
+        const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.7, 6), copper);
+        cap.position.set(-2.15, 1.7, z);
+        brassTrim.add(cap);
+      }
+      brassTrim.visible = false;
+      brassTrim.traverse((o) => { o.userData.skipTint = true; });
+      steam.traverse((o) => { o.userData.skipTint = true; });
+      root.add(brassTrim);
+      snapshot(root);
+      seeded = true;
+      applySeed(seedNow);
     }
   });
   const flyDummy = new THREE.Object3D();
@@ -709,13 +840,39 @@ export function createCityBlock(seed = 1, low = false) {
     moss,
     ready,
     fog: moss ? ['#7f9a86', 14, 36] : ['#d08868', 26, 64],
+    fogFor(n) {
+      if (moss) return ['#7f9a86', 14, 36];
+      if (n === 2) return ['#7fba8a', 16, 42];
+      if (n === 3) return ['#c47840', 20, 52];
+      return ['#d08868', 26, 64];
+    },
+    setSeed(n) { applySeed(n); },
     setGlow(on) { glowOn = !!on; if (glow) glow.visible = glowOn; },
     setRain(on) { setCityRain(on); },
     tick(dt, walker) {
       water.material.uniforms.uTime.value += dt;
       dressTick(dt, walker);
-      if (!flies) return;
       const t = performance.now() * 0.001;
+      if (spores?.visible) {
+        const n = spores.count;
+        for (let i = 0; i < n; i++) {
+          const u = (t * 0.08 + i / n) % 1;
+          sporeDummy.position.set(-5 + (i % 6) * 1.5, 0.4 + u * 2.2, -6 + (i % 8) * 1.5);
+          sporeDummy.scale.setScalar(0.6 + (i % 3) * 0.2);
+          sporeDummy.updateMatrix();
+          spores.setMatrixAt(i, sporeDummy.matrix);
+        }
+        spores.instanceMatrix.needsUpdate = true;
+      }
+      if (steam?.visible) {
+        steam.children.forEach((puff, i) => {
+          puff.position.y = 0.55 + ((t * 0.25 + i * 0.17) % 1) * 1.4;
+          puff.position.x = -3.1 + Math.sin(t + i) * 0.2;
+          puff.lookAt(0, puff.position.y, 8);
+          puff.material.opacity = 0.18 + (1 - ((t * 0.25 + i * 0.17) % 1)) * 0.22;
+        });
+      }
+      if (!flies) return;
       for (let i = 0; i < 14; i++) {
         const side = i % 2 ? 3.6 : -6.5;
         flyDummy.position.set(side + Math.sin(t * 0.8 + i) * 0.35, 0.25 + (i % 4) * 0.18, -5 + (i % 7) * 1.3);

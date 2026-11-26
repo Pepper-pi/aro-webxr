@@ -223,6 +223,8 @@
       #bestiaryDetail p { margin: 6px 0; }
       #canalSky { position: fixed; left: 50%; top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%); z-index: 8; min-height: 36px; padding: 4px 14px; border-radius: 999px; border: 1px solid #f1d9a4; background: rgba(20, 12, 28, 0.82); color: #fff6dc; font: 14px Georgia, serif; }
       #canalSky[hidden] { display: none; }
+      #starseed { position: fixed; left: 50%; top: calc(max(12px, env(safe-area-inset-top)) + 44px); transform: translateX(-50%); z-index: 8; min-height: 32px; padding: 3px 12px; border-radius: 999px; border: 1px solid #e6c27a; background: rgba(20, 12, 28, 0.82); color: #ffe1a4; font: 13px Georgia, serif; }
+      #starseed[hidden] { display: none; }
       #discover { position: fixed; left: 50%; bottom: 16%; transform: translateX(-50%); z-index: 18; max-width: min(360px, 86vw); padding: 10px 16px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.8); background: rgba(236, 242, 248, 0.88); color: #1c2430; font: 16px Georgia, serif; text-align: center; pointer-events: none; backdrop-filter: blur(12px); box-shadow: 0 8px 18px rgba(20, 28, 36, 0.18); }
       #discover[hidden] { display: none; }
       @media (max-width: 700px) {
@@ -731,6 +733,7 @@
     </div>
     <button id="bookBtn" type="button" hidden>Book</button>
     <button id="canalSky" type="button" hidden>Lantern rain</button>
+    <button id="starseed" type="button" hidden>Starseed · Lantern Canal</button>
     <button id="eve" type="button" hidden>Evening</button>
     <button id="dusk" type="button">Dusk</button>
     <button id="ar" type="button">AR</button>
