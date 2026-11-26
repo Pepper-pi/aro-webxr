@@ -94,10 +94,10 @@ function glazePorcelain(vrm) {
     material.emissive?.set?.('#000000');
     if (material.emissiveIntensity != null) material.emissiveIntensity = 0;
     if (kind === 'eye') {
-      material.color.set('#ff5cbe');
-      material.emissive?.set?.('#ff4fa3');
-      if (material.emissiveIntensity != null) material.emissiveIntensity = 0.45;
-      material.shadeColorFactor?.set?.('#d44898');
+      material.color.set('#ffb4d6');
+      material.emissive?.set?.('#ff8ec4');
+      if (material.emissiveIntensity != null) material.emissiveIntensity = 0.4;
+      material.shadeColorFactor?.set?.('#e080b0');
       return;
     }
     if (kind === 'skin' || kind === 'cloth') {
@@ -120,8 +120,10 @@ function glazePorcelain(vrm) {
       material.color.set('#2c2430');
       material.shadeColorFactor?.set?.('#4a4050');
     }
-    const baked = kind === 'eye' ? null : crackle(material.map);
-    if (baked) material.map = baked;
+    if (kind === 'cloth') {
+      const baked = crackle(material.map);
+      if (baked) material.map = baked;
+    }
   };
   vrm.scene.traverse((o) => {
     if (!o.isMesh) return;
@@ -148,7 +150,7 @@ function glazePorcelain(vrm) {
       new THREE.PlaneGeometry(0.09, 0.09),
       new THREE.MeshBasicMaterial({ map: sigilTex('#c41830'), transparent: true, depthWrite: false, side: THREE.DoubleSide }),
     );
-    red.position.set(0.05, -0.01, 0.105);
+    red.position.set(0.055, -0.02, 0.108);
     red.name = 'porcelain-glyph';
     head.add(red);
     const black = new THREE.Mesh(
@@ -158,9 +160,9 @@ function glazePorcelain(vrm) {
     black.position.set(-0.01, 0.055, 0.105);
     black.name = 'porcelain-glyph';
     head.add(black);
-    crackStroke(head, 0.0, 0.04, 0.1, 0.09, 0.15);
-    crackStroke(head, 0.04, -0.02, 0.1, 0.07, -0.9);
-    crackStroke(head, -0.03, 0.01, 0.1, 0.05, 0.4);
+    crackStroke(head, -0.062, 0.072, 0.1, 0.026, 1.15);
+    crackStroke(head, -0.05, 0.058, 0.1, 0.018, 0.25);
+    crackStroke(head, 0.064, 0.066, 0.1, 0.022, -0.7);
   }
   const neck = vrm.humanoid.getRawBoneNode('neck');
   if (neck) {
@@ -171,6 +173,21 @@ function glazePorcelain(vrm) {
     const hand = vrm.humanoid.getRawBoneNode(side);
     if (!hand) continue;
     crackStroke(hand, 0, 0.01, 0.02, 0.04, side === 'leftHand' ? 0.4 : -0.4);
+  }
+  const chest = vrm.humanoid.getRawBoneNode('chest') || vrm.humanoid.getRawBoneNode('upperChest');
+  if (chest && !chest.getObjectByName('porcelain-wisp')) {
+    const wisp = new THREE.Mesh(
+      new THREE.SphereGeometry(0.035, 10, 8),
+      new THREE.MeshBasicMaterial({ color: '#ff8ec8', transparent: true, opacity: 0.72, depthWrite: false }),
+    );
+    wisp.name = 'porcelain-wisp';
+    chest.add(wisp);
+    const mote = new THREE.Mesh(
+      new THREE.SphereGeometry(0.016, 8, 6),
+      new THREE.MeshBasicMaterial({ color: '#ffd0ea', transparent: true, opacity: 0.85, depthWrite: false }),
+    );
+    mote.name = 'porcelain-mote';
+    chest.add(mote);
   }
 }
 
@@ -611,6 +628,10 @@ export async function createCompanion(url, opts = {}) {
         head.rotateX(Math.sin(t * 0.8) * 0.04);
       }
       if (spine) spine.rotateZ(Math.sin(t * 0.45) * 0.025);
+      const wisp = vrm.scene.getObjectByName('porcelain-wisp');
+      const mote = vrm.scene.getObjectByName('porcelain-mote');
+      if (wisp) wisp.position.set(0.2 + Math.sin(t * 0.9) * 0.1, 0.18 + Math.sin(t * 1.5) * 0.06, 0.12 + Math.cos(t * 0.7) * 0.08);
+      if (mote) mote.position.set(-0.12 + Math.cos(t * 1.2) * 0.08, 0.28 + Math.sin(t * 1.7) * 0.05, 0.18);
     }
     if (camera) {
       camera.getWorldPosition(gaze.position);

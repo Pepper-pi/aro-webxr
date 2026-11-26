@@ -1772,7 +1772,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         if (into === 'board') { if (panel?.hidden) showBoard(); }
         else if (into) enter('hub');
       }
-      if (name === 'block') canal.tick(dt);
+      if (name === 'block') canal.tick(dt, walker);
       if (name === 'ruin') ruin.tick(dt);
       const cityFolk = { sable: [-0.15, -3.5, 0.4], lumen: [0.35, 1.15, -0.5] };
       for (const [id, ctl] of Object.entries(ctls)) {

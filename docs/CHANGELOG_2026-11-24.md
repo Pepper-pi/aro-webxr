@@ -67,3 +67,7 @@ Lumen Pike no longer wears Maren's AvatarSample A mesh. Her file is an AvatarSam
 ## Block 28 — 25 November
 
 The hub stand-in had no textures and a near-black skin color, so its head read as a black mask with white eye slits. It now has a skin-colored face. Empty textures are no longer marked for upload, which was blanking some VRM faces. The hearth fire is a soft warm white, with cooler light from the window. A first clothed porcelain healer stands in the hub.
+
+## Block 31 — lantern canal
+
+The seeded canal block keeps the Kenney street and adds a stone arch, rock banks, stepped stalls, cloth awnings, a boba counter, and a stock card that turns through four drinks. Lantern strings sway on desktop. Embers drift. Phone keeps the arch, one awning, and fewer embers. The porcelain face no longer paints tear tracks down the skin. Short crazing sits at the temples, the eyes are rose, and a pink wisp floats at her shoulder.

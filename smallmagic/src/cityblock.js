@@ -57,13 +57,14 @@ function scatter(lib, name, spots, y, yaw, tint, scale = 1) {
   return mesh;
 }
 
-function waterMaterial(color, deep) {
+function waterMaterial(color, deep, shine = 0) {
   return new THREE.ShaderMaterial({
     transparent: true,
     uniforms: {
-      uTime: { value: 0 },
-      uColor: { value: new THREE.Color(color) },
-      uDeep: { value: new THREE.Color(deep) },
+        uTime: { value: 0 },
+        uShine: { value: shine },
+        uColor: { value: new THREE.Color(color) },
+        uDeep: { value: new THREE.Color(deep) },
     },
     vertexShader: `
       uniform float uTime;
@@ -80,6 +81,7 @@ function waterMaterial(color, deep) {
     `,
     fragmentShader: `
       uniform float uTime;
+      uniform float uShine;
       uniform vec3 uColor;
       uniform vec3 uDeep;
       varying vec2 vUv;
@@ -92,9 +94,11 @@ function waterMaterial(color, deep) {
         for (int i = 0; i < 5; i++) {
           float d = length((vUv - vec2(0.78, lamps[i])) * vec2(2.2, 8.0));
           float tw = 0.65 + 0.35 * sin(uTime * 2.4 + lamps[i] * 12.0);
-          col += vec3(1.0, 0.62, 0.28) * exp(-d * 10.0) * tw;
+          col += vec3(1.0, 0.72, 0.42) * exp(-d * 10.0) * tw;
         }
-        gl_FragColor = vec4(col, 0.94);
+        float ripple = sin(vUv.y * 46.0 + uTime * 2.2) * sin(vUv.x * 22.0 - uTime * 1.3);
+        col += vec3(0.75, 0.9, 1.0) * pow(max(ripple, 0.0), 10.0) * uShine * 0.45;
+        gl_FragColor = vec4(col, 0.92);
       }
     `,
   });
@@ -121,6 +125,12 @@ function skyDome(moss) {
   g.fillStyle = sky;
   g.fillRect(0, 0, 1024, 512);
   if (!moss) {
+    g.fillStyle = '#140816';
+    g.fillRect(690, 448, 210, 7);
+    g.beginPath();
+    g.moveTo(760, 455); g.lineTo(830, 432); g.lineTo(930, 440); g.lineTo(900, 462); g.closePath();
+    g.fill();
+    g.fillRect(860, 360, 4, 92);
     g.fillStyle = '#fff8ee';
     for (let i = 0; i < 180; i++) {
       const x = (i * 73) % 1024;
@@ -146,12 +156,190 @@ function skyDome(moss) {
   return dome;
 }
 
+const STOCK = [
+  { name: 'Honey pearl', note: 'warm and slow', color: '#e7c56a' },
+  { name: 'Night plum', note: 'dusk in a cup', color: '#7a4a78' },
+  { name: 'Lantern milk', note: 'a little light', color: '#f3e2c4' },
+  { name: 'Cinder citrus', note: 'bright peel', color: '#e07a3a' },
+];
+
+function paintStock(ctx, item) {
+  ctx.clearRect(0, 0, 256, 160);
+  ctx.fillStyle = '#2a160e';
+  ctx.fillRect(0, 0, 256, 160);
+  ctx.strokeStyle = '#f1d9a4';
+  ctx.lineWidth = 6;
+  ctx.strokeRect(8, 8, 240, 144);
+  ctx.fillStyle = item.color;
+  ctx.fillRect(22, 36, 28, 28);
+  ctx.fillStyle = '#f6ead0';
+  ctx.font = 'bold 28px Georgia';
+  ctx.fillText(item.name, 60, 62);
+  ctx.font = '20px Georgia';
+  ctx.fillStyle = '#e7c9a2';
+  ctx.fillText(item.note, 24, 112);
+}
+
+function awningMesh(color) {
+  const cloth = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.7, 0.85, 8, 1),
+    new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide }),
+  );
+  const pos = cloth.geometry.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    pos.setZ(i, -Math.cos((x / 1.7) * Math.PI) * 0.06);
+  }
+  pos.needsUpdate = true;
+  cloth.geometry.computeVertexNormals();
+  cloth.rotation.x = 0.4;
+  cloth.name = 'awning';
+  return cloth;
+}
+
+function dressCanal(root, lib, low, add) {
+  const rich = !low;
+  const stone = new THREE.MeshStandardMaterial({ color: '#c4b49a', roughness: 0.84 });
+  const arch = new THREE.Group();
+  arch.name = 'canal-arch';
+  const pier = (x) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.85, 0.5), stone);
+    m.position.set(x, 0.42, 0);
+    return m;
+  };
+  const curve = new THREE.Mesh(new THREE.TorusGeometry(1.2, rich ? 0.14 : 0.1, rich ? 8 : 5, rich ? 16 : 8, Math.PI), stone);
+  curve.rotation.y = Math.PI / 2;
+  curve.rotation.z = Math.PI;
+  curve.position.set(-4.6, 0.72, 0);
+  arch.add(pier(-5.75), pier(-3.45), curve);
+  root.add(arch);
+  const bankZ = [];
+  for (let z = -7; z <= 6; z += rich ? 1.4 : 2.8) bankZ.push([-5.9, z], [-3.35, z]);
+  add('rock-wide', bankZ, 0, 0, '#d5c6b0', 0.55);
+  add('stairs-stone', [[-5.5, -2.4], [-3.7, 2.6]], 0, Math.PI / 2);
+  const terrace = rich ? [[2.35, -4.2], [2.35, -0.6], [2.35, 3.2], [2.7, -4.2], [2.7, 3.2]] : [[2.35, -0.6]];
+  add('stairs-stone', terrace, 0, Math.PI / 2);
+  const awnings = [];
+  const colors = ['#c45a4a', '#e7b15a', '#7a4a62'];
+  const spots = rich ? [[0.2, -4.2], [0.2, -0.6], [0.2, 3.2]] : [[0.2, -0.6]];
+  spots.forEach(([x, z], i) => {
+    const cloth = awningMesh(colors[i % colors.length]);
+    cloth.position.set(x, 2.05, z);
+    root.add(cloth);
+    awnings.push(cloth);
+  });
+  const strings = [];
+  if (rich) {
+    [-4.2, -0.6, 3.2].forEach((z, s) => {
+      const line = new THREE.Group();
+      for (let i = 0; i < 6; i++) {
+        const u = i / 5;
+        const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), new THREE.MeshBasicMaterial({ color: '#ffd7a4' }));
+        bulb.position.set(-1.2 + u * 3.2, 2.35 - Math.sin(u * Math.PI) * 0.28, 0);
+        line.add(bulb);
+      }
+      line.position.set(0, 0, z);
+      line.userData.phase = s;
+      root.add(line);
+      strings.push(line);
+    });
+  }
+  const stand = new THREE.Group();
+  stand.name = 'boba-stand';
+  stand.position.set(0.55, 0, -0.55);
+  const wood = new THREE.MeshStandardMaterial({ color: '#6a4030', roughness: 0.7 });
+  const counter = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.85, 0.55), wood);
+  counter.position.y = 0.42;
+  stand.add(counter);
+  for (let i = 0; i < 3; i++) {
+    const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.16, 8), new THREE.MeshStandardMaterial({ color: colors[i], roughness: 0.4 }));
+    cup.position.set(-0.28 + i * 0.22, 0.92, 0.05);
+    stand.add(cup);
+  }
+  const cardCanvas = document.createElement('canvas');
+  cardCanvas.width = 256;
+  cardCanvas.height = 160;
+  const cardCtx = cardCanvas.getContext('2d');
+  const cardTex = new THREE.CanvasTexture(cardCanvas);
+  cardTex.colorSpace = THREE.SRGBColorSpace;
+  let stockI = 0;
+  const paintCard = () => { paintStock(cardCtx, STOCK[stockI]); cardTex.needsUpdate = true; };
+  paintCard();
+  const card = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.45), new THREE.MeshBasicMaterial({ map: cardTex }));
+  card.position.set(0, 1.35, 0.28);
+  card.name = 'boba-card';
+  stand.add(card);
+  root.add(stand);
+  const emberN = low ? 8 : 22;
+  const embers = new THREE.InstancedMesh(new THREE.SphereGeometry(0.02, 5, 4), new THREE.MeshBasicMaterial({ color: '#ffd2a8' }), emberN);
+  embers.frustumCulled = false;
+  embers.name = 'canal-embers';
+  root.add(embers);
+  const streaks = [];
+  if (rich) {
+    const drop = new THREE.MeshBasicMaterial({ color: '#d5e6f4', transparent: true, opacity: 0.28, depthWrite: false });
+    for (let i = 0; i < 14; i++) {
+      const s = new THREE.Mesh(new THREE.PlaneGeometry(0.012, 0.28), drop);
+      s.position.set(-2 + (i % 5) * 1.1, 2 + (i % 3), -4 + (i % 7) * 1.2);
+      s.userData.speed = 0.6 + (i % 4) * 0.15;
+      root.add(s);
+      streaks.push(s);
+    }
+  }
+  if (rich) {
+    const dock = new THREE.Group();
+    dock.name = 'sky-dock';
+    dock.position.set(14, 5.5, -22);
+    const hullMat = new THREE.MeshBasicMaterial({ color: '#1a1020' });
+    const hull = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.7, 1.1), hullMat);
+    const mast = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.2, 0.08), hullMat);
+    mast.position.y = 1.2;
+    const pier = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.12, 0.35), hullMat);
+    pier.position.set(-2.2, -0.4, 0);
+    dock.add(hull, mast, pier);
+    root.add(dock);
+    const bridgeLight = new THREE.PointLight('#ffd7a8', 1.1, 7, 2);
+    bridgeLight.position.set(-4.6, 1.6, 0);
+    root.add(bridgeLight);
+  }
+  let nearStall = false;
+  let cardT = 0;
+  const onTap = (e) => {
+    if (!nearStall || e.target?.closest?.('button')) return;
+    stockI = (stockI + 1) % STOCK.length;
+    paintCard();
+  };
+  addEventListener('pointerup', onTap);
+  const emberDummy = new THREE.Object3D();
+  return (dt, walker) => {
+    const t = performance.now() * 0.001;
+    awnings.forEach((cloth, i) => { cloth.rotation.z = Math.sin(t * 0.8 + i) * 0.04; });
+    strings.forEach((line) => { line.rotation.z = Math.sin(t * 0.9 + line.userData.phase) * 0.05; });
+    for (let i = 0; i < emberN; i++) {
+      const u = (t * 0.15 + i / emberN) % 1;
+      emberDummy.position.set(-4.6 + Math.sin(t + i) * 0.8, 0.4 + u * 2.4, -6 + (i % 9) * 1.4);
+      emberDummy.scale.setScalar(0.4 + u);
+      emberDummy.updateMatrix();
+      embers.setMatrixAt(i, emberDummy.matrix);
+    }
+    embers.instanceMatrix.needsUpdate = true;
+    streaks.forEach((s) => {
+      s.position.y -= s.userData.speed * dt;
+      if (s.position.y < 0.2) s.position.y = 3.2;
+    });
+    cardT += dt;
+    if (cardT > 5) { cardT = 0; stockI = (stockI + 1) % STOCK.length; paintCard(); }
+    nearStall = !!(walker && Math.hypot(walker.feet.x - 0.55, walker.feet.z + 0.55) < 2.4);
+    card.scale.setScalar(nearStall ? 1.15 : 1);
+  };
+}
+
 export function createCityBlock(seed = 1, low = false) {
   const moss = seed % 2 === 0;
   const root = new THREE.Group();
   root.name = moss ? 'city-ruin' : 'city-canal';
   const tint = moss ? '#b7c9a4' : '#ffffff';
-  const water = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 16, 24, 48), waterMaterial(moss ? '#3d6a58' : '#3aa0b0', moss ? '#1c3330' : '#0e3c4a'));
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 16, low ? 8 : 24, low ? 16 : 48), waterMaterial(moss ? '#3d6a58' : '#3aa0b0', moss ? '#1c3330' : '#0e3c4a', moss ? 0 : 1));
   water.rotation.x = -Math.PI / 2;
   water.position.set(-4.6, 0.08, 0);
   const flies = moss ? new THREE.InstancedMesh(new THREE.SphereGeometry(0.012, 4, 3), new THREE.MeshBasicMaterial({ color: '#e8ffb0' }), 14) : null;
@@ -267,16 +455,19 @@ export function createCityBlock(seed = 1, low = false) {
     root.add(skyDome(moss));
     const fill = new THREE.HemisphereLight(moss ? '#8eaea4' : '#6a4e78', moss ? '#2a3028' : '#3a2418', moss ? 0.55 : 0.42);
     root.add(fill);
+    if (!moss) dressTick = dressCanal(root, lib, low, add);
   });
   const flyDummy = new THREE.Object3D();
+  let dressTick = () => {};
   return {
     root,
     moss,
     ready,
     fog: moss ? ['#7f9a86', 14, 36] : ['#e09048', 16, 40],
     setGlow(on) { glowOn = !!on; if (glow) glow.visible = glowOn; },
-    tick(dt) {
+    tick(dt, walker) {
       water.material.uniforms.uTime.value += dt;
+      dressTick(dt, walker);
       if (!flies) return;
       const t = performance.now() * 0.001;
       for (let i = 0; i < 14; i++) {
