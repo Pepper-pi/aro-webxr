@@ -102,5 +102,23 @@ export function createAmbience() {
     o.start(now);
     o.stop(now + 0.75);
   }
-  return { set, scene, harmonic, get on() { return on; } };
+  function steep() {
+    if (!on || !ctx) return;
+    const now = ctx.currentTime;
+    [494, 659.25].forEach((f, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = f;
+      const at = now + i * 0.11;
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.exponentialRampToValueAtTime(0.045, at + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + 0.5);
+      o.connect(g);
+      g.connect(master);
+      o.start(at);
+      o.stop(at + 0.55);
+    });
+  }
+  return { set, scene, harmonic, steep, get on() { return on; } };
 }

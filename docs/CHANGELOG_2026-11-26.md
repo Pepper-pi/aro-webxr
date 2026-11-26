@@ -65,3 +65,7 @@ Maren, Sable, Bram, and Lumen stay on the bundled VRoid AvatarSample bases (not 
 ## Block 44
 
 The hearth lights, and the outdoor sun while you are indoors, are lower, and the indoor exposure is pulled down so Maren's cheeks, nose, and mouth stay out of the white. The four companions turn in toward the rug and the fire, each at a slightly different angle. The table, chairs, and bookshelf use the warm CC0 wood grain. A ceramic teapot, two cups with a little steam, and a bound notebook sit on the table. A headless pass of the meadow, Long Lake, the canal, the sky deck, and the home hub still raises no page errors.
+
+## Block 45
+
+The hearth fire is crossed charred logs, an ember bed, and soft additive flame tongues instead of a stacked cone. The cauldron is matte cast iron with a teal and amber simmer. Pour Tea, or walk up to the tea table, offers Maren's Mint Steep, Sable's Honey Pearl, and Lumen's Starlight Chai. The steep quickens a meadow walk, the pearl shortens the wait for a bite, and the chai adds resonance. A frosted badge names the one you poured, and it hides in postcard view. A chime plays when ambience is on. A headless pass of the meadow, Long Lake, the canal, the sky deck, and the home hub still raises no page errors.

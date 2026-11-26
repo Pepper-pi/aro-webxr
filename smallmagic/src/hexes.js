@@ -431,8 +431,10 @@ export function createHexes(scene, world, camera, walker, zones) {
   }
   function grant(id, n) {
     const before = tierOf(xp[id] || 0);
-    xp[id] = (xp[id] || 0) + n;
+    const boosted = zones?.tea === 'chai' ? Math.max(1, Math.round(n * 1.4)) : n;
+    xp[id] = (xp[id] || 0) + boosted;
     saveXp(xp);
+    return boosted;
     const h = built.find((b) => b.id === id);
     const after = tierOf(xp[id] || 0);
     if (h && after > before) celebrateTier(h, after);
@@ -657,12 +659,12 @@ export function createHexes(scene, world, camera, walker, zones) {
         h.got = true;
         h.herb.visible = false;
         const bonus = (() => { try { return (JSON.parse(localStorage.getItem('aro-hub') || '{}').people?.bram?.fp || 0) >= 90; } catch { return false; } })();
-        grant(h.id, bonus ? 18 : 12);
+        const kept = grant(h.id, bonus ? 18 : 12);
         try {
           const n = Number(localStorage.getItem('aro-herbs') || 0) + 1;
           localStorage.setItem('aro-herbs', String(n));
         } catch { /* private mode */ }
-        zones?.toast?.(`Herb kept · +${bonus ? 18 : 12} resonance`);
+        zones?.toast?.(`Herb kept · +${kept} resonance`);
       }
     }
     for (const h of built) if (h !== here && h.wave?.done) h.waved = false;
@@ -685,12 +687,12 @@ export function createHexes(scene, world, camera, walker, zones) {
         const have = xp[here.id] || 0;
         const t = tierOf(have);
         const gained = t < 3 ? Math.max(12, (t === 1 ? 40 : 110) - have) : 8;
-        if (!bossEvent) grant(here.id, gained);
+        const poured = bossEvent ? 0 : grant(here.id, gained);
         const names = { tusk: 'Boar tusk', ruff: 'Wolf ruff', gel: 'Slime gel', bead: 'Goblin bead' };
         const got = (here.wave.drops || []).map((k) => names[k] || k);
         const rose = tierOf(xp[here.id] || 0) > t;
         const loot = rose ? (here.theme === 'Lakeshore' ? 'Trout' : here.theme === 'Hearth' ? 'Lantern wick' : 'Herb') : '';
-        zones?.toast?.([`${here.name} clear`, bossEvent ? '' : `+${gained} resonance`, ...got, loot].filter(Boolean).join(' · '));
+        zones?.toast?.([`${here.name} clear`, bossEvent ? '' : `+${poured} resonance`, ...got, loot].filter(Boolean).join(' · '));
         zones?.waveCleared?.();
       }
     }
@@ -745,8 +747,8 @@ export function createHexes(scene, world, camera, walker, zones) {
       const cleared = here.event.kind === 'boss' ? here.wave?.done : here.event.t >= (here.event.kind === 'bloom' ? 10 : 12);
       if (cleared) {
         const gain = here.event.kind === 'boss' ? 36 : here.event.kind === 'surge' ? 24 : here.event.kind === 'bloom' ? 18 : 16;
-        grant(here.id, gain);
-        zones?.toast?.(`${here.event.name} clear · +${gain} Resonance`);
+        const poured = grant(here.id, gain);
+        zones?.toast?.(`${here.event.name} clear · +${poured} Resonance`);
         watch?.chime?.();
         here.event = null;
         here.clears = (here.clears || 0) + 1;

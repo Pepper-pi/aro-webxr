@@ -14,6 +14,7 @@ export class Walker {
     this.yaw = world.start.yaw; // looks along (sin yaw, 0, cos yaw)
     this.pitch = 0.04; // + looks down
     this.speed = 0; this.stride = 0; this.air = 0; this.landed = 0; this.grounded = true; this.mode = 'move';
+    this.pace = 1;
     this.turned = new THREE.Vector2(); // how far the eye turned this frame
     this.crouch = 0;
   }
@@ -25,8 +26,9 @@ export class Walker {
     this.pitch = THREE.MathUtils.clamp(this.pitch + inp.look.y, -1.35, 1.35);
     this.turned.set(inp.look.x, inp.look.y);
     // where they mean to go
-    let top = inp.sprint ? RUN : WALK;
-    if (inp.walk && !inp.sprint) top = 3.15;
+    const pace = this.pace || 1;
+    let top = (inp.sprint ? RUN : WALK) * pace;
+    if (inp.walk && !inp.sprint) top = 3.15 * pace;
     const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
     // The eye looks along (sin yaw, cos yaw). Forward is that, and right is (cos yaw, -sin yaw).
     const wx = (inp.move.y * sy + inp.move.x * cy) * top, wz = (inp.move.y * cy - inp.move.x * sy) * top;

@@ -643,7 +643,6 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         for (const m of [].concat(o.material)) m.color.set('#2c4552');
       });
       dyeRug(put(furn.rug, -4.2, 0, 5.5, 0.2, 0.02));
-      put(furn.fire, -3.55, 0.3, -4.82, 0.2, 0.36);
       const table = put(furn.table, -4.15, 0, 0.35, 0.5, 0.72);
       const chairA = put(furn.chair, -3.35, 0, -0.2, 1.0, 0.85);
       const chairB = put(furn.chair, -3.4, 0, 1.05, -2.2, 0.85);
@@ -690,7 +689,6 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       dressWood(shelves);
       layTea(-4.15, 0.74, 0.35);
       put(furn.lamp, -4.15, 0, -3.5, 0, 1.2);
-      put(furn.pot, -2.35, 0, -4.15, 0.6, 0.46);
       for (const p of pals) {
         if (ctls[p.id]) {
           stripBlocks(p.g);
@@ -1139,6 +1137,41 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   }
   let onLand = null;
   let onChime = null;
+  let onSteep = null;
+  let tea = null;
+  let teaNear = false;
+  const TEAS = {
+    mint: "Maren's Mint Steep",
+    honey: "Sable's Honey Pearl",
+    chai: "Lumen's Starlight Chai",
+  };
+  const pourBtn = document.getElementById('pourTea');
+  const teaCard = document.getElementById('teaCard');
+  const teaBadge = document.getElementById('teaBadge');
+  function openTea() { if (teaCard) teaCard.hidden = false; }
+  function closeTea() { if (teaCard) teaCard.hidden = true; }
+  function pickTea(id) {
+    if (!TEAS[id]) return;
+    tea = id;
+    if (teaBadge) {
+      teaBadge.hidden = false;
+      teaBadge.textContent = TEAS[id];
+    }
+    closeTea();
+    onSteep?.();
+    note(`${TEAS[id]}. It travels with you.`);
+  }
+  pourBtn?.addEventListener('pointerup', (e) => {
+    if (teaCard && !teaCard.hidden) closeTea();
+    else openTea();
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  teaCard?.querySelectorAll('[data-tea]').forEach((b) => b.addEventListener('pointerup', (e) => {
+    pickTea(b.getAttribute('data-tea'));
+    e.preventDefault();
+    e.stopPropagation();
+  }));
 
   const panel = document.getElementById('board');
   const menu = document.getElementById('menu');
@@ -1562,6 +1595,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     flicking = 1;
     const quick = lure === 'fly' ? 0.7 : lure === 'glow' ? 0.4 : 0;
     let wait = 1.5 + Math.random() * 2.1 - quick;
+    if (tea === 'honey') wait *= 0.58;
     try { if ((JSON.parse(localStorage.getItem('aro-hub') || '{}').people?.sable?.fp || 0) >= 90) wait *= 0.55; } catch { /* keep the ordinary wait */ }
     biteIn = wait;
     splashAt(spot.x, spot.z, dusk);
@@ -1885,7 +1919,11 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     celebrate,
     set onLand(fn) { onLand = fn; },
     set onChime(fn) { onChime = fn; },
+    set onSteep(fn) { onSteep = fn; },
     chime() { onChime?.(); },
+    get tea() { return tea; },
+    openTea,
+    pickTea,
     cueBeast(x, z, name) { beasts.act(x, z, name); },
     face(kind) { return beasts.face(kind); },
     clip(kind) { return beasts.clip(kind); },
@@ -2234,6 +2272,10 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         const flick = performance.now() * 0.001;
         shell.flicker(flick);
         shell.paintWindow(dusk, roomWeather);
+        if (pourBtn) pourBtn.hidden = false;
+        const td = Math.hypot(walker.feet.x + 4.15, walker.feet.z - 0.35);
+        if (td < 1.55 && !teaNear) openTea();
+        teaNear = td < 1.75;
         for (const w of steamWisps) {
           const u = (flick * 0.32 + w.userData.phase) % 1;
           w.position.y = w.userData.base + u * 0.2;
@@ -2241,6 +2283,11 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
           w.material.opacity = (1 - u) * 0.22;
         }
         refreshTrophies();
+      }
+      if (name !== 'hub') {
+        if (pourBtn) pourBtn.hidden = true;
+        teaNear = false;
+        closeTea();
       }
       if (name === 'hub') {
         const time = performance.now() * 0.001;

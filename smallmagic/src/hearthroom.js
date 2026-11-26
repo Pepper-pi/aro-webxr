@@ -120,21 +120,117 @@ export function createHearthShell() {
   block(0.32, 1.3, 0.7, -0.95, 0.95, 0.05);
   block(0.32, 1.3, 0.7, 0.95, 0.95, 0.05);
   block(2.5, 0.2, 0.55, 0, 1.7, 0);
-  const flameMat = (color, opacity) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending });
-  const flames = [0.24, 0.16, 0.08].map((r, i) => {
-    const f = new THREE.Mesh(new THREE.ConeGeometry(r, 0.58 - i * 0.1, 8), flameMat(i === 2 ? '#fff6d8' : i === 1 ? '#ffb15a' : '#ff6a1a', 0.8 - i * 0.08));
-    f.position.set(0, 0.72 + i * 0.12, 0.42);
-    hearth.add(f);
-    return f;
+  const flameMat = (color, opacity, map) => new THREE.MeshBasicMaterial({
+    color, map: map || null, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
   });
+  const char = new THREE.MeshStandardMaterial({ color: '#241410', roughness: 0.94, metalness: 0.02 });
+  const log = (len, x, y, z, yaw) => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.058, len, 7), char);
+    m.rotation.z = Math.PI / 2;
+    m.rotation.y = yaw;
+    m.position.set(x, y, z);
+    hearth.add(m);
+    return m;
+  };
+  log(0.62, -0.02, 0.4, 0.36, 0.55);
+  log(0.56, 0.06, 0.46, 0.4, -0.62);
+  log(0.34, 0.02, 0.5, 0.34, 1.4);
+  const emberMat = flameMat('#ff6a1a', 0.72);
+  const bed = new THREE.Mesh(new THREE.CircleGeometry(0.26, 14), emberMat);
+  bed.rotation.x = -Math.PI / 2;
+  bed.position.set(0.02, 0.37, 0.38);
+  hearth.add(bed);
   const embers = [];
-  for (let i = 0; i < 8; i++) {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.03, 5, 4), flameMat('#ffc56a', 0.9));
-    e.userData.p = i / 8;
-    e.userData.x = (i - 3.5) * 0.07;
+  for (let i = 0; i < 10; i++) {
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.018 + (i % 3) * 0.006, 6, 5), flameMat(i % 2 ? '#ffd27a' : '#ff7a2a', 0.85));
+    const a = (i / 10) * Math.PI * 2;
+    e.position.set(Math.cos(a) * 0.12, 0.4, 0.38 + Math.sin(a) * 0.08);
+    e.userData.p = i / 10;
+    e.userData.x = e.position.x;
+    e.userData.z = e.position.z;
     hearth.add(e);
     embers.push(e);
   }
+  const flameCanvas = document.createElement('canvas');
+  flameCanvas.width = 64;
+  flameCanvas.height = 128;
+  {
+    const g = flameCanvas.getContext('2d');
+    const grd = g.createLinearGradient(0, 128, 0, 0);
+    grd.addColorStop(0, 'rgba(255,70,10,0)');
+    grd.addColorStop(0.22, 'rgba(255,90,16,0.9)');
+    grd.addColorStop(0.5, 'rgba(255,168,48,0.72)');
+    grd.addColorStop(0.78, 'rgba(255,214,110,0.4)');
+    grd.addColorStop(1, 'rgba(255,244,210,0)');
+    g.fillStyle = grd;
+    g.beginPath();
+    g.moveTo(32, 6);
+    g.bezierCurveTo(60, 48, 52, 96, 42, 124);
+    g.lineTo(22, 124);
+    g.bezierCurveTo(12, 96, 4, 48, 32, 6);
+    g.fill();
+    const core = g.createLinearGradient(0, 120, 0, 20);
+    core.addColorStop(0, 'rgba(255,220,140,0)');
+    core.addColorStop(0.5, 'rgba(255,236,190,0.55)');
+    core.addColorStop(1, 'rgba(255,250,230,0)');
+    g.fillStyle = core;
+    g.beginPath();
+    g.moveTo(32, 18);
+    g.bezierCurveTo(40, 50, 38, 90, 34, 118);
+    g.lineTo(30, 118);
+    g.bezierCurveTo(26, 90, 24, 50, 32, 18);
+    g.fill();
+  }
+  const flameTex = new THREE.CanvasTexture(flameCanvas);
+  flameTex.colorSpace = THREE.SRGBColorSpace;
+  const tongues = [];
+  [[0.42, '#ffb45a', -0.06, 0.4], [0.34, '#ffd48a', 0.08, 0.36], [0.28, '#ffe6b0', 0.0, 0.44], [0.22, '#ff8a32', 0.12, 0.42]].forEach(([h, color, x, z], i) => {
+    const g = new THREE.Group();
+    const mat = flameMat(color, 0.62, flameTex);
+    const a = new THREE.Mesh(new THREE.PlaneGeometry(0.18, h), mat);
+    const b = new THREE.Mesh(new THREE.PlaneGeometry(0.12, h * 0.92), mat);
+    b.rotation.y = Math.PI / 2;
+    g.add(a, b);
+    g.position.set(x, 0.42 + h * 0.5, z);
+    g.userData.h = h;
+    g.userData.i = i;
+    hearth.add(g);
+    tongues.push(g);
+  });
+  const iron = new THREE.MeshStandardMaterial({ color: '#2a2e32', roughness: 0.88, metalness: 0.22 });
+  const cauldron = new THREE.Group();
+  cauldron.name = 'hearth-cauldron';
+  cauldron.position.set(0.72, 0, 1.22);
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12, 0, Math.PI * 2, Math.PI * 0.48, Math.PI * 0.52), iron);
+  belly.scale.y = 0.78;
+  belly.position.y = 0.2;
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.018, 6, 16), iron);
+  rim.rotation.x = Math.PI / 2;
+  rim.position.y = 0.25;
+  const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.04, 10), iron);
+  foot.position.y = 0.02;
+  for (const side of [-1, 1]) {
+    const handle = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.01, 5, 8, Math.PI), iron);
+    handle.position.set(side * 0.2, 0.2, 0);
+    handle.rotation.y = Math.PI / 2;
+    cauldron.add(handle);
+  }
+  const stew = new THREE.Mesh(
+    new THREE.CircleGeometry(0.13, 14),
+    new THREE.MeshBasicMaterial({ color: '#7ec8b0', transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }),
+  );
+  stew.rotation.x = -Math.PI / 2;
+  stew.position.y = 0.248;
+  stew.name = 'cauldron-stew';
+  const stewCore = new THREE.Mesh(
+    new THREE.CircleGeometry(0.06, 10),
+    new THREE.MeshBasicMaterial({ color: '#ffb15a', transparent: true, opacity: 0.45, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }),
+  );
+  stewCore.rotation.x = -Math.PI / 2;
+  stewCore.position.y = 0.252;
+  stewCore.name = 'cauldron-core';
+  cauldron.add(foot, belly, rim, stew, stewCore);
+  hearth.add(cauldron);
   root.add(hearth);
 
   function plant(x, z) {
@@ -269,15 +365,23 @@ export function createHearthShell() {
   }
 
   function flicker(t) {
-    flames.forEach((f, i) => {
-      f.scale.y = 0.8 + Math.sin(t * (9 + i * 4)) * 0.22;
-      f.scale.x = f.scale.z = 0.9 + Math.sin(t * (7 + i)) * 0.14;
+    tongues.forEach((g) => {
+      const i = g.userData.i;
+      const flick = 0.86 + Math.sin(t * (7 + i * 1.7)) * 0.16 + Math.sin(t * 13 + i) * 0.05;
+      g.scale.set(0.9 + Math.sin(t * 5 + i) * 0.08, flick, 0.9);
+      g.position.y = 0.42 + g.userData.h * 0.5 * flick;
+      g.children.forEach((m) => { m.material.opacity = 0.42 + flick * 0.28; });
     });
     embers.forEach((e) => {
-      const u = (t * 0.4 + e.userData.p) % 1;
-      e.position.set(e.userData.x, 0.45 + u * 1.05, 0.35);
-      e.material.opacity = (1 - u) * 0.85;
+      const u = (t * 0.35 + e.userData.p) % 1;
+      e.position.y = 0.4 + u * 0.22;
+      e.material.opacity = (1 - u) * 0.8;
     });
+    bed.material.opacity = 0.55 + Math.sin(t * 6) * 0.12;
+    const stewMesh = cauldron.getObjectByName('cauldron-stew');
+    const coreMesh = cauldron.getObjectByName('cauldron-core');
+    if (stewMesh) stewMesh.material.opacity = 0.62 + Math.sin(t * 3.2) * 0.16;
+    if (coreMesh) coreMesh.material.opacity = 0.28 + Math.sin(t * 4.4) * 0.12;
     fireLight.intensity = 0.3 + Math.sin(t * 11) * 0.03;
     bounce.intensity = 0.07 + Math.sin(t * 11) * 0.012;
   }

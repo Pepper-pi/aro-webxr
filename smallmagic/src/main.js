@@ -138,6 +138,7 @@ scene.add(flames.mesh);
 const fire = createFire({ world, air, fx, flames });
 const zones = createZones({ scene, world, walker, camera, air, detail: phone ? 'low' : 'high' });
 zones.onChime = () => ambience.harmonic();
+zones.onSteep = () => ambience.steep();
 const wayRing = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.045, 8, 28), new THREE.MeshBasicMaterial({ color: '#ffe7a4', transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
 wayRing.rotation.x = Math.PI / 2;
 wayRing.visible = false;
@@ -1213,6 +1214,7 @@ function tickStep(dt, draw) {
     stepInp.look.x = 0;
     stepInp.look.y = 0;
   }
+  walker.pace = zones.tea === 'mint' && zones.name === 'meadow' && !zones.atLake ? 1.24 : 1;
   walker.update(frame, stepInp);
   if (xrLive) {
     if (!xrHeld) xrHeld = { x: walker.feet.x, z: walker.feet.z, yaw: walker.yaw };
