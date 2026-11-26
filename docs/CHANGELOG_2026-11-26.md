@@ -61,3 +61,7 @@ Meadow stand-ins are small sculpted creatures instead of a green box or a red do
 ## Block 43
 
 Maren, Sable, Bram, and Lumen stay on the bundled VRoid AvatarSample bases (not CC0). Their arms hang in a relaxed stand instead of an A-pose. Each one breathes, shifts weight, blinks, and glances on their own timing. Maren's face and clothes keep the full texture so she still reads when you walk up to talk. A headless pass of the meadow, Long Lake, the canal, the sky deck, and the home hub still raises no page errors.
+
+## Block 44
+
+The hearth lights, and the outdoor sun while you are indoors, are lower, and the indoor exposure is pulled down so Maren's cheeks, nose, and mouth stay out of the white. The four companions turn in toward the rug and the fire, each at a slightly different angle. The table, chairs, and bookshelf use the warm CC0 wood grain. A ceramic teapot, two cups with a little steam, and a bound notebook sit on the table. A headless pass of the meadow, Long Lake, the canal, the sky deck, and the home hub still raises no page errors.

@@ -1248,8 +1248,9 @@ function tickStep(dt, draw) {
   const hiLook = settings.gfx !== 'low' && !phone && !ar.on;
   post.bloom = hiLook && (inCity || zones.name === 'meadow' || zones.name === 'hub');
   post.direct = !!(phone && ar.on);
-  post.bloomStrength = inCity ? 0.48 : zones.name === 'hub' ? 0.05 : 0.16;
-  post.bloomThreshold = inCity ? 0.9 : zones.name === 'hub' ? 1.25 : 0.7;
+  post.bloomStrength = inCity ? 0.48 : zones.name === 'hub' ? 0.035 : 0.16;
+  post.bloomThreshold = inCity ? 0.9 : zones.name === 'hub' ? 1.45 : 0.7;
+  post.expose = inHub ? 0.84 : 1;
   if (zones.atLake && !lakeWide) { settings.viewBack = true; lakeWide = true; chaseLabel(); }
   if (!zones.atLake) lakeWide = false;
   if (xrLive) { /* the viewer pose is the camera */ }

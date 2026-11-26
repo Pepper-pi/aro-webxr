@@ -165,7 +165,7 @@ export function createHearthShell() {
     cord.position.y = 0.16;
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), new THREE.MeshBasicMaterial({ color: '#fff4e6' }));
     bulb.position.y = -0.08;
-    const lamp = new THREE.PointLight('#fff4e6', 0.28, 3.2, 2);
+    const lamp = new THREE.PointLight('#fff4e6', 0.1, 2.4, 2);
     lamp.position.y = -0.08;
     g.add(cord, bulb, lamp);
     g.position.set(x, 2.35, z);
@@ -208,7 +208,8 @@ export function createHearthShell() {
   root.add(rug);
   const shelf = new THREE.Group();
   shelf.position.set(-4.85, 0, -1.4);
-  const caseMat = new THREE.MeshStandardMaterial({ color: '#6a4030', roughness: 0.7 });
+  const grain = mapOf('hearth/textures/wood_floor_diff_1k.jpg', 1.4, 1.1);
+  const caseMat = new THREE.MeshStandardMaterial({ map: grain, color: '#c4a078', roughness: 0.78 });
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.42, 1.55, 1.5), caseMat);
   body.position.y = 0.78;
   shelf.add(body);
@@ -244,15 +245,15 @@ export function createHearthShell() {
     root.add(bar);
   });
 
-  const fireLight = new THREE.PointLight('#fff4e6', 0.72, 8, 2);
+  const fireLight = new THREE.PointLight('#fff4e6', 0.34, 6.5, 2);
   fireLight.position.set(-3.2, 1.05, -4.7);
-  const bounce = new THREE.PointLight('#f7f1e8', 0.22, 7, 2);
+  const bounce = new THREE.PointLight('#f7f1e8', 0.08, 5.5, 2);
   bounce.position.set(0.2, 1.5, 0.4);
-  const windowLight = new THREE.PointLight('#d5e4f8', 1.35, 16, 2);
+  const windowLight = new THREE.PointLight('#d5e4f8', 0.42, 12, 2);
   windowLight.position.set(4.4, 1.9, 0.2);
-  const moon = new THREE.DirectionalLight('#d7e6f8', 0.55);
+  const moon = new THREE.DirectionalLight('#d7e6f8', 0.16);
   moon.position.set(4.2, 3.2, 1.4);
-  const hemi = new THREE.HemisphereLight('#e4eef8', '#c8b8a4', 1.25);
+  const hemi = new THREE.HemisphereLight('#f3efe6', '#d7c4a8', 0.55);
   root.add(fireLight, bounce, windowLight, moon, hemi);
 
   let painted = '';
@@ -264,7 +265,7 @@ export function createHearthShell() {
     paneCanvas.getContext('2d').drawImage(next, 0, 0);
     paneTex.needsUpdate = true;
     windowLight.color.set(dusk ? '#c9b4dc' : weather === 'rain' ? '#c5d4e4' : '#d5e4f8');
-    windowLight.intensity = dusk ? 0.45 : 0.9;
+    windowLight.intensity = dusk ? 0.28 : 0.48;
   }
 
   function flicker(t) {
@@ -277,8 +278,8 @@ export function createHearthShell() {
       e.position.set(e.userData.x, 0.45 + u * 1.05, 0.35);
       e.material.opacity = (1 - u) * 0.85;
     });
-    fireLight.intensity = 0.66 + Math.sin(t * 11) * 0.06;
-    bounce.intensity = 0.2 + Math.sin(t * 11) * 0.02;
+    fireLight.intensity = 0.3 + Math.sin(t * 11) * 0.03;
+    bounce.intensity = 0.07 + Math.sin(t * 11) * 0.012;
   }
 
   return { root, paintWindow, flicker, fireLight };

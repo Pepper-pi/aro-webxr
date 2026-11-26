@@ -240,10 +240,10 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     return s;
   };
   const pals = [
-    { id: 'maren', name: 'Maren', color: '#c45a4a', home: [-1.25, 0, -1.55], yaw: 0.35, line: 'The fire is the good seat.', file: 'maren' },
-    { id: 'sable', name: 'Sable', color: '#3d7a8c', home: [1.15, 0, -1.35], yaw: -0.4, line: 'Your fish are on the wall.', file: 'sable' },
-    { id: 'bram', name: 'Bram', color: '#6a8f4a', home: [0.4, 0, 0.55], yaw: 2.6, line: 'One hand. No stakes.', file: 'bram' },
-    { id: 'lumen', name: 'Lumen', color: '#c9a15b', home: [-1.05, 0, 0.4], yaw: 0.2, line: 'Rest if the day was long.', file: 'lumen' },
+    { id: 'maren', name: 'Maren', color: '#c45a4a', home: [-1.25, 0, -1.55], yaw: -2.13, line: 'The fire is the good seat.', file: 'maren' },
+    { id: 'sable', name: 'Sable', color: '#3d7a8c', home: [1.15, 0, -1.35], yaw: 1.08, line: 'Your fish are on the wall.', file: 'sable' },
+    { id: 'bram', name: 'Bram', color: '#6a8f4a', home: [0.4, 0, 0.55], yaw: 0.68, line: 'One hand. No stakes.', file: 'bram' },
+    { id: 'lumen', name: 'Lumen', color: '#c9a15b', home: [-1.05, 0, 0.4], yaw: -0.71, line: 'Rest if the day was long.', file: 'lumen' },
   ].map((p) => {
     const g = friend(p.color, p.home[0], p.home[2], p.yaw);
     const mark = emote('!');
@@ -264,6 +264,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     { id: 'table', name: 'Play a hand', x: 1.4, z: 0.4 },
     { id: 'bed', name: 'Rest', x: -3.4, z: 2.4 },
   ];
+  const steamWisps = [];
   let buddy = null;
   let buddyT = 0;
   let nearSpot = null;
@@ -448,6 +449,87 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   };
   let marenMood = 'settled';
   let hearthReady = Promise.resolve(false);
+  function layTea(x, y, z) {
+    const g = new THREE.Group();
+    g.name = 'tea-table';
+    g.position.set(x, y, z);
+    const clay = new THREE.MeshBasicMaterial({ color: '#f4efe6' });
+    const glaze = new THREE.MeshBasicMaterial({ color: '#efe4d4' });
+    const brew = new THREE.MeshBasicMaterial({ color: '#c47848' });
+    const pot = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.062, 12, 10), clay);
+    body.scale.set(1.05, 0.82, 1.05);
+    body.position.y = 0.062;
+    const lid = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 8), clay);
+    lid.scale.y = 0.42;
+    lid.position.y = 0.108;
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.01, 8, 6), new THREE.MeshBasicMaterial({ color: '#6e8f6a' }));
+    knob.position.y = 0.128;
+    const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.016, 0.055, 6), clay);
+    spout.position.set(0.062, 0.074, 0);
+    spout.rotation.z = -1.05;
+    const handle = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.005, 6, 12, Math.PI * 1.15), clay);
+    handle.position.set(-0.055, 0.07, 0);
+    handle.rotation.y = Math.PI / 2;
+    pot.add(body, lid, knob, spout, handle);
+    pot.position.set(-0.08, 0, 0.02);
+    g.add(pot);
+    const steamTex = (() => {
+      const c = document.createElement('canvas');
+      c.width = c.height = 64;
+      const ctx = c.getContext('2d');
+      const grd = ctx.createRadialGradient(32, 36, 2, 32, 28, 30);
+      grd.addColorStop(0, 'rgba(255,248,236,0.7)');
+      grd.addColorStop(1, 'rgba(255,248,236,0)');
+      ctx.fillStyle = grd;
+      ctx.fillRect(0, 0, 64, 64);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    })();
+    const cup = (px, pz, phase) => {
+      const c = new THREE.Group();
+      const wall = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.02, 0.038, 10), glaze);
+      wall.position.y = 0.022;
+      const saucer = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.006, 12), glaze);
+      saucer.position.y = 0.003;
+      const tea = new THREE.Mesh(new THREE.CircleGeometry(0.022, 10), brew);
+      tea.rotation.x = -Math.PI / 2;
+      tea.position.y = 0.037;
+      const ear = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.003, 5, 8, Math.PI), glaze);
+      ear.position.set(0.03, 0.024, 0);
+      ear.rotation.y = Math.PI / 2;
+      c.add(wall, saucer, tea, ear);
+      c.position.set(px, 0, pz);
+      for (let i = 0; i < 2; i++) {
+        const wisp = new THREE.Sprite(new THREE.SpriteMaterial({
+          map: steamTex, transparent: true, opacity: 0.16, depthWrite: false, color: '#fff8ee',
+        }));
+        wisp.scale.set(0.07, 0.12, 1);
+        wisp.position.set(px, 0.06, pz);
+        wisp.userData.phase = phase + i * 0.47;
+        wisp.userData.base = 0.05;
+        wisp.userData.x = px;
+        steamWisps.push(wisp);
+        g.add(wisp);
+      }
+      g.add(c);
+    };
+    cup(0.14, -0.02, 0.2);
+    cup(0.02, 0.14, 1.1);
+    const book = new THREE.Group();
+    const cover = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.02, 0.16), new THREE.MeshBasicMaterial({ color: '#6d3a34' }));
+    cover.position.y = 0.01;
+    const pages = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.012, 0.13), new THREE.MeshBasicMaterial({ color: '#f3ead2' }));
+    pages.position.y = 0.012;
+    const ribbon = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.022, 0.17), new THREE.MeshBasicMaterial({ color: '#c45a4a' }));
+    ribbon.position.set(0.03, 0.014, 0);
+    book.add(cover, pages, ribbon);
+    book.position.set(0.16, 0, 0.1);
+    book.rotation.y = -0.5;
+    g.add(book);
+    hub.add(g);
+  }
   function loadHearth() {
     let done = () => {};
     hearthReady = new Promise((resolve) => { done = resolve; });
@@ -562,11 +644,51 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       });
       dyeRug(put(furn.rug, -4.2, 0, 5.5, 0.2, 0.02));
       put(furn.fire, -3.55, 0.3, -4.82, 0.2, 0.36);
-      put(furn.table, -4.15, 0, 0.35, 0.5, 0.72);
-      put(furn.chair, -3.35, 0, -0.2, 1.0, 0.85);
-      put(furn.chair, -3.4, 0, 1.05, -2.2, 0.85);
+      const table = put(furn.table, -4.15, 0, 0.35, 0.5, 0.72);
+      const chairA = put(furn.chair, -3.35, 0, -0.2, 1.0, 0.85);
+      const chairB = put(furn.chair, -3.4, 0, 1.05, -2.2, 0.85);
       put(furn.bed, -3.6, 0, 3.3, Math.PI / 2, 0.7);
-      put(furn.shelves, 4.55, 0, -2.6, -Math.PI / 2, 1.55);
+      const shelves = put(furn.shelves, 4.55, 0, -2.6, -Math.PI / 2, 1.55);
+      const woodTex = await new THREE.TextureLoader().loadAsync(new URL('hearth/textures/wood_floor_diff_1k.jpg', document.baseURI).href);
+      woodTex.colorSpace = THREE.SRGBColorSpace;
+      woodTex.wrapS = woodTex.wrapT = THREE.RepeatWrapping;
+      woodTex.repeat.set(3, 2);
+      woodTex.anisotropy = 8;
+      const dressWood = (model) => model.traverse((o) => {
+        if (!o.isMesh || !o.geometry) return;
+        const box = new THREE.Box3().setFromObject(o);
+        const size = box.getSize(new THREE.Vector3());
+        if (size.x * size.y * size.z < 0.004) return;
+        const geom = o.geometry.clone();
+        if (!geom.attributes.normal) geom.computeVertexNormals();
+        geom.computeBoundingBox();
+        const b = geom.boundingBox;
+        const span = new THREE.Vector3();
+        b.getSize(span);
+        const pos = geom.attributes.position;
+        const nrm = geom.attributes.normal;
+        const uv = new Float32Array(pos.count * 2);
+        for (let i = 0; i < pos.count; i++) {
+          const x = (pos.getX(i) - b.min.x) / Math.max(span.x, 0.001);
+          const y = (pos.getY(i) - b.min.y) / Math.max(span.y, 0.001);
+          const z = (pos.getZ(i) - b.min.z) / Math.max(span.z, 0.001);
+          const ax = Math.abs(nrm.getX(i));
+          const ay = Math.abs(nrm.getY(i));
+          const az = Math.abs(nrm.getZ(i));
+          const u = ay >= ax && ay >= az ? x : ax >= az ? z : x;
+          const v = ay >= ax && ay >= az ? z : ax >= az ? y : y;
+          uv[i * 2] = u;
+          uv[i * 2 + 1] = v;
+        }
+        geom.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+        o.geometry = geom;
+        o.material = new THREE.MeshBasicMaterial({ map: woodTex, color: '#f0d8bc' });
+      });
+      dressWood(table);
+      dressWood(chairA);
+      dressWood(chairB);
+      dressWood(shelves);
+      layTea(-4.15, 0.74, 0.35);
       put(furn.lamp, -4.15, 0, -3.5, 0, 1.2);
       put(furn.pot, -2.35, 0, -4.15, 0.6, 0.46);
       for (const p of pals) {
@@ -1127,6 +1249,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     world.wade = null;
   }
   function enter(next) {
+    world.setInside?.(next === 'hub');
     scene.fog = null;
     const city = next === 'block' || next === 'ruin';
     canal.root.visible = next === 'block';
@@ -2111,6 +2234,12 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         const flick = performance.now() * 0.001;
         shell.flicker(flick);
         shell.paintWindow(dusk, roomWeather);
+        for (const w of steamWisps) {
+          const u = (flick * 0.32 + w.userData.phase) % 1;
+          w.position.y = w.userData.base + u * 0.2;
+          w.position.x = w.userData.x + Math.sin(flick * 1.3 + w.userData.phase) * 0.01;
+          w.material.opacity = (1 - u) * 0.22;
+        }
         refreshTrophies();
       }
       if (name === 'hub') {

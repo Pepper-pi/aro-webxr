@@ -15,11 +15,11 @@ export function createPage(renderer) {
   scene.depthTexture = new THREE.DepthTexture(size.x, size.y, THREE.UnsignedIntType);
   const print = new THREE.ShaderMaterial({
     glslVersion: THREE.GLSL3, depthTest: false, depthWrite: false,
-    uniforms: { tDrawn: { value: scene.texture }, tDepth: { value: scene.depthTexture }, uSize: { value: size.clone() }, uSunUv: { value: new THREE.Vector3() }, uSunCol: { value: new THREE.Color('#fff0d2') }, uHeat: { value: 0 }, uDoom: { value: 0 }, uInk: { value: 0 }, uWhite: { value: 0 }, uBlaze: { value: 0 }, uPaint: { value: 1 }, uGrade: { value: 1 }, uDusk: { value: 0 }, uShock: { value: new THREE.Vector4(0.5, 0.5, 0, 0) }, uHole: { value: new THREE.Vector4(0.5, 0.5, 0, 0) }, uHoleB: { value: new THREE.Vector4(0, 0, 0, 0) }, uHoleC: { value: new THREE.Vector4(0.1, 1000, 1, 1) }, uDoomCol: { value: new THREE.Vector3(0.5, 0.06, 0.05) }, uDoomKeep: { value: 0.05 } },
+    uniforms: { tDrawn: { value: scene.texture }, tDepth: { value: scene.depthTexture }, uSize: { value: size.clone() }, uSunUv: { value: new THREE.Vector3() }, uSunCol: { value: new THREE.Color('#fff0d2') }, uHeat: { value: 0 }, uDoom: { value: 0 }, uInk: { value: 0 }, uWhite: { value: 0 }, uBlaze: { value: 0 }, uPaint: { value: 1 }, uGrade: { value: 1 }, uDusk: { value: 0 }, uExpose: { value: 1 }, uShock: { value: new THREE.Vector4(0.5, 0.5, 0, 0) }, uHole: { value: new THREE.Vector4(0.5, 0.5, 0, 0) }, uHoleB: { value: new THREE.Vector4(0, 0, 0, 0) }, uHoleC: { value: new THREE.Vector4(0.1, 1000, 1, 1) }, uDoomCol: { value: new THREE.Vector3(0.5, 0.06, 0.05) }, uDoomKeep: { value: 0.05 } },
     vertexShader: QUAD,
     fragmentShader: /* glsl */ `
       precision highp float;
-      uniform sampler2D tDrawn; uniform sampler2D tDepth; uniform vec2 uSize; uniform vec3 uSunUv; uniform vec3 uSunCol; uniform float uHeat; uniform float uDoom; uniform float uInk; uniform float uWhite; uniform float uBlaze; uniform float uPaint; uniform float uGrade; uniform float uDusk; uniform vec4 uShock; uniform vec4 uHole; uniform vec4 uHoleB; uniform vec4 uHoleC; uniform vec3 uDoomCol; uniform float uDoomKeep;
+      uniform sampler2D tDrawn; uniform sampler2D tDepth; uniform vec2 uSize; uniform vec3 uSunUv; uniform vec3 uSunCol; uniform float uHeat; uniform float uDoom; uniform float uInk; uniform float uWhite; uniform float uBlaze; uniform float uPaint; uniform float uGrade; uniform float uDusk; uniform float uExpose; uniform vec4 uShock; uniform vec4 uHole; uniform vec4 uHoleB; uniform vec4 uHoleC; uniform vec3 uDoomCol; uniform float uDoomKeep;
       in vec2 vUv;
       layout(location = 0) out vec4 outC;
       float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -80,6 +80,7 @@ export function createPage(renderer) {
         // a blast's light is on everything: shade goes red-brown and the whole of what is seen is lifted toward its orange
         c = mix(c, c * vec3(0.55, 0.25, 0.16), min(1.0, uBlaze * 1.2) * (1.0 - smoothstep(1.2, 2.6, dl))) + vec3(1.0, 0.33, 0.08) * min(uBlaze, 1.2) * 0.6;
         // --- seen ---
+        c *= uExpose;
         c *= 1.02;
         float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
         c *= (1.0 + l / 9.0) / (1.0 + l * 0.62);
@@ -150,6 +151,8 @@ export function createPage(renderer) {
     set direct(v) { direct = !!v; },
     set bloomStrength(v) { bloom.strength = v; },
     set bloomThreshold(v) { bloom.threshold = v; },
+    /** Indoor exposure. 1 outdoors. Lower in the hearth so a face does not clip to white. */
+    set expose(v) { print.uniforms.uExpose.value = v; },
     /** The ring a blast sends out, as the eye sees it: round a place in the world, so far out, so strong. */
     shock(camera, place, radius, power) {
       const u = print.uniforms.uShock.value, d = camera.position.distanceTo(place);

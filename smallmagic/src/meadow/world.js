@@ -738,7 +738,8 @@ export async function createWorld({ air, scene, say, turn }) {
 
   // ============================================================================================================ the light
   // (the lamp is only there to throw shadows: see air.js)
-  const lamp = new THREE.DirectionalLight('#ffe2b8', Math.PI * 0.9);
+  const sunLamp = Math.PI * 0.9;
+  const lamp = new THREE.DirectionalLight('#ffe2b8', sunLamp);
   lamp.position.copy(SUN).multiplyScalar(160).add(V(HOME[0], 0, HOME[1]));
   lamp.target.position.set(HOME[0], 0, HOME[1]);
   lamp.castShadow = true;
@@ -753,10 +754,12 @@ export async function createWorld({ air, scene, say, turn }) {
   scene.add(lamp, lamp.target);
   // A warm edge on characters, from the side the sun does not face. Painted surfaces
   // ignore this lamp; skinned figures and the walker's clothes take it.
-  const warmRim = new THREE.DirectionalLight('#ffb07a', 1.25);
+  const rimLamp = 1.25;
+  const warmRim = new THREE.DirectionalLight('#ffb07a', rimLamp);
   warmRim.position.set(90, 42, 110);
   scene.add(warmRim);
-  const fill = new THREE.HemisphereLight('#d5e4ff', '#e4c198', mobile ? 0.22 : 0.38);
+  const fillLamp = mobile ? 0.22 : 0.38;
+  const fill = new THREE.HemisphereLight('#d5e4ff', '#e4c198', fillLamp);
   scene.add(fill);
 
   const [sx, sz] = WAY[0];
@@ -812,6 +815,12 @@ export async function createWorld({ air, scene, say, turn }) {
     lake: LAKE, ponds: PONDS,
     way: new THREE.CatmullRomCurve3(WAY.map(([x, z]) => V(x, 0, z))).getPoints(160).map((p) => [p.x, p.z]),
     fov: 62, far: 6000, sun: SUN,
+    /** The outdoor sun, rim, and fill still reach the hearth. Pull them down indoors so a face is not blown white. */
+    setInside(on) {
+      lamp.intensity = on ? 0.36 : sunLamp;
+      warmRim.intensity = on ? 0.2 : rimLamp;
+      fill.intensity = on ? fillLamp * 0.32 : fillLamp;
+    },
     counts: { dabs: dabs.count, pieces: solids.count },
     /** Burn and frost already written on the ground at one step, each 0 to 1. */
     coat(x, z) {
