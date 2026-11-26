@@ -92,12 +92,14 @@ function waterMaterial(color, deep, shine = 0) {
         float lamps[5];
         lamps[0] = 0.12; lamps[1] = 0.31; lamps[2] = 0.5; lamps[3] = 0.69; lamps[4] = 0.86;
         for (int i = 0; i < 5; i++) {
-          float d = length((vUv - vec2(0.78, lamps[i])) * vec2(2.2, 8.0));
-          float tw = 0.65 + 0.35 * sin(uTime * 2.4 + lamps[i] * 12.0);
-          col += vec3(1.0, 0.72, 0.42) * exp(-d * 10.0) * tw;
+          float d = length((vUv - vec2(0.7, lamps[i])) * vec2(0.85, 16.0));
+          float tw = 0.7 + 0.3 * sin(uTime * 1.6 + lamps[i] * 9.0);
+          col += vec3(1.0, 0.74, 0.4) * exp(-d * 5.5) * tw * 0.55;
         }
-        float ripple = sin(vUv.y * 46.0 + uTime * 2.2) * sin(vUv.x * 22.0 - uTime * 1.3);
-        col += vec3(0.75, 0.9, 1.0) * pow(max(ripple, 0.0), 10.0) * uShine * 0.45;
+        float streak = sin(vUv.y * 10.0 - uTime * 1.3 + vUv.x * 4.0);
+        col += vec3(0.8, 0.92, 1.0) * smoothstep(0.45, 0.95, streak) * uShine * 0.16;
+        float gleam = sin(vUv.x * 28.0 + uTime * 2.0) * sin(vUv.y * 3.0 - uTime * 0.6);
+        col += vec3(1.0, 0.9, 0.7) * smoothstep(0.72, 1.0, gleam) * uShine * 0.2;
         gl_FragColor = vec4(col, 0.92);
       }
     `,
@@ -257,6 +259,113 @@ function footbridge(root, rich) {
   root.add(g);
 }
 
+function cobbleTex() {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = '#5c3a28';
+  g.fillRect(0, 0, 256, 256);
+  for (let row = 0; row < 8; row++) {
+    const off = (row % 2) * 16;
+    for (let col = 0; col < 8; col++) {
+      const n = (col * 5 + row * 3) % 28;
+      g.fillStyle = `rgb(${118 + n}, ${72 + n * 0.4}, ${48 + n * 0.2})`;
+      g.fillRect(col * 32 + off + 2, row * 32 + 3, 26, 24);
+    }
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(5, 10);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function zeppelin(rich) {
+  const g = new THREE.Group();
+  g.name = 'sky-dock';
+  const cloth = new THREE.MeshBasicMaterial({ color: '#22101c' });
+  const wood = new THREE.MeshStandardMaterial({ color: '#6a4030', roughness: 0.65 });
+  const pts = [];
+  for (let i = 0; i <= 18; i++) {
+    const t = i / 18;
+    const along = (t - 0.46) * 8.4;
+    const nose = t < 0.16 ? t / 0.16 : 1;
+    const tail = t > 0.8 ? Math.max(0, (1 - t) / 0.2) : 1;
+    const r = (0.22 + 0.7 * Math.sin(Math.PI * t)) * nose * tail;
+    pts.push(new THREE.Vector2(Math.max(0.03, r), along));
+  }
+  const env = new THREE.Mesh(new THREE.LatheGeometry(pts, rich ? 16 : 8), cloth);
+  env.rotation.z = -Math.PI / 2;
+  g.add(env);
+  const ribN = rich ? 5 : 3;
+  for (let i = 0; i < ribN; i++) {
+    const rib = new THREE.Mesh(new THREE.TorusGeometry(0.78 - Math.abs(i - 2) * 0.08, 0.025, 6, 16), cloth);
+    rib.rotation.y = Math.PI / 2;
+    rib.position.x = -2.2 + i * 1.05;
+    g.add(rib);
+  }
+  const finMat = cloth;
+  for (const tilt of [0, 2.1, -2.1]) {
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.06), finMat);
+    fin.position.set(-3.5, 0.15, 0);
+    fin.rotation.x = tilt;
+    g.add(fin);
+  }
+  const gondola = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.42, 0.62), wood);
+  gondola.position.y = -1.25;
+  g.add(gondola);
+  const port = new THREE.MeshBasicMaterial({ color: '#ffd2a4' });
+  for (let i = 0; i < 4; i++) {
+    const hole = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), port);
+    hole.position.set(-0.7 + i * 0.45, -1.25, 0.32);
+    g.add(hole);
+  }
+  for (const x of [-0.6, 0.6]) {
+    const stay = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.7, 4), wood);
+    stay.position.set(x, -0.85, 0);
+    g.add(stay);
+  }
+  g.position.set(2.2, 6.8, -8.4);
+  const spire = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.22, 3.2, 6), wood);
+  spire.position.set(-2.4, -6.4, 3.6);
+  g.add(spire);
+  const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 5), port);
+  beacon.position.set(-2.4, -4.7, 3.6);
+  g.add(beacon);
+  const nose = new THREE.Vector3(3.6, 0.1, 0);
+  const tip = new THREE.Vector3(-2.4, -4.7, 3.6);
+  const span = nose.distanceTo(tip);
+  const line = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, span, 4), new THREE.MeshBasicMaterial({ color: '#3a241c' }));
+  line.position.copy(nose).add(tip).multiplyScalar(0.5);
+  line.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tip.clone().sub(nose).normalize());
+  g.add(line);
+  return g;
+}
+
+function horizonTown() {
+  const g = new THREE.Group();
+  g.name = 'town-horizon';
+  const hill = new THREE.MeshBasicMaterial({ color: '#4a2c22' });
+  [[-7.5, 2.2, 1.5], [-2.2, 3.4, 2.1], [3.6, 2.6, 1.7], [8, 2, 1.3]].forEach(([x, w, h]) => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 6), hill);
+    m.scale.set(w, h, 1.1);
+    m.position.set(x, -0.2, -12.2);
+    g.add(m);
+  });
+  const stone = new THREE.MeshBasicMaterial({ color: '#3a2820' });
+  const arch = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.12, 6, 14, Math.PI), stone);
+  arch.position.set(-3.2, 1.15, -11.4);
+  g.add(arch);
+  const glow = new THREE.MeshBasicMaterial({ color: '#ffcc88' });
+  [[-5.5, 1.1], [-1.2, 1.6], [2.4, 1.2], [6.2, 0.9]].forEach(([x, y]) => {
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), glow);
+    lamp.position.set(x, y, -11.6);
+    g.add(lamp);
+  });
+  return g;
+}
+
 function dressCanal(root, lib, low, add) {
   const rich = !low;
   solidHouses(root, low);
@@ -266,13 +375,21 @@ function dressCanal(root, lib, low, add) {
   add('rock-wide', bankZ, 0, 0, '#d5c6b0', 0.42);
   const awnings = [];
   const colors = ['#c45a4a', '#e7b15a', '#7a4a62'];
-  const spots = rich ? [[0.45, -4.2], [0.45, 3.2]] : [[0.45, 3.2]];
-  spots.forEach(([x, z], i) => {
-    const cloth = awningMesh(colors[i % colors.length]);
-    cloth.position.set(x, 1.95, z);
-    root.add(cloth);
-    awnings.push(cloth);
-  });
+  const cobbles = new THREE.Mesh(
+    new THREE.PlaneGeometry(6.2, 16),
+    new THREE.MeshStandardMaterial({ map: cobbleTex(), color: '#c4a080', roughness: 0.92 }),
+  );
+  cobbles.rotation.x = -Math.PI / 2;
+  cobbles.position.set(0.6, 0.045, -0.5);
+  cobbles.name = 'cobbles';
+  root.add(cobbles);
+  const poolMat = new THREE.MeshBasicMaterial({ color: '#ffb060', transparent: true, opacity: 0.28, depthWrite: false });
+  for (let z = -7; z <= 6; z += rich ? 2.4 : 4.8) {
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(0.85, 16), poolMat);
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.set(-2.2, 0.05, z);
+    root.add(pool);
+  }
   const strings = [];
   if (rich) {
     [-4.2, -0.6, 3.2].forEach((z, s) => {
@@ -296,13 +413,28 @@ function dressCanal(root, lib, low, add) {
   const counter = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.92, 1.2), wood);
   counter.position.y = 0.46;
   stand.add(counter);
-  const canopy = awningMesh('#c45a4a');
-  canopy.position.set(0, 1.95, 0);
-  stand.add(canopy);
-  awnings.push(canopy);
+  [[-0.34, -0.52], [-0.34, 0.52], [0.34, -0.52], [0.34, 0.52]].forEach(([x, z]) => {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.42, 0.06), wood);
+    post.position.set(x, 1.21, z);
+    stand.add(post);
+  });
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.06, 1.14), wood);
+  beam.position.y = 2.4;
+  const cloth = new THREE.Mesh(new THREE.BoxGeometry(0.84, 0.05, 1.22), new THREE.MeshLambertMaterial({ color: '#c45a4a' }));
+  cloth.position.y = 2.46;
+  stand.add(beam, cloth);
+  const hook = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.16, 4), wood);
+  hook.position.set(0, 2.22, 0.15);
+  const lantern = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), new THREE.MeshBasicMaterial({ color: '#ffd7a4' }));
+  lantern.position.set(0, 2.08, 0.15);
+  stand.add(hook, lantern);
   for (let i = 0; i < 3; i++) {
     const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.045, 0.16, 8), new THREE.MeshStandardMaterial({ color: colors[i], roughness: 0.4 }));
-    cup.position.set(-0.05, 0.98, -0.32 + i * 0.28);
+    cup.position.set(0.08, 0.98, -0.32 + i * 0.28);
+    const straw = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.16, 4), new THREE.MeshStandardMaterial({ color: '#f4e4c4' }));
+    straw.position.y = 0.12;
+    straw.rotation.z = 0.35;
+    cup.add(straw);
     stand.add(cup);
   }
   const cardCanvas = document.createElement('canvas');
@@ -314,9 +446,9 @@ function dressCanal(root, lib, low, add) {
   let stockI = 0;
   const paintCard = () => { paintStock(cardCtx, STOCK[stockI]); cardTex.needsUpdate = true; };
   paintCard();
-  const card = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 0.52), new THREE.MeshBasicMaterial({ map: cardTex, side: THREE.DoubleSide }));
-  card.position.set(-0.4, 1.22, 0);
-  card.rotation.y = -Math.PI / 2;
+  const card = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.44), new THREE.MeshBasicMaterial({ map: cardTex }));
+  card.position.set(-0.12, 1.28, 0.22);
+  card.rotation.y = Math.PI / 2;
   card.name = 'boba-card';
   stand.add(card);
   root.add(stand);
@@ -330,20 +462,8 @@ function dressCanal(root, lib, low, add) {
   mist.rotation.x = -Math.PI / 2;
   mist.position.set(-4.6, 0.28, 0);
   root.add(mist);
-  const ship = new THREE.Group();
-  ship.name = 'sky-dock';
-  ship.position.set(5.5, 6.8, -14);
-  const hullMat = new THREE.MeshBasicMaterial({ color: '#140818' });
-  const hull = new THREE.Mesh(new THREE.BoxGeometry(rich ? 5.2 : 4, 0.75, 1.1), hullMat);
-  const balloon = new THREE.Mesh(new THREE.SphereGeometry(0.85, 12, 8), hullMat);
-  balloon.scale.set(2.2, 0.7, 1);
-  balloon.position.y = 1.35;
-  const mast = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.3, 0.06), hullMat);
-  mast.position.set(-0.4, 0.9, 0);
-  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color: '#ffd7a4' }));
-  lamp.position.set(1.2, 0.15, 0.55);
-  ship.add(hull, balloon, mast, lamp);
-  root.add(ship);
+  root.add(zeppelin(rich));
+  root.add(horizonTown());
   const sun = new THREE.DirectionalLight('#ffe0c4', 0.85);
   sun.position.set(7, 12, 5);
   root.add(sun);
@@ -364,7 +484,7 @@ function dressCanal(root, lib, low, add) {
   const emberDummy = new THREE.Object3D();
   return (dt, walker) => {
     const t = performance.now() * 0.001;
-    awnings.forEach((cloth, i) => { cloth.rotation.z = Math.sin(t * 0.8 + i) * 0.04; });
+    awnings.forEach((cloth, i) => { cloth.rotation.z = Math.sin(t * 0.8 + i) * 0.03; });
     strings.forEach((line) => { line.rotation.z = Math.sin(t * 0.9 + line.userData.phase) * 0.05; });
     for (let i = 0; i < emberN; i++) {
       const u = (t * 0.15 + i / emberN) % 1;
@@ -377,7 +497,6 @@ function dressCanal(root, lib, low, add) {
     cardT += dt;
     if (cardT > 5) { cardT = 0; stockI = (stockI + 1) % STOCK.length; paintCard(); }
     nearStall = !!(walker && Math.hypot(walker.feet.x - 1.15, walker.feet.z + 0.6) < 2.4);
-    card.scale.setScalar(nearStall ? 1.15 : 1);
   };
 }
 

@@ -75,3 +75,7 @@ The seeded canal block keeps the Kenney street and adds a stone arch, rock banks
 ## Block 32 — canal craft
 
 The stairs and the loose wood cube are off the water. A stone arch with a railed deck runs from bank to bank. Houses have solid sides, backs, and warm windows. The sky is twilight, with a moon and an airship on the horizon, and mist sits on the canal. Stall cloth stays above head height. Sable keeps the boba counter, with a warm light on her and on Lumen down the street. The spell wheel stays hidden while the free camera is up.
+
+## Block 33 — sign, cobbles, zeppelin
+
+The boba card faces the street so the words read forward. Its roof sits on four posts, with a hanging lantern and straws in the cups. Loose cloth canopies are gone. The airship is a ribbed dirigible with a gondola, portholes, and a line down to a spire. The plaza is cobbled, with warm pools under the lamps, and the canal carries shimmer streaks. Low hills and a distant arch close the end of the street.
