@@ -74,6 +74,9 @@
       #menu.glasshex .glass-stage { position: relative; z-index: 1; flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 18px 16px 12px; background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(20, 10, 40, 0.4)); border: 1px solid rgba(120, 220, 255, 0.45); border-radius: 22px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -10px 18px rgba(10, 4, 24, 0.35), 0 8px 18px rgba(0, 0, 0, 0.2); overflow: auto; }
       #menu.glasshex h2 { margin: 0; color: #9ff4ff; font: 600 28px Georgia, serif; letter-spacing: 0.04em; }
       #menu.glasshex .sub { margin: 4px 0 8px; color: #f0dff8; font: italic 15px Georgia, serif; }
+      #menu .guide { overflow: auto; max-height: min(52vh, 420px); }
+      #menu .guide p { margin: 0 0 10px; font: 15px/1.4 Georgia, serif; color: #f6ead0; }
+      #menu .guide b { color: #ffe7b0; }
       #menu.glasshex .hero { height: 150px; margin: 6px auto 10px; width: min(220px, 70%); border-radius: 22px; background: radial-gradient(circle, rgba(160, 240, 255, 0.28), transparent 70%), linear-gradient(165deg, rgba(255, 255, 255, 0.28), rgba(80, 200, 255, 0.1) 42%, rgba(180, 100, 255, 0.22)); border: 1px solid rgba(180, 245, 255, 0.45); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), inset 0 -8px 16px rgba(20, 8, 40, 0.25); }
       #menu.glasshex .hero-fish { background-image: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.45) 49%, transparent 58%), radial-gradient(circle at 60% 45%, rgba(170, 250, 255, 0.9), rgba(40, 120, 180, 0.2) 62%); }
       #menu.glasshex .cards { display: flex; gap: 8px; }
@@ -508,7 +511,7 @@
       <div class="lane" data-lane="2"></div>
     </div>
     <div id="spells"></div>
-    <div id="hint">WASD move &middot; Shift sprint &middot; Space jump &middot; Left button casts, hold for more<br>1 to 7 or the wheel changes spell &middot; P pauses &middot; H hides this</div>
+    <div id="hint">WASD move &middot; Shift sprint &middot; Space jump &middot; Left button casts, hold for more<br>1 to 7 or the wheel changes spell &middot; P postcard &middot; L sky lantern &middot; H hides this</div>
     <div id="board" hidden><button id="boardX" type="button">×</button><p>Where to</p><p id="boardAsk">Request: read the square, or walk Wildflower Pasture.</p><button type="button" data-ask="square">Hub square</button><button type="button" data-ask="hex">Wildflower Pasture</button><button type="button" data-go="meadow">Meadow</button><button type="button" data-go="lake">Long Lake</button><button type="button" data-trip="block">Lantern canal</button><button type="button" data-trip="ruin">Moss ruin</button></div>
     <div id="menu" class="glasshex" hidden>
       <div class="glass-body">
@@ -520,6 +523,7 @@
           <button type="button" data-menu="collection"><i><svg viewBox="0 0 32 32"><path d="M6 10h14v14H6z" fill="rgba(160,220,255,.45)" stroke="#fff"/><path d="M12 7h14v14" fill="none" stroke="#fff"/><path d="M9 20l3-4 3 2 3-5" fill="none" stroke="#9ff6ff" stroke-width="1.2"/></svg></i>Collection</button>
           <button type="button" data-menu="settings"><i><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="4" fill="rgba(200,180,255,.55)" stroke="#fff"/><path d="M16 6v4M16 22v4M6 16h4M22 16h4M9 9l3 3M20 20l3 3M23 9l-3 3M12 20l-3 3" stroke="#fff" stroke-width="1.3"/></svg></i>Settings</button>
           <button type="button" data-menu="command"><i><svg viewBox="0 0 32 32"><path d="M8 6h12l4 4v16H8z" fill="rgba(255,160,210,.45)" stroke="#fff" stroke-width="1.1"/><path d="M12 14h8M12 18h8M12 22h5" stroke="#fff" stroke-width="1.2"/></svg></i>Command</button>
+          <button type="button" data-menu="guide"><i><svg viewBox="0 0 32 32"><path d="M8 6h12l4 4v16H8z" fill="rgba(180,230,255,.45)" stroke="#fff" stroke-width="1.1"/><path d="M12 14h8M12 18h8M12 22h6" stroke="#fff" stroke-width="1.2"/></svg></i>Guide</button>
         </nav>
         <div class="glass-stage">
           <section class="glass-pane" data-mpane="bag" hidden>
@@ -534,6 +538,19 @@
             <div class="hero hero-nook"></div>
             <div class="cards"><article><button type="button" id="openHome">Home</button></article><article><button type="button" data-trip="meadow">Field</button></article><article><button type="button" data-trip="hub">Ship</button></article></div>
             <p class="row-go"><button type="button" data-trip="block">Lantern canal</button><button type="button" data-trip="deck">Sky deck</button><button type="button" data-trip="ruin">Moss ruin</button></p>
+          </section>
+          <section class="glass-pane" data-mpane="guide" hidden>
+            <h2>Guide</h2>
+            <p class="sub">What is live in this preview</p>
+            <div class="guide">
+              <p><b>Postcard view · P</b> Hides the buttons. Save Postcard downloads a picture. Esc or Exit brings them back.</p>
+              <p><b>Sky lantern · L</b> Sends a glowing paper lantern up at Long Lake and the Lantern Canal.</p>
+              <p><b>Starseed worlds</b> Turn the sky-deck helm, or the Starseed pill, for Lantern Canal, Mossy Ruin Glade, or Steampunk Sky Port.</p>
+              <p><b>Familiars</b> Lantern Moth, Paper Crane, or Dew Wisp. Choose one under Menu, then Look. None sends it away.</p>
+              <p><b>Ambient sound</b> Off until you ask. Settings, then Audio, turns on the hearth, the water, the rain, or the deck breeze.</p>
+              <p><b>Bestiary and command board</b> A fight writes a discovery. The board changes with the time of day and with lantern rain.</p>
+              <p><b>Wayfinder</b> On the meadow, tap a name on the top strip to hold that direction.</p>
+            </div>
           </section>
           <section class="glass-pane" data-mpane="fishing">
             <h2>Fishing</h2>

@@ -53,3 +53,7 @@ The familiars are shoulder-sized. The lantern moth has shaped forewings and hind
 ## Block 41
 
 A frosted wayfinder sits at the top of the meadow. It marks north and the way to Long Lake, the Lantern Canal, the Home Hub, and the nearest Super Hex, with the distance in meters. A tap holds that direction. When a Super Hex rises a Resonance tier, a frosted toast appears, gold and cyan rings lift off the beacon, and a short chime plays if the ambience is on. Mage, Warrior, and Gunner keep their own ability chips. Summoner and Puppetmaster stay separate On deck classes.
+
+## Block 42
+
+Meadow stand-ins are small sculpted creatures instead of a green box or a red dome. A full health bar stays hidden until a beast is hurt. The Menu has a Guide card for postcard view, sky lanterns, Starseed worlds, familiars, ambience, the bestiary, the command board, and the wayfinder. A headless pass of the meadow, Long Lake, the canal, the sky deck, and the home hub still raises no page errors.

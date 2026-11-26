@@ -45,39 +45,156 @@ function boar() {
 }
 function slime() {
   const g = new THREE.Group();
-  const blob = new THREE.Mesh(new THREE.SphereGeometry(0.36, 10, 8), mat('#3dba6a'));
-  blob.scale.y = 0.72;
-  blob.position.y = 0.28;
+  const gel = mat('#3dba6a');
+  const blob = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), gel);
+  blob.scale.set(1.15, 0.62, 1.05);
+  blob.position.y = 0.2;
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), gel);
+  cap.position.y = 0.38;
   blob.name = 'blob';
-  g.add(blob);
+  g.add(blob, cap);
   return g;
 }
 
 function goblin() {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.7, 0.32), mat('#3f8f4a'));
-  body.position.y = 0.55;
-  g.add(body);
+  const cloth = mat('#2f6a44');
+  const skin = mat('#8fbf6a');
+  const robe = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.62, 6), cloth);
+  robe.position.y = 0.36;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), skin);
+  head.position.y = 0.74;
+  const hood = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), cloth);
+  hood.scale.y = 0.7;
+  hood.position.y = 0.8;
+  const ear = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.12, 4), skin);
+  ear.position.set(0.08, 0.9, 0);
+  ear.rotation.z = -0.5;
+  const ear2 = ear.clone();
+  ear2.position.x = -0.08;
+  ear2.rotation.z = 0.5;
+  g.add(robe, head, hood, ear, ear2);
   return g;
 }
 
-function lump(color) {
+function crab() {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 6), mat(color));
-  body.position.y = 0.36;
-  g.add(body);
+  const shell = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), mat('#c4483a'));
+  shell.scale.set(1.35, 0.55, 1);
+  shell.position.y = 0.22;
+  const claw = () => {
+    const c = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 5), mat('#e07a62'));
+    c.scale.set(1.4, 0.7, 0.8);
+    return c;
+  };
+  const left = claw();
+  left.position.set(0.24, 0.2, 0.08);
+  const right = claw();
+  right.position.set(-0.24, 0.2, 0.08);
+  for (let i = 0; i < 4; i++) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.16, 4), mat('#8a3028'));
+    leg.position.set((i < 2 ? -1 : 1) * 0.16, 0.1, (i % 2 ? 0.1 : -0.08));
+    leg.rotation.z = (i < 2 ? 1 : -1) * 0.8;
+    g.add(leg);
+  }
+  g.add(shell, left, right);
   return g;
 }
-const MAKE = {
-  wolf, boar, slime, goblin,
-  fox: () => lump('#c46a2a'),
-  bear: () => lump('#d8d2c8'),
-  bunny: () => lump('#f3efe6'),
-  deer: () => lump('#c4a574'),
-  cow: () => lump('#8a5a32'),
-  crab: () => lump('#e23b32'),
-  fish: () => lump('#7ee7ff'),
-};
+
+function fox() {
+  const g = new THREE.Group();
+  const fur = mat('#c46a2a');
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 6), fur);
+  body.scale.set(1.3, 0.75, 0.7);
+  body.position.y = 0.28;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), fur);
+  head.position.set(0.18, 0.4, 0);
+  const ear = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.1, 4), fur);
+  ear.position.set(0.16, 0.52, 0.05);
+  const ear2 = ear.clone();
+  ear2.position.z = -0.05;
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.22, 5), mat('#f2e2c4'));
+  tail.rotation.z = Math.PI / 2.2;
+  tail.position.set(-0.22, 0.34, 0);
+  g.add(body, head, ear, ear2, tail);
+  return g;
+}
+
+function bear() {
+  const g = new THREE.Group();
+  const fur = mat('#d8d2c8');
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), fur);
+  body.scale.set(1.2, 0.85, 0.9);
+  body.position.y = 0.4;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), fur);
+  head.position.set(0.22, 0.55, 0);
+  const snout = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), mat('#6a5344'));
+  snout.position.set(0.34, 0.5, 0);
+  g.add(body, head, snout);
+  return g;
+}
+
+function bunny() {
+  const g = new THREE.Group();
+  const fur = mat('#f3efe6');
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), fur);
+  body.scale.y = 0.85;
+  body.position.y = 0.2;
+  const ear = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.16, 5), fur);
+  ear.position.set(0.04, 0.4, 0);
+  const ear2 = ear.clone();
+  ear2.position.x = -0.04;
+  g.add(body, ear, ear2);
+  return g;
+}
+
+function deer() {
+  const g = new THREE.Group();
+  const hide = mat('#c4a574');
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), hide);
+  body.scale.set(1.4, 0.7, 0.6);
+  body.position.y = 0.55;
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.06, 0.28, 5), hide);
+  neck.position.set(0.18, 0.78, 0);
+  neck.rotation.z = -0.5;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), hide);
+  head.position.set(0.28, 0.92, 0);
+  for (const z of [-0.04, 0.04]) {
+    const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.015, 0.16, 4), mat('#6a5344'));
+    ant.position.set(0.26, 1.05, z);
+    g.add(ant);
+  }
+  g.add(body, neck, head);
+  return g;
+}
+
+function cow() {
+  const g = new THREE.Group();
+  const hide = mat('#f4efe6');
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.26, 8, 6), hide);
+  body.scale.set(1.45, 0.75, 0.7);
+  body.position.y = 0.48;
+  const spot = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), mat('#3a342c'));
+  spot.position.set(0.05, 0.58, 0.12);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), hide);
+  head.position.set(0.32, 0.5, 0);
+  g.add(body, spot, head);
+  return g;
+}
+
+function fish() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), mat('#7ec8d4'));
+  body.scale.set(1.6, 0.7, 0.55);
+  body.position.y = 0.22;
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.12, 4), mat('#3a8a9a'));
+  tail.rotation.z = Math.PI / 2;
+  tail.position.set(-0.22, 0.22, 0);
+  g.add(body, tail);
+  return g;
+}
+
+const MAKE = { wolf, boar, slime, goblin, fox, bear, bunny, deer, cow, crab, fish };
 const HP = { wolf: 36, boar: 48, slime: 22, goblin: 30, fox: 28, bear: 64, bunny: 18, deer: 40, cow: 46, crab: 26, fish: 16 };
 const MOB = {
   wolf: { file: 'mobs/cc0/wolf.glb', tall: 1.15 },
@@ -90,7 +207,6 @@ const MOB = {
   fish: { file: 'mobs/cc0/fish.glb', tall: 0.55 },
   boar: { file: 'mobs/overaction/boar.glb', tall: 1.65 },
   slime: { file: 'mobs/overaction/slime.glb', tall: 1.25 },
-  goblin: { file: 'mobs/overaction/goblin.glb', tall: 1.85 },
 };
 const mobMixers = [];
 const faces = {};
@@ -433,6 +549,7 @@ function one(kind, x, z) {
   spot.renderOrder = 2;
   g.add(standin, spot);
   const bar = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xe23b32 }));
+  bar.visible = false;
   bar.position.y = kind === 'slime' ? 0.85 : 1.15;
   bar.scale.set(0.7, 0.07, 1);
   const flame = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.42, 6), new THREE.MeshBasicMaterial({ color: '#ff7a1c' }));
@@ -1030,6 +1147,7 @@ export function createBeasts(scene, ground, world) {
         const blob = b.g.getObjectByName('blob');
         if (blob) blob.scale.y = 0.72 + Math.sin(performance.now() * 0.004 + b.homeX) * 0.08;
         b.bar.scale.x = 0.7 * Math.max(0.05, b.hp / b.max);
+        b.bar.visible = b.hp < b.max - 0.5;
         if (b.stack) b.stack = Math.max(0, b.stack - dt * 1.6);
       }
       for (let i = bits.length - 1; i >= 0; i--) {
