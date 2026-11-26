@@ -340,22 +340,65 @@ export function createHub(hooks = {}) {
     hideQuest(true);
     renderHome();
   }
+  const FIELD = [
+    { speciesId: 'moss-boar', name: 'Moss Boar', rarity: 'Common', habitat: 'Moss hex', drops: ['bristle', 'moss tusk'], rareDrops: ['dew tusk'], seasonalVanityOrPet: 'Bristle clasp' },
+    { speciesId: 'creek-boar', name: 'Creek Boar', rarity: 'Common', habitat: 'Forest creek', drops: ['tusk', 'hide'], rareDrops: ['gold tusk'], seasonalVanityOrPet: 'Creek bell' },
+    { speciesId: 'gel-king', name: 'Gel King', rarity: 'Boss', habitat: 'Bloom hollow', drops: ['crown gel', 'king core'], rareDrops: ['star gel'], seasonalVanityOrPet: 'Gel crown' },
+    { speciesId: 'forest-wolf', name: 'Forest Wolf', rarity: 'Uncommon', habitat: 'Moss woods', drops: ['ruff', 'fang'], rareDrops: ['pale ruff'], seasonalVanityOrPet: 'Fog collar' },
+    { speciesId: 'tide-crab', name: 'Tide Crab', rarity: 'Uncommon', habitat: 'Long Lake shore', drops: ['shell', 'claw'], rareDrops: ['pearl shell'], seasonalVanityOrPet: 'Shell button' },
+    { speciesId: 'lantern-moth', name: 'Lantern Moth', rarity: 'Rare', habitat: 'Dusk shore and hearth', drops: ['dust', 'mote'], rareDrops: ['gold dust'], seasonalVanityOrPet: 'Moth clasp' },
+  ];
+  let pickedSpecies = 'creek-boar';
+  function fieldBook() {
+    let data = {};
+    try { data = JSON.parse(localStorage.getItem('aro-bestiary') || '{}'); } catch { data = {}; }
+    const prior = {};
+    for (const row of data.entries || []) prior[row.speciesId] = row;
+    const entries = FIELD.map((s) => ({
+      speciesId: s.speciesId,
+      name: s.name,
+      rarity: s.rarity,
+      habitat: s.habitat,
+      drops: s.drops.slice(),
+      rareDrops: s.rareDrops.slice(),
+      seasonalVanityOrPet: s.seasonalVanityOrPet,
+      seenCount: prior[s.speciesId]?.seenCount || 0,
+      defeatedCount: prior[s.speciesId]?.defeatedCount || 0,
+    }));
+    data.version = 2;
+    data.seen = data.seen || {};
+    data.entries = entries;
+    try { localStorage.setItem('aro-bestiary', JSON.stringify(data)); } catch { /* private mode */ }
+    return data;
+  }
+  function paintBook() {
+    const list = document.getElementById('bestiaryList');
+    const detail = document.getElementById('bestiaryDetail');
+    const data = fieldBook();
+    const rows = data.entries;
+    if (list) {
+      list.innerHTML = rows.map((s) => `<button type="button" data-species="${s.speciesId}" class="${s.speciesId === pickedSpecies ? 'on' : ''}"><b>${s.name}</b><span class="pill ${s.rarity.toLowerCase()}">${s.rarity}</span></button>`).join('');
+      list.querySelectorAll('[data-species]').forEach((b) => b.addEventListener('pointerup', (e) => {
+        pickedSpecies = b.getAttribute('data-species');
+        paintBook();
+        e.preventDefault();
+        e.stopPropagation();
+      }));
+    }
+    const s = rows.find((row) => row.speciesId === pickedSpecies) || rows[0];
+    if (detail && s) {
+      detail.innerHTML = `<span class="pill ${s.rarity.toLowerCase()}">${s.rarity}</span><h2>${s.name}</h2><p>${s.habitat}</p><p>Drops · ${s.drops.join(', ')}</p><p>Rare · ${s.rareDrops.join(', ')}</p><p>Keepsake · ${s.seasonalVanityOrPet}</p><p>Seen ${s.seenCount} · Defeated ${s.defeatedCount}</p>`;
+    }
+  }
   function openBook() {
     const sheet = document.getElementById('bestiary');
-    const list = document.getElementById('bestiaryList');
-    const raw = document.getElementById('bestiaryJson');
-    if (!sheet || !hooks.living) return;
+    if (!sheet) return;
     document.getElementById('crew').hidden = true;
     document.getElementById('home').hidden = true;
+    const menu = document.getElementById('menu');
+    if (menu) menu.hidden = true;
     sheet.hidden = false;
-    const data = hooks.living.book();
-    const rows = Object.values(data.seen || {});
-    if (list) {
-      list.innerHTML = rows.length
-        ? rows.map((e) => `<p><b>${e.name}</b> · ${e.tier} · seen ${e.seen}<br>${(e.notes || []).join(' ')}${e.vanity ? `<br>Vanity · ${e.vanity}` : ''}${e.pet ? `<br>Pet · ${e.pet}` : ''}</p>`).join('')
-        : '<p>Nothing seen yet. The book opens when something does.</p>';
-    }
-    if (raw) raw.textContent = JSON.stringify(data, null, 2);
+    paintBook();
   }
   function openBoard() {
     data = state();
@@ -387,6 +430,7 @@ export function createHub(hooks = {}) {
   document.getElementById('homeClose')?.addEventListener('pointerup', (e) => { closeAll(); e.preventDefault(); e.stopPropagation(); });
   document.getElementById('crewClose')?.addEventListener('pointerup', (e) => { closeAll(); e.preventDefault(); e.stopPropagation(); });
   document.getElementById('openBook')?.addEventListener('pointerup', (e) => { openBook(); e.preventDefault(); e.stopPropagation(); });
+  document.getElementById('menuBook')?.addEventListener('pointerup', (e) => { openBook(); e.preventDefault(); e.stopPropagation(); });
   document.getElementById('bookClose')?.addEventListener('pointerup', (e) => {
     document.getElementById('bestiary').hidden = true;
     e.preventDefault();

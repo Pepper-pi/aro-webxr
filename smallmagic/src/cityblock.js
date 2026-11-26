@@ -473,6 +473,69 @@ function dressCanal(root, lib, low, add) {
   const friendLight = new THREE.PointLight('#ffd0a8', 0.45, 4, 2);
   friendLight.position.set(1.5, 1.65, 2.7);
   root.add(friendLight);
+  const rainN = low ? 10 : 24;
+  const rain = new THREE.Group();
+  rain.name = 'canal-rain';
+  rain.visible = false;
+  const dropMat = new THREE.MeshBasicMaterial({ color: '#d5e6f4', transparent: true, opacity: 0.35, depthWrite: false });
+  const drops = [];
+  for (let i = 0; i < rainN; i++) {
+    const s = new THREE.Mesh(new THREE.PlaneGeometry(0.012, 0.42), dropMat);
+    s.position.set(-3 + (i % 6) * 1.1, 1.2 + (i % 4), -6 + (i % 8) * 1.4);
+    s.rotation.z = -0.35;
+    s.userData.speed = 2.2 + (i % 4) * 0.35;
+    rain.add(s);
+    drops.push(s);
+  }
+  root.add(rain);
+  const puddleMat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform float uTime; varying vec2 vUv;
+      void main() {
+        vec2 p = vUv - 0.5;
+        float r = length(p) * 2.0;
+        float wave = sin(r * 26.0 - uTime * 3.4);
+        float ring = smoothstep(0.18, 0.0, abs(wave) * 0.12);
+        vec3 wet = vec3(0.22, 0.16, 0.12);
+        vec3 lamp = vec3(1.0, 0.64, 0.3) * (0.28 + ring * 0.7);
+        float a = smoothstep(1.05, 0.15, r) * 0.62;
+        gl_FragColor = vec4(wet + lamp, a);
+      }`,
+  });
+  const puddles = new THREE.Group();
+  puddles.name = 'canal-puddles';
+  puddles.visible = false;
+  [[-1.2, -2.2], [0.8, 1.4], [1.6, -3.4], [-0.4, 3.6]].forEach(([x, z], i) => {
+    const puddle = new THREE.Mesh(new THREE.CircleGeometry(0.42 + (i % 2) * 0.12, 18), puddleMat);
+    puddle.rotation.x = -Math.PI / 2;
+    puddle.position.set(x, 0.06, z);
+    puddles.add(puddle);
+  });
+  root.add(puddles);
+  const brollyMat = new THREE.MeshLambertMaterial({ color: '#c45a4a', side: THREE.DoubleSide });
+  const brollies = [];
+  [[1.9, -1.15], [2.15, 2.45]].forEach(([x, z]) => {
+    const g = new THREE.Group();
+    const cloth = new THREE.Mesh(new THREE.ConeGeometry(0.52, 0.26, low ? 8 : 12, 1, true), brollyMat);
+    cloth.position.y = 1.62;
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 1.4, 6), new THREE.MeshStandardMaterial({ color: '#5a3828' }));
+    pole.position.y = 0.9;
+    g.add(cloth, pole);
+    g.position.set(x, 0, z);
+    g.visible = false;
+    g.name = 'canal-umbrella';
+    root.add(g);
+    brollies.push(g);
+  });
+  let raining = false;
+  const setRain = (on) => {
+    raining = !!on;
+    rain.visible = puddles.visible = raining;
+    brollies.forEach((g) => { g.visible = raining; });
+  };
   let nearStall = false;
   let cardT = 0;
   const onTap = (e) => {
@@ -482,7 +545,7 @@ function dressCanal(root, lib, low, add) {
   };
   addEventListener('pointerup', onTap);
   const emberDummy = new THREE.Object3D();
-  return (dt, walker) => {
+  return { setRain, tick(dt, walker) {
     const t = performance.now() * 0.001;
     awnings.forEach((cloth, i) => { cloth.rotation.z = Math.sin(t * 0.8 + i) * 0.03; });
     strings.forEach((line) => { line.rotation.z = Math.sin(t * 0.9 + line.userData.phase) * 0.05; });
@@ -494,10 +557,18 @@ function dressCanal(root, lib, low, add) {
       embers.setMatrixAt(i, emberDummy.matrix);
     }
     embers.instanceMatrix.needsUpdate = true;
+    if (raining) {
+      puddleMat.uniforms.uTime.value += dt;
+      drops.forEach((s) => {
+        s.position.y -= s.userData.speed * dt;
+        s.position.x -= 0.35 * dt;
+        if (s.position.y < 0.15) { s.position.y = 3.4; s.position.x += 0.5; }
+      });
+    }
     cardT += dt;
     if (cardT > 5) { cardT = 0; stockI = (stockI + 1) % STOCK.length; paintCard(); }
     nearStall = !!(walker && Math.hypot(walker.feet.x - 1.15, walker.feet.z + 0.6) < 2.4);
-  };
+  } };
 }
 
 export function createCityBlock(seed = 1, low = false) {
@@ -624,16 +695,22 @@ export function createCityBlock(seed = 1, low = false) {
     root.add(skyDome(moss));
     const fill = new THREE.HemisphereLight(moss ? '#8eaea4' : '#c4a0b0', moss ? '#2a3028' : '#6a4030', moss ? 0.55 : 0.78);
     root.add(fill);
-    if (!moss) dressTick = dressCanal(root, lib, low, add);
+    if (!moss) {
+      const dressed = dressCanal(root, lib, low, add);
+      dressTick = dressed.tick;
+      setCityRain = dressed.setRain;
+    }
   });
   const flyDummy = new THREE.Object3D();
   let dressTick = () => {};
+  let setCityRain = () => {};
   return {
     root,
     moss,
     ready,
     fog: moss ? ['#7f9a86', 14, 36] : ['#d08868', 26, 64],
     setGlow(on) { glowOn = !!on; if (glow) glow.visible = glowOn; },
+    setRain(on) { setCityRain(on); },
     tick(dt, walker) {
       water.material.uniforms.uTime.value += dt;
       dressTick(dt, walker);

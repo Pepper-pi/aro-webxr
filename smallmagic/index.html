@@ -203,9 +203,28 @@
       #wanderSheet .meta { letter-spacing: 0.14em; text-transform: uppercase; color: #e6c27a; font-size: 12px; margin: 0 0 8px; }
       #wanderSheet li { margin: 8px 0; }
       #wanderPass, #wanderMeet, #wanderClose { color: #f6ead0; background: rgba(241, 217, 164, 0.16); border: 1px solid #f1d9a4; border-radius: 999px; min-height: 32px; margin: 8px 6px 0 0; padding: 4px 12px; font: 14px Georgia, serif; }
-      #bestiary { position: fixed; left: max(10px, env(safe-area-inset-left)); top: max(10px, env(safe-area-inset-top)); z-index: 23; width: min(420px, 92vw); max-height: calc(100vh - 20px); overflow: auto; padding: 12px 14px 16px; border-radius: 18px; border: 1px solid rgba(241, 217, 164, 0.55); background: rgba(12, 8, 28, 0.94); color: #f6ead0; font: 15px/1.4 Georgia, serif; }
+      #bestiary { position: fixed; left: 50%; top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%); z-index: 30; width: min(760px, calc(100vw - 24px)); max-height: calc(100vh - 24px); display: flex; flex-direction: column; overflow: hidden; padding: 0; border-radius: 22px; border: 1px solid rgba(255, 255, 255, 0.7); background: rgba(236, 242, 248, 0.82); color: #1c2430; font: 15px/1.4 Georgia, serif; backdrop-filter: blur(16px); box-shadow: 0 16px 32px rgba(20, 28, 36, 0.28); }
       #bestiary[hidden] { display: none; }
-      #bestiary pre { white-space: pre-wrap; color: #e6c27a; font: 12px/1.35 ui-monospace, monospace; }
+      #bestiary header { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-bottom: 1px solid rgba(28, 36, 48, 0.08); }
+      #bestiary header .meta { margin: 0; letter-spacing: 0.14em; text-transform: uppercase; color: #6a5a3a; font-size: 12px; }
+      #bestiary #bookClose { position: static; flex: 0 0 auto; min-height: 40px; margin: 0; padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(28, 36, 48, 0.2); background: #fff; color: #1c2430; font: 15px Georgia, serif; }
+      #bestiary .bestiary-body { display: flex; gap: 12px; min-height: 0; overflow: auto; padding: 12px; }
+      #bestiaryList, #bestiaryDetail { flex: 1 1 50%; min-width: 0; }
+      #bestiaryList button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; text-align: left; margin: 0 0 8px; padding: 10px 12px; border-radius: 14px; border: 1px solid rgba(28, 36, 48, 0.12); background: rgba(255, 255, 255, 0.72); color: #1c2430; font: 15px Georgia, serif; }
+      #bestiaryList button.on { outline: 2px solid #e7c56a; }
+      #bestiary .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+      #bestiary .pill.common { background: #d7e2ea; }
+      #bestiary .pill.uncommon { background: #b7e0c8; }
+      #bestiary .pill.rare { background: #e7c8ff; }
+      #bestiary .pill.boss { background: #f0b45a; }
+      #bestiaryDetail { padding: 12px; border-radius: 16px; background: rgba(255, 255, 255, 0.66); }
+      #bestiaryDetail h2 { margin: 6px 0; font-size: 22px; }
+      #bestiaryDetail p { margin: 6px 0; }
+      #canalSky { position: fixed; left: 50%; top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%); z-index: 8; min-height: 36px; padding: 4px 14px; border-radius: 999px; border: 1px solid #f1d9a4; background: rgba(20, 12, 28, 0.82); color: #fff6dc; font: 14px Georgia, serif; }
+      #canalSky[hidden] { display: none; }
+      @media (max-width: 700px) {
+        #bestiary .bestiary-body { flex-direction: column; }
+      }
       #petHud { position: fixed; left: 0; right: 0; bottom: max(12px, env(safe-area-inset-bottom)); z-index: 9; display: flex; justify-content: space-between; gap: 8px; padding: 0 12px; pointer-events: none; }
       #petHud[hidden] { display: none; }
       #petHud .frost, #petCard { background: rgba(236, 242, 248, 0.9); color: #1c2430; border: 1px solid rgba(255, 255, 255, 0.8); border-radius: 16px; box-shadow: 0 8px 16px rgba(20, 28, 36, 0.16); backdrop-filter: blur(8px); }
@@ -514,7 +533,7 @@
             <h2>Collection</h2>
             <p class="sub">What you have kept</p>
             <div class="hero hero-book"></div>
-            <div class="cards"><article><button type="button" id="openFish">Fish book</button></article><article><button type="button" id="openAR">AR</button></article><article><b>Hexes</b><span>Resonance stays</span></article></div>
+            <div class="cards"><article><button type="button" id="openFish">Fish book</button></article><article><button type="button" id="menuBook">Bestiary</button></article><article><button type="button" id="openAR">AR</button></article></div>
           </section>
           <section class="glass-pane" data-mpane="command" hidden>
             <h2>Command</h2>
@@ -535,10 +554,8 @@
       <div class="sheetBody"><div id="crewList"></div><button id="openBook" type="button">Bestiary</button><button id="crewRefresh" type="button">Refresh board</button></div>
     </div>
     <div id="bestiary" hidden>
-      <p class="meta">Living bestiary</p>
-      <div id="bestiaryList"></div>
-      <pre id="bestiaryJson"></pre>
-      <button id="bookClose" type="button">Close</button>
+      <header><p class="meta">Bestiary</p><button id="bookClose" type="button">Close</button></header>
+      <div class="bestiary-body"><div id="bestiaryList"></div><aside id="bestiaryDetail"></aside></div>
     </div>
     <div id="atlas" hidden><button id="mapX" type="button">×</button><p>Long Lake</p><canvas id="lakemap" width="560" height="720"></canvas><p class="note">Tap a marker or a place. Tap it again to clear the beam.</p></div>
     <div id="catch" hidden><p class="meta" id="catchRare">Common</p><h2 id="catchName">Creek Trout</h2><p id="catchSize">28 cm</p><p class="flavor" id="catchFlavor"></p><p id="catchRecord" hidden class="record">New record</p><button id="catchOk" type="button">Keep</button></div>
@@ -709,6 +726,7 @@
       <button type="button" data-lure="glow">Night Glow</button>
     </div>
     <button id="bookBtn" type="button" hidden>Book</button>
+    <button id="canalSky" type="button" hidden>Lantern rain</button>
     <button id="eve" type="button" hidden>Evening</button>
     <button id="dusk" type="button">Dusk</button>
     <button id="ar" type="button">AR</button>

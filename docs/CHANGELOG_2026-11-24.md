@@ -83,3 +83,7 @@ The boba card faces the street so the words read forward. Its roof sits on four 
 ## Block 34 — hands and rails
 
 The Mage stays staffless. A charge raises counter-rotating rings at the wrist and lights runes from the wrist toward the elbow. Fire throws a gold ribbon, frost a cluster of ice shards, and starlight a violet trail. The Blade rail is two fishing-line edges with a pale belt flowing toward you, and a small spark where a cut lands. Summoner and Puppetmaster sit on the roster as separate On deck classes.
+
+## Block 35 — rain, bestiary, evening lake
+
+The canal has a Clear dusk / Lantern rain toggle. Rain streaks, wet cobbles with ripples, and two umbrellas. The menu opens a frosted bestiary of six creatures, stored as JSON with seen and defeated counts. Long Lake evening keeps the bioluminescent water and adds a Milky Way band and fireflies over the reeds.

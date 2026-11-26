@@ -102,6 +102,14 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   canal.root.visible = false;
   ruin.root.visible = false;
   scene.add(canal.root, ruin.root);
+  document.getElementById('canalSky')?.addEventListener('pointerup', (e) => {
+    const btn = e.currentTarget;
+    const on = btn.textContent !== 'Clear dusk';
+    canal.setRain(on);
+    btn.textContent = on ? 'Clear dusk' : 'Lantern rain';
+    e.preventDefault();
+    e.stopPropagation();
+  });
   const village = buildVillage(world.root, world, air);
   const town = createTown(world.root, world, { low: detail === 'low' });
   world.blow = (x, z, dx, dz, r) => village.blow(x, z, dx, dz, r);
@@ -559,6 +567,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   rip.rotation.x = -Math.PI / 2;
   bobber.add(ball, cap, rip);
   bobber.scale.setScalar(0.55);
+  bobber.name = 'fish-bobber';
   bobber.visible = false;
   scene.add(bobber);
   const dragon = new THREE.Group();
@@ -592,6 +601,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   rod.add(grip, blank, tipM, reel);
   rod.position.set(0.28, -0.22, -0.48);
   rod.rotation.set(0.82, -0.55, -0.35);
+  hold.name = 'fish-hold';
   hold.add(rod);
   scene.add(hold);
   const lineGeo = new THREE.BufferGeometry();
@@ -746,6 +756,42 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   stars.visible = false;
   stars.frustumCulled = false;
   scene.add(stars);
+  const milkyCanvas = document.createElement('canvas');
+  milkyCanvas.width = 512;
+  milkyCanvas.height = 128;
+  {
+    const g = milkyCanvas.getContext('2d');
+    const band = g.createLinearGradient(0, 0, 0, 128);
+    band.addColorStop(0, 'rgba(8, 10, 28, 0)');
+    band.addColorStop(0.45, 'rgba(214, 206, 255, 0.72)');
+    band.addColorStop(0.55, 'rgba(150, 190, 255, 0.35)');
+    band.addColorStop(1, 'rgba(8, 10, 28, 0)');
+    g.fillStyle = band;
+    g.fillRect(0, 0, 512, 128);
+    g.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    for (let i = 0; i < 90; i++) g.fillRect((i * 41) % 512, 36 + (i % 8) * 7, i % 6 === 0 ? 2 : 1, 1);
+  }
+  const milkyTex = new THREE.CanvasTexture(milkyCanvas);
+  milkyTex.colorSpace = THREE.SRGBColorSpace;
+  const milky = new THREE.Mesh(
+    new THREE.PlaneGeometry(46, 9),
+    new THREE.MeshBasicMaterial({ map: milkyTex, transparent: true, opacity: 0.72, depthWrite: false, side: THREE.DoubleSide, fog: false }),
+  );
+  milky.position.set(-50, 16, -58);
+  milky.rotation.x = 0.35;
+  milky.visible = false;
+  milky.name = 'milky-way';
+  scene.add(milky);
+  const lakeFlies = new THREE.Group();
+  lakeFlies.name = 'lake-flies';
+  lakeFlies.visible = false;
+  const flyMat = new THREE.MeshBasicMaterial({ color: '#ffe7a4' });
+  for (let i = 0; i < 14; i++) {
+    const bit = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 5), flyMat);
+    bit.userData.i = i;
+    lakeFlies.add(bit);
+  }
+  scene.add(lakeFlies);
   const shot = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.03), new THREE.MeshBasicMaterial({ color: '#fff6e8', transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
   shot.visible = false;
   scene.add(shot);
@@ -929,6 +975,11 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     const city = next === 'block' || next === 'ruin';
     canal.root.visible = next === 'block';
     ruin.root.visible = next === 'ruin';
+    const skyBtn = document.getElementById('canalSky');
+    if (skyBtn) {
+      skyBtn.hidden = next !== 'block';
+      if (next !== 'block') { canal.setRain(false); skyBtn.textContent = 'Lantern rain'; }
+    }
     if (next === 'lake') {
       atLake = true;
       name = 'meadow';
@@ -1897,6 +1948,14 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
           if (shotT > 1.1) { shotT = -1; shot.visible = false; }
         }
         stars.position.copy(camera.position);
+        milky.visible = !!(dusk && atLake);
+        lakeFlies.visible = milky.visible;
+        if (lakeFlies.visible) {
+          lakeFlies.children.forEach((bit, i) => {
+            const a = tt * 0.6 + i;
+            bit.position.set(-50 + Math.cos(a) * (4 + (i % 4)), world.water + 0.7 + Math.sin(a * 1.7) * 0.35, -40 + Math.sin(a * 0.8) * 3);
+          });
+        }
         dragon.visible = true;
         const da = tt * 0.42;
         dragon.position.set(-50 + Math.cos(da) * 5.2, world.water + 0.9 + Math.sin(tt * 1.3) * 0.1, -39 + Math.sin(da * 0.75) * 2.4);
