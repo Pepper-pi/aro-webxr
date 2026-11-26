@@ -49,3 +49,7 @@ Three original familiars can keep the shoulder in the meadow, the canal, Long La
 ## Block 40
 
 The familiars are shoulder-sized. The lantern moth has shaped forewings and hindwings, a tapered body, and thin antennae, and it stays just behind the shoulder. The boba stall stands aside so the round sky-deck door is clear. At Long Lake and the canal, Release Lantern (or L) sends up a paper sky lantern. Desktop keeps twelve aloft, a phone six.
+
+## Block 41
+
+A frosted wayfinder sits at the top of the meadow. It marks north and the way to Long Lake, the Lantern Canal, the Home Hub, and the nearest Super Hex, with the distance in meters. A tap holds that direction. When a Super Hex rises a Resonance tier, a frosted toast appears, gold and cyan rings lift off the beacon, and a short chime plays if the ambience is on. Mage, Warrior, and Gunner keep their own ability chips. Summoner and Puppetmaster stay separate On deck classes.

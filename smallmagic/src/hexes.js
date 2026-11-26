@@ -458,6 +458,21 @@ export function createHexes(scene, world, camera, walker, zones) {
       }
     }
     const label = t === 2 ? 'II' : 'III';
+    const toast = document.getElementById('tierToast');
+    if (toast) {
+      toast.hidden = false;
+      toast.textContent = `${h.name} · Resonance Tier ${label}`;
+      tierToastT = 4.5;
+    }
+    const y = world.ground(h.x, h.z) + 0.35;
+    for (const color of ['#ffe27a', '#7ee0ff']) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.045, 8, 28), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }));
+      ring.rotation.x = Math.PI / 2;
+      ring.position.set(h.x, y, h.z);
+      scene.add(ring);
+      tierRings.push(ring);
+    }
+    zones?.chime?.();
     if (banner) {
       banner.hidden = false;
       banner.textContent = `${h.name} rises · Tier ${label}`;
@@ -511,6 +526,20 @@ export function createHexes(scene, world, camera, walker, zones) {
   });
 
   function update(dt) {
+    for (let i = tierRings.length - 1; i >= 0; i--) {
+      const ring = tierRings[i];
+      ring.userData.t = (ring.userData.t || 0) + dt;
+      const u = ring.userData.t / 1.3;
+      ring.scale.setScalar(1 + u * 2.4);
+      ring.position.y += dt * 1.1;
+      ring.material.opacity = Math.max(0, 0.95 * (1 - u));
+      if (u >= 1) { scene.remove(ring); tierRings.splice(i, 1); }
+    }
+    if (tierToastT > 0) {
+      tierToastT -= dt;
+      const toast = document.getElementById('tierToast');
+      if (toast && tierToastT <= 0) toast.hidden = true;
+    }
     for (let i = moods.length - 1; i >= 0; i--) {
       const p = moods[i];
       p.life -= dt;
@@ -792,6 +821,8 @@ export function createHexes(scene, world, camera, walker, zones) {
     g.fill();
   }
 
+  let tierToastT = 0;
+  const tierRings = [];
   let mapFrame = null;
   let watch = null;
   let shownBand = -1;
@@ -814,6 +845,15 @@ export function createHexes(scene, world, camera, walker, zones) {
     list: built, at, tier, grant, paint, enter, update, close, hit,
     layer: group,
     foe() { return (FIGHT[openId] || ['deer'])[0]; },
+    nearest(x, z) {
+      let best = null;
+      let dist = Infinity;
+      for (const h of built) {
+        const d = Math.hypot(h.x - x, h.z - z);
+        if (d < dist) { best = h; dist = d; }
+      }
+      return best ? { id: best.id, name: best.name, x: best.x, z: best.z, dist } : null;
+    },
     root: ROOT,
     set watch(v) { watch = v; },
     set onPortal(fn) { onPortal = fn; },

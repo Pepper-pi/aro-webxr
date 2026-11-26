@@ -137,6 +137,13 @@ const flames = createFlames(air);
 scene.add(flames.mesh);
 const fire = createFire({ world, air, fx, flames });
 const zones = createZones({ scene, world, walker, camera, air, detail: phone ? 'low' : 'high' });
+zones.onChime = () => ambience.harmonic();
+const wayRing = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.045, 8, 28), new THREE.MeshBasicMaterial({ color: '#ffe7a4', transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
+wayRing.rotation.x = Math.PI / 2;
+wayRing.visible = false;
+wayRing.name = 'way-ring';
+scene.add(wayRing);
+let wayPick = null;
 const ar = createAR(scene, camera, world, zones);
 const appeal = createAppeal(scene, world);
 const mind = createMind();
@@ -995,6 +1002,64 @@ function tick(frameDt) {
   }
 }
 
+function paintWayfinder() {
+  const bar = document.getElementById('wayfinder');
+  if (!bar) return;
+  const modal = ['menu', 'settings', 'home', 'crew', 'board', 'hexcard', 'bestiary', 'book', 'catch', 'atlas'].some((id) => {
+    const el = document.getElementById(id);
+    return el && !el.hidden;
+  });
+  const show = zones.name === 'meadow' && !zones.atLake && !postcard && !modal;
+  bar.hidden = !show;
+  wayRing.visible = !!(show && wayPick);
+  if (!show) return;
+  const x = walker.feet.x;
+  const z = walker.feet.z;
+  const yaw = walker.yaw;
+  const hex = hexes.nearest?.(x, z);
+  const marks = [
+    { id: 'lake', name: 'Long Lake', x: -50, z: -38 },
+    { id: 'canal', name: 'Lantern Canal', x: zones.ring.x + 8, z: zones.ring.z },
+    { id: 'hub', name: 'Home Hub', x: zones.ring.x, z: zones.ring.z },
+    hex ? { id: 'hex', name: hex.name, x: hex.x, z: hex.z } : null,
+  ].filter(Boolean);
+  const cards = [{ a: Math.PI, t: 'N' }, { a: Math.PI / 2, t: 'E' }, { a: 0, t: 'S' }, { a: -Math.PI / 2, t: 'W' }];
+  const place = (ang) => {
+    let rel = ang - yaw;
+    rel = Math.atan2(Math.sin(rel), Math.cos(rel));
+    return 50 + (rel / (Math.PI * 0.9)) * 50;
+  };
+  const laid = marks.map((m) => ({ ...m, left: Math.min(90, Math.max(10, place(Math.atan2(m.x - x, m.z - z)))) })).sort((a, b) => a.left - b.left);
+  let last = -99;
+  laid.forEach((m) => {
+    m.row = Math.abs(m.left - last) < 14 ? 46 : 30;
+    if (m.row === 30) last = m.left;
+  });
+  const sig = cards.map((c) => c.t + Math.round(place(c.a))).join(',') + '|' + laid.map((m) => `${m.id}:${Math.round(m.left)}:${Math.round(Math.hypot(m.x - x, m.z - z))}:${m.row}:${wayPick === m.id ? 1 : 0}`).join(',');
+  if (bar.dataset.sig !== sig) {
+    bar.dataset.sig = sig;
+    bar.innerHTML = cards.map((c) => `<i class="tick" style="left:${Math.min(94, Math.max(6, place(c.a)))}%"><b>${c.t}</b></i>`).join('')
+      + laid.map((m) => {
+        const dist = Math.round(Math.hypot(m.x - x, m.z - z));
+        const on = wayPick === m.id ? ' on' : '';
+        return `<button type="button" data-way="${m.id}" class="${on}" style="left:${m.left}%;top:${m.row}px">${m.name} ${dist}m</button>`;
+      }).join('');
+    bar.querySelectorAll('[data-way]').forEach((b) => b.addEventListener('pointerup', (e) => {
+      const id = b.getAttribute('data-way');
+      wayPick = wayPick === id ? null : id;
+      bar.dataset.sig = '';
+      e.preventDefault();
+      e.stopPropagation();
+    }));
+  }
+  const picked = marks.find((m) => m.id === wayPick);
+  if (picked) {
+    wayRing.visible = true;
+    wayRing.position.set(picked.x, world.ground(picked.x, picked.z) + 0.25, picked.z);
+    const s = 1 + Math.sin(performance.now() * 0.005) * 0.08;
+    wayRing.scale.setScalar(s);
+  }
+}
 function tickStep(dt, draw) {
   const frame = dt;
   if (hitFreeze > 0) {
@@ -1362,6 +1427,7 @@ function tickStep(dt, draw) {
   fx.update(dt * pace);
   sound?.update(dt, { blast, hole, twister, ruin, camera, fire, cast: spells?.cast, world, walker });
   familiar.update(dt, walker, zones.name, phone || settings.gfx === 'low', camera);
+  paintWayfinder();
   {
     const bed = zones.name === 'hub' ? 'hearth' : zones.name === 'deck' ? 'deck' : (zones.atLake || zones.name === 'block') ? 'water' : 'meadow';
     ambience.scene(bed, zones.boardSky?.().weather === 'Lantern Rain');

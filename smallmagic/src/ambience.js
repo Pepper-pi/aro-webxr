@@ -86,5 +86,21 @@ export function createAmbience() {
     chime.userData.gain.setTargetAtTime(row.chime, now, 0.6);
     if (kind === 'hearth') crackle.gain.setValueAtTime(0.15 + Math.random() * 0.4, now);
   }
-  return { set, scene, get on() { return on; } };
+  function harmonic() {
+    if (!on || !ctx) return;
+    const now = ctx.currentTime;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(392, now);
+    o.frequency.exponentialRampToValueAtTime(784, now + 0.42);
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.07, now + 0.04);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.7);
+    o.connect(g);
+    g.connect(master);
+    o.start(now);
+    o.stop(now + 0.75);
+  }
+  return { set, scene, harmonic, get on() { return on; } };
 }

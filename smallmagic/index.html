@@ -227,6 +227,15 @@
       #starseed[hidden] { display: none; }
       #releaseLantern { position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 8; min-height: 36px; padding: 4px 14px; border-radius: 999px; border: 1px solid #f1d9a4; background: rgba(20, 12, 28, 0.82); color: #ffe1a4; font: 14px Georgia, serif; }
       #releaseLantern[hidden] { display: none; }
+      #wayfinder { position: fixed; left: 50%; top: max(8px, env(safe-area-inset-top)); transform: translateX(-50%); z-index: 7; width: min(560px, 88vw); height: 72px; border-radius: 18px; border: 1px solid rgba(255, 255, 255, 0.72); background: rgba(236, 242, 248, 0.58); color: #1c2430; backdrop-filter: blur(14px); box-shadow: 0 8px 18px rgba(20, 28, 36, 0.12); overflow: hidden; }
+      #wayfinder[hidden] { display: none; }
+      #wayfinder .tick, #wayfinder button { position: absolute; transform: translateX(-50%); }
+      #wayfinder .tick { top: 8px; width: 1px; height: 12px; background: rgba(28, 36, 48, 0.45); }
+      #wayfinder .tick b { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); font: 11px Georgia, serif; font-weight: normal; }
+      #wayfinder button { top: 30px; border: 0; background: transparent; color: #1c2430; font: 12px Georgia, serif; padding: 0 4px; white-space: nowrap; }
+      #wayfinder button.on { color: #8a5a12; font-weight: bold; text-shadow: 0 0 8px rgba(255, 214, 140, 0.9); }
+      #tierToast { position: fixed; left: 50%; top: 18%; transform: translateX(-50%); z-index: 18; padding: 10px 16px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.8); background: rgba(236, 242, 248, 0.88); color: #1c2430; font: 16px Georgia, serif; text-align: center; pointer-events: none; backdrop-filter: blur(12px); }
+      #tierToast[hidden] { display: none; }
       #postcard { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 40; display: flex; gap: 8px; padding: 8px; border-radius: 16px; border: 1px solid rgba(241, 217, 164, 0.7); background: rgba(16, 10, 24, 0.72); }
       #postcard[hidden] { display: none; }
       #postcard button { min-height: 36px; padding: 4px 12px; border-radius: 999px; border: 1px solid #f1d9a4; background: rgba(241, 217, 164, 0.16); color: #fff6dc; font: 14px Georgia, serif; }
@@ -753,6 +762,8 @@
     <button id="canalSky" type="button" hidden>Lantern rain</button>
     <button id="starseed" type="button" hidden>Starseed · Lantern Canal</button>
     <button id="releaseLantern" type="button" hidden>Release Lantern</button>
+    <div id="wayfinder" hidden></div>
+    <div id="tierToast" hidden>Resonance Tier II</div>
     <div id="postcard" hidden><button id="postcardSave" type="button">Save Postcard</button><button id="postcardExit" type="button">Exit</button></div>
     <button id="eve" type="button" hidden>Evening</button>
     <button id="dusk" type="button">Dusk</button>
