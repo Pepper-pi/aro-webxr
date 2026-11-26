@@ -430,7 +430,7 @@ function dressCanal(root, lib, low, add) {
   }
   const stand = new THREE.Group();
   stand.name = 'boba-stand';
-  stand.position.set(1.15, 0, -0.6);
+  stand.position.set(2.55, 0, 2.35);
   const wood = new THREE.MeshStandardMaterial({ color: '#6a4030', roughness: 0.7 });
   const counter = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.92, 1.2), wood);
   counter.position.y = 0.46;
@@ -491,7 +491,7 @@ function dressCanal(root, lib, low, add) {
   sun.position.set(7, 12, 5);
   root.add(sun);
   const stallLight = new THREE.PointLight('#ffd8b0', 2.6, 5.5, 2);
-  stallLight.position.set(0.55, 1.55, -0.6);
+  stallLight.position.set(2.15, 1.55, 2.35);
   root.add(stallLight);
   const friendLight = new THREE.PointLight('#ffd0a8', 0.45, 4, 2);
   friendLight.position.set(1.5, 1.65, 2.7);
@@ -590,7 +590,7 @@ function dressCanal(root, lib, low, add) {
     }
     cardT += dt;
     if (cardT > 5) { cardT = 0; stockI = (stockI + 1) % STOCK.length; paintCard(); }
-    nearStall = !!(walker && Math.hypot(walker.feet.x - 1.15, walker.feet.z + 0.6) < 2.4);
+    nearStall = !!(walker && Math.hypot(walker.feet.x - 2.55, walker.feet.z - 2.35) < 2.2);
   } };
 }
 
@@ -705,7 +705,7 @@ export function createCityBlock(seed = 1, low = false) {
     };
     bank(4.4, right, Math.PI, 1);
     bank(-7.4, left, 0, -1);
-    add(moss ? 'stall-green' : 'stall-red', [[0.4, -4.2], [0.4, 3.2]], 0, Math.PI / 2);
+    add(moss ? 'stall-green' : 'stall-red', [[2.35, -2.2], [2.35, 3.4]], 0, Math.PI / 2);
     if (moss) add('stall-green', [[0.4, -0.6]], 0, Math.PI / 2);
     add('cart', [[1.5, -2.2], [1.7, 2.4]], 0, 0.5);
     if (moss) add('wall-wood-block', [[1.9, -4.5], [2.15, -3.9], [1.85, -0.3], [2.1, 0.4], [1.9, 2.9], [2.15, 3.6]], 0, 0.4, null, 0.38);

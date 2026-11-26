@@ -1030,6 +1030,56 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   let leftDeck = false;
   let leftMoor = false;
   let atLake = false;
+  const skyLanterns = [];
+  const lanternCap = detail === 'low' ? 6 : 12;
+  const lanternPaper = new THREE.MeshBasicMaterial({ color: '#ffb15a', transparent: true, opacity: 0.86, side: THREE.DoubleSide, depthWrite: false });
+  function releaseLantern(head = 0) {
+    if (!(atLake || name === 'block') || skyLanterns.length >= lanternCap) return false;
+    const g = new THREE.Group();
+    g.name = 'sky-lantern';
+    const shell = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.14, 0.28, 8, 1, true), lanternPaper);
+    const top = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.08, 8), lanternPaper);
+    top.position.y = 0.1;
+    const flame = new THREE.Mesh(new THREE.SphereGeometry(0.022, 6, 5), new THREE.MeshBasicMaterial({ color: '#fff1c8' }));
+    const light = new THREE.PointLight('#ffb060', 0.55, 2.2, 2);
+    g.add(shell, top, flame, light);
+    g.userData.age = head;
+    g.userData.phase = Math.random() * Math.PI * 2;
+    const i = skyLanterns.length;
+    g.position.set(
+      walker.feet.x + (i - 3) * 0.55,
+      walker.feet.y + 1.6 + i * 0.48,
+      walker.feet.z - 1.15,
+    );
+    void head;
+    scene.add(g);
+    skyLanterns.push(g);
+    return true;
+  }
+  function tickLanterns(dt) {
+    for (let i = skyLanterns.length - 1; i >= 0; i--) {
+      const g = skyLanterns[i];
+      g.userData.age += dt;
+      g.position.y += dt * 1.15;
+      g.position.x += Math.sin(g.userData.age * 0.8 + g.userData.phase) * dt * 0.18;
+      g.rotation.z = Math.sin(g.userData.age * 1.2 + g.userData.phase) * 0.14;
+      const fade = g.userData.age > 12 ? Math.max(0, 1 - (g.userData.age - 12) / 4) : 1;
+      lightOf(g, fade);
+      if (g.userData.age > 16) {
+        scene.remove(g);
+        skyLanterns.splice(i, 1);
+      }
+    }
+  }
+  function lightOf(g, fade) {
+    const light = g.children.find((c) => c.isLight);
+    if (light) light.intensity = 0.35 + fade * 0.35;
+  }
+  document.getElementById('releaseLantern')?.addEventListener('pointerup', (e) => {
+    releaseLantern();
+    e.preventDefault();
+    e.stopPropagation();
+  });
   let fishZoom = 0;
   let dest = 'meadow';
   let armUntil = 0;
@@ -1086,6 +1136,8 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     skyDeck.root.visible = next === 'deck';
     const pill = document.getElementById('starseed');
     if (pill) pill.hidden = !(next === 'deck' || next === 'block');
+    const lanternBtn = document.getElementById('releaseLantern');
+    if (lanternBtn) lanternBtn.hidden = !(next === 'lake' || next === 'block');
     if (next === 'lake') {
       atLake = true;
       name = 'meadow';
@@ -1484,7 +1536,10 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     e.preventDefault();
     e.stopPropagation();
   }));
-  addEventListener('keydown', (e) => { if (e.code === 'KeyK' && name === 'meadow') setDusk(!dusk); });
+  addEventListener('keydown', (e) => {
+    if (e.code === 'KeyK' && name === 'meadow') setDusk(!dusk);
+    if (e.code === 'KeyL') releaseLantern();
+  });
   const life = new THREE.Group();
   const motes = [];
   for (let i = 0; i < 12; i++) {
@@ -1674,6 +1729,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     setDusk,
     setLanternRain,
     setStarseed: applySeed,
+    releaseLantern,
     get starseed() { return starSeed; },
     boardSky() {
       const h = new Date().getHours();
@@ -1999,6 +2055,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         if (into === 'board') { if (panel?.hidden) showBoard(); }
         else if (into) enter('hub');
       }
+      tickLanterns(dt);
       if (name === 'block') {
         canal.tick(dt, walker);
         const md = Math.hypot(walker.feet.x - 0.35, walker.feet.z + 4.7);
@@ -2012,7 +2069,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         if (ed > 1.7) leftDeck = true;
         if (leftDeck && performance.now() >= armUntil && ed < 1.05) enter('block');
       }
-      const cityFolk = { sable: [1.72, -0.6, -Math.PI / 2], lumen: [2.2, 2.7, 0.4] };
+      const cityFolk = { sable: [2.05, 2.15, -0.4], lumen: [2.2, 2.7, 0.4] };
       for (const [id, ctl] of Object.entries(ctls)) {
         const home = pals.find((p) => p.id === id)?.g;
         const inCity = (name === 'block' || name === 'ruin') && cityFolk[id] && buddy !== id;

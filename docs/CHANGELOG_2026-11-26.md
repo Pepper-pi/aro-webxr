@@ -45,3 +45,7 @@ The brass helm, and a Starseed pill on the deck and the canal, switch three skin
 ## Block 39
 
 Three original familiars can keep the shoulder in the meadow, the canal, Long Lake, and the sky deck: a lantern moth, a paper crane, and a dew wisp. None puts them away. The choice stays in the browser. Postcard view hides the buttons. P opens it, and Esc or Exit closes it. Save Postcard downloads the current frame. A generated ambience stays off until asked: hearth crackle, water and a soft chime, rain hiss on the canal, and a breeze on the deck.
+
+## Block 40
+
+The familiars are shoulder-sized. The lantern moth has shaped forewings and hindwings, a tapered body, and thin antennae, and it stays just behind the shoulder. The boba stall stands aside so the round sky-deck door is clear. At Long Lake and the canal, Release Lantern (or L) sends up a paper sky lantern. Desktop keeps twelve aloft, a phone six.
