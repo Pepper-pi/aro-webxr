@@ -73,3 +73,7 @@ The hearth fire is crossed charred logs, an ember bed, and soft additive flame t
 ## Block 46
 
 The way back to the meadow is a timber doorway with brass trim, a painted meadow-light veil, and a Meadow plaque above the lintel. The name no longer sits in the floor ring. Pouring a tea speaks a line from Maren, Sable, or Lumen and adds one to Tea shared on that companion's hearth card. At Long Lake, Sable's Honey Pearl shows a small pill on the fishing HUD. A headless pass of the meadow, Long Lake, the canal, the sky deck, and the home hub still raises no page errors.
+
+## Block 47
+
+A wood-grain bench sits on the Long Lake bank beside the pier, facing the water, with a brass-and-glass lantern on a short timber post and a warm pool on the flowers. No tree was moved. The Guide card ends with the live loadout: class, Starseed world, familiar, and hearth tea. Blocks 43 through 47 are the pre-reset pass. A headless pass of the meadow, Long Lake, the canal, the sky deck, and the home hub still raises no page errors.

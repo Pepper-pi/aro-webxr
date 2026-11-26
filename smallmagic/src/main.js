@@ -1004,6 +1004,18 @@ function tick(frameDt) {
   }
 }
 
+function paintGuide() {
+  const line = document.getElementById('guideNow');
+  const pane = line?.closest('[data-mpane]');
+  if (!line || !pane || pane.hidden) return;
+  const klass = {
+    mage: 'Mage', blade: 'Warrior', gunner: 'Gunner', summoner: 'Summoner', puppet: 'Puppetmaster',
+    warden: 'Warden', ranger: 'Ranger', alchemist: 'Alchemist',
+  }[settings.class] || 'Mage';
+  const fam = { none: 'No familiar', moth: 'Lantern Moth', crane: 'Paper Crane', wisp: 'Dew Wisp' }[familiar.kind] || 'No familiar';
+  const steep = { mint: "Maren's Mint Steep", honey: "Sable's Honey Pearl", chai: "Lumen's Starlight Chai" }[zones.tea] || 'No tea';
+  line.textContent = `${klass} · ${zones.seedName} · ${fam} · ${steep}`;
+}
 function paintWayfinder() {
   const bar = document.getElementById('wayfinder');
   if (!bar) return;
@@ -1432,6 +1444,7 @@ function tickStep(dt, draw) {
   sound?.update(dt, { blast, hole, twister, ruin, camera, fire, cast: spells?.cast, world, walker });
   familiar.update(dt, walker, zones.name, phone || settings.gfx === 'low', camera);
   paintWayfinder();
+  paintGuide();
   {
     const bed = zones.name === 'hub' ? 'hearth' : zones.name === 'deck' ? 'deck' : (zones.atLake || zones.name === 'block') ? 'water' : 'meadow';
     ambience.scene(bed, zones.boardSky?.().weather === 'Lantern Rain');

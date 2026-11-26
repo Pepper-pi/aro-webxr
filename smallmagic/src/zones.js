@@ -1065,6 +1065,56 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   const lampLight = new THREE.PointLight('#ffd9a0', 0.85, 4.8, 2);
   lampLight.position.set(0.42, 1.48, -2.7);
   pier.add(deck, post, lantern, hook, lampLight);
+  const benchWood = new THREE.TextureLoader().load(new URL('hearth/textures/wood_floor_diff_1k.jpg', document.baseURI).href);
+  benchWood.colorSpace = THREE.SRGBColorSpace;
+  benchWood.wrapS = benchWood.wrapT = THREE.RepeatWrapping;
+  benchWood.repeat.set(2, 1);
+  const benchMat = new THREE.MeshStandardMaterial({ map: benchWood, color: '#e0c09a', roughness: 0.8 });
+  const brassMat = new THREE.MeshStandardMaterial({ color: '#c6a15a', metalness: 0.68, roughness: 0.32 });
+  let bx = pier.position.x + 1.85;
+  let bz = pier.position.z + 0.15;
+  for (let i = 0; i < 6 && world.ground(bx, bz) < world.water + 0.06; i++) bz += 0.4;
+  const benchY = world.ground(bx, bz);
+  const bench = new THREE.Group();
+  bench.name = 'stargaze-bench';
+  bench.position.set(bx, benchY, bz);
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(1.28, 0.06, 0.4), benchMat);
+  seat.position.y = 0.42;
+  const backrest = new THREE.Mesh(new THREE.BoxGeometry(1.28, 0.38, 0.05), benchMat);
+  backrest.position.set(0, 0.66, 0.16);
+  backrest.rotation.x = -0.14;
+  bench.add(seat, backrest);
+  for (const [lx, lz] of [[-0.52, 0.13], [0.52, 0.13], [-0.52, -0.13], [0.52, -0.13]]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.42, 0.06), benchMat);
+    leg.position.set(lx, 0.21, lz);
+    bench.add(leg);
+  }
+  const lampPost = new THREE.Group();
+  lampPost.position.set(0.92, 0, 0.05);
+  const stake = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.78, 0.08), benchMat);
+  stake.position.y = 0.39;
+  const collar = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.04, 0.12), brassMat);
+  collar.position.y = 0.78;
+  const glass = new THREE.Mesh(
+    new THREE.BoxGeometry(0.16, 0.18, 0.16),
+    new THREE.MeshBasicMaterial({ color: '#ffd9a0', transparent: true, opacity: 0.42, depthWrite: false }),
+  );
+  glass.position.y = 0.9;
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.02, 0.18), brassMat);
+  frame.position.y = 1.0;
+  const wick = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), new THREE.MeshBasicMaterial({ color: '#fff1c4' }));
+  wick.position.y = 0.9;
+  const lampPool = new THREE.Mesh(
+    new THREE.CircleGeometry(1.45, 22),
+    new THREE.MeshBasicMaterial({ color: '#ffc98a', transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide }),
+  );
+  lampPool.rotation.x = -Math.PI / 2;
+  lampPool.position.set(0.35, 0.025, -0.15);
+  const benchLamp = new THREE.PointLight('#ffc98a', 0.62, 4.2, 2);
+  benchLamp.position.set(0.92, 0.9, 0.05);
+  lampPost.add(stake, collar, glass, frame, wick);
+  bench.add(lampPost, lampPool, benchLamp);
+  scene.add(bench);
   const reeds = [];
   for (let i = 0; i < 9; i++) {
     const reed = new THREE.Group();
@@ -1997,6 +2047,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     set onTea(fn) { onTea = fn; },
     chime() { onChime?.(); },
     get tea() { return tea; },
+    get seedName() { return SEED_NAMES[starSeed] || 'Lantern Canal'; },
     openTea,
     pickTea,
     cueBeast(x, z, name) { beasts.act(x, z, name); },
