@@ -1774,7 +1774,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       }
       if (name === 'block') canal.tick(dt, walker);
       if (name === 'ruin') ruin.tick(dt);
-      const cityFolk = { sable: [-0.15, -3.5, 0.4], lumen: [0.35, 1.15, -0.5] };
+      const cityFolk = { sable: [1.72, -0.6, -Math.PI / 2], lumen: [2.2, 2.7, 0.4] };
       for (const [id, ctl] of Object.entries(ctls)) {
         const home = pals.find((p) => p.id === id)?.g;
         const inCity = (name === 'block' || name === 'ruin') && cityFolk[id] && buddy !== id;
@@ -1785,6 +1785,21 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
           const spot = cityFolk[id];
           ctl.root.position.set(spot[0], 0, spot[1]);
           ctl.root.rotation.set(0, spot[2], 0);
+          if (!ctl.root.userData.cityWarm) {
+            ctl.root.userData.cityWarm = true;
+            ctl.root.traverse((o) => {
+              if (!o.isMesh) return;
+              for (const m of [].concat(o.material || [])) {
+                const label = `${m.name || ''} ${o.name || ''}`;
+                if (/eye/i.test(label)) continue;
+                if (/skin|face_00|body_00/i.test(label)) {
+                  m.color?.set?.('#f3c7aa');
+                  m.shadeColorFactor?.set?.('#d7a184');
+                  if (m.uniforms?.shadingToonyFactor) m.uniforms.shadingToonyFactor.value = 0.15;
+                }
+              }
+            });
+          }
         } else if (host && ctl.root.parent === host) {
           ctl.root.position.set(0, 0, 0);
           ctl.root.rotation.set(0, 0, 0);

@@ -1257,7 +1257,7 @@ function tickStep(dt, draw) {
   }
   camera.updateMatrixWorld(true);
   zones.stickRod?.();
-  const wheel = !playtest && discOn && kit === 'mage' && !melee && !zones.rodOut && zones.name !== 'hub' && !duel.active;
+  const wheel = !playtest && discOn && kit === 'mage' && !melee && !zones.rodOut && zones.name !== 'hub' && zones.name !== 'block' && zones.name !== 'ruin' && !duel.active;
   const rangerBar = document.getElementById('rangerBar');
   const wardenBar = document.getElementById('wardenBar');
   const alchemistBar = document.getElementById('alchemistBar');
@@ -1276,7 +1276,7 @@ function tickStep(dt, draw) {
   const armCharge = (discCharge || spells?.cast?.holding) ? Math.max(0.14, spells?.cast?.charge || 0) : 0;
   const handDisc = !!(ar.on || settings.hands);
   if (spells) spells.placeAr = !!ar.on;
-  castDisc?.update(dt, wheel, spells?.selected ?? 0, walker, camera, armCharge, !chasing && !free, wristPoint(), ar.on, handDisc);
+  castDisc?.update(dt, wheel && !free, spells?.selected ?? 0, walker, camera, armCharge, !chasing && !free, wristPoint(), ar.on, handDisc);
   const acts = document.getElementById('discActs');
   if (acts) {
     const showActs = !playtest && phone && !!(wheel && castDisc?.ready && !handDisc);
@@ -1301,6 +1301,7 @@ function tickStep(dt, draw) {
   }
   ar.update(dt, walker, camera, { twister, spells, living });
   wander.update(dt, walker, camera, ar.on);
+  if (folk.root) folk.root.visible = zones.name === 'meadow';
   if (zones.name === 'meadow') {
     const big = blast.phase === 'fall' || blast.phase === 'boom' || hole.phase === 'open' || hole.phase === 'shut' || twister.phase === 'live' || twister.phase === 'slam';
     folk.update(dt, walker, zones.dusk, {

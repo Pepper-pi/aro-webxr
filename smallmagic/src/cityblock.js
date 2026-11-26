@@ -116,31 +116,32 @@ function skyDome(moss) {
     sky.addColorStop(0.84, '#4e6e66');
     sky.addColorStop(1, '#7f9a86');
   } else {
-    sky.addColorStop(0, '#070b22');
-    sky.addColorStop(0.42, '#141c48');
-    sky.addColorStop(0.7, '#2a2458');
-    sky.addColorStop(0.86, '#c46a32');
-    sky.addColorStop(1, '#f0a050');
+    sky.addColorStop(0, '#07091e');
+    sky.addColorStop(0.22, '#16143c');
+    sky.addColorStop(0.38, '#5a3058');
+    sky.addColorStop(0.48, '#e08a58');
+    sky.addColorStop(0.58, '#c46248');
+    sky.addColorStop(1, '#3a2418');
   }
   g.fillStyle = sky;
   g.fillRect(0, 0, 1024, 512);
   if (!moss) {
-    g.fillStyle = '#140816';
-    g.fillRect(690, 448, 210, 7);
-    g.beginPath();
-    g.moveTo(760, 455); g.lineTo(830, 432); g.lineTo(930, 440); g.lineTo(900, 462); g.closePath();
-    g.fill();
-    g.fillRect(860, 360, 4, 92);
-    g.fillStyle = '#fff8ee';
-    for (let i = 0; i < 180; i++) {
-      const x = (i * 73) % 1024;
-      const y = (i * 41) % 320;
-      g.fillRect(x, y, i % 11 === 0 ? 2 : 1, 1);
+    g.fillStyle = 'rgba(255, 244, 220, 0.9)';
+    for (let i = 0; i < 160; i++) {
+      const x = (i * 97) % 1024;
+      const y = (i * 53) % 210;
+      const r = i % 9 === 0 ? 1.4 : 0.6;
+      g.globalAlpha = 0.35 + (i % 5) * 0.1;
+      g.beginPath();
+      g.arc(x, y, r, 0, Math.PI * 2);
+      g.fill();
     }
-    g.fillStyle = 'rgba(240, 196, 170, 0.18)';
-    g.beginPath(); g.ellipse(180, 400, 90, 12, 0.1, 0, Math.PI * 2); g.fill();
-    g.beginPath(); g.ellipse(520, 420, 120, 14, -0.05, 0, Math.PI * 2); g.fill();
-    g.beginPath(); g.ellipse(820, 390, 70, 10, 0.15, 0, Math.PI * 2); g.fill();
+    g.globalAlpha = 1;
+    g.fillStyle = '#fff6d4';
+    g.beginPath();
+    g.arc(180, 78, 26, 0, Math.PI * 2);
+    g.arc(196, 72, 22, 0, Math.PI * 2);
+    g.fill('evenodd');
   } else {
     g.fillStyle = 'rgba(210, 228, 220, 0.22)';
     g.beginPath(); g.ellipse(240, 400, 150, 16, 0, 0, Math.PI * 2); g.fill();
@@ -182,49 +183,93 @@ function paintStock(ctx, item) {
 
 function awningMesh(color) {
   const cloth = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.7, 0.85, 8, 1),
+    new THREE.PlaneGeometry(1.15, 0.62, 8, 1),
     new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide }),
   );
   const pos = cloth.geometry.attributes.position;
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
-    pos.setZ(i, -Math.cos((x / 1.7) * Math.PI) * 0.06);
+    pos.setZ(i, -Math.cos((x / 1.15) * Math.PI) * 0.04);
   }
   pos.needsUpdate = true;
   cloth.geometry.computeVertexNormals();
-  cloth.rotation.x = 0.4;
+  cloth.rotation.x = Math.PI / 2 - 0.4;
   cloth.name = 'awning';
   return cloth;
 }
 
+function solidHouses(root, low) {
+  const plaster = new THREE.MeshStandardMaterial({ color: '#cbb89a', roughness: 0.88 });
+  const roofMat = new THREE.MeshStandardMaterial({ color: '#8d4034', roughness: 0.72 });
+  const paneMat = new THREE.MeshBasicMaterial({ color: '#ffd2a4' });
+  const rows = [
+    { xs: -7.4, zs: [-6, -3, 0, 3, 6], sign: -1 },
+    { xs: 4.4, zs: [-7, -4, -1, 2, 5], sign: 1 },
+  ];
+  const stories = [3, 2, 3, 2, 3];
+  rows.forEach((row) => {
+    row.zs.forEach((z, i) => {
+      const floors = stories[i];
+      const depth = 1.4;
+      const front = row.sign < 0 ? row.xs + 0.38 : row.xs - 0.38;
+      const cx = front + row.sign * (depth / 2);
+      const body = new THREE.Mesh(new THREE.BoxGeometry(depth, floors, 1.9), plaster);
+      body.position.set(cx, floors / 2, z + 0.5);
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(depth + 0.18, 0.16, 2.08), roofMat);
+      cap.position.set(cx, floors + 0.08, z + 0.5);
+      root.add(body, cap);
+      if (low && i % 2) return;
+      for (let y = 1; y < floors; y++) {
+        const back = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.4), paneMat);
+        back.position.set(cx + row.sign * (depth / 2 + 0.02), y + 0.45, z + 0.35);
+        back.rotation.y = row.sign < 0 ? -Math.PI / 2 : Math.PI / 2;
+        root.add(back);
+      }
+    });
+  });
+}
+
+function footbridge(root, rich) {
+  const g = new THREE.Group();
+  g.name = 'canal-arch';
+  const stone = new THREE.MeshStandardMaterial({ color: '#d2c4ae', roughness: 0.82 });
+  const wood = new THREE.MeshStandardMaterial({ color: '#a86a3c', roughness: 0.68 });
+  const railMat = new THREE.MeshStandardMaterial({ color: '#6a4030', roughness: 0.6 });
+  const near = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.7, 1.25), stone);
+  near.position.set(-3.0, 0.85, 0);
+  const far = near.clone();
+  far.position.set(-6.2, 0.85, 0);
+  const arch = new THREE.Mesh(new THREE.TorusGeometry(1.3, rich ? 0.11 : 0.09, rich ? 8 : 5, rich ? 20 : 10, Math.PI), stone);
+  arch.position.set(-4.6, 0.28, 0);
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.08, 1.05), wood);
+  deck.position.set(-4.6, 1.74, 0);
+  g.add(near, far, arch, deck);
+  for (const side of [-0.48, 0.48]) {
+    const top = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.05, 0.05), railMat);
+    top.position.set(-4.6, 2.12, side);
+    g.add(top);
+    for (let i = 0; i < (rich ? 7 : 4); i++) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.4, 0.045), railMat);
+      post.position.set(-6.15 + i * (rich ? 0.52 : 1.0), 1.92, side);
+      g.add(post);
+    }
+  }
+  root.add(g);
+}
+
 function dressCanal(root, lib, low, add) {
   const rich = !low;
-  const stone = new THREE.MeshStandardMaterial({ color: '#c4b49a', roughness: 0.84 });
-  const arch = new THREE.Group();
-  arch.name = 'canal-arch';
-  const pier = (x) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.85, 0.5), stone);
-    m.position.set(x, 0.42, 0);
-    return m;
-  };
-  const curve = new THREE.Mesh(new THREE.TorusGeometry(1.2, rich ? 0.14 : 0.1, rich ? 8 : 5, rich ? 16 : 8, Math.PI), stone);
-  curve.rotation.y = Math.PI / 2;
-  curve.rotation.z = Math.PI;
-  curve.position.set(-4.6, 0.72, 0);
-  arch.add(pier(-5.75), pier(-3.45), curve);
-  root.add(arch);
+  solidHouses(root, low);
+  footbridge(root, rich);
   const bankZ = [];
-  for (let z = -7; z <= 6; z += rich ? 1.4 : 2.8) bankZ.push([-5.9, z], [-3.35, z]);
-  add('rock-wide', bankZ, 0, 0, '#d5c6b0', 0.55);
-  add('stairs-stone', [[-5.5, -2.4], [-3.7, 2.6]], 0, Math.PI / 2);
-  const terrace = rich ? [[2.35, -4.2], [2.35, -0.6], [2.35, 3.2], [2.7, -4.2], [2.7, 3.2]] : [[2.35, -0.6]];
-  add('stairs-stone', terrace, 0, Math.PI / 2);
+  for (let z = -7; z <= 6; z += rich ? 2.2 : 3.4) bankZ.push([-6.55, z], [-2.55, z]);
+  add('rock-wide', bankZ, 0, 0, '#d5c6b0', 0.42);
   const awnings = [];
   const colors = ['#c45a4a', '#e7b15a', '#7a4a62'];
-  const spots = rich ? [[0.2, -4.2], [0.2, -0.6], [0.2, 3.2]] : [[0.2, -0.6]];
+  const spots = rich ? [[0.45, -4.2], [0.45, 3.2]] : [[0.45, 3.2]];
   spots.forEach(([x, z], i) => {
     const cloth = awningMesh(colors[i % colors.length]);
-    cloth.position.set(x, 2.05, z);
+    cloth.position.set(x, 1.95, z);
     root.add(cloth);
     awnings.push(cloth);
   });
@@ -235,7 +280,7 @@ function dressCanal(root, lib, low, add) {
       for (let i = 0; i < 6; i++) {
         const u = i / 5;
         const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), new THREE.MeshBasicMaterial({ color: '#ffd7a4' }));
-        bulb.position.set(-1.2 + u * 3.2, 2.35 - Math.sin(u * Math.PI) * 0.28, 0);
+        bulb.position.set(-0.4 + u * 2.2, 2.85 - Math.sin(u * Math.PI) * 0.22, 0);
         line.add(bulb);
       }
       line.position.set(0, 0, z);
@@ -246,14 +291,18 @@ function dressCanal(root, lib, low, add) {
   }
   const stand = new THREE.Group();
   stand.name = 'boba-stand';
-  stand.position.set(0.55, 0, -0.55);
+  stand.position.set(1.15, 0, -0.6);
   const wood = new THREE.MeshStandardMaterial({ color: '#6a4030', roughness: 0.7 });
-  const counter = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.85, 0.55), wood);
-  counter.position.y = 0.42;
+  const counter = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.92, 1.2), wood);
+  counter.position.y = 0.46;
   stand.add(counter);
+  const canopy = awningMesh('#c45a4a');
+  canopy.position.set(0, 1.95, 0);
+  stand.add(canopy);
+  awnings.push(canopy);
   for (let i = 0; i < 3; i++) {
-    const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.16, 8), new THREE.MeshStandardMaterial({ color: colors[i], roughness: 0.4 }));
-    cup.position.set(-0.28 + i * 0.22, 0.92, 0.05);
+    const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.045, 0.16, 8), new THREE.MeshStandardMaterial({ color: colors[i], roughness: 0.4 }));
+    cup.position.set(-0.05, 0.98, -0.32 + i * 0.28);
     stand.add(cup);
   }
   const cardCanvas = document.createElement('canvas');
@@ -265,8 +314,9 @@ function dressCanal(root, lib, low, add) {
   let stockI = 0;
   const paintCard = () => { paintStock(cardCtx, STOCK[stockI]); cardTex.needsUpdate = true; };
   paintCard();
-  const card = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.45), new THREE.MeshBasicMaterial({ map: cardTex }));
-  card.position.set(0, 1.35, 0.28);
+  const card = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 0.52), new THREE.MeshBasicMaterial({ map: cardTex, side: THREE.DoubleSide }));
+  card.position.set(-0.4, 1.22, 0);
+  card.rotation.y = -Math.PI / 2;
   card.name = 'boba-card';
   stand.add(card);
   root.add(stand);
@@ -275,33 +325,34 @@ function dressCanal(root, lib, low, add) {
   embers.frustumCulled = false;
   embers.name = 'canal-embers';
   root.add(embers);
-  const streaks = [];
-  if (rich) {
-    const drop = new THREE.MeshBasicMaterial({ color: '#d5e6f4', transparent: true, opacity: 0.28, depthWrite: false });
-    for (let i = 0; i < 14; i++) {
-      const s = new THREE.Mesh(new THREE.PlaneGeometry(0.012, 0.28), drop);
-      s.position.set(-2 + (i % 5) * 1.1, 2 + (i % 3), -4 + (i % 7) * 1.2);
-      s.userData.speed = 0.6 + (i % 4) * 0.15;
-      root.add(s);
-      streaks.push(s);
-    }
-  }
-  if (rich) {
-    const dock = new THREE.Group();
-    dock.name = 'sky-dock';
-    dock.position.set(14, 5.5, -22);
-    const hullMat = new THREE.MeshBasicMaterial({ color: '#1a1020' });
-    const hull = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.7, 1.1), hullMat);
-    const mast = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.2, 0.08), hullMat);
-    mast.position.y = 1.2;
-    const pier = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.12, 0.35), hullMat);
-    pier.position.set(-2.2, -0.4, 0);
-    dock.add(hull, mast, pier);
-    root.add(dock);
-    const bridgeLight = new THREE.PointLight('#ffd7a8', 1.1, 7, 2);
-    bridgeLight.position.set(-4.6, 1.6, 0);
-    root.add(bridgeLight);
-  }
+  const mistMat = new THREE.MeshBasicMaterial({ color: '#f0c4a4', transparent: true, opacity: 0.22, depthWrite: false, fog: false });
+  const mist = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 16), mistMat);
+  mist.rotation.x = -Math.PI / 2;
+  mist.position.set(-4.6, 0.28, 0);
+  root.add(mist);
+  const ship = new THREE.Group();
+  ship.name = 'sky-dock';
+  ship.position.set(5.5, 6.8, -14);
+  const hullMat = new THREE.MeshBasicMaterial({ color: '#140818' });
+  const hull = new THREE.Mesh(new THREE.BoxGeometry(rich ? 5.2 : 4, 0.75, 1.1), hullMat);
+  const balloon = new THREE.Mesh(new THREE.SphereGeometry(0.85, 12, 8), hullMat);
+  balloon.scale.set(2.2, 0.7, 1);
+  balloon.position.y = 1.35;
+  const mast = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.3, 0.06), hullMat);
+  mast.position.set(-0.4, 0.9, 0);
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color: '#ffd7a4' }));
+  lamp.position.set(1.2, 0.15, 0.55);
+  ship.add(hull, balloon, mast, lamp);
+  root.add(ship);
+  const sun = new THREE.DirectionalLight('#ffe0c4', 0.85);
+  sun.position.set(7, 12, 5);
+  root.add(sun);
+  const stallLight = new THREE.PointLight('#ffd8b0', 2.6, 5.5, 2);
+  stallLight.position.set(0.55, 1.55, -0.6);
+  root.add(stallLight);
+  const friendLight = new THREE.PointLight('#ffd0a8', 0.45, 4, 2);
+  friendLight.position.set(1.5, 1.65, 2.7);
+  root.add(friendLight);
   let nearStall = false;
   let cardT = 0;
   const onTap = (e) => {
@@ -323,13 +374,9 @@ function dressCanal(root, lib, low, add) {
       embers.setMatrixAt(i, emberDummy.matrix);
     }
     embers.instanceMatrix.needsUpdate = true;
-    streaks.forEach((s) => {
-      s.position.y -= s.userData.speed * dt;
-      if (s.position.y < 0.2) s.position.y = 3.2;
-    });
     cardT += dt;
     if (cardT > 5) { cardT = 0; stockI = (stockI + 1) % STOCK.length; paintCard(); }
-    nearStall = !!(walker && Math.hypot(walker.feet.x - 0.55, walker.feet.z + 0.55) < 2.4);
+    nearStall = !!(walker && Math.hypot(walker.feet.x - 1.15, walker.feet.z + 0.6) < 2.4);
     card.scale.setScalar(nearStall ? 1.15 : 1);
   };
 }
@@ -357,10 +404,12 @@ export function createCityBlock(seed = 1, low = false) {
     const quay = [];
     for (let z = -8; z <= 7; z++) quay.push([-3, z]);
     add('planks', quay, 0.02, Math.PI / 2);
-    const span = [];
-    for (let x = -6; x <= -2; x++) span.push([x, 0]);
-    add('planks', span, 0.2, 0);
-    add('pillar-wood', [[-6, 0], [-3.2, 0]], 0, 0);
+    if (moss) {
+      const span = [];
+      for (let x = -6; x <= -2; x++) span.push([x, 0]);
+      add('planks', span, 0.2, 0);
+      add('pillar-wood', [[-6, 0], [-3.2, 0]], 0, 0);
+    }
     const right = [-7, -4, -1, 2, 5];
     const left = [-6, -3, 0, 3, 6];
     const stories = [3, 2, 3, 2, 3];
@@ -387,9 +436,10 @@ export function createCityBlock(seed = 1, low = false) {
     };
     bank(4.4, right, Math.PI, 1);
     bank(-7.4, left, 0, -1);
-    add(moss ? 'stall-green' : 'stall-red', [[0.4, -4.2], [0.4, -0.6], [0.4, 3.2]], 0, Math.PI / 2);
+    add(moss ? 'stall-green' : 'stall-red', [[0.4, -4.2], [0.4, 3.2]], 0, Math.PI / 2);
+    if (moss) add('stall-green', [[0.4, -0.6]], 0, Math.PI / 2);
     add('cart', [[1.5, -2.2], [1.7, 2.4]], 0, 0.5);
-    add('wall-wood-block', [[1.9, -4.5], [2.15, -3.9], [1.85, -0.3], [2.1, 0.4], [1.9, 2.9], [2.15, 3.6]], 0, 0.4, null, 0.38);
+    if (moss) add('wall-wood-block', [[1.9, -4.5], [2.15, -3.9], [1.85, -0.3], [2.1, 0.4], [1.9, 2.9], [2.15, 3.6]], 0, 0.4, null, 0.38);
     const lamps = [];
     for (let z = -7; z <= 6; z += 2.4) lamps.push([-2.35, z]);
     add('lantern', lamps, 0, 0);
@@ -407,7 +457,7 @@ export function createCityBlock(seed = 1, low = false) {
     const dock = [[0.2, -7.4], [1.4, -7.4], [0.2, -6.4], [1.4, -6.4]];
     add('pillar-wood', dock, 0, 0);
     add('planks', dock, 1.0, 0);
-    add('stairs-stone', [[0.8, -5.6]], 0, 0);
+    if (moss) add('stairs-stone', [[0.8, -5.6]], 0, 0);
     root.add(water);
     if (flies) root.add(flies);
     lamps.forEach(([x, z], i) => {
@@ -453,7 +503,7 @@ export function createCityBlock(seed = 1, low = false) {
     root.add(glows);
     glow = glows;
     root.add(skyDome(moss));
-    const fill = new THREE.HemisphereLight(moss ? '#8eaea4' : '#6a4e78', moss ? '#2a3028' : '#3a2418', moss ? 0.55 : 0.42);
+    const fill = new THREE.HemisphereLight(moss ? '#8eaea4' : '#c4a0b0', moss ? '#2a3028' : '#6a4030', moss ? 0.55 : 0.78);
     root.add(fill);
     if (!moss) dressTick = dressCanal(root, lib, low, add);
   });
@@ -463,7 +513,7 @@ export function createCityBlock(seed = 1, low = false) {
     root,
     moss,
     ready,
-    fog: moss ? ['#7f9a86', 14, 36] : ['#e09048', 16, 40],
+    fog: moss ? ['#7f9a86', 14, 36] : ['#d08868', 26, 64],
     setGlow(on) { glowOn = !!on; if (glow) glow.visible = glowOn; },
     tick(dt, walker) {
       water.material.uniforms.uTime.value += dt;

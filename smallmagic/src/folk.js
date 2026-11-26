@@ -408,6 +408,7 @@ export function createFolk({ scene, world, living, zones, phone }) {
   }
 
   return {
+    root,
     ready,
     update(dt, walker, dusk, extra) {
       if (!people.length && finds.length === 0) return;

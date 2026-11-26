@@ -71,3 +71,7 @@ The hub stand-in had no textures and a near-black skin color, so its head read a
 ## Block 31 — lantern canal
 
 The seeded canal block keeps the Kenney street and adds a stone arch, rock banks, stepped stalls, cloth awnings, a boba counter, and a stock card that turns through four drinks. Lantern strings sway on desktop. Embers drift. Phone keeps the arch, one awning, and fewer embers. The porcelain face no longer paints tear tracks down the skin. Short crazing sits at the temples, the eyes are rose, and a pink wisp floats at her shoulder.
+
+## Block 32 — canal craft
+
+The stairs and the loose wood cube are off the water. A stone arch with a railed deck runs from bank to bank. Houses have solid sides, backs, and warm windows. The sky is twilight, with a moon and an airship on the horizon, and mist sits on the canal. Stall cloth stays above head height. Sable keeps the boba counter, with a warm light on her and on Lumen down the street. The spell wheel stays hidden while the free camera is up.
