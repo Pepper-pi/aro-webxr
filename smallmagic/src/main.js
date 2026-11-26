@@ -164,6 +164,7 @@ const hub = createHub({
   toast(text) { zones.toast(text); },
   living,
   mind,
+  sky() { return zones.boardSky(); },
 });
 zones.onLand = () => { const shore = hexes.at(walker.feet.x, walker.feet.z); hexes.grant(shore?.id || 'shore', shore ? 16 : 8); };
 zones.seatHexes(hexes.list);
@@ -1059,7 +1060,7 @@ function tickStep(dt, draw) {
     if (castArmed) { firePrimary(false); castArmed = false; }
     selectHold = 0;
   }
-  zones.showMage(settings.class === 'mage' && settings.viewBack && zones.name !== 'hub' && !avatar.ready);
+  zones.showMage(settings.class === 'mage' && settings.viewBack && zones.name !== 'hub' && zones.name !== 'deck' && !avatar.ready);
   zones.aim({
     x: walker.feet.x,
     z: walker.feet.z,
@@ -1073,7 +1074,7 @@ function tickStep(dt, draw) {
   zones.update(dt, { mood: mind.mood('maren') });
   appeal.scan(scene);
   appeal.update(dt);
-  post.dusk = !!zones.dusk;
+  post.dusk = !!zones.dusk && zones.name !== 'hub';
   if (zones.name !== 'hub') {
     const card = document.getElementById('hearthGreet');
     if (card) card.hidden = true;
@@ -1188,6 +1189,12 @@ function tickStep(dt, draw) {
     camera.lookAt(walker.feet.x + fx * 1.1, walker.feet.y + 1.05, walker.feet.z + fz * 1.1);
     const headGap = Math.hypot(camera.position.x - walker.feet.x, camera.position.y - walker.feet.y - 1.5, camera.position.z - walker.feet.z);
     if (headGap < 0.95) walker.look(camera);
+  } else if (zones.name === 'deck' && !free && !duel.active) {
+    const yaw = walker.yaw;
+    const fx = Math.sin(yaw);
+    const fz = Math.cos(yaw);
+    camera.position.set(walker.feet.x - fx * 1.7, walker.feet.y + 1.58, walker.feet.z - fz * 1.7);
+    camera.lookAt(walker.feet.x + fx * 6, walker.feet.y + 1.15, walker.feet.z + fz * 6);
   } else if (zones.atLake && !free && !duel.active) {
     const far = settings.viewBack;
     const dist = far ? 9.2 : 3.3;

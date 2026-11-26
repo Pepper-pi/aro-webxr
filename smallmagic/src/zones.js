@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { createBeasts, PACKS, patchWebKitImageBitmap } from './beasts.js';
 import { createHearthShell } from './hearthroom.js';
 import { createCityBlock } from './cityblock.js';
+import { createSkyDeck } from './skydeck.js';
 import { createCompanion, rareFollowRate } from './maren.js';
 import { TUNE } from './rider.js';
 import { buildVillage } from './cabins.js';
@@ -99,14 +100,34 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   const hub = new THREE.Group();
   const canal = createCityBlock(1, detail === 'low');
   const ruin = createCityBlock(2, detail === 'low');
+  const skyDeck = createSkyDeck(detail === 'low');
   canal.root.visible = false;
   ruin.root.visible = false;
-  scene.add(canal.root, ruin.root);
+  skyDeck.root.visible = false;
+  scene.add(canal.root, ruin.root, skyDeck.root);
+  let lanternRain = false;
+  const moor = new THREE.Group();
+  moor.name = 'sky-door';
+  moor.position.set(0.35, 0, -4.7);
+  const moorBrass = new THREE.MeshStandardMaterial({ color: '#e0b45a', metalness: 0.55, roughness: 0.35 });
+  const moorDoor = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.05, 8, 20), moorBrass);
+  moorDoor.position.y = 1.05;
+  const moorMouth = new THREE.Mesh(new THREE.CircleGeometry(0.5, 16), new THREE.MeshBasicMaterial({ color: '#140c18' }));
+  moorMouth.position.set(0, 1.05, 0.02);
+  const moorStep = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.08, 0.9), new THREE.MeshStandardMaterial({ color: '#6a4030', roughness: 0.8 }));
+  moorStep.position.set(0, 0.08, 0.7);
+  const moorTag = labelSprite('Sky deck');
+  moorTag.position.set(0, 1.85, 0);
+  moor.add(moorDoor, moorMouth, moorStep, moorTag);
+  canal.root.add(moor);
+  const setLanternRain = (on) => {
+    lanternRain = !!on;
+    canal.setRain(lanternRain && name === 'block');
+    const btn = document.getElementById('canalSky');
+    if (btn) btn.textContent = lanternRain ? 'Clear dusk' : 'Lantern rain';
+  };
   document.getElementById('canalSky')?.addEventListener('pointerup', (e) => {
-    const btn = e.currentTarget;
-    const on = btn.textContent !== 'Clear dusk';
-    canal.setRain(on);
-    btn.textContent = on ? 'Clear dusk' : 'Lantern rain';
+    setLanternRain(!lanternRain);
     e.preventDefault();
     e.stopPropagation();
   });
@@ -972,6 +993,9 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   const catchEl = document.getElementById('catch');
   const FISH = ['Bluegill', 'Sunperch', 'Reed carp', 'Golden shiner', 'Creek trout'];
   let name = 'hub';
+  let deckFrom = 'hub';
+  let leftDeck = false;
+  let leftMoor = false;
   let atLake = false;
   let fishZoom = 0;
   let dest = 'meadow';
@@ -1024,10 +1048,9 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     canal.root.visible = next === 'block';
     ruin.root.visible = next === 'ruin';
     const skyBtn = document.getElementById('canalSky');
-    if (skyBtn) {
-      skyBtn.hidden = next !== 'block';
-      if (next !== 'block') { canal.setRain(false); skyBtn.textContent = 'Lantern rain'; }
-    }
+    if (skyBtn) skyBtn.hidden = next !== 'block';
+    canal.setRain(next === 'block' && lanternRain);
+    skyDeck.root.visible = next === 'deck';
     if (next === 'lake') {
       atLake = true;
       name = 'meadow';
@@ -1064,6 +1087,23 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       hideBoard();
       resetFish();
       place(0.2, 4.4, Math.PI);
+      return;
+    }
+    if (next === 'deck') {
+      if (name !== 'deck') deckFrom = name === 'block' ? 'block' : 'hub';
+      name = 'deck';
+      world.root.visible = false;
+      hub.visible = false;
+      meadowRing.visible = false;
+      hold.visible = false;
+      world.home = [0, 0]; world.edge = 3.15; world.colliders = [];
+      world.blockers = null; world.walk = () => 0; world.wade = null;
+      if (back) { back.hidden = false; back.textContent = deckFrom === 'block' ? 'Canal' : 'Hearth'; }
+      if (menu) menu.hidden = true;
+      hideBoard();
+      resetFish();
+      leftDeck = false;
+      place(0, 0.15, Math.PI);
       return;
     }
     const outside = next === 'meadow' || next === 'plot';
@@ -1251,6 +1291,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   });
   back?.addEventListener('pointerup', (e) => {
     if (atLake) enter('meadow');
+    else if (name === 'deck') enter(deckFrom || 'hub');
     else if (name === 'block' || name === 'ruin') enter('hub');
     else if (menu) menu.hidden = false;
     e.preventDefault();
@@ -1589,6 +1630,14 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     get dusk() { return dusk; },
     get fishZoom() { return fishZoom; },
     setDusk,
+    setLanternRain,
+    boardSky() {
+      const h = new Date().getHours();
+      let time = 'Day';
+      if (h >= 21 || h < 5) time = 'Evening';
+      else if (dusk || h >= 17) time = 'Dusk';
+      return { time, weather: lanternRain ? 'Lantern Rain' : 'Clear' };
+    },
     set roomWeather(v) { roomWeather = v || 'clear'; },
     get nearFriend() { return nearId; },
     setDetail(low) {
@@ -1858,7 +1907,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       if (d > 2.4) leftRing = true;
       const reach = name === 'hub' ? 1.65 : 0.95;
       if (leftRing && performance.now() >= armUntil && d < reach) enter(name === 'hub' ? dest : 'hub');
-      you.visible = !atLake && name !== 'hub' && (buddyBody.visible || (showMage && name === 'meadow'));
+      you.visible = !atLake && name !== 'hub' && name !== 'deck' && (buddyBody.visible || (showMage && name === 'meadow'));
       if (you.visible) {
         const y = name === 'hub' ? 0 : world.ground(walker.feet.x, walker.feet.z);
         you.position.set(walker.feet.x, y, walker.feet.z);
@@ -1906,8 +1955,19 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         if (into === 'board') { if (panel?.hidden) showBoard(); }
         else if (into) enter('hub');
       }
-      if (name === 'block') canal.tick(dt, walker);
+      if (name === 'block') {
+        canal.tick(dt, walker);
+        const md = Math.hypot(walker.feet.x - 0.35, walker.feet.z + 4.7);
+        if (md > 2.1) leftMoor = true;
+        if (leftMoor && performance.now() >= armUntil && md < 1.15) enter('deck');
+      }
       if (name === 'ruin') ruin.tick(dt);
+      if (name === 'deck') {
+        skyDeck.tick(dt);
+        const ed = Math.hypot(walker.feet.x - skyDeck.exit.x, walker.feet.z - skyDeck.exit.z);
+        if (ed > 1.7) leftDeck = true;
+        if (leftDeck && performance.now() >= armUntil && ed < 1.05) enter(deckFrom || 'hub');
+      }
       const cityFolk = { sable: [1.72, -0.6, -Math.PI / 2], lumen: [2.2, 2.7, 0.4] };
       for (const [id, ctl] of Object.entries(ctls)) {
         const home = pals.find((p) => p.id === id)?.g;

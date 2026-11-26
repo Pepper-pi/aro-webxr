@@ -97,23 +97,59 @@ function hexSum() {
   return Object.values(hexXp()).reduce((n, v) => n + (Number(v) || 0), 0);
 }
 
-const REQUESTS = [
-  { id: 'trout', who: 'sable', title: 'A creek trout', note: 'One real catch from Long Lake.', need: 1, get: () => fishCount('trout'), rewardF: 8, rewardR: 6 },
-  { id: 'anyfish', who: 'sable', title: 'Two for the pan', note: 'Any two fish in the book.', need: 2, get: () => fishCount(), rewardF: 6, rewardR: 5 },
-  { id: 'lantern', who: 'lumen', title: 'A dusk lantern', note: 'The evening fish, if the lake is dark.', need: 1, get: () => fishCount('lantern'), rewardF: 10, rewardR: 8 },
-  { id: 'herb', who: 'maren', title: 'Hearth herbs', note: 'One herb picked in a hex.', need: 1, get: () => herbs(), rewardF: 7, rewardR: 5 },
-  { id: 'hex', who: 'bram', title: 'Wake a hex', note: 'Twenty resonance, across any hexes.', need: 20, get: () => hexSum(), rewardF: 6, rewardR: 8 },
-  { id: 'tea', who: 'maren', title: 'Tea at the hearth', note: 'Share tea with Maren.', need: 1, get: (s) => s.people.maren?.hangs || 0, rewardF: 8, rewardR: 4 },
-  { id: 'spar', who: 'bram', title: 'A friendly spar', note: 'Practice once with Bram.', need: 1, get: (s) => s.people.bram?.hangs || 0, rewardF: 4, rewardR: 8 },
-  { id: 'stroll', who: 'sable', title: 'Evening stroll', note: 'Walk the lake talk with Sable.', need: 1, get: (s) => s.people.sable?.hangs || 0, rewardF: 8, rewardR: 4 },
+const MANNER = {
+  maren: {
+    Day: 'sets a cup down and uses her morning voice',
+    Dusk: 'keeps her voice near the fire, softer than the room',
+    Evening: 'speaks from the dark side of the hearth',
+    rain: 'She glances at the wet sill.',
+  },
+  sable: {
+    Day: 'talks like the lake is still bright and easy',
+    Dusk: 'goes quiet, the way she does when the reeds light up',
+    Evening: 'sounds amused, as if the dark were a joke she keeps',
+    rain: 'Rain ticks on her collar.',
+  },
+  bram: {
+    Day: 'stands square and says it once',
+    Dusk: 'checks the rim of the hex before he finishes the sentence',
+    Evening: 'speaks lower, like a watch that does not want to wake the yard',
+    rain: 'He shakes water off a glove.',
+  },
+  lumen: {
+    Day: 'is bright, and a little too quick',
+    Dusk: 'cups a hand near her bead and whispers the ask',
+    Evening: 'reads it like a note she already wrote in the margin',
+    rain: 'Her lantern bead fogs, then clears.',
+  },
+};
+const PINS = [
+  { id: 'herb-day', who: 'maren', title: 'Herbs while it is bright', note: 'One herb, before the day turns.', voice: 'The kettle can wait. Bring something green.', times: ['Day'], weathers: ['Clear'], need: 1, get: () => herbs(), rewardF: 7, rewardR: 5 },
+  { id: 'shutters', who: 'maren', title: 'Latch the wet sill', note: 'Stay a moment while the lantern rain is up.', voice: 'The sill drinks every drop. Sit with me until it eases.', times: ['Day', 'Dusk', 'Evening'], weathers: ['Lantern Rain'], need: 1, get: (s) => s.people.maren?.hangs || 0, rewardF: 8, rewardR: 5 },
+  { id: 'tea-dusk', who: 'maren', title: 'Tea at the turning', note: 'Share tea once the light goes copper.', voice: 'Dusk tea, not morning tea. The cup knows the difference.', times: ['Dusk'], weathers: ['Clear', 'Lantern Rain'], need: 1, get: (s) => s.people.maren?.hangs || 0, rewardF: 8, rewardR: 4 },
+  { id: 'coals', who: 'maren', title: 'Keep the coals', note: 'An evening story, and the fire left fed.', voice: 'Evening is for the coals. Tell me one true thing.', times: ['Evening'], weathers: ['Clear', 'Lantern Rain'], need: 1, get: (s) => s.people.maren?.hangs || 0, rewardF: 9, rewardR: 4 },
+  { id: 'trout-day', who: 'sable', title: 'A daylight trout', note: 'One creek trout while the water is plain.', voice: 'Day fish are honest. One trout, no glow.', times: ['Day'], weathers: ['Clear'], need: 1, get: () => fishCount('trout'), rewardF: 8, rewardR: 6 },
+  { id: 'reed-dusk', who: 'sable', title: 'A dusk lantern fish', note: 'The evening fish, if the lake is dark.', voice: 'Wait until the belly-lamps rise. Then cast.', times: ['Dusk', 'Evening'], weathers: ['Clear', 'Lantern Rain'], need: 1, get: () => fishCount('lantern'), rewardF: 10, rewardR: 8 },
+  { id: 'rain-lamps', who: 'sable', title: 'Two lamps in the rain', note: 'Any two fish, caught while the canal is wet.', voice: 'The canal hisses. Bring two fish and we will call the lamps honest.', times: ['Day', 'Dusk', 'Evening'], weathers: ['Lantern Rain'], need: 2, get: () => fishCount(), rewardF: 6, rewardR: 6 },
+  { id: 'stroll-eve', who: 'sable', title: 'Walk the dark water', note: 'An evening stroll, not a noon one.', voice: 'Evening water tells different lies. Walk it with me.', times: ['Evening'], weathers: ['Clear'], need: 1, get: (s) => s.people.sable?.hangs || 0, rewardF: 8, rewardR: 4 },
+  { id: 'hex-day', who: 'bram', title: 'Wake a daylight hex', note: 'Twenty resonance while the yard is bright.', voice: 'Daylight first. Twenty resonance, then you may talk about dusk.', times: ['Day'], weathers: ['Clear', 'Lantern Rain'], need: 20, get: () => hexSum(), rewardF: 6, rewardR: 8 },
+  { id: 'patrol-dusk', who: 'bram', title: 'Walk the dusk rim', note: 'One spar, at the turning of the light.', voice: 'Dusk is when the rim lies. Step it with me. Blunted.', times: ['Dusk'], weathers: ['Clear', 'Lantern Rain'], need: 1, get: (s) => s.people.bram?.hangs || 0, rewardF: 4, rewardR: 8 },
+  { id: 'rain-watch', who: 'bram', title: 'Hold the wet post', note: 'Stand a watch while the lantern rain falls.', voice: 'Rain makes people hurry. Do not. One watch is enough.', times: ['Day', 'Dusk', 'Evening'], weathers: ['Lantern Rain'], need: 1, get: (s) => s.people.bram?.hangs || 0, rewardF: 5, rewardR: 7 },
+  { id: 'night-pin', who: 'bram', title: 'One pin, then sleep', note: 'Twenty resonance before the evening closes.', voice: 'Evening boards get fat. Pick the hex and finish it.', times: ['Evening'], weathers: ['Clear'], need: 20, get: () => hexSum(), rewardF: 6, rewardR: 9 },
+  { id: 'wrist-day', who: 'lumen', title: 'A calm morning wrist', note: 'Practice once, while the day is clear.', voice: 'Frost, slow, in the daylight. Then stop.', times: ['Day'], weathers: ['Clear'], need: 1, get: (s) => s.people.lumen?.hangs || 0, rewardF: 6, rewardR: 4 },
+  { id: 'bead-dusk', who: 'lumen', title: 'Light the dusk bead', note: 'One herb, for a wick, at dusk.', voice: 'Dusk likes a small flame. An herb will do for the wick.', times: ['Dusk'], weathers: ['Clear', 'Lantern Rain'], need: 1, get: () => herbs(), rewardF: 7, rewardR: 6 },
+  { id: 'rain-bead', who: 'lumen', title: 'Keep the bead clear', note: 'Stay while the rain fogs the glass.', voice: 'Lantern rain beads on everything. Wipe the bead, then tell me a spell.', times: ['Day', 'Dusk', 'Evening'], weathers: ['Lantern Rain'], need: 1, get: (s) => s.people.lumen?.hangs || 0, rewardF: 6, rewardR: 5 },
+  { id: 'margin-eve', who: 'lumen', title: 'The evening margin', note: 'A found gift, after the lamps are the only light.', voice: 'I left the evening note in the margin. Bring something you found.', times: ['Evening'], weathers: ['Clear', 'Lantern Rain'], need: 1, get: () => fishCount() + herbs(), rewardF: 8, rewardR: 5 },
 ];
 
 const NEEDS = [
-  { item: 'herb', title: 'A moss sprig', note: 'One herb picked in a hex.', who: 'maren' },
-  { item: 'trout', title: 'One creek trout', note: 'A trout from Long Lake. Pays respect.', who: 'sable' },
-  { item: 'eel', title: 'A violet eel', note: 'An evening fish from the glowing water.', who: 'sable' },
-  { item: 'tusk', title: 'A boar tusk', note: 'A drop from a hex fight.', who: 'bram' },
-  { item: 'wick', title: 'A lantern wick', note: 'A crafted bit from a hearth hex.', who: 'lumen' },
+  { item: 'herb', title: 'A morning sprig', note: 'One herb, while the day is clear.', who: 'maren', times: ['Day'], weathers: ['Clear'], voice: 'Morning herbs smell like the path.' },
+  { item: 'trout', title: 'One daylight trout', note: 'A trout from Long Lake. Pays respect.', who: 'sable', times: ['Day'], weathers: ['Clear', 'Lantern Rain'], voice: 'Daylight trout. No stories instead.' },
+  { item: 'eel', title: 'A violet eel', note: 'An evening fish from the glowing water.', who: 'sable', times: ['Dusk', 'Evening'], weathers: ['Clear', 'Lantern Rain'], voice: 'The eel only after the sky goes purple.' },
+  { item: 'tusk', title: 'A wet-weather tusk', note: 'A drop from a hex fight in the rain.', who: 'bram', times: ['Day', 'Dusk', 'Evening'], weathers: ['Lantern Rain'], voice: 'Rain fights are shorter. Bring the tusk anyway.' },
+  { item: 'tusk', title: 'A dusk tusk', note: 'A drop from a hex fight at the turning.', who: 'bram', times: ['Dusk', 'Evening'], weathers: ['Clear'], voice: 'Dusk tusks. Not a noon trophy.' },
+  { item: 'wick', title: 'A lantern wick', note: 'A crafted bit, once the lamps matter.', who: 'lumen', times: ['Dusk', 'Evening'], weathers: ['Clear', 'Lantern Rain'], voice: 'The wick is for dusk, not for noon.' },
+  { item: 'herb', title: 'A rain herb', note: 'One herb picked while the lanterns drip.', who: 'maren', times: ['Day', 'Dusk', 'Evening'], weathers: ['Lantern Rain'], voice: 'Wet herbs keep. Bring one in.' },
 ];
 function bagCount(item) {
   if (item === 'herb') return herbs();
@@ -121,18 +157,38 @@ function bagCount(item) {
   if (item === 'eel') return fishCount('eel') + fishCount('glowfin') + fishCount('lantern');
   try { return JSON.parse(localStorage.getItem('aro-beast-drops') || '{}')[item] || 0; } catch { return 0; }
 }
-function pickBoard(seed) {
-  const fish = REQUESTS.filter((r) => r.id === 'trout' || r.id === 'anyfish' || r.id === 'lantern');
-  const hang = REQUESTS.filter((r) => r.id === 'tea' || r.id === 'spar' || r.id === 'stroll');
-  const chosen = [
-    fish[seed % fish.length],
-    REQUESTS.find((r) => r.id === 'herb'),
-    REQUESTS.find((r) => r.id === 'hex'),
-    hang[seed % hang.length],
-  ];
-  const rest = REQUESTS.filter((r) => !chosen.includes(r));
-  chosen.push(rest[(seed + 2) % rest.length]);
-  return chosen;
+function shuffle(list, seed) {
+  const a = list.slice();
+  let s = (seed * 9301 + 49297) % 233280;
+  for (let i = a.length - 1; i > 0; i--) {
+    s = (s * 9301 + 49297) % 233280;
+    const j = s % (i + 1);
+    const swap = a[i];
+    a[i] = a[j];
+    a[j] = swap;
+  }
+  return a;
+}
+function manner(who, sky) {
+  const row = MANNER[who] || MANNER.maren;
+  const line = row[sky.time] || row.Day;
+  return sky.weather === 'Lantern Rain' ? `${line}. ${row.rain}` : line;
+}
+function pickBoard(seed, sky) {
+  const fit = (row) => (!row.times || row.times.includes(sky.time)) && (!row.weathers || row.weathers.includes(sky.weather));
+  const strict = PINS.filter(fit);
+  const bag = strict.length >= 4 ? strict : PINS.filter((row) => !row.times || row.times.includes(sky.time));
+  const order = shuffle(bag.length ? bag : PINS, seed + sky.time.length * 5 + (sky.weather === 'Lantern Rain' ? 19 : 3));
+  const picked = [];
+  for (const id of ['maren', 'sable', 'bram', 'lumen']) {
+    const row = order.find((pin) => pin.who === id && !picked.includes(pin));
+    if (row) picked.push(row);
+  }
+  for (const row of order) {
+    if (picked.length >= 4) break;
+    if (!picked.includes(row)) picked.push(row);
+  }
+  return picked;
 }
 
 function hideQuest(on) {
@@ -144,6 +200,11 @@ export function createHub(hooks = {}) {
   let data = state();
   let who = null;
   let lastLine = '';
+  let currentPins = [];
+  let skyKey = 'Day|Clear';
+  function skyNow() {
+    return hooks.sky?.() || { time: 'Day', weather: 'Clear' };
+  }
 
   function persist() { save(data); }
 
@@ -253,11 +314,13 @@ export function createHub(hooks = {}) {
     renderHome();
   }
 
-  function ensureNeed() {
+  function ensureNeed(sky) {
     const now = Date.now();
-    if (!data.need || data.need.until < now) {
-      const pick = NEEDS[Math.floor(Math.random() * NEEDS.length)];
-      data.need = { item: pick.item, title: pick.title, note: pick.note, who: pick.who, until: now + 90000 };
+    const key = `${sky.time}|${sky.weather}`;
+    if (!data.need || data.need.sky !== key || data.need.until < now) {
+      const pool = NEEDS.filter((row) => (!row.times || row.times.includes(sky.time)) && (!row.weathers || row.weathers.includes(sky.weather)));
+      const pick = (pool.length ? pool : NEEDS)[data.boardSeed % (pool.length || NEEDS.length)];
+      data.need = { item: pick.item, title: pick.title, note: pick.note, who: pick.who, voice: pick.voice, sky: key, until: now + 90000 };
       persist();
     }
     return data.need;
@@ -265,33 +328,28 @@ export function createHub(hooks = {}) {
   function renderBoard() {
     const list = document.getElementById('crewList');
     const rank = document.getElementById('crewRank');
+    const sky = skyNow();
+    skyKey = `${sky.time}|${sky.weather}`;
     if (rank) rank.textContent = `Respect · ${crewName(data.respect)} · ${data.respect}`;
+    const skyEl = document.getElementById('crewSky');
+    if (skyEl) skyEl.textContent = `${sky.time} · ${sky.weather}`;
     if (!list) return;
-    const need = ensureNeed();
+    const need = ensureNeed(sky);
     const left = Math.max(0, Math.ceil((need.until - Date.now()) / 1000));
     const clock = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
     const haveNeed = bagCount(need.item);
     const needPerson = PEOPLE.find((p) => p.id === need.who);
     const needReady = haveNeed >= 1 && !data.done[`need:${need.until}`];
     const needDone = !!data.done[`need:${need.until}`];
-    const pins = pickBoard(data.boardSeed);
-    const randomPin = `<div class="pin"><b>${need.title}</b><br>${needPerson.name} · ${need.note}<br>${Math.min(1, haveNeed)}/1 · ${clock} left · +10 respect · bonus +6<br>${needDone ? 'Turned in.' : `<button type="button" data-turn="random" ${needReady ? '' : 'disabled'}>${needReady ? 'Turn in' : 'In progress'}</button>`}</div>`;
-    const living = hooks.living;
-    let today = '';
-    if (living) {
-      const ctx = living.context();
-      const quest = living.issueQuest();
-      const aid = living.help(quest.item);
-      const stalls = living.stalls();
-      const net = living.roster();
-      today = `<div class="pin"><b>${ctx.weather} · ${ctx.season} · ${ctx.time}</b><br>${quest.line}${aid ? `<br>${aid.line}` : ''}<br>${stalls.map((s) => s.line).join('<br>')}<br>${net.map((n) => n.line).join(' · ')}</div>`;
-    }
-    list.innerHTML = today + randomPin + pins.map((pin) => {
+    currentPins = pickBoard(data.boardSeed, sky);
+    const randomPin = `<div class="pin"><b>${need.title}</b><br>${needPerson.name} · ${manner(need.who, sky)}<br><span class="voice">“${need.voice || need.note}”</span><br>${Math.min(1, haveNeed)}/1 · ${clock} left · +10 respect · +6 bond<br>${needDone ? 'Turned in.' : `<button type="button" data-turn="random" ${needReady ? '' : 'disabled'}>${needReady ? 'Turn in' : 'In progress'}</button>`}</div>`;
+    list.innerHTML = `<div class="pin"><b>${sky.time} · ${sky.weather}</b><br>The board changes with the light and the canal rain. Each voice asks for something else.</div>` + randomPin + currentPins.map((pin) => {
       const person = PEOPLE.find((p) => p.id === pin.who);
       const have = Math.min(pin.need, pin.get(data));
-      const ready = have >= pin.need && !data.done[`${data.boardSeed}:${pin.id}`];
-      const turned = !!data.done[`${data.boardSeed}:${pin.id}`];
-      return `<div class="pin"><b>${pin.title}</b><br>${person.name} · ${pin.note}<br>${have}/${pin.need} · +${pin.rewardR} respect · +${pin.rewardF} friendship${turned ? '<br>Turned in.' : ''}<br>${turned ? '' : `<button type="button" data-turn="${pin.id}" ${ready ? '' : 'disabled'}>${ready ? 'Turn in' : 'In progress'}</button>`}</div>`;
+      const key = `${data.boardSeed}:${skyKey}:${pin.id}`;
+      const ready = have >= pin.need && !data.done[key];
+      const turned = !!data.done[key];
+      return `<div class="pin"><b>${pin.title}</b><br>${person.name} · ${manner(pin.who, sky)}<br><span class="voice">“${pin.voice}”</span><br>${pin.note}<br>${have}/${pin.need} · +${pin.rewardR} respect · +${pin.rewardF} bond${turned ? '<br>Turned in.' : ''}<br>${turned ? '' : `<button type="button" data-turn="${pin.id}" ${ready ? '' : 'disabled'}>${ready ? 'Turn in' : 'In progress'}</button>`}</div>`;
     }).join('');
     list.querySelectorAll('[data-turn]').forEach((b) => b.addEventListener('pointerup', (e) => {
       turnIn(b.getAttribute('data-turn'));
@@ -319,9 +377,9 @@ export function createHub(hooks = {}) {
       renderBoard();
       return;
     }
-    const pin = REQUESTS.find((r) => r.id === id);
+    const pin = currentPins.find((r) => r.id === id) || PINS.find((r) => r.id === id);
     if (!pin) return;
-    const key = `${data.boardSeed}:${pin.id}`;
+    const key = `${data.boardSeed}:${skyKey}:${pin.id}`;
     if (data.done[key]) return;
     if (pin.get(data) < pin.need) return;
     data.done[key] = true;
@@ -408,6 +466,8 @@ export function createHub(hooks = {}) {
     const travel = document.getElementById('board');
     if (travel) travel.hidden = true;
     hideQuest(true);
+    const banner = document.getElementById('hexbanner');
+    if (banner) banner.hidden = true;
     renderBoard();
   }
   function closeAll() {

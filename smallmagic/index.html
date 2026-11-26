@@ -137,6 +137,7 @@
       #home h2, #crew h2 { text-align: center; margin: 0; color: #f7fbff; letter-spacing: 0.02em; }
       #home .sheetHead p.meta, #crew .sheetHead p.meta { margin: 0 0 2px; }
       #crew .pin { border-left: 3px solid #7ee0ff; }
+      #crew .pin .voice { color: #f1d9a4; font-style: italic; }
       #home .meta, #crew .meta { text-align: center; letter-spacing: 0.12em; text-transform: uppercase; color: #e6c27a; font-size: 12px; }
       #home .pal, #crew .pin { border: 1px solid rgba(241, 217, 164, 0.4); border-radius: 12px; padding: 8px 10px; margin: 6px 0; background: rgba(241, 217, 164, 0.06); }
       #home .pal.on { border-color: #f1d9a4; background: rgba(241, 217, 164, 0.16); }
@@ -515,7 +516,7 @@
             <p class="sub">The hearth, when you want it</p>
             <div class="hero hero-nook"></div>
             <div class="cards"><article><button type="button" id="openHome">Home</button></article><article><button type="button" data-trip="meadow">Field</button></article><article><button type="button" data-trip="hub">Ship</button></article></div>
-            <p class="row-go"><button type="button" data-trip="block">Lantern canal</button><button type="button" data-trip="ruin">Moss ruin</button></p>
+            <p class="row-go"><button type="button" data-trip="block">Lantern canal</button><button type="button" data-trip="deck">Sky deck</button><button type="button" data-trip="ruin">Moss ruin</button></p>
           </section>
           <section class="glass-pane" data-mpane="fishing">
             <h2>Fishing</h2>
@@ -552,7 +553,7 @@
       <div class="sheetBody"><div id="homeCrew"></div><div id="homeCard" hidden></div></div>
     </div>
     <div id="crew" hidden>
-      <div class="sheetHead"><div><p class="meta" id="crewRank">Respect · New</p><h2>Command board</h2><p class="meta">What the meadow is asking</p></div><button id="crewClose" type="button">Close</button></div>
+      <div class="sheetHead"><div><p class="meta" id="crewRank">Respect · New</p><h2>Command board</h2><p class="meta" id="crewSky">Day · Clear</p></div><button id="crewClose" type="button">Close</button></div>
       <div class="sheetBody"><div id="crewList"></div><button id="openBook" type="button">Bestiary</button><button id="crewRefresh" type="button">Refresh board</button></div>
     </div>
     <div id="discover" hidden>Discovered · Added to Bestiary</div>

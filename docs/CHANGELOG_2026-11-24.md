@@ -91,3 +91,7 @@ The canal has a Clear dusk / Lantern rain toggle. Rain streaks, wet cobbles with
 ## Block 36 — lake shore and the hearth
 
 The meadow stand-in stays off the lake. The Milky Way sits in the evening sky and fades out at its edges. A small pier, a warm lantern, and swaying reeds sit on the shore. The hub keeps the cooled firelight and adds a woven rug, a bookshelf, a sideboard, ceiling beams, and hanging lanterns. Companions and the porcelain healer stand on the open floor, clear of the furniture. Meeting or defeating a wolf, boar, crab, boss gel, or moth writes seen and defeated counts into the bestiary and shows a short discovery note.
+
+## Block 37 — sky deck, a living board, a clearer hearth
+
+The moored sky-ship has an observation deck: planks, brass and rope rails, a helm and compass, swaying lanterns, and the ribbed belly overhead, with a twilight horizon of peaks and distant lamps. A round door on the Lantern Canal and a Sky deck button in the menu both board it, and the stern door or Back steps off. Phone keeps fewer ribs and lamps. The command board asks in Maren, Sable, Bram, and Lumen's own manner, and the pins change with Day, Dusk, or Evening and with Clear or Lantern Rain. Turning one in still pays respect and bond. Inside the hearth, the outdoor dusk distance grade stays off so the room keeps its contrast.
