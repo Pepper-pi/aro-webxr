@@ -84,10 +84,10 @@ export function createHearthShell() {
   wallBox(11, 2.7, 0.18, 0, 1.35, 6.85);
   wallBox(0.18, 2.7, 14, -5.45, 1.35, 0);
   // The window wall is three boards around a pane, not one solid box.
-  wallBox(0.18, 2.7, 4.2, 5.45, 1.35, -4.6);
-  wallBox(0.18, 2.7, 4.2, 5.45, 1.35, 4.6);
-  wallBox(0.18, 0.7, 5.6, 5.45, 2.35, 0);
-  wallBox(0.18, 0.55, 5.6, 5.45, 0.28, 0);
+  wallBox(0.18, 2.7, 5.5, 5.45, 1.35, -4.05);
+  wallBox(0.18, 2.7, 5.5, 5.45, 1.35, 4.05);
+  wallBox(0.18, 0.7, 2.7, 5.45, 2.35, 0);
+  wallBox(0.18, 0.55, 2.7, 5.45, 0.28, 0);
   const ceil = new THREE.Mesh(new THREE.BoxGeometry(11, 0.12, 14), boards);
   ceil.position.y = 2.7;
   root.add(ceil);
@@ -151,6 +151,98 @@ export function createHearthShell() {
   plant(4.4, -1.6);
   plant(4.2, 1.8);
   plant(-4.4, 2.6);
+
+  const trim = new THREE.MeshStandardMaterial({ color: '#efe6d6', roughness: 0.45 });
+  const beamMat = new THREE.MeshStandardMaterial({ color: '#6a4030', roughness: 0.72 });
+  [[-4.2, 0], [4.2, 0]].forEach(([z]) => {
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(10.4, 0.12, 0.16), beamMat);
+    beam.position.set(0, 2.55, z);
+    root.add(beam);
+  });
+  const hang = (x, z) => {
+    const g = new THREE.Group();
+    const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.35, 4), beamMat);
+    cord.position.y = 0.16;
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), new THREE.MeshBasicMaterial({ color: '#fff4e6' }));
+    bulb.position.y = -0.08;
+    const lamp = new THREE.PointLight('#fff4e6', 0.28, 3.2, 2);
+    lamp.position.y = -0.08;
+    g.add(cord, bulb, lamp);
+    g.position.set(x, 2.35, z);
+    root.add(g);
+  };
+  hang(-1.4, -1.1);
+  hang(1.7, 1.15);
+  const rugCanvas = document.createElement('canvas');
+  rugCanvas.width = 256;
+  rugCanvas.height = 320;
+  {
+    const g = rugCanvas.getContext('2d');
+    g.fillStyle = '#5c2e32';
+    g.fillRect(0, 0, 256, 320);
+    g.fillStyle = '#e4c7a4';
+    g.fillRect(12, 14, 232, 292);
+    g.fillStyle = '#6a3836';
+    g.fillRect(24, 26, 208, 268);
+    for (let y = 26; y < 294; y += 10) {
+      for (let x = 24; x < 232; x += 10) {
+        const alt = ((x / 10) + (y / 10)) % 2;
+        g.fillStyle = alt ? '#7a403c' : '#8d4c46';
+        g.fillRect(x, y, 10, 10);
+        g.fillStyle = alt ? '#c4a07a' : '#a88462';
+        g.fillRect(x + 2, y + 4, 6, 2);
+      }
+    }
+    g.strokeStyle = '#f0d8b4';
+    g.lineWidth = 3;
+    g.strokeRect(30, 34, 196, 252);
+  }
+  const rugTex = new THREE.CanvasTexture(rugCanvas);
+  rugTex.colorSpace = THREE.SRGBColorSpace;
+  const rug = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.6, 4.4),
+    new THREE.MeshStandardMaterial({ map: rugTex, roughness: 0.92 }),
+  );
+  rug.rotation.x = -Math.PI / 2;
+  rug.position.set(0.2, 0.012, -0.4);
+  root.add(rug);
+  const shelf = new THREE.Group();
+  shelf.position.set(-4.85, 0, -1.4);
+  const caseMat = new THREE.MeshStandardMaterial({ color: '#6a4030', roughness: 0.7 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.42, 1.55, 1.5), caseMat);
+  body.position.y = 0.78;
+  shelf.add(body);
+  const bookColors = ['#8a3a3a', '#3a4a6a', '#6a5a32', '#3a5a48'];
+  for (let i = 0; i < 4; i++) {
+    const book = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.16), new THREE.MeshStandardMaterial({ color: bookColors[i], roughness: 0.6 }));
+    book.position.set(0.16, 0.45 + (i % 2) * 0.38, -0.4 + i * 0.22);
+    shelf.add(book);
+    const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.14, 6), new THREE.MeshStandardMaterial({ color: i % 2 ? '#7ec8c4' : '#c47ad4', roughness: 0.35, emissive: i % 2 ? '#1a3a38' : '#3a1840', emissiveIntensity: 0.25 }));
+    bottle.position.set(0.18, 1.15, -0.35 + i * 0.22);
+    shelf.add(bottle);
+  }
+  root.add(shelf);
+  const side = new THREE.Group();
+  side.position.set(3.5, 0, -4.15);
+  const cabinet = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.72, 0.42), caseMat);
+  cabinet.position.y = 0.36;
+  side.add(cabinet);
+  for (let i = 0; i < 3; i++) {
+    const jar = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), new THREE.MeshStandardMaterial({ color: '#d7c48a', roughness: 0.4, emissive: '#3a3018', emissiveIntensity: 0.2 }));
+    jar.position.set(-0.35 + i * 0.32, 0.78, 0);
+    side.add(jar);
+  }
+  root.add(side);
+  [[5.28, 2.15], [5.28, 0.55]].forEach(([x, y]) => {
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 2.7), trim);
+    bar.position.set(x, y, 0);
+    root.add(bar);
+  });
+  [[1.25], [-1.25]].forEach(([z]) => {
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.55, 0.08), trim);
+    bar.position.set(5.28, 1.35, z);
+    root.add(bar);
+  });
 
   const fireLight = new THREE.PointLight('#fff4e6', 0.72, 8, 2);
   fireLight.position.set(-3.2, 1.05, -4.7);

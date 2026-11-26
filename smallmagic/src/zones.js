@@ -186,10 +186,10 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     return s;
   };
   const pals = [
-    { id: 'maren', name: 'Maren', color: '#c45a4a', home: [-2.0, 0, -3.0], yaw: -0.4, line: 'The fire is the good seat.', file: 'maren' },
-    { id: 'sable', name: 'Sable', color: '#3d7a8c', home: [2.6, 0, -0.2], yaw: 1.4, line: 'Your fish are on the wall.', file: 'sable' },
-    { id: 'bram', name: 'Bram', color: '#6a8f4a', home: [1.2, 0, 1.2], yaw: 2.6, line: 'One hand. No stakes.', file: 'bram' },
-    { id: 'lumen', name: 'Lumen', color: '#c9a15b', home: [-1.8, 0, 2.2], yaw: -0.2, line: 'Rest if the day was long.', file: 'lumen' },
+    { id: 'maren', name: 'Maren', color: '#c45a4a', home: [-1.25, 0, -1.55], yaw: 0.35, line: 'The fire is the good seat.', file: 'maren' },
+    { id: 'sable', name: 'Sable', color: '#3d7a8c', home: [1.15, 0, -1.35], yaw: -0.4, line: 'Your fish are on the wall.', file: 'sable' },
+    { id: 'bram', name: 'Bram', color: '#6a8f4a', home: [0.4, 0, 0.55], yaw: 2.6, line: 'One hand. No stakes.', file: 'bram' },
+    { id: 'lumen', name: 'Lumen', color: '#c9a15b', home: [-1.05, 0, 0.4], yaw: 0.2, line: 'Rest if the day was long.', file: 'lumen' },
   ].map((p) => {
     const g = friend(p.color, p.home[0], p.home[2], p.yaw);
     const mark = emote('!');
@@ -430,8 +430,8 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         });
         const spot = new THREE.Group();
         spot.name = 'porcelain-healer';
-        spot.position.set(3.15, 0, 2.4);
-        spot.rotation.y = Math.PI;
+        spot.position.set(2.55, 0, 1.7);
+        spot.rotation.y = -2.15;
         spot.add(healer.root);
         const key = new THREE.PointLight('#f4f7ff', 2.1, 2.8, 2);
         key.position.set(0.05, 1.62, 0.95);
@@ -506,15 +506,14 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         if (!o.isMesh) return;
         for (const m of [].concat(o.material)) m.color.set('#2c4552');
       });
-      dyeRug(put(furn.rug, 0.2, 0, -0.4, 0, 0.04));
-      dyeRug(put(furn.rug, -3.4, 0, 3.0, 0.2, 0.03));
+      dyeRug(put(furn.rug, -4.2, 0, 5.5, 0.2, 0.02));
       put(furn.fire, -3.55, 0.3, -4.82, 0.2, 0.36);
-      put(furn.table, 1.5, 0, -0.8, 0.3, 0.75);
-      put(furn.chair, 0.7, 0, -0.5, 0.8, 0.9);
-      put(furn.chair, 2.2, 0, -1.3, -2.2, 0.9);
+      put(furn.table, -4.15, 0, 0.35, 0.5, 0.72);
+      put(furn.chair, -3.35, 0, -0.2, 1.0, 0.85);
+      put(furn.chair, -3.4, 0, 1.05, -2.2, 0.85);
       put(furn.bed, -3.6, 0, 3.3, Math.PI / 2, 0.7);
-      put(furn.shelves, 4.7, 0, -1.6, -Math.PI / 2, 1.7);
-      put(furn.lamp, -1.0, 0, -3.4, 0, 1.35);
+      put(furn.shelves, 4.55, 0, -2.6, -Math.PI / 2, 1.55);
+      put(furn.lamp, -4.15, 0, -3.5, 0, 1.2);
       put(furn.pot, -2.35, 0, -4.15, 0.6, 0.46);
       for (const p of pals) {
         if (ctls[p.id]) {
@@ -758,27 +757,46 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   scene.add(stars);
   const milkyCanvas = document.createElement('canvas');
   milkyCanvas.width = 512;
-  milkyCanvas.height = 128;
+  milkyCanvas.height = 256;
   {
     const g = milkyCanvas.getContext('2d');
-    const band = g.createLinearGradient(0, 0, 0, 128);
-    band.addColorStop(0, 'rgba(8, 10, 28, 0)');
-    band.addColorStop(0.45, 'rgba(214, 206, 255, 0.72)');
-    band.addColorStop(0.55, 'rgba(150, 190, 255, 0.35)');
-    band.addColorStop(1, 'rgba(8, 10, 28, 0)');
+    const band = g.createLinearGradient(0, 0, 0, 256);
+    band.addColorStop(0, 'rgba(180, 190, 255, 0)');
+    band.addColorStop(0.22, 'rgba(190, 186, 255, 0.05)');
+    band.addColorStop(0.42, 'rgba(210, 206, 255, 0.42)');
+    band.addColorStop(0.5, 'rgba(236, 232, 255, 0.82)');
+    band.addColorStop(0.58, 'rgba(190, 210, 255, 0.42)');
+    band.addColorStop(0.78, 'rgba(160, 190, 255, 0.05)');
+    band.addColorStop(1, 'rgba(180, 190, 255, 0)');
     g.fillStyle = band;
-    g.fillRect(0, 0, 512, 128);
-    g.fillStyle = 'rgba(255, 255, 255, 0.85)';
-    for (let i = 0; i < 90; i++) g.fillRect((i * 41) % 512, 36 + (i % 8) * 7, i % 6 === 0 ? 2 : 1, 1);
+    g.fillRect(0, 0, 512, 256);
+    g.globalCompositeOperation = 'destination-in';
+    const fade = g.createLinearGradient(0, 0, 512, 0);
+    fade.addColorStop(0, 'rgba(0,0,0,0)');
+    fade.addColorStop(0.18, 'rgba(0,0,0,1)');
+    fade.addColorStop(0.82, 'rgba(0,0,0,1)');
+    fade.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = fade;
+    g.fillRect(0, 0, 512, 256);
+    g.globalCompositeOperation = 'source-over';
+    g.fillStyle = 'rgba(255, 255, 255, 0.55)';
+    for (let i = 0; i < 70; i++) {
+      const x = 40 + (i * 53) % 430;
+      const y = 70 + (i % 9) * 12;
+      g.globalAlpha = 0.15 + (i % 5) * 0.1;
+      g.fillRect(x, y, 1, 1);
+    }
+    g.globalAlpha = 1;
   }
   const milkyTex = new THREE.CanvasTexture(milkyCanvas);
   milkyTex.colorSpace = THREE.SRGBColorSpace;
   const milky = new THREE.Mesh(
-    new THREE.PlaneGeometry(46, 9),
-    new THREE.MeshBasicMaterial({ map: milkyTex, transparent: true, opacity: 0.72, depthWrite: false, side: THREE.DoubleSide, fog: false }),
+    new THREE.PlaneGeometry(110, 22),
+    new THREE.MeshBasicMaterial({ map: milkyTex, transparent: true, opacity: 1, depthWrite: false, side: THREE.DoubleSide, fog: false }),
   );
-  milky.position.set(-50, 16, -58);
-  milky.rotation.x = 0.35;
+  // Sits in the purple band a shore camera already sees, above the ridgeline.
+  milky.position.set(-50, 11.5, -58);
+  milky.rotation.x = -0.42;
   milky.visible = false;
   milky.name = 'milky-way';
   scene.add(milky);
@@ -792,6 +810,36 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     lakeFlies.add(bit);
   }
   scene.add(lakeFlies);
+  const pier = new THREE.Group();
+  pier.name = 'lake-pier';
+  pier.position.set(-50.2, world.water, -34.2);
+  const dockWood = new THREE.MeshStandardMaterial({ color: '#8a5a3c', roughness: 0.78 });
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.08, 3.2), dockWood);
+  deck.position.set(0, 0.28, -1.3);
+  const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.7, 0.12), dockWood);
+  post.position.set(0.42, 0.85, -2.7);
+  const lantern = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshBasicMaterial({ color: '#fff4e6' }));
+  lantern.position.set(0.42, 1.55, -2.7);
+  const hook = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.22, 4), dockWood);
+  hook.position.set(0.42, 1.72, -2.7);
+  const lampLight = new THREE.PointLight('#ffd9a0', 0.85, 4.8, 2);
+  lampLight.position.set(0.42, 1.48, -2.7);
+  pier.add(deck, post, lantern, hook, lampLight);
+  const reeds = [];
+  for (let i = 0; i < 9; i++) {
+    const reed = new THREE.Group();
+    const bladeMat = new THREE.MeshLambertMaterial({ color: i % 2 ? '#3e6a48' : '#6a8a52', side: THREE.DoubleSide });
+    for (const yaw of [0, Math.PI / 2]) {
+      const blade = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.85), bladeMat);
+      blade.rotation.y = yaw;
+      reed.add(blade);
+    }
+    reed.position.set(-1.35 + (i % 5) * 0.58, 0.48, -0.15 - (i % 3) * 0.38);
+    reed.userData.phase = i;
+    pier.add(reed);
+    reeds.push(reed);
+  }
+  scene.add(pier);
   const shot = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.03), new THREE.MeshBasicMaterial({ color: '#fff6e8', transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
   shot.visible = false;
   scene.add(shot);
@@ -1453,6 +1501,39 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     b.g.add(kit);
     b.g.scale.setScalar((look.scale || 1) * (elite ? 1.35 : 1));
   }
+  function speciesIdOf(kind, homeX, boss) {
+    if (kind === 'wolf') return 'forest-wolf';
+    if (kind === 'boar') return homeX < 0 ? 'moss-boar' : 'creek-boar';
+    if (kind === 'crab') return 'tide-crab';
+    if (kind === 'slime' && boss) return 'gel-king';
+    if (kind === 'glowwisp' || kind === 'lanternmoth') return 'lantern-moth';
+    return null;
+  }
+  function noteBook(hit) {
+    const id = speciesIdOf(hit.kind, hit.homeX || 0, hit.boss);
+    if (!id) return;
+    let data = {};
+    try { data = JSON.parse(localStorage.getItem('aro-bestiary') || '{}'); } catch { data = {}; }
+    data.entries = Array.isArray(data.entries) ? data.entries : [];
+    let row = data.entries.find((e) => e.speciesId === id);
+    if (!row) {
+      row = { speciesId: id, seenCount: 0, defeatedCount: 0 };
+      data.entries.push(row);
+    }
+    const field = hit.book === 'defeated' ? 'defeatedCount' : 'seenCount';
+    const before = row[field] || 0;
+    row[field] = before + 1;
+    if (field === 'defeatedCount' && !(row.seenCount > 0)) row.seenCount = 1;
+    try { localStorage.setItem('aro-bestiary', JSON.stringify(data)); } catch { /* private mode */ }
+    if (field === 'seenCount' && before === 0) {
+      const toast = document.getElementById('discover');
+      if (!toast) return;
+      toast.hidden = false;
+      toast.textContent = 'Discovered · Added to Bestiary';
+      clearTimeout(noteBook._t);
+      noteBook._t = setTimeout(() => { toast.hidden = true; }, 2200);
+    }
+  }
   return {
     toast(text) {
       const el = document.getElementById('toast');
@@ -1619,6 +1700,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     },
     hurt(marks) {
       beasts.hurt(marks, name, (hit) => {
+        if (hit.book) { noteBook(hit); return; }
         const boom = new THREE.Mesh(blastGeo, new THREE.MeshBasicMaterial({ color: hit.through ? 0xfff6dc : (hit.k === 'arcane' ? 0xd7a6ff : 0xff7a1c), transparent: true, opacity: 0.85, depthWrite: false }));
         boom.position.set(hit.x, hit.y, hit.z);
         boom.userData.life = hit.through ? 0.22 : 0.42;
@@ -1776,7 +1858,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       if (d > 2.4) leftRing = true;
       const reach = name === 'hub' ? 1.65 : 0.95;
       if (leftRing && performance.now() >= armUntil && d < reach) enter(name === 'hub' ? dest : 'hub');
-      you.visible = name !== 'hub' && (buddyBody.visible || (showMage && name === 'meadow'));
+      you.visible = !atLake && name !== 'hub' && (buddyBody.visible || (showMage && name === 'meadow'));
       if (you.visible) {
         const y = name === 'hub' ? 0 : world.ground(walker.feet.x, walker.feet.z);
         you.position.set(walker.feet.x, y, walker.feet.z);
@@ -1818,6 +1900,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         buddyRing.visible = false;
       }
       life.visible = name === 'meadow';
+      if (name === 'meadow' && !atLake) beasts.notice?.(walker.feet.x, walker.feet.z, 9, (hit) => noteBook({ book: 'seen', ...hit }));
       if (name === 'meadow') {
         const into = town.update(dt, walker, dusk);
         if (into === 'board') { if (panel?.hidden) showBoard(); }
@@ -1955,6 +2038,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
             const a = tt * 0.6 + i;
             bit.position.set(-50 + Math.cos(a) * (4 + (i % 4)), world.water + 0.7 + Math.sin(a * 1.7) * 0.35, -40 + Math.sin(a * 0.8) * 3);
           });
+          reeds.forEach((reed) => { reed.rotation.z = Math.sin(tt * 1.3 + reed.userData.phase) * 0.18; });
         }
         dragon.visible = true;
         const da = tt * 0.42;

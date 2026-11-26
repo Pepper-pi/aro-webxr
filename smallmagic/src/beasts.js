@@ -646,6 +646,14 @@ export function createBeasts(scene, ground, world) {
         }
       }
     },
+    notice(x, z, reach, fn) {
+      for (const b of all) {
+        if (b.dead || b.bookSeen) continue;
+        if (Math.hypot(b.g.position.x - x, b.g.position.z - z) > reach) continue;
+        b.bookSeen = true;
+        fn({ kind: b.kind, homeX: b.homeX, boss: !!b.boss });
+      }
+    },
     grab(x, z, reach = 8) {
       let best = null;
       let bestD = reach;
@@ -800,13 +808,19 @@ export function createBeasts(scene, ground, world) {
             const len = Math.hypot(ox, oz) || 0.4;
             if (len > 0.7) { const step = m.pull * addFall; b.g.position.x += (ox / len) * step; b.g.position.z += (oz / len) * step; b.tx += (ox / len) * step; b.tz += (oz / len) * step; }
           } else if (!same && (m.kx || m.kz)) { b.g.position.x += m.kx; b.g.position.z += m.kz; b.tx += m.kx; b.tz += m.kz; }
+          if (!b.bookSeen) {
+            b.bookSeen = true;
+            onHit?.({ book: 'seen', kind: b.kind, homeX: b.homeX, boss: !!b.boss });
+          }
           if (!same && shown < 3) {
             shown++;
             b.stack = (b.stack || 0) + 1;
             onHit?.({ x: b.g.position.x, y: b.g.position.y + 1.2, z: b.g.position.z, n: Math.round(dealt), k: m.k || 'fire', through: again, blast: !!m.blast, heavy: dealt >= 12, hunt: !!(b.marked && m.hunt) });
           }
           if (b.hp <= 0) {
-            b.dead = true; b.back = 12; b.stack = 0; b.burn = 0; b.chill = 0; dropAt(b); b.boss = false;
+            b.dead = true; b.back = 12; b.stack = 0; b.burn = 0; b.chill = 0; dropAt(b);
+            onHit?.({ book: 'defeated', kind: b.kind, homeX: b.homeX, boss: !!b.boss });
+            b.boss = false;
             if (b.clips?.death) { b.dying = Math.max(0.9, b.clips.death.getClip().duration || 1); playClip(b, 'death'); }
             else b.g.visible = false;
             const tint = b.kind === 'slime' ? '#3dba6a' : b.kind === 'boar' ? '#8a5a3a' : '#6a6158';

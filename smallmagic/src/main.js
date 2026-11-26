@@ -141,6 +141,10 @@ const living = createLiving({ zones });
 const folk = createFolk({ scene, world, living, zones, phone });
 const street = createWeather(scene, world);
 const duel = createDuel({ scene, world, camera, living });
+// Declared before the wander loop reads it. A capture with no sound card leaves it null.
+let sound = null;
+try { sound = q.has('nosound') || (capture && !q.get('sound')) ? null : createSound({ offline: capture ? Number(q.get('sound')) : 0 }); }
+catch (e) { console.warn('no sound', e); }
 const wander = createWander({
   scene, world, zones, sound,
   living,
@@ -441,9 +445,6 @@ lap('staff');
 
 // Sound. A film of the game is made with no clock and no sound card: then the sound is worked out alongside, frame by
 // frame, only when it is asked for (?capture&sound=<seconds>).
-let sound = null;
-try { sound = q.has('nosound') || (capture && !q.get('sound')) ? null : createSound({ offline: capture ? Number(q.get('sound')) : 0 }); }
-catch (e) { console.warn('no sound', e); }
 if (sound && !capture) {
   for (const what of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'keydown']) addEventListener(what, () => sound.wake(), true);
   addEventListener('keydown', (e) => { if (e.code === 'KeyM') sound.quiet = !sound.quiet; });

@@ -87,3 +87,7 @@ The Mage stays staffless. A charge raises counter-rotating rings at the wrist an
 ## Block 35 — rain, bestiary, evening lake
 
 The canal has a Clear dusk / Lantern rain toggle. Rain streaks, wet cobbles with ripples, and two umbrellas. The menu opens a frosted bestiary of six creatures, stored as JSON with seen and defeated counts. Long Lake evening keeps the bioluminescent water and adds a Milky Way band and fireflies over the reeds.
+
+## Block 36 — lake shore and the hearth
+
+The meadow stand-in stays off the lake. The Milky Way sits in the evening sky and fades out at its edges. A small pier, a warm lantern, and swaying reeds sit on the shore. The hub keeps the cooled firelight and adds a woven rug, a bookshelf, a sideboard, ceiling beams, and hanging lanterns. Companions and the porcelain healer stand on the open floor, clear of the furniture. Meeting or defeating a wolf, boar, crab, boss gel, or moth writes seen and defeated counts into the bestiary and shows a short discovery note.
