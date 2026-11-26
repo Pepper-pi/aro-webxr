@@ -550,8 +550,21 @@ export function createBlade(onLaunch, bits = {}) {
       laneHold.group.position.lerpVectors(laneHold.from, laneHold.to, 0.5);
     }
     for (let i = 0; i < TRACK_N; i++) threadPoint(src, i / (TRACK_N - 1), song, lanePts[i]);
-    laneLeft.visible = laneRight.visible = false;
+    for (let i = 0; i < TRACK_N; i++) {
+      const p = lanePts[i];
+      const nxt = lanePts[Math.min(TRACK_N - 1, i + 1)];
+      const prv = lanePts[Math.max(0, i - 1)];
+      const tx = nxt.x - prv.x;
+      const tz = nxt.z - prv.z;
+      const len = Math.hypot(tx, tz) || 1;
+      const ox = (-tz / len) * 0.1;
+      const oz = (tx / len) * 0.1;
+      edgeL[i].set(p.x + ox, p.y + 0.03, p.z + oz);
+      edgeR[i].set(p.x - ox, p.y + 0.03, p.z - oz);
+    }
     layPoly(laneFill, lanePts, 0.09);
+    layPoly(laneLeft, edgeL, 0.012);
+    layPoly(laneRight, edgeR, 0.012);
   }
 
   function shatter(note) {
@@ -766,8 +779,26 @@ export function createBlade(onLaunch, bits = {}) {
     return strength + (1 - t) * TUNE.marginRain + 5;
   }
 
+  function clashSpark(note) {
+    if (!scene) return;
+    const at = note.group.position.clone();
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.06, 0.14, 18), new THREE.MeshBasicMaterial({ color: '#fff6e8', transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }));
+    ring.position.copy(at);
+    if (camera) ring.lookAt(camera.position);
+    scene.add(ring);
+    shots.push({ mesh: ring, v: new THREE.Vector3(), life: 0.16, kind: 'spark', stuck: true });
+    for (let i = 0; i < 6; i++) {
+      const spark = new THREE.Mesh(new THREE.OctahedronGeometry(0.028, 0), new THREE.MeshBasicMaterial({ color: i % 2 ? '#ffffff' : '#7ee0ff', transparent: true, opacity: 1, depthWrite: false }));
+      spark.position.copy(at);
+      const v = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.5, Math.random() - 0.5).normalize().multiplyScalar(1.5);
+      scene.add(spark);
+      shots.push({ mesh: spark, v, life: 0.2, kind: 'spark' });
+    }
+  }
+
   function payClash(note, result, mode) {
     if (note.resolved) return;
+    clashSpark(note);
     const { tier, scale, margin } = result;
     note.resolved = true;
     note.tier = tier;

@@ -173,6 +173,15 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
   function wetAt(x, z) {
     return !!world.rain || world.ground(x, z) < world.water + 0.45;
   }
+  function starBurst(p) {
+    const n = phoneFx ? 8 : 18;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * 6.283;
+      fx.spawn({ kind: 4, x: p.x, y: p.y + 0.3, z: p.z, vx: Math.cos(a) * 2.4, vy: 1.2 + (i % 4) * 0.3, vz: Math.sin(a) * 2.4, life: 0.55, size: [0.07, 0.11], colour: i % 2 ? [0.82, 0.35, 1] : [1, 0.62, 0.88], grav: -1.6, spin: 8 });
+    }
+    fx.spawn({ kind: 6, x: p.x, y: p.y + 0.4, z: p.z, life: 0.35, size: [1.1, 1.1], colour: [0.7, 0.3, 1], alpha: 0.2 });
+    Object.assign(flash, { x: p.x, y: p.y + 0.8, z: p.z, power: 0.45, r: 6, c: [0.7, 0.35, 1] });
+  }
   function freezeLand(p, big, vel) {
     const wet = wetAt(p.x, p.z);
     const r = (2.2 + 5.2 * big) * (wet ? 1.7 : 1);
@@ -401,6 +410,37 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
     refresh() { cooldown = 0; },
     from: null, hideMark: false, placeAr: false, floor: null, floorY: null,
     get busy() { return bolts.length + gusts.length; },
+    loose(spec) {
+      bolts.push({
+        p: new THREE.Vector3(spec.x, spec.y, spec.z),
+        v: new THREE.Vector3(spec.vx || 0, spec.vy || 0, spec.vz || 0),
+        life: spec.life || 0.2,
+        big: spec.big || 0.55,
+        ice: !!spec.ice,
+        star: !!spec.star,
+      });
+    },
+    flourish(kind, x, y, z) {
+      const n = phoneFx ? 8 : 16;
+      if (kind === 'frost') {
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * 6.283;
+          fx.spawn({ kind: 3, x, y: y + 0.35, z, vx: Math.cos(a) * 2.6, vy: 1.1 + (i % 3) * 0.45, vz: Math.sin(a) * 2.6, life: 0.6, size: [0.08, 0.18], colour: [0.72, 0.95, 1] });
+        }
+        fx.spawn({ kind: 6, x, y: y + 0.5, z, life: 0.45, size: [1.3, 1.5], colour: [0.8, 0.95, 1], alpha: 0.18 });
+      } else if (kind === 'star') {
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * 6.283;
+          fx.spawn({ kind: 4, x, y: y + 0.45, z, vx: Math.cos(a) * 2.2, vy: 1.5, vz: Math.sin(a) * 2.2, life: 0.65, size: [0.08, 0.12], colour: i % 2 ? [0.85, 0.35, 1] : [1, 0.6, 0.85], grav: -2, spin: 7 });
+        }
+        fx.spawn({ kind: 6, x, y: y + 0.4, z, life: 0.4, size: [1.2, 1.2], colour: [0.65, 0.28, 1], alpha: 0.2 });
+      } else {
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * 6.283;
+          fx.spawn({ kind: 1, x, y: y + 0.25, z, vx: Math.cos(a) * 3.2, vy: 2.2, vz: Math.sin(a) * 3.2, life: 0.4, size: [0.1, 0.025], colour: [1, 0.68, 0.22], grav: -5 });
+        }
+      }
+    },
     get ice() { return ices.map((i) => ({ life: +i.life.toFixed(2), cols: i.cols.length })); },
     marks,
     /** How bright the last burst still is to the eye, 0 to 1. */
@@ -607,19 +647,34 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
       for (let i = bolts.length - 1; i >= 0; i--) {
         const b = bolts[i];
         b.life += dt; b.v.y -= 3.2 * dt; b.p.addScaledVector(b.v, dt);
-        const n = ((b.ice ? 22 : 130) + (b.ice ? 18 : 150) * b.big) * dt;
+        const n = ((b.ice ? 16 : (phoneFx ? 36 : 64)) + (b.ice ? 10 : 36) * b.big) * dt;
         const tint = b.ice ? (Math.random() < 0.35 ? [0.72, 0.62, 1] : [0.7, 0.95, 1]) : [1, 1, 1];
         for (let q = Math.floor(n) + (Math.random() < n % 1 ? 1 : 0); q > 0; q--) fx.spawn({ kind: b.ice ? 3 : 0, x: b.p.x + rnd(0.06), y: b.p.y + rnd(0.06), z: b.p.z + rnd(0.06), vx: b.v.x * 0.05 + rnd(0.3), vy: b.v.y * 0.05 + rnd(0.3), vz: b.v.z * 0.05 + rnd(0.3), life: b.ice ? 0.28 : 0.22 + 0.25 * Math.random(), size: b.ice ? [0.05, 0.08] : [(0.13 + 0.2 * b.big) * Math.min(1, 0.25 + b.life * 3), (0.24 + 0.34 * b.big) * Math.min(1, 0.25 + b.life * 3)], colour: tint, rot: Math.random() * 6.283 });
         if (b.ice && shardN < shards.length) {
-          const s = shards[shardN++];
-          s.visible = true;
-          s.position.copy(b.p);
-          s.lookAt(b.p.x + b.v.x, b.p.y + b.v.y, b.p.z + b.v.z);
-          s.scale.setScalar(0.7 + b.big * 1.1);
+          const cluster = Math.min(shards.length, shardN + (phoneFx ? 2 : 3));
+          for (let s = shardN; s < cluster; s++) {
+            const shard = shards[s];
+            shard.visible = true;
+            const a = b.life * 7 + s * 2.1;
+            shard.position.set(b.p.x + Math.cos(a) * 0.2, b.p.y + Math.sin(a * 1.4) * 0.08, b.p.z + Math.sin(a) * 0.2);
+            shard.lookAt(b.p.x + b.v.x, b.p.y + b.v.y, b.p.z + b.v.z);
+            shard.scale.setScalar(0.55 + b.big * 0.7);
+          }
+          shardN = cluster;
+          if (!phoneFx) fx.spawn({ kind: 6, x: b.p.x, y: b.p.y, z: b.p.z, life: 0.16, size: [0.4, 0.55], colour: [0.75, 0.94, 1], alpha: 0.14 });
         }
-        if (!b.ice) {
+        if (b.star) {
+          const a = b.life * 9;
+          fx.spawn({ kind: 4, x: b.p.x + Math.cos(a) * 0.16, y: b.p.y, z: b.p.z + Math.sin(a) * 0.16, vx: rnd(0.3), vy: 0.3, vz: rnd(0.3), life: 0.35, size: [0.05, 0.08], colour: [0.85, 0.4, 1], grav: -1.2, spin: 8 });
+        } else if (!b.ice && !phoneFx) {
+          const a = b.life * 14;
+          const side = Math.cos(a) * 0.16;
+          const lift = Math.sin(a) * 0.1;
+          fx.spawn({ kind: 1, x: b.p.x + side, y: b.p.y + lift, z: b.p.z, vx: b.v.x * 0.02, vy: 0.15, vz: b.v.z * 0.02, life: 0.16, size: [0.18, 0.03], colour: [1, 0.72, 0.28], alpha: 0.8 });
+        }
+        if (!b.ice && !b.star) {
           fx.spawn({ kind: 1, x: b.p.x, y: b.p.y, z: b.p.z, vx: b.v.x, vy: b.v.y, vz: b.v.z, life: 0.05, size: [(0.12 + 0.14 * b.big) * Math.min(1, 0.2 + b.life * 3), 0.1 + 0.1 * b.big], colour: [1, 0.72, 0.3], alpha: 0.9 });
-          fx.spawn({ kind: 6, x: b.p.x, y: b.p.y, z: b.p.z, life: 0.07, size: [0.6 + 0.6 * b.big, 0.6 + 0.6 * b.big], colour: [1, 0.5, 0.12], alpha: 0.16 });
+          fx.spawn({ kind: 6, x: b.p.x, y: b.p.y, z: b.p.z, life: 0.07, size: [0.26 + 0.18 * b.big, 0.26 + 0.18 * b.big], colour: [1, 0.55, 0.16], alpha: 0.14 });
           if (Math.random() < 20 * dt) fx.spawn({ kind: 1, x: b.p.x, y: b.p.y, z: b.p.z, vx: rnd(3), vy: rnd(3), vz: rnd(3), life: 0.5 + 0.5 * Math.random(), size: [0.035, 0.01], colour: [1, 0.6, 0.15], grav: -4, drag: 1 });
           if (Math.random() < 14 * dt) fx.spawn({ kind: 2, x: b.p.x, y: b.p.y, z: b.p.z, life: 1.1, size: [0.25, 1.1 + b.big], colour: [0.12, 0.12, 0.15], alpha: 0.3, vy: 0.6 });
         }
@@ -629,8 +684,8 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
         sigil.lookAt(b.p.x + b.v.x, b.p.y + b.v.y, b.p.z + b.v.z);
         sigilA.rotation.z += dt * 7;
         sigilB.rotation.y += dt * 5;
-        sigilA.material.color.set(b.ice ? '#9fe6ff' : '#ff7a1c');
-        sigilB.material.color.set(b.ice ? '#e7c8ff' : '#fff1c4');
+        sigilA.material.color.set(b.star ? '#d070ff' : b.ice ? '#9fe6ff' : '#ff7a1c');
+        sigilB.material.color.set(b.star ? '#ff9adf' : b.ice ? '#e7c8ff' : '#fff1c4');
         sigilBits.forEach((bit, n) => {
           const a = b.life * 9 + n;
           bit.position.set(Math.cos(a) * 0.2, Math.sin(a * 1.3) * 0.08, Math.sin(a) * 0.2);
@@ -639,7 +694,7 @@ export function createSpells({ world, air, fx, fire, staff, beam, ruin, blast, h
         if (!b.ice) marks.push({ x: b.p.x, z: b.p.z, r: 0.7, d: 16, k: 'fire' });
         const floor = Math.max(world.ground(b.p.x, b.p.z), world.water);
         const inTree = world.trees.some((t, k) => k && t.burnt < 0.9 && t.clumps.some(([x, y, z, r]) => Math.hypot(x - b.p.x, y - b.p.y, z - b.p.z) < r * 0.75));
-        if (b.p.y <= floor + 0.1 || inTree || b.life > 4 || ruin?.touches(b.p, 0.25 + 0.2 * b.big)) { if (b.p.y < floor) b.p.y = floor; if (b.ice) freezeLand(b.p, b.big, b.v); else burst(b.p, b.big); bolts.splice(i, 1); carried = null; }
+        if (b.p.y <= floor + 0.1 || inTree || b.life > 4 || ruin?.touches(b.p, 0.25 + 0.2 * b.big)) { if (b.p.y < floor) b.p.y = floor; if (b.star) starBurst(b.p); else if (b.ice) freezeLand(b.p, b.big, b.v); else burst(b.p, b.big); bolts.splice(i, 1); carried = null; }
       }
       for (let k = shardN; k < shards.length; k++) shards[k].visible = false;
       if (!bolts.length) sigil.visible = false;

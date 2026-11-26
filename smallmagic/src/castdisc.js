@@ -73,9 +73,24 @@ export function createCastDisc(scene) {
   fist.position.z = -0.48;
   arm.add(fore, fist);
   scene.add(arm);
+  const ringMat = (color, opacity) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false });
+  const wristMandala = new THREE.Group();
+  wristMandala.position.z = -0.3;
+  arm.add(wristMandala);
+  const wristRings = [0.078, 0.112, 0.148].map((radius, i) => {
+    const mesh = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.0045, 6, 48), ringMat(i === 1 ? '#9fd4ff' : '#f1d9a4', 0.88));
+    wristMandala.add(mesh);
+    return mesh;
+  });
+  const forearmRunes = [];
+  for (let i = 0; i < 8; i++) {
+    const rune = new THREE.Mesh(new THREE.PlaneGeometry(0.034, 0.034), ringMat('#fff6dc', 0));
+    rune.userData.t = 0.06 + (i / 7) * 0.88;
+    arm.add(rune);
+    forearmRunes.push(rune);
+  }
   const mandala = new THREE.Group();
   root.add(mandala);
-  const ringMat = (color, opacity) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false });
   const rune = (radius, tube, color, opacity) => {
     const mesh = new THREE.Mesh(new THREE.TorusGeometry(radius, tube, 6, 56), ringMat(color, opacity));
     mesh.rotation.x = Math.PI / 2;
@@ -314,10 +329,10 @@ export function createCastDisc(scene) {
       else armLinger = Math.max(0, armLinger - dt);
       const pose = held > 0.02 ? held : armShown * (armLinger / 0.28);
       root.visible = !!(show && ready);
-      arm.visible = !!(pose > 0.02 && (show || hand || warm));
+      arm.visible = pose > 0.02;
       charge.visible = !!(root.visible && pose > 0.02);
       screen.on = root.visible;
-      if (!root.visible || !walker || !camera) return;
+      if (!walker || !camera) return;
       camera.getWorldDirection(fwd);
       up.setFromMatrixColumn(camera.matrixWorld, 1);
       const yaw = walker.yaw;
@@ -385,7 +400,26 @@ export function createCastDisc(scene) {
       screen.hole = hand ? 0.46 : 0.36;
       screen.grab = hand ? 1.45 : 1.2;
       screen.hand = !!hand;
-      screen.on = ndc.z < 1;
+      screen.on = root.visible && ndc.z < 1;
+      const phoneArm = innerWidth < 900;
+      wristMandala.visible = arm.visible;
+      wristRings.forEach((ring, i) => {
+        ring.visible = !(phoneArm && i === 2);
+        const spin = (i % 2 ? -1 : 1) * (1.3 + i * 0.55);
+        ring.rotation.z += dt * spin;
+        ring.material.color.copy(tint);
+        ring.material.opacity = 0.4 + pose * 0.5;
+      });
+      forearmRunes.forEach((rune, i) => {
+        const t = rune.userData.t;
+        const showRune = arm.visible && pose > t * 0.82 && !(phoneArm && i % 2);
+        rune.visible = showRune;
+        const a = sparkT * (i % 2 ? -1.4 : 1.1) + i * 0.8;
+        rune.position.set(Math.cos(a) * 0.086, Math.sin(a) * 0.086, along(t));
+        rune.lookAt(camera.position);
+        rune.material.color.copy(tint);
+        rune.material.opacity = showRune ? 0.3 + pose * 0.65 : 0;
+      });
       const key = SPELLS[index]?.key;
       const fireOn = key === 'fire' || key === 'explosion';
       const frostOn = key === 'frost';
@@ -420,7 +454,7 @@ export function createCastDisc(scene) {
         bit.position.set(Math.cos(a) * rad, Math.sin(a) * rad, along(t));
         bit.material.color.copy(tint);
         bit.rotation.z = a;
-        bit.scale.setScalar(showBit ? 0.55 + pose * 0.5 : 1);
+        bit.scale.setScalar(showBit ? 0.18 + pose * 0.08 : 0.15);
       });
       fireBands.forEach((band) => {
         band.visible = arm.visible && fireOn && lit(band.userData.t);

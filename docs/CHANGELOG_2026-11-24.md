@@ -79,3 +79,7 @@ The stairs and the loose wood cube are off the water. A stone arch with a railed
 ## Block 33 — sign, cobbles, zeppelin
 
 The boba card faces the street so the words read forward. Its roof sits on four posts, with a hanging lantern and straws in the cups. Loose cloth canopies are gone. The airship is a ribbed dirigible with a gondola, portholes, and a line down to a spire. The plaza is cobbled, with warm pools under the lamps, and the canal carries shimmer streaks. Low hills and a distant arch close the end of the street.
+
+## Block 34 — hands and rails
+
+The Mage stays staffless. A charge raises counter-rotating rings at the wrist and lights runes from the wrist toward the elbow. Fire throws a gold ribbon, frost a cluster of ice shards, and starlight a violet trail. The Blade rail is two fishing-line edges with a pale belt flowing toward you, and a small spark where a cut lands. Summoner and Puppetmaster sit on the roster as separate On deck classes.

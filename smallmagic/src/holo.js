@@ -116,14 +116,14 @@ const laneFrag = /* glsl */ `
     float x = abs(vUv.x - 0.5);
     float along = vUv.y;
     float fade = smoothstep(0.0, 0.42, along);
-    float tip = fract(along * 5.5 - uTime * 0.42);
+    float tip = fract(along * 5.5 - uTime * 0.9);
     float chev = smoothstep(0.14, 0.02, abs(tip - 0.26 - x * 0.72));
     float scan = 0.72 + 0.28 * sin(along * 22.0 - uTime * 1.4);
     vec3 near = vec3(0.62, 0.95, 1.0);
     vec3 far = vec3(0.08, 0.32, 0.62);
     vec3 col = mix(far, near, along);
     col += vec3(0.45, 0.82, 1.0) * chev;
-    float alpha = (0.30 + chev * 0.45) * fade * scan * smoothstep(0.5, 0.05, x);
+    float alpha = (0.16 + chev * 0.38) * fade * scan * smoothstep(0.5, 0.08, x);
     gl_FragColor = vec4(col, alpha);
   }
 `;

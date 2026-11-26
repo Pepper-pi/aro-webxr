@@ -118,6 +118,7 @@
       #classPick .live, #classPick .branch { display: flex; gap: 8px; }
       #classPick .live.support { margin-top: 10px; }
       #classPick .branch { margin-top: 0; }
+      #classPick .deck { margin: 8px 0 4px; letter-spacing: 0.14em; text-transform: uppercase; font-size: 11px; color: #6a5a3a; }
       #classPick .spell-branch { position: relative; height: 36px; }
       #classPick .spell-branch .stem { position: absolute; left: 16.6%; top: 0; width: 1px; height: 18px; background: rgba(241, 217, 164, 0.9); }
       #classPick .spell-branch .arm { position: absolute; left: 16.6%; width: 58.4%; top: 18px; height: 1px; background: rgba(241, 217, 164, 0.9); }
@@ -637,9 +638,10 @@
             <button type="button" class="card" data-class="gunner"><b>Gunner</b><i>Striker</i><p>A blaster with a count, a reload, and a charged shot.</p><span>Fire · Grenade · Charged shot</span></button>
           </div>
           <div class="spell-branch" aria-hidden="true"><span class="stem"></span><span class="arm"></span></div>
+          <p class="deck">On deck</p>
           <div class="branch">
-            <button type="button" class="card" data-class="summoner"><b>Summoner</b><i>Summon</i><p>The staff catches a spirit onto a page, then lets it out.</p><span>Catch · Summon · Spirit mend</span></button>
-            <button type="button" class="card" data-class="puppet"><b>Puppetmaster</b><i>Support</i><p>A barrel tank carries a fighter. They come out of each other.</p><span>Deploy Tank · Pop Fighter · Fighter Strike</span></button>
+            <button type="button" class="card" data-class="summoner"><b>Summoner</b><i>On deck</i><p>Separate from the Mage. The staff catches a spirit onto a page, then lets it out.</p><span>Catch · Summon · Spirit mend</span></button>
+            <button type="button" class="card" data-class="puppet"><b>Puppetmaster</b><i>On deck</i><p>Separate from the Summoner. A barrel tank carries a fighter. They come out of each other.</p><span>Deploy Tank · Pop Fighter · Fighter Strike</span></button>
           </div>
           <div class="live support">
             <button type="button" class="card" data-class="warden"><b>Warden</b><i>Guard</i><p>A ward for the party. Not a tank. The field stays quiet.</p><span>Totem · Bubble · Snare · Calm</span></button>
