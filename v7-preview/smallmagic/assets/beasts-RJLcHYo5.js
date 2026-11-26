@@ -1,0 +1,1 @@
+export{t as PACKS,n as createBeasts,r as patchWebKitImageBitmap,i as useRenderer}from"./beasts-lVogpVbG.js";
