@@ -187,6 +187,8 @@
       #reel { right: max(108px, calc(env(safe-area-inset-right) + 108px)); bottom: calc(max(22px, env(safe-area-inset-bottom)) + 96px); width: 76px; height: 76px; border-radius: 50%; font-size: 16px; }
       #fish, #dusk, #chase, #ar { pointer-events: auto; position: fixed; z-index: 7; border-radius: 999px; border: 2px solid rgba(241, 217, 164, 0.7); background: rgba(20, 12, 36, 0.55); color: #f6ead0; font: 13px/1.1 Georgia, serif; letter-spacing: 0.06em; text-transform: uppercase; }
       #fish { left: 50%; right: auto; bottom: calc(max(22px, env(safe-area-inset-bottom)) + 118px); transform: translateX(-50%); width: 148px; height: 64px; font-size: 22px; background: rgba(20, 12, 28, 0.88); box-shadow: 0 0 18px rgba(255, 214, 120, 0.85); }
+      #honeyPill { position: fixed; left: 50%; bottom: calc(max(22px, env(safe-area-inset-bottom)) + 190px); transform: translateX(-50%); z-index: 8; padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.72); background: rgba(236, 242, 248, 0.72); color: #1c2430; font: 12px Georgia, serif; backdrop-filter: blur(10px); pointer-events: none; }
+      #honeyPill[hidden] { display: none; }
       #fishcue { position: fixed; left: 50%; bottom: calc(max(22px, env(safe-area-inset-bottom)) + 190px); transform: translateX(-50%); z-index: 7; pointer-events: none; color: #fff6dc; font: 22px/1.2 Georgia, serif; letter-spacing: 0.08em; text-transform: uppercase; text-shadow: 0 0 8px #000, 0 2px 0 #1a1008; }
       #dusk, #chase, #ar { top: calc(max(12px, env(safe-area-inset-top)) + 46px); right: max(12px, env(safe-area-inset-right)); padding: 8px 12px; }
       #ar { right: auto; left: max(12px, env(safe-area-inset-left)); }
@@ -788,6 +790,7 @@
     <button id="reel" type="button" hidden>Hook</button>
     <div id="fishcue" hidden>Hold to cast</div>
     <button id="fish" type="button" hidden>Cast</button>
+    <div id="honeyPill" hidden>Honey Pearl · quick bites</div>
     <div id="castbar" hidden><i></i></div>
     <div id="tension" hidden><i></i></div>
     <div id="lures" hidden>

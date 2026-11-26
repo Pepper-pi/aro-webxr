@@ -187,24 +187,90 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   screen.name = 'command-board';
   hub.add(screen);
   const hubRing = ring(0xffe08a);
-  hubRing.position.set(0, 0.08, -4.4);
-  const destTag = labelSprite('Meadow');
-  destTag.position.y = 0.7;
-  hubRing.add(destTag);
-  hubRing.scale.setScalar(1.7);
-  destTag.scale.set(1 / 1.7, 1 / 1.7, 1);
+  hubRing.position.set(0, 0.04, -4.4);
+  hubRing.scale.setScalar(1.35);
   const gate = new THREE.Group();
-  gate.position.copy(hubRing.position);
-  const glowMat = new THREE.MeshBasicMaterial({ color: '#ffe7a8' });
-  const postL = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.85, 0.14), glowMat);
-  postL.position.set(-0.95, 0.92, 0);
-  const postR = postL.clone();
-  postR.position.x = 0.95;
-  const lintel = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.14, 0.16), glowMat);
-  lintel.position.y = 1.84;
-  const veil = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.75), new THREE.MeshBasicMaterial({ color: '#fff3c4', transparent: true, opacity: 0.34, side: THREE.DoubleSide, depthWrite: false }));
-  veil.position.y = 0.92;
-  gate.add(postL, postR, lintel, veil);
+  gate.position.set(0, 0, -4.4);
+  const timberTex = new THREE.TextureLoader().load(new URL('hearth/textures/wood_floor_diff_1k.jpg', document.baseURI).href);
+  timberTex.colorSpace = THREE.SRGBColorSpace;
+  timberTex.wrapS = timberTex.wrapT = THREE.RepeatWrapping;
+  timberTex.repeat.set(1, 2);
+  const timber = new THREE.MeshStandardMaterial({ map: timberTex, color: '#c9a078', roughness: 0.78 });
+  const brass = new THREE.MeshStandardMaterial({ color: '#c6a15a', metalness: 0.7, roughness: 0.34 });
+  const timberPost = (x) => {
+    const g = new THREE.Group();
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.05, 0.16), timber);
+    beam.position.y = 1.02;
+    const band = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.06, 0.18), brass);
+    band.position.y = 1.15;
+    const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.06, 0.2), brass);
+    shoe.position.y = 0.03;
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.05, 0.2), brass);
+    cap.position.y = 2.06;
+    g.add(beam, band, shoe, cap);
+    g.position.x = x;
+    return g;
+  };
+  const lintel = new THREE.Mesh(new THREE.BoxGeometry(2.35, 0.16, 0.18), timber);
+  lintel.position.y = 2.08;
+  const brassLintel = new THREE.Mesh(new THREE.BoxGeometry(2.42, 0.035, 0.2), brass);
+  brassLintel.position.y = 2.0;
+  const veilCanvas = document.createElement('canvas');
+  veilCanvas.width = 256;
+  veilCanvas.height = 320;
+  {
+    const g = veilCanvas.getContext('2d');
+    const sky = g.createLinearGradient(0, 0, 0, 230);
+    sky.addColorStop(0, '#8eb6e4');
+    sky.addColorStop(0.5, '#f6e2c0');
+    sky.addColorStop(1, '#8aaf62');
+    g.fillStyle = sky;
+    g.fillRect(0, 0, 256, 320);
+    g.fillStyle = 'rgba(255, 236, 176, 0.9)';
+    g.beginPath();
+    g.arc(176, 68, 26, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#5f8a46';
+    g.beginPath();
+    g.moveTo(0, 196);
+    g.quadraticCurveTo(70, 150, 140, 186);
+    g.quadraticCurveTo(200, 158, 256, 184);
+    g.lineTo(256, 320);
+    g.lineTo(0, 320);
+    g.fill();
+    g.fillStyle = '#cfe6a4';
+    g.fillRect(0, 248, 256, 72);
+  }
+  const veilTex = new THREE.CanvasTexture(veilCanvas);
+  veilTex.colorSpace = THREE.SRGBColorSpace;
+  const veil = new THREE.Mesh(new THREE.PlaneGeometry(1.86, 1.82), new THREE.MeshBasicMaterial({ map: veilTex, transparent: true, opacity: 0.92, side: THREE.DoubleSide }));
+  veil.position.y = 1.08;
+  const veilGlow = new THREE.Mesh(new THREE.PlaneGeometry(1.92, 1.88), new THREE.MeshBasicMaterial({ color: '#ffe7a8', transparent: true, opacity: 0.18, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+  veilGlow.position.set(0, 1.08, -0.04);
+  const plaqueCanvas = document.createElement('canvas');
+  plaqueCanvas.width = 512;
+  plaqueCanvas.height = 128;
+  const plaqueTex = new THREE.CanvasTexture(plaqueCanvas);
+  plaqueTex.colorSpace = THREE.SRGBColorSpace;
+  const plaque = new THREE.Mesh(new THREE.PlaneGeometry(1.28, 0.32), new THREE.MeshBasicMaterial({ map: plaqueTex }));
+  plaque.position.set(0, 2.36, 0.02);
+  function paintPlaque(text) {
+    const g = plaqueCanvas.getContext('2d');
+    g.clearRect(0, 0, 512, 128);
+    g.fillStyle = '#3a2416';
+    g.fillRect(0, 0, 512, 128);
+    g.strokeStyle = '#c6a15a';
+    g.lineWidth = 12;
+    g.strokeRect(8, 8, 496, 112);
+    g.fillStyle = '#f6ead0';
+    g.font = 'bold 58px Georgia';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(text, 256, 66);
+    plaqueTex.needsUpdate = true;
+  }
+  paintPlaque('Meadow');
+  gate.add(timberPost(-1.08), timberPost(1.08), lintel, brassLintel, veilGlow, veil, plaque);
   hub.add(hubRing, gate);
   const friend = (tunic, x, z, yaw) => {
     const g = new THREE.Group();
@@ -1138,6 +1204,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   let onLand = null;
   let onChime = null;
   let onSteep = null;
+  let onTea = null;
   let tea = null;
   let teaNear = false;
   const TEAS = {
@@ -1159,7 +1226,14 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     }
     closeTea();
     onSteep?.();
-    note(`${TEAS[id]}. It travels with you.`);
+    const line = {
+      mint: 'Maren: The mint is awake. The meadow will feel shorter.',
+      honey: 'Sable: Honey on the hook. They bite sooner.',
+      chai: 'Lumen: Starlight in the cup. The hex will hear you faster.',
+    }[id];
+    const who = { mint: 'maren', honey: 'sable', chai: 'lumen' }[id];
+    note(line);
+    onTea?.(who);
   }
   pourBtn?.addEventListener('pointerup', (e) => {
     if (teaCard && !teaCard.hidden) closeTea();
@@ -1263,7 +1337,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   function markDest() {
     const lakeGo = dest === 'lake';
     hubRing.material.color.set(lakeGo ? 0x7ec8ff : 0xffe08a);
-    paintLabel(destTag, lakeGo ? 'Long Lake' : 'Meadow');
+    paintPlaque(lakeGo ? 'Long Lake' : 'Meadow');
   }
   function showBoard() { if (panel) panel.hidden = false; }
   function hideBoard() { if (panel) panel.hidden = true; }
@@ -1920,6 +1994,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     set onLand(fn) { onLand = fn; },
     set onChime(fn) { onChime = fn; },
     set onSteep(fn) { onSteep = fn; },
+    set onTea(fn) { onTea = fn; },
     chime() { onChime?.(); },
     get tea() { return tea; },
     openTea,
@@ -2272,6 +2347,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
         const flick = performance.now() * 0.001;
         shell.flicker(flick);
         shell.paintWindow(dusk, roomWeather);
+        veilGlow.material.opacity = 0.14 + Math.sin(flick * 1.3) * 0.05;
         if (pourBtn) pourBtn.hidden = false;
         const td = Math.hypot(walker.feet.x + 4.15, walker.feet.z - 0.35);
         if (td < 1.55 && !teaNear) openTea();
@@ -2333,6 +2409,8 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       const fishing = name === 'meadow' && (byWater() || phase !== 'idle');
       const showFish = name === 'meadow' && (byWater() || phase === 'aim') && phase !== 'bite' && phase !== 'reel';
       if (fishBtn) { fishBtn.hidden = !showFish; fishBtn.textContent = 'Cast'; }
+      const honeyPill = document.getElementById('honeyPill');
+      if (honeyPill) honeyPill.hidden = !(tea === 'honey' && atLake && (fishing || (catchEl && !catchEl.hidden)));
       const cue = document.getElementById('fishcue');
       if (cue) { cue.hidden = !showFish; cue.textContent = phase === 'aim' ? 'Release to cast' : 'Hold to cast'; }
       const bar = document.getElementById('castbar');

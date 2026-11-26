@@ -53,7 +53,7 @@ function save(data) {
 function blank() {
   return {
     respect: 0,
-    people: Object.fromEntries(PEOPLE.map((p) => [p.id, { fp: 0, mood: 'calm', notes: 0, hangs: 0 }])),
+    people: Object.fromEntries(PEOPLE.map((p) => [p.id, { fp: 0, mood: 'calm', notes: 0, hangs: 0, teas: 0 }])),
     boardSeed: 1,
     done: {},
   };
@@ -230,7 +230,7 @@ export function createHub(hooks = {}) {
       const row = data.people[p.id] || { fp: 0, mood: 'calm' };
       const m = meter(row.fp);
       const perk = row.fp >= 90 ? (perkLine[p.id] || '') : '';
-      return `<button type="button" class="pal${who === p.id ? ' on' : ''}" data-who="${p.id}"><b style="color:${p.color}">${p.name}</b><br>${p.role} · ${row.mood} · ${m.label}<div class="meter"><i style="width:${m.width}%"></i></div>${perk ? `<br>${perk}` : ''}</button>`;
+      return `<button type="button" class="pal${who === p.id ? ' on' : ''}" data-who="${p.id}"><b style="color:${p.color}">${p.name}</b><br>${p.role} · ${row.mood} · ${m.label}<div class="meter"><i style="width:${m.width}%"></i></div>${perk ? `<br>${perk}` : ''}<br>Tea shared · ${row.teas || 0}</button>`;
     }).join('');
     box.querySelectorAll('[data-who]').forEach((b) => b.addEventListener('pointerup', (e) => {
       who = b.getAttribute('data-who');
@@ -251,7 +251,7 @@ export function createHub(hooks = {}) {
     };
     const perk = row.fp >= 90 ? (perks[p.id] || 'Perk: a little extra luck in their craft.') : row.fp >= 50 ? 'A longer note is unlocked.' : 'Keep talking. Notes open as you grow close.';
     card.hidden = false;
-    card.innerHTML = `<p class="meta">${p.role}</p><h2>${p.name}</h2><p>Mood ${row.mood} · ${m.label} · ${row.fp} bond</p><div class="meter"><i style="width:${m.width}%"></i></div><p>${p.lines[Math.min(p.lines.length - 1, row.notes || 0)]}</p><p>${perk}</p><p>${lastLine}</p>${p.chats.map((c, i) => `<button type="button" data-chat="${i}">${c.q}</button>`).join('')}<button type="button" data-act="tea">Share tea at the hearth</button><button type="button" data-act="stroll">Evening stroll by Long Lake</button><button type="button" data-act="spar">Friendly spar</button><button type="button" data-act="gift">Give a found gift</button>`;
+    card.innerHTML = `<p class="meta">${p.role}</p><h2>${p.name}</h2><p>Mood ${row.mood} · ${m.label} · ${row.fp} bond</p><div class="meter"><i style="width:${m.width}%"></i></div><p>Tea shared · ${row.teas || 0}</p><p>${p.lines[Math.min(p.lines.length - 1, row.notes || 0)]}</p><p>${perk}</p><p>${lastLine}</p>${p.chats.map((c, i) => `<button type="button" data-chat="${i}">${c.q}</button>`).join('')}<button type="button" data-act="tea">Share tea at the hearth</button><button type="button" data-act="stroll">Evening stroll by Long Lake</button><button type="button" data-act="spar">Friendly spar</button><button type="button" data-act="gift">Give a found gift</button>`;
     card.querySelectorAll('[data-chat]').forEach((b) => b.addEventListener('pointerup', (e) => {
       reply(Number(b.getAttribute('data-chat')));
       e.preventDefault();
@@ -262,6 +262,16 @@ export function createHub(hooks = {}) {
       e.preventDefault();
       e.stopPropagation();
     }));
+  }
+
+  function shareTea(id) {
+    const row = data.people[id];
+    if (!row) return 0;
+    row.teas = (row.teas || 0) + 1;
+    if (row.mood === 'calm') row.mood = 'warm';
+    persist();
+    renderHome();
+    return row.teas;
   }
 
   function bump(id, f, r, mood) {
@@ -504,5 +514,5 @@ export function createHub(hooks = {}) {
     e.stopPropagation();
   });
 
-  return { openHome, openBoard, openBook, reply, act, turnIn, closeAll, get who() { return who; }, set who(v) { who = v; }, get lastLine() { return lastLine; }, people: PEOPLE };
+  return { openHome, openBoard, openBook, reply, act, turnIn, closeAll, shareTea, get who() { return who; }, set who(v) { who = v; }, get lastLine() { return lastLine; }, people: PEOPLE };
 }

@@ -69,3 +69,7 @@ The hearth lights, and the outdoor sun while you are indoors, are lower, and the
 ## Block 45
 
 The hearth fire is crossed charred logs, an ember bed, and soft additive flame tongues instead of a stacked cone. The cauldron is matte cast iron with a teal and amber simmer. Pour Tea, or walk up to the tea table, offers Maren's Mint Steep, Sable's Honey Pearl, and Lumen's Starlight Chai. The steep quickens a meadow walk, the pearl shortens the wait for a bite, and the chai adds resonance. A frosted badge names the one you poured, and it hides in postcard view. A chime plays when ambience is on. A headless pass of the meadow, Long Lake, the canal, the sky deck, and the home hub still raises no page errors.
+
+## Block 46
+
+The way back to the meadow is a timber doorway with brass trim, a painted meadow-light veil, and a Meadow plaque above the lintel. The name no longer sits in the floor ring. Pouring a tea speaks a line from Maren, Sable, or Lumen and adds one to Tea shared on that companion's hearth card. At Long Lake, Sable's Honey Pearl shows a small pill on the fishing HUD. A headless pass of the meadow, Long Lake, the canal, the sky deck, and the home hub still raises no page errors.

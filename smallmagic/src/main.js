@@ -178,6 +178,7 @@ const hub = createHub({
   mind,
   sky() { return zones.boardSky(); },
 });
+zones.onTea = (id) => hub.shareTea(id);
 zones.onLand = () => { const shore = hexes.at(walker.feet.x, walker.feet.z); hexes.grant(shore?.id || 'shore', shore ? 16 : 8); };
 zones.seatHexes(hexes.list);
 zones.onHexTap = (sx, sy) => {
