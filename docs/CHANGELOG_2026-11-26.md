@@ -57,3 +57,7 @@ A frosted wayfinder sits at the top of the meadow. It marks north and the way to
 ## Block 42
 
 Meadow stand-ins are small sculpted creatures instead of a green box or a red dome. A full health bar stays hidden until a beast is hurt. The Menu has a Guide card for postcard view, sky lanterns, Starseed worlds, familiars, ambience, the bestiary, the command board, and the wayfinder. A headless pass of the meadow, Long Lake, the canal, the sky deck, and the home hub still raises no page errors.
+
+## Block 43
+
+Maren, Sable, Bram, and Lumen stay on the bundled VRoid AvatarSample bases (not CC0). Their arms hang in a relaxed stand instead of an A-pose. Each one breathes, shifts weight, blinks, and glances on their own timing. Maren's face and clothes keep the full texture so she still reads when you walk up to talk. A headless pass of the meadow, Long Lake, the canal, the sky deck, and the home hub still raises no page errors.

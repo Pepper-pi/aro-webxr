@@ -293,30 +293,24 @@ export function rareFollowRate(id) {
 }
 
 function buildIdle(vrm, manner) {
-  const slow = manner === 'still' || manner === 'glance' || manner === 'tend';
+  const still = manner === 'still';
   const sure = manner === 'sure';
-  const amp = manner === 'still' ? 0.28 : sure ? 0.75 : slow ? 0.55 : 1;
+  const amp = still ? 0.4 : sure ? 0.72 : 0.58;
   const scale = (frames) => frames.map(([x, y, z]) => [x * amp, y * amp, z * amp]);
   const keys = {
-    hips: scale([[0.02, 0.05, 0.03], [-0.03, -0.02, 0.06], [0, -0.05, 0], [0.03, 0.02, -0.05], [0.02, 0.05, 0.03]]),
-    spine: scale([[0.03, 0, 0], [0.07, 0.03, 0.02], [0.02, 0, 0], [0.06, -0.03, -0.015], [0.03, 0, 0]]),
-    chest: scale(sure
-      ? [[-0.02, 0, 0], [0.04, 0, 0.015], [-0.02, 0, 0], [0.02, 0, -0.012], [-0.02, 0, 0]]
-      : [[0.02, 0, 0], [0.12, 0.02, 0.015], [0.03, 0, 0], [0.1, -0.02, -0.012], [0.02, 0, 0]]),
-    neck: scale([[0, 0.03, 0], [0.02, -0.04, 0], [0, -0.02, 0], [0.015, 0.04, 0], [0, 0.03, 0]]),
+    hips: scale([[0.01, 0.01, 0.03], [-0.01, -0.01, -0.035], [0, 0, 0.01], [0.012, 0.01, 0.028], [0.01, 0.01, 0.03]]),
+    spine: scale([[0.012, 0, 0], [0.04, 0.012, -0.012], [0.016, 0, 0], [0.034, -0.01, 0.01], [0.012, 0, 0]]),
+    chest: scale([[0.01, 0, 0], [0.055, 0.008, 0.006], [0.016, 0, 0], [0.048, -0.006, -0.005], [0.01, 0, 0]]),
+    neck: scale([[0, 0.01, 0], [0.012, -0.02, 0], [0, 0, 0], [0.01, 0.018, 0], [0, 0.01, 0]]),
     head: scale(manner === 'glance'
-      ? [[0, 0.05, 0], [0.02, -0.16, 0.01], [0, 0.02, 0], [0.02, 0.14, -0.01], [0, 0.05, 0]]
-      : [[0, 0.05, 0], [0.03, -0.06, 0.01], [0, -0.04, 0], [0.02, 0.06, -0.01], [0, 0.05, 0]]),
-    leftUpperArm: scale([[0, 0, 0], [0.05, 0, 0.05], [0.01, 0, 0], [0.04, 0, -0.03], [0, 0, 0]]),
-    rightUpperArm: scale(manner === 'tend'
-      ? [[0, 0, 0], [0.35, 0.1, -0.2], [0.08, 0, -0.05], [0.05, 0, 0.04], [0, 0, 0]]
-      : [[0, 0, 0], [0.04, 0, -0.05], [0.01, 0, 0], [0.05, 0, 0.04], [0, 0, 0]]),
-    leftLowerArm: scale([[0, 0, 0], [0.08, 0.04, 0], [0.02, 0, 0], [0.06, -0.02, 0], [0, 0, 0]]),
-    rightLowerArm: scale(manner === 'tend'
-      ? [[0, 0, 0], [0.45, -0.05, 0], [0.12, 0, 0], [0.08, 0.04, 0], [0, 0, 0]]
-      : [[0, 0, 0], [0.06, -0.03, 0], [0.02, 0, 0], [0.08, 0.04, 0], [0, 0, 0]]),
+      ? [[0, 0.02, 0], [0.012, -0.05, 0.006], [0, 0.01, 0], [0.01, 0.045, -0.006], [0, 0.02, 0]]
+      : [[0, 0.015, 0], [0.012, -0.025, 0.004], [0, -0.01, 0], [0.01, 0.02, -0.004], [0, 0.015, 0]]),
+    leftUpperArm: scale([[0, 0, 0], [0.02, 0, 0.012], [0.006, 0, 0], [0.016, 0, -0.008], [0, 0, 0]]),
+    rightUpperArm: scale([[0, 0, 0], [0.02, 0, -0.012], [0.006, 0, 0], [0.016, 0, 0.008], [0, 0, 0]]),
+    leftLowerArm: scale([[0, 0, 0], [0.03, 0.01, 0], [0.008, 0, 0], [0.02, -0.008, 0], [0, 0, 0]]),
+    rightLowerArm: scale([[0, 0, 0], [0.03, -0.01, 0], [0.008, 0, 0], [0.02, 0.008, 0], [0, 0, 0]]),
   };
-  const times = sure ? [0, 0.7, 1.4, 2.1, 2.8] : slow ? [0, 1.6, 3.2, 4.8, 6.4] : [0, 1, 2, 3, 4];
+  const times = sure ? [0, 1.1, 2.2, 3.3, 4.4] : still ? [0, 1.8, 3.6, 5.4, 7.2] : [0, 1.5, 3, 4.5, 6];
   const tracks = [];
   const bones = [];
   for (const [name, frames] of Object.entries(keys)) {
@@ -363,6 +357,63 @@ function tuneSprings(vrm, low) {
     }
   }
   springs.setInitState();
+}
+
+// The sample bind pose is a T. These raw-bone angles hang the arms and ease the spine
+// so a companion stands by the fire instead of holding an A-pose.
+function restPose(vrm, manner) {
+  const relax = (name, x, y, z) => {
+    const node = vrm.humanoid.getRawBoneNode(name);
+    if (node) node.rotation.set(x, y, z);
+  };
+  const hang = manner === 'sure' ? 1.4 : manner === 'still' ? 1.52 : 1.48;
+  const elbow = manner === 'still' ? 0.3 : manner === 'sure' ? 0.38 : 0.46;
+  const open = manner === 'sure' ? 0.05 : 0.02;
+  relax('leftShoulder', 0.03, 0.01, 0.04);
+  relax('rightShoulder', 0.03, -0.01, -0.04);
+  relax('leftUpperArm', 0.16 + open, manner === 'glance' ? 0.05 : 0.03, hang);
+  relax('rightUpperArm', 0.18 + open, manner === 'tend' ? -0.02 : -0.03, -hang);
+  relax('leftLowerArm', elbow, 0.03, 0.04);
+  relax('rightLowerArm', elbow + (manner === 'tend' ? 0.05 : 0), -0.03, -0.04);
+  relax('leftHand', 0.14, 0.05, 0.05);
+  relax('rightHand', 0.14, -0.05, -0.05);
+  relax('spine', 0.05, manner === 'glance' ? 0.02 : 0, manner === 'sure' ? -0.02 : 0.012);
+  relax('chest', 0.025, 0, 0);
+  relax('upperChest', 0.015, 0, 0);
+  relax('hips', 0.012, 0, manner === 'tend' ? 0.04 : manner === 'sure' ? -0.04 : 0.015);
+  relax('neck', 0.02, manner === 'glance' ? -0.03 : 0.015, 0);
+  relax('head', -0.015, manner === 'tend' ? 0.03 : 0, manner === 'still' ? 0 : 0.01);
+}
+
+// Maren's face and clothes stay on the full texture so a conversation distance still reads.
+function clarifyMaren(vrm) {
+  vrm.scene.traverse((o) => {
+    if (!o.isMesh) return;
+    for (const material of [].concat(o.material || [])) {
+      const name = `${material.name || ''} ${o.name || ''}`;
+      const eye = /eyeiris|eyewhite|eye_?highlight|eyelash/i.test(name);
+      const face = !eye && /face|skin|body_00|brow|mouth/i.test(name);
+      const cloth = /tops|bottoms|shoes/i.test(name);
+      if (!eye && !face && !cloth) continue;
+      for (const key of ['map', 'shadeMultiplyTexture', 'normalMap']) {
+        const tex = material[key];
+        if (!tex) continue;
+        tex.magFilter = THREE.LinearFilter;
+        tex.minFilter = THREE.LinearMipmapLinearFilter;
+        tex.generateMipmaps = true;
+        tex.anisotropy = 16;
+        if (tex.image?.width) tex.needsUpdate = true;
+      }
+      if (material.outlineWidthFactor != null && !face) material.outlineWidthFactor = 0.0016;
+      if (!material.uniforms) continue;
+      if (face) {
+        if (material.uniforms.shadingToonyFactor) material.uniforms.shadingToonyFactor.value = 0.55;
+        if (material.uniforms.shadingShiftFactor) material.uniforms.shadingShiftFactor.value = -0.12;
+      } else if (cloth) {
+        if (material.uniforms.shadingToonyFactor) material.uniforms.shadingToonyFactor.value = 0.45;
+      }
+    }
+  });
 }
 
 function dressLumen(vrm, chest, low) {
@@ -515,17 +566,9 @@ export async function createCompanion(url, opts = {}) {
     if (opts.id === 'lumen') dressLumen(vrm, chest, low);
   }
   if (opts.porcelain) glazePorcelain(vrm);
-  const relax = (name, x, y, z) => {
-    const node = vrm.humanoid.getRawBoneNode(name);
-    if (node) node.rotation.set(x, y, z);
-  };
-  // The sample stands in a T. A quiet A-pose reads as someone waiting by the fire.
-  relax('leftUpperArm', 0.12, 0.05, 1.12);
-  relax('rightUpperArm', 0.12, -0.05, -1.12);
-  relax('leftLowerArm', 0.08, 0.15, 0.18);
-  relax('rightLowerArm', 0.08, -0.15, -0.18);
-  relax('leftShoulder', 0, 0, 0.12);
-  relax('rightShoulder', 0, 0, -0.12);
+  if (opts.id === 'maren') clarifyMaren(vrm);
+  const manner = MANNER[opts.id] || 'still';
+  restPose(vrm, manner);
   vrm.scene.userData.appealed = true;
   vrm.scene.userData.fit = 1;
   const root = vrm.scene;
@@ -538,8 +581,11 @@ export async function createCompanion(url, opts = {}) {
   root.userData.fit = root.scale.x;
   shapeBody(vrm, opts.shape || {});
   tuneSprings(vrm, low);
-  const manner = MANNER[opts.id] || 'still';
   const idle = buildIdle(vrm, manner);
+  const phase = [...String(opts.id || 'x')].reduce((h, c) => h + c.charCodeAt(0), 1) * 0.73;
+  let glance = 0;
+  let glanceAt = 0;
+  let glanceIn = 1.6 + (phase % 2.2);
   let ring = null;
   if (isRareNpc(opts.id)) {
     ring = new THREE.Mesh(
@@ -573,8 +619,10 @@ export async function createCompanion(url, opts = {}) {
       if (!o.isMesh) return;
       for (const material of [].concat(o.material || [])) {
         if (material.outlineWidthFactor != null) material.outlineWidthFactor = detail ? 0 : 0.0015;
+        const label = `${material.name || ''} ${o.name || ''}`;
+        const keepFace = opts.id === 'maren' && /face|eye|brow|eyelash|mouth|skin|body_00|tops|bottoms/i.test(label);
         for (const key of ['map', 'shadeMultiplyTexture', 'normalMap']) {
-          if (material[key]) sharpen(material[key], max, aniso);
+          if (material[key]) sharpen(material[key], keepFace ? 0 : max, keepFace ? 16 : aniso);
         }
       }
     });
@@ -597,8 +645,8 @@ export async function createCompanion(url, opts = {}) {
       blinkIn = 2.6 + (t % 1.3);
     }
     if (blink > 0) blink = Math.max(0, blink - dt * 7);
-    let happy = 0.15;
-    let relaxed = 0.7;
+    let happy = 0.1;
+    let relaxed = 0.22;
     let surprised = 0;
     if (hold === 'happy') { happy = 0.72; relaxed = 0.16; }
     else if (hold === 'relaxed') { relaxed = 0.95; happy = 0.08; }
@@ -607,7 +655,7 @@ export async function createCompanion(url, opts = {}) {
     else if (greetLeft > 0) { happy = 0.88; relaxed = 0.15; }
     else if (/busy/.test(mood)) { happy = 0.5; relaxed = 0.25; }
     else if (/hushed/.test(mood)) { relaxed = 0.92; happy = 0.06; }
-    else { relaxed = 0.78; happy = 0.28; }
+    else { relaxed = 0.2; happy = 0.12; }
     const face = vrm.expressionManager;
     if (face) {
       face.setValue('happy', happy);
@@ -620,6 +668,39 @@ export async function createCompanion(url, opts = {}) {
       sampleQuat(track, idle.time, _qout);
       idle.bones[i].quaternion.copy(_qout);
     });
+    const bone = (name) => vrm.humanoid.getRawBoneNode(name);
+    const breath = Math.sin(t * (manner === 'still' ? 1.2 : manner === 'sure' ? 1.55 : 1.38) + phase);
+    const sway = Math.sin(t * 0.42 + phase);
+    const chestBone = bone('chest');
+    const upperBone = bone('upperChest');
+    const spineBone = bone('spine');
+    const hipBone = bone('hips');
+    if (chestBone) chestBone.rotateX(breath * (manner === 'still' ? 0.028 : 0.046));
+    if (upperBone) {
+      upperBone.rotation.x = 0.015 + breath * (manner === 'still' ? 0.012 : 0.02);
+    }
+    if (spineBone) {
+      spineBone.rotateX(breath * 0.016);
+      spineBone.rotateZ(-sway * (manner === 'sure' ? 0.028 : 0.018));
+    }
+    if (hipBone) hipBone.rotateZ(sway * (manner === 'sure' ? 0.05 : 0.034));
+    bone('leftUpperArm')?.rotateX(breath * 0.012);
+    bone('rightUpperArm')?.rotateX(breath * 0.01);
+    glanceIn -= dt;
+    if (glanceIn <= 0) {
+      const pick = Math.sin(t * 2.15 + phase * 1.7);
+      const reach = manner === 'glance' ? 0.18 : manner === 'still' ? 0.06 : 0.11;
+      glance = Math.abs(pick) < 0.42 ? 0 : Math.sign(pick) * reach;
+      glanceIn = 2.6 + Math.abs(Math.sin(t * 0.7 + phase)) * 2.8;
+    }
+    glanceAt += (glance - glanceAt) * Math.min(1, dt * 1.7);
+    bone('neck')?.rotateY(glanceAt * 0.35);
+    const headBone = bone('head');
+    if (headBone) {
+      headBone.rotateY(glanceAt);
+      headBone.rotateX(Math.sin(t * 0.47 + phase) * 0.012);
+      headBone.rotateZ(sway * 0.008);
+    }
     if (opts.porcelain) {
       const head = vrm.humanoid.getRawBoneNode('head');
       const spine = vrm.humanoid.getRawBoneNode('spine');
@@ -634,8 +715,11 @@ export async function createCompanion(url, opts = {}) {
       if (mote) mote.position.set(-0.12 + Math.cos(t * 1.2) * 0.08, 0.28 + Math.sin(t * 1.7) * 0.05, 0.18);
     }
     if (camera) {
-      camera.getWorldPosition(gaze.position);
-      if (!gaze.parent) camera.parent?.add(gaze) || vrm.scene.parent?.add(gaze);
+      camera.getWorldPosition(there);
+      const host = camera.parent || vrm.scene.parent;
+      if (host && gaze.parent !== host) host.add(gaze);
+      if (gaze.parent) gaze.parent.worldToLocal(gaze.position.copy(there));
+      else gaze.position.copy(there);
     }
     const bits = vrm.scene.userData.lumenBits;
     if (bits) bits.forEach((braid, i) => { braid.rotation.x = 0.45 + Math.sin(t * 1.6 + i) * 0.05; });
