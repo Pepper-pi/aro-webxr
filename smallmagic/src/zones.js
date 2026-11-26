@@ -1016,6 +1016,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     onLand?.(species);
   }
   let onLand = null;
+  let onChime = null;
 
   const panel = document.getElementById('board');
   const menu = document.getElementById('menu');
@@ -1760,6 +1761,8 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     },
     celebrate,
     set onLand(fn) { onLand = fn; },
+    set onChime(fn) { onChime = fn; },
+    chime() { onChime?.(); },
     cueBeast(x, z, name) { beasts.act(x, z, name); },
     face(kind) { return beasts.face(kind); },
     clip(kind) { return beasts.clip(kind); },
