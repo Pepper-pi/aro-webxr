@@ -25,6 +25,7 @@ Code MIT (`LICENSE`). The world is drawn by code in `src/`: there are no models,
 | VRM animation | `@pixiv/three-vrm-animation` 3.6.0 | pixiv, MIT |
 | Outdoor GPS | `locar` 0.2.12 | AR.js organisation, MIT. Location-based only. Full AR.js and jsartoolkit (LGPLv3) are not installed. |
 | Outdoor distances | `@turf/distance` 7.2.0 | Turf authors, MIT |
+| Hub picking | `three-mesh-bvh` 0.8.3 | Garrett Johnson, MIT |
 | Hearth idle, talk, greet, nod | `public/hearth/motion/Idle_Loop.vrma`, `Idle_Talking_Loop.vrma`, `Interact.vrma`, `Yes.vrma` | Quaternius Universal Animation Library, CC0, as `.vrma` in Sanami's open-vrma set (`quaternius/ual1` for the first three, `quaternius/ual2` for `Yes.vrma`, https://huggingface.co/datasets/Sanami/open-vrma). Not Mixamo. Not CMU. |
 | Recordings laid over it in the published game | not in the repo | Sonniss GDC Game Audio Bundles, their own licence; see `MISSING_ASSETS.md` |
 

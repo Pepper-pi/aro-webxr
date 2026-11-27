@@ -180,6 +180,8 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   hub.add(sky('#3a2a1c', '#c4a07a'));
   const shell = createHearthShell();
   hub.add(shell.root);
+  let houseParts = null;
+  let houseReady = null;
   let roomWeather = 'clear';
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.7), new THREE.MeshBasicMaterial({ map: boardTexture() }));
   screen.position.set(0, 1.35, 6.8);
@@ -757,7 +759,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       dressWood(chairB);
       dressWood(shelves);
       layTea(-4.15, 0.74, 0.35);
-      put(furn.lamp, -4.15, 0, -3.5, 0, 1.2);
+      const lamp = put(furn.lamp, -4.15, 0, -3.5, 0, 1.2);
       for (const p of pals) {
         if (ctls[p.id]) {
           stripBlocks(p.g);
@@ -784,6 +786,16 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       fitModel(youModel, 1.65);
       you.add(youModel);
       playIdle(people.you, youModel);
+      houseParts = {
+        shell, hub, chairA, chairB, table, lamp,
+        plant: shell.plants?.[0] || null,
+        pals,
+      };
+      try {
+        if (houseReady) houseReady(houseParts);
+      } catch (err) {
+        console.warn('house mount', err && err.stack ? err.stack : err);
+      }
       done(true);
     })().catch((err) => { console.warn('hearth models', err); done(false); });
   }
@@ -1693,7 +1705,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       ray.setFromCamera(ndc, camera);
       if (ray.intersectObject(skyDeck.helm, true).length) cycleSeed();
     }
-    if (name !== 'hub' || (e.target.closest && e.target.closest('#cast, #spell, #stick, #board, #menu, #back, #menubtn, #reel, #catch, #fish, #dusk, #gear, #settings, #atlas'))) return;
+    if (name !== 'hub' || (e.target.closest && e.target.closest('#cast, #spell, #stick, #board, #menu, #back, #menubtn, #reel, #catch, #fish, #dusk, #gear, #settings, #atlas, #houseFix, #houseBar, #housePanel, #tvBar, #wildBoard'))) return;
     ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
     ray.setFromCamera(ndc, camera);
     if (ray.intersectObject(screen, false).length) showBoard();
@@ -1980,6 +1992,10 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       el._t = setTimeout(() => { el.hidden = true; }, 3200);
     },
     set onHexTap(fn) { onHexTap = fn; },
+    seatHouse(fn) {
+      houseReady = fn;
+      if (houseParts) fn(houseParts);
+    },
     get name() { return name; },
     get atLake() { return atLake; },
     buddyAt() { return buddyBody.visible ? buddyBody.position : null; },

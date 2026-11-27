@@ -197,16 +197,25 @@
       #wildBar[hidden] { display: none; }
       #wildBar button { pointer-events: auto; min-height: 36px; padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.78); background: rgba(236, 242, 248, 0.84); color: #1c2430; font: 14px Georgia, serif; }
       #wildBar button.on { background: #1c2430; color: #f6ead0; }
-      #wildWallet { position: fixed; right: max(12px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); z-index: 8; padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(241, 217, 164, 0.7); background: rgba(20, 12, 28, 0.72); color: #fff6dc; font: 14px Georgia, serif; pointer-events: none; }
+      #wildWallet { position: fixed; top: calc(max(12px, env(safe-area-inset-top)) + 86px); left: 50%; right: auto; transform: translateX(-50%); z-index: 8; max-width: min(280px, calc(100vw - 220px)); padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(241, 217, 164, 0.7); background: rgba(20, 12, 28, 0.72); color: #fff6dc; font: 14px Georgia, serif; pointer-events: none; white-space: nowrap; text-align: center; }
       #wildWallet[hidden] { display: none; }
       #wildRead { position: fixed; left: 50%; top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%); z-index: 8; padding: 6px 12px; border-radius: 999px; background: rgba(20, 12, 28, 0.55); color: #fff6dc; font: 14px Georgia, serif; pointer-events: none; }
       #wildRead[hidden] { display: none; }
       #wildTag { position: fixed; left: 50%; bottom: 18%; transform: translateX(-50%); z-index: 9; min-height: 44px; padding: 8px 16px; border-radius: 999px; border: 2px solid #f1d9a4; background: rgba(20, 12, 28, 0.86); color: #fff6dc; font: 16px Georgia, serif; }
       #wildTag[hidden] { display: none; }
-      #wildBoard { position: fixed; left: max(12px, env(safe-area-inset-left)); top: 64px; z-index: 8; width: min(280px, 86vw); padding: 10px 12px; border-radius: 16px; background: rgba(236, 242, 248, 0.9); color: #1c2430; border: 1px solid rgba(255, 255, 255, 0.8); font: 14px/1.35 Georgia, serif; }
+      #wildBoard { position: fixed; left: max(12px, env(safe-area-inset-left)); top: 148px; z-index: 8; width: min(280px, 86vw); padding: 10px 12px; border-radius: 16px; background: rgba(236, 242, 248, 0.9); color: #1c2430; border: 1px solid rgba(255, 255, 255, 0.8); font: 14px/1.35 Georgia, serif; }
       #wildBoard[hidden] { display: none; }
       #wildBoard .meta { letter-spacing: 0.12em; text-transform: uppercase; color: #6a5a3a; font-size: 11px; margin: 0 0 6px; }
       #wildBoard button { display: block; width: 100%; text-align: left; margin: 6px 0 0; padding: 8px 10px; border-radius: 12px; border: 1px solid rgba(28, 36, 48, 0.14); background: rgba(255, 255, 255, 0.8); color: #1c2430; font: 14px Georgia, serif; }
+      #houseFix, #houseAct, #houseRot, #houseDrop, #tvChannel, #tvPlay { pointer-events: auto; min-height: 36px; padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.78); background: rgba(236, 242, 248, 0.88); color: #1c2430; font: 14px Georgia, serif; }
+      #houseFix { position: fixed; left: max(12px, env(safe-area-inset-left)); bottom: calc(max(18px, env(safe-area-inset-bottom)) + 56px); z-index: 8; }
+      #houseFix[hidden], #houseBar[hidden], #housePanel[hidden], #tvBar[hidden] { display: none; }
+      #houseBar { position: fixed; left: 50%; bottom: 16%; transform: translateX(-50%); z-index: 9; display: flex; gap: 8px; }
+      #tvBar { position: fixed; left: 50%; bottom: 26%; transform: translateX(-50%); z-index: 9; display: flex; gap: 8px; }
+      #housePanel { position: fixed; right: max(12px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); z-index: 9; width: min(260px, 86vw); padding: 10px 12px; border-radius: 16px; background: rgba(236, 242, 248, 0.92); color: #1c2430; border: 1px solid rgba(255, 255, 255, 0.8); font: 14px/1.35 Georgia, serif; }
+      #housePanel .meta { letter-spacing: 0.12em; text-transform: uppercase; color: #6a5a3a; font-size: 11px; margin: 0 0 6px; }
+      #housePanel button { display: block; width: 100%; text-align: left; margin: 6px 0 0; padding: 8px 10px; border-radius: 12px; border: 1px solid rgba(28, 36, 48, 0.14); background: #fff; color: #1c2430; font: 14px Georgia, serif; }
+      #housePanel button.on { outline: 2px solid #e7c56a; }
       #ar.on { background: #f1d9a4; color: #24160c; }
       #arGrade { position: fixed; inset: 0; z-index: 4; pointer-events: none; display: none; box-shadow: inset 0 0 120px 28px rgba(180, 110, 40, 0.38); background: radial-gradient(circle at 50% 70%, rgba(255, 196, 120, 0.08), transparent 55%); }
       #arGrade.on { display: block; }
@@ -470,6 +479,21 @@
       <button id="wildBack" type="button" hidden>Meadow</button>
     </div>
     <button id="wildTag" type="button" hidden>Tag for Home Portal</button>
+    <button id="houseFix" type="button" hidden>Fix Up House</button>
+    <div id="houseBar" hidden>
+      <button id="houseAct" type="button">Move</button>
+      <button id="houseRot" type="button">Rotate</button>
+      <button id="houseDrop" type="button">Set down</button>
+    </div>
+    <div id="tvBar" hidden>
+      <button id="tvChannel" type="button">Flip Channel</button>
+      <button id="tvPlay" type="button">Mini-Game</button>
+    </div>
+    <div id="housePanel" hidden>
+      <p class="meta">Fix up house</p>
+      <p id="houseFunds"></p>
+      <div id="houseBuys"></div>
+    </div>
     <div id="wildBoard" hidden>
       <p class="meta">Home portal</p>
       <div id="wildQueue"></div>

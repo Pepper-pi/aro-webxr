@@ -159,6 +159,14 @@ export function createOutdoor(scene, renderer, zones, hexes) {
   });
 
   let wallet = loadWallet();
+  if (!wallet.stipend) {
+    if (wallet.coins < 15) {
+      wallet.coins += 24;
+      wallet.timber += 8;
+    }
+    wallet.stipend = true;
+    saveWallet(wallet);
+  }
   let open = false;
   let walking = false;
   let gpsLive = false;
@@ -450,5 +458,16 @@ function hoursLeft(until) {
     close,
     tag,
     farm,
+    spend(coins, timber) {
+      if (wallet.coins < coins || wallet.timber < timber) return false;
+      wallet.coins -= coins;
+      wallet.timber -= timber;
+      persist();
+      return true;
+    },
+    gain(coins) {
+      wallet.coins += Math.max(0, coins | 0);
+      persist();
+    },
   };
 }

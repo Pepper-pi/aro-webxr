@@ -241,12 +241,12 @@ export function createHearthShell() {
     leaf.position.y = 0.42;
     leaf.scale.y = 0.8;
     g.add(pot, leaf);
+    g.name = 'hearth-plant';
     g.position.set(x, 0, z);
     root.add(g);
+    return g;
   }
-  plant(4.4, -1.6);
-  plant(4.2, 1.8);
-  plant(-4.4, 2.6);
+  const plants = [plant(4.4, -1.6), plant(4.2, 1.8), plant(-4.4, 2.6)];
 
   const trim = new THREE.MeshStandardMaterial({ color: '#efe6d6', roughness: 0.45 });
   const beamMat = new THREE.MeshStandardMaterial({ color: '#6a4030', roughness: 0.72 });
@@ -272,29 +272,100 @@ export function createHearthShell() {
   const rugCanvas = document.createElement('canvas');
   rugCanvas.width = 256;
   rugCanvas.height = 320;
-  {
+  function paintRug(style) {
     const g = rugCanvas.getContext('2d');
-    g.fillStyle = '#5c2e32';
-    g.fillRect(0, 0, 256, 320);
-    g.fillStyle = '#e4c7a4';
-    g.fillRect(12, 14, 232, 292);
-    g.fillStyle = '#6a3836';
-    g.fillRect(24, 26, 208, 268);
-    for (let y = 26; y < 294; y += 10) {
-      for (let x = 24; x < 232; x += 10) {
-        const alt = ((x / 10) + (y / 10)) % 2;
-        g.fillStyle = alt ? '#7a403c' : '#8d4c46';
-        g.fillRect(x, y, 10, 10);
-        g.fillStyle = alt ? '#c4a07a' : '#a88462';
-        g.fillRect(x + 2, y + 4, 6, 2);
+    g.clearRect(0, 0, 256, 320);
+    if (style === 'weave') {
+      g.fillStyle = '#1e3a4a';
+      g.fillRect(0, 0, 256, 320);
+      for (let y = 0; y < 320; y += 8) {
+        g.fillStyle = y % 16 ? '#2f5a62' : '#c4a574';
+        g.fillRect(0, y, 256, 8);
       }
+    } else if (style === 'star') {
+      g.fillStyle = '#142033';
+      g.fillRect(0, 0, 256, 320);
+      g.fillStyle = '#e7c56a';
+      g.beginPath();
+      g.moveTo(128, 70);
+      g.lineTo(148, 130);
+      g.lineTo(210, 130);
+      g.lineTo(160, 168);
+      g.lineTo(178, 230);
+      g.lineTo(128, 190);
+      g.lineTo(78, 230);
+      g.lineTo(96, 168);
+      g.lineTo(46, 130);
+      g.lineTo(108, 130);
+      g.closePath();
+      g.fill();
+    } else if (style === 'hearth') {
+      g.fillStyle = '#6a2420';
+      g.fillRect(0, 0, 256, 320);
+      g.fillStyle = '#e7c56a';
+      g.fillRect(18, 18, 220, 284);
+      g.fillStyle = '#8a3030';
+      g.fillRect(36, 36, 184, 248);
+    } else {
+      g.fillStyle = '#5c2e32';
+      g.fillRect(0, 0, 256, 320);
+      g.fillStyle = '#e4c7a4';
+      g.fillRect(12, 14, 232, 292);
+      g.fillStyle = '#6a3836';
+      g.fillRect(24, 26, 208, 268);
+      for (let y = 26; y < 294; y += 10) {
+        for (let x = 24; x < 232; x += 10) {
+          const alt = ((x / 10) + (y / 10)) % 2;
+          g.fillStyle = alt ? '#7a403c' : '#8d4c46';
+          g.fillRect(x, y, 10, 10);
+          g.fillStyle = alt ? '#c4a07a' : '#a88462';
+          g.fillRect(x + 2, y + 4, 6, 2);
+        }
+      }
+      g.strokeStyle = '#f0d8b4';
+      g.lineWidth = 3;
+      g.strokeRect(30, 34, 196, 252);
     }
-    g.strokeStyle = '#f0d8b4';
-    g.lineWidth = 3;
-    g.strokeRect(30, 34, 196, 252);
+    rugTex.needsUpdate = true;
+  }
+  function setFinish(id) {
+    const look = {
+      honey: ['#c4a574', '#f3ead8', '#8a5a3c'],
+      ash: ['#d5c8b4', '#f7f4ee', '#9a9084'],
+      night: ['#3a2e2a', '#2c2628', '#241c1a'],
+    }[id];
+    if (!look) return;
+    plank.color.set(look[0]);
+    boards.color.set(look[1]);
+    beamMat.color.set(look[2]);
+  }
+  function setMood(id) {
+    if (id === 'ember') {
+      fireLight.color.set('#ffb070');
+      fireLight.intensity = 0.62;
+      windowLight.intensity = 0.16;
+      hemi.intensity = 0.32;
+      moon.intensity = 0.05;
+    } else if (id === 'lantern') {
+      fireLight.color.set('#fff1c8');
+      fireLight.intensity = 0.4;
+      windowLight.color.set('#fff4d8');
+      windowLight.intensity = 0.62;
+      hemi.intensity = 0.72;
+      moon.intensity = 0.1;
+    } else if (id === 'moon') {
+      fireLight.color.set('#ffd0a8');
+      fireLight.intensity = 0.14;
+      windowLight.color.set('#c5d4f4');
+      windowLight.intensity = 0.78;
+      hemi.color.set('#d5def2');
+      hemi.intensity = 0.38;
+      moon.intensity = 0.5;
+    }
   }
   const rugTex = new THREE.CanvasTexture(rugCanvas);
   rugTex.colorSpace = THREE.SRGBColorSpace;
+  paintRug('plain');
   const rug = new THREE.Mesh(
     new THREE.PlaneGeometry(3.6, 4.4),
     new THREE.MeshStandardMaterial({ map: rugTex, roughness: 0.92 }),
@@ -386,5 +457,5 @@ export function createHearthShell() {
     bounce.intensity = 0.07 + Math.sin(t * 11) * 0.012;
   }
 
-  return { root, paintWindow, flicker, fireLight };
+  return { root, paintWindow, flicker, fireLight, paintRug, setFinish, setMood, plants };
 }
