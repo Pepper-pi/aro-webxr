@@ -21,7 +21,9 @@ Code MIT (`LICENSE`). The world is drawn by code in `src/`: there are no models,
 | Sable | `public/hearth/people/sable-vroid.vrm` | Derived from VRoid AvatarSample_C. Not a public-domain licence. Not the unmodified sample. |
 | Lumen Pike | `public/hearth/people/lumen-pike.vrm` | Derived from VRoid AvatarSample_C, then dressed in the game (mantle, braids, lantern). Not a public-domain licence. Not the unmodified sample. Not Maren's AvatarSample_A mesh. |
 | Porcelain healer | same AvatarSample_C derivation as Sable | Runtime ceramic glaze, cracks, glyphs, pink eyes, and joint rings. Not a public-domain licence. Not a playable class. The hub stand-in uses the player's AvatarSample body instead of the untextured Quaternius figure. |
-| VRM loader | `@pixiv/three-vrm` | pixiv, MIT |
+| VRM loader | `@pixiv/three-vrm` 3.6.0 | pixiv, MIT |
+| VRM animation | `@pixiv/three-vrm-animation` 3.6.0 | pixiv, MIT |
+| Hearth idle, talk, greet, nod | `public/hearth/motion/Idle_Loop.vrma`, `Idle_Talking_Loop.vrma`, `Interact.vrma`, `Yes.vrma` | Quaternius Universal Animation Library, CC0, as `.vrma` in Sanami's open-vrma set (`quaternius/ual1` for the first three, `quaternius/ual2` for `Yes.vrma`, https://huggingface.co/datasets/Sanami/open-vrma). Not Mixamo. Not CMU. |
 | Recordings laid over it in the published game | not in the repo | Sonniss GDC Game Audio Bundles, their own licence; see `MISSING_ASSETS.md` |
 
 Nothing here has no stated source.
