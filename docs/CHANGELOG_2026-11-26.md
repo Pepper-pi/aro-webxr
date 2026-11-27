@@ -1,0 +1,79 @@
+# 26 November 2026
+
+Preview only: `/v7-preview/smallmagic/` on the PR 2 branch. Live `/v7/` was not changed. Trees were not rebuilt or moved. The Mage stays staffless. Summoner holds the staff. Summoner and Puppetmaster stay separate.
+
+## Block 27
+
+Lumen Pike no longer wears Maren's AvatarSample A mesh. Her file is an AvatarSample C derivation, dressed with an indigo mantle, pale braids, and a hand lantern.
+
+## Block 28
+
+The hub stand-in has a skin-colored face. Empty textures are no longer marked for upload. The hearth fire is a soft warm white, with cooler light from the window. A clothed porcelain healer stands in the hub.
+
+## Block 31
+
+The canal keeps the Kenney street and adds a stone arch, rock banks, stalls, a boba counter, and a stock card. Lantern strings sway on desktop. Embers drift. The porcelain face has short crazing, rose eyes, and a pink wisp.
+
+## Block 32
+
+The canal bridge is a stone arch with a railed deck. Houses have solid sides and warm windows. The sky is twilight. Stall cloth stays above head height.
+
+## Block 33
+
+The boba card faces the street. The airship is a ribbed dirigible. The plaza is cobbled, with warm pools under the lamps.
+
+## Block 34
+
+The Mage stays staffless. A charge lights rings and runes on the forearm. Fire, frost, and starlight leave different trails. The Blade rail is two edges with a pale belt. Summoner and Puppetmaster stay separate On deck classes.
+
+## Block 35
+
+The canal has a Lantern rain toggle. The menu opens a frosted bestiary stored as JSON. Long Lake evening keeps bioluminescent water, a Milky Way band, and fireflies.
+
+## Block 36
+
+The meadow stand-in stays off the lake. The Milky Way fades at its edges. A pier, a lantern, and swaying reeds sit on the shore. The hearth gains a rug, shelves, beams, and hanging lanterns. Encounters write seen and defeated counts and show a discovery note.
+
+## Block 37
+
+The sky-ship has an observation deck with planks, brass and rope, a helm, lanterns, and the ribbed belly. A round door on the canal and a menu button board it. The command board changes with Day, Dusk, or Evening and with Clear or Lantern Rain, in each companion's manner. The hearth turns the outdoor dusk distance grade off.
+
+## Block 38
+
+The brass helm, and a Starseed pill on the deck and the canal, switch three skins of the same quay: Lantern Canal, Mossy Ruin Glade, and Steampunk Sky Port. The choice stays in the browser, so stepping off the deck shows that seed. The deck panorama is a cloud sea, soft ridges, twinkling lamps, amber lanterns, a compass rose, and drifting wisps. Phone keeps fewer of each.
+
+## Block 39
+
+Three original familiars can keep the shoulder in the meadow, the canal, Long Lake, and the sky deck: a lantern moth, a paper crane, and a dew wisp. None puts them away. The choice stays in the browser. Postcard view hides the buttons. P opens it, and Esc or Exit closes it. Save Postcard downloads the current frame. A generated ambience stays off until asked: hearth crackle, water and a soft chime, rain hiss on the canal, and a breeze on the deck.
+
+## Block 40
+
+The familiars are shoulder-sized. The lantern moth has shaped forewings and hindwings, a tapered body, and thin antennae, and it stays just behind the shoulder. The boba stall stands aside so the round sky-deck door is clear. At Long Lake and the canal, Release Lantern (or L) sends up a paper sky lantern. Desktop keeps twelve aloft, a phone six.
+
+## Block 41
+
+A frosted wayfinder sits at the top of the meadow. It marks north and the way to Long Lake, the Lantern Canal, the Home Hub, and the nearest Super Hex, with the distance in meters. A tap holds that direction. When a Super Hex rises a Resonance tier, a frosted toast appears, gold and cyan rings lift off the beacon, and a short chime plays if the ambience is on. Mage, Warrior, and Gunner keep their own ability chips. Summoner and Puppetmaster stay separate On deck classes.
+
+## Block 42
+
+Meadow stand-ins are small sculpted creatures instead of a green box or a red dome. A full health bar stays hidden until a beast is hurt. The Menu has a Guide card for postcard view, sky lanterns, Starseed worlds, familiars, ambience, the bestiary, the command board, and the wayfinder. A headless pass of the meadow, Long Lake, the canal, the sky deck, and the home hub still raises no page errors.
+
+## Block 43
+
+Maren, Sable, Bram, and Lumen stay on the bundled VRoid AvatarSample bases (not CC0). Their arms hang in a relaxed stand instead of an A-pose. Each one breathes, shifts weight, blinks, and glances on their own timing. Maren's face and clothes keep the full texture so she still reads when you walk up to talk. A headless pass of the meadow, Long Lake, the canal, the sky deck, and the home hub still raises no page errors.
+
+## Block 44
+
+The hearth lights, and the outdoor sun while you are indoors, are lower, and the indoor exposure is pulled down so Maren's cheeks, nose, and mouth stay out of the white. The four companions turn in toward the rug and the fire, each at a slightly different angle. The table, chairs, and bookshelf use the warm CC0 wood grain. A ceramic teapot, two cups with a little steam, and a bound notebook sit on the table. A headless pass of the meadow, Long Lake, the canal, the sky deck, and the home hub still raises no page errors.
+
+## Block 45
+
+The hearth fire is crossed charred logs, an ember bed, and soft additive flame tongues instead of a stacked cone. The cauldron is matte cast iron with a teal and amber simmer. Pour Tea, or walk up to the tea table, offers Maren's Mint Steep, Sable's Honey Pearl, and Lumen's Starlight Chai. The steep quickens a meadow walk, the pearl shortens the wait for a bite, and the chai adds resonance. A frosted badge names the one you poured, and it hides in postcard view. A chime plays when ambience is on. A headless pass of the meadow, Long Lake, the canal, the sky deck, and the home hub still raises no page errors.
+
+## Block 46
+
+The way back to the meadow is a timber doorway with brass trim, a painted meadow-light veil, and a Meadow plaque above the lintel. The name no longer sits in the floor ring. Pouring a tea speaks a line from Maren, Sable, or Lumen and adds one to Tea shared on that companion's hearth card. At Long Lake, Sable's Honey Pearl shows a small pill on the fishing HUD. A headless pass of the meadow, Long Lake, the canal, the sky deck, and the home hub still raises no page errors.
+
+## Block 47
+
+A wood-grain bench sits on the Long Lake bank beside the pier, facing the water, with a brass-and-glass lantern on a short timber post and a warm pool on the flowers. No tree was moved. The Guide card ends with the live loadout: class, Starseed world, familiar, and hearth tea. Blocks 43 through 47 are the pre-reset pass. A headless pass of the meadow, Long Lake, the canal, the sky deck, and the home hub still raises no page errors.

@@ -1,0 +1,31 @@
+{
+  "tiers": ["common", "uncommon", "rare", "epic", "mythic"],
+  "base": { "common": 62, "uncommon": 24, "rare": 9, "epic": 4, "mythic": 1 },
+  "hex": {
+    "meadow": { "common": 6 },
+    "bloom": { "uncommon": 4 },
+    "moss": { "rare": 3, "epic": 1 },
+    "glen": { "rare": 2, "uncommon": 3 },
+    "shore": { "uncommon": 4, "rare": 2 },
+    "hearth": { "common": 8 },
+    "landing": { "uncommon": 2 }
+  },
+  "time": {
+    "day": { "common": 6 },
+    "dusk": { "rare": 4, "epic": 2 },
+    "night": { "epic": 3, "mythic": 2, "rare": 2 }
+  },
+  "weather": {
+    "clear": { "common": 4 },
+    "rain": { "uncommon": 5, "rare": 1 },
+    "fog": { "rare": 4, "epic": 2 },
+    "wind": { "uncommon": 4 }
+  },
+  "season": {
+    "spring": { "uncommon": 3 },
+    "summer": { "common": 4 },
+    "autumn": { "rare": 3, "epic": 1 },
+    "winter": { "epic": 2, "mythic": 1 }
+  },
+  "shimmer": ["rare", "epic", "mythic"]
+}
