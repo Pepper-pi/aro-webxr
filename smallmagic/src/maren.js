@@ -12,6 +12,7 @@ const _euler = new THREE.Euler();
 const _qa = new THREE.Quaternion();
 const _qb = new THREE.Quaternion();
 const _qout = new THREE.Quaternion();
+const _wind = new THREE.Vector3();
 
 function crackle(tex) {
   const img = tex?.image;
@@ -340,9 +341,10 @@ function buildIdle(vrm, manner) {
   return { clip: new THREE.AnimationClip('companion-idle', times[times.length - 1], tracks), bones, time: 0 };
 }
 
-function tuneSprings(vrm, low) {
+function tuneSprings(vrm, low, id) {
   const springs = vrm.springBoneManager;
   if (!springs) return;
+  const drape = id === 'sable' || id === 'lumen' || id === 'porcelain';
   for (const joint of springs.joints) {
     const name = joint.bone?.name || '';
     const settings = joint.settings;
@@ -352,11 +354,12 @@ function tuneSprings(vrm, low) {
       settings.gravityPower = 0.015;
       settings.dragForce = 0.72;
     } else if (/hair/i.test(name)) {
-      settings.stiffness = low ? 0.9 : 0.55;
-      settings.gravityPower = 0.1;
+      // Sample C's twin tails are bound sticking out. A heavy downward spring hangs them.
+      settings.stiffness = drape ? 0.07 : (low ? 0.9 : 0.55);
+      settings.gravityPower = drape ? 1.45 : 0.16;
       settings.gravityDir.set(0, -1, 0);
-      settings.dragForce = low ? 0.55 : 0.34;
-      settings.hitRadius = Math.min(settings.hitRadius || 0.02, 0.035);
+      settings.dragForce = drape ? 0.42 : (low ? 0.55 : 0.34);
+      settings.hitRadius = drape ? 0.012 : Math.min(settings.hitRadius || 0.02, 0.035);
     } else if (/hood|string/i.test(name)) {
       settings.stiffness = low ? 0.95 : 0.62;
       settings.gravityPower = 0.16;
@@ -365,6 +368,12 @@ function tuneSprings(vrm, low) {
     }
   }
   springs.setInitState();
+}
+
+function settleSprings(vrm, root) {
+  if (!vrm.springBoneManager) return;
+  root.updateMatrixWorld(true);
+  for (let i = 0; i < 180; i += 1) vrm.springBoneManager.update(1 / 60);
 }
 
 // The sample bind pose is a T. These raw-bone angles hang the arms and ease the spine
@@ -528,6 +537,32 @@ function charmOf(kind) {
   return sprig();
 }
 
+const MOTIONS = {
+  idle: 'Idle_Loop.vrma',
+  talk: 'Idle_Talking_Loop.vrma',
+  greet: 'Interact.vrma',
+  yes: 'Yes.vrma',
+};
+let motionPack;
+function loadMotions() {
+  if (!motionPack) {
+    motionPack = (async () => {
+      const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+      const { VRMAnimationLoaderPlugin } = await import('@pixiv/three-vrm-animation');
+      const loader = new GLTFLoader();
+      loader.register((parser) => new VRMAnimationLoaderPlugin(parser));
+      const out = {};
+      for (const [key, file] of Object.entries(MOTIONS)) {
+        const gltf = await loader.loadAsync(new URL(`hearth/motion/${file}`, document.baseURI).href);
+        const clip = gltf.userData.vrmAnimations?.[0];
+        if (clip) out[key] = clip;
+      }
+      return out;
+    })();
+  }
+  return motionPack;
+}
+
 export async function createCompanion(url, opts = {}) {
   const low = !!opts.low;
   const dyes = opts.dyes || {
@@ -588,9 +623,49 @@ export async function createCompanion(url, opts = {}) {
   root.position.y -= new THREE.Box3().setFromObject(root).min.y;
   root.userData.fit = root.scale.x;
   shapeBody(vrm, opts.shape || {});
-  tuneSprings(vrm, low);
+  tuneSprings(vrm, low, opts.id);
+  settleSprings(vrm, root);
   const idle = buildIdle(vrm, manner);
+  let mixer = null;
+  const actions = {};
   const phase = [...String(opts.id || 'x')].reduce((h, c) => h + c.charCodeAt(0), 1) * 0.73;
+  let mode = 'idle';
+  let modeLeft = 5 + phase;
+  try {
+    const pack = await loadMotions();
+    const { createVRMAnimationClip, VRMLookAtQuaternionProxy } = await import('@pixiv/three-vrm-animation');
+    if (vrm.lookAt && !vrm.scene.getObjectByName('VRMLookAtQuaternionProxy')) {
+      const proxy = new VRMLookAtQuaternionProxy(vrm.lookAt);
+      proxy.name = 'VRMLookAtQuaternionProxy';
+      vrm.scene.add(proxy);
+    }
+    mixer = new THREE.AnimationMixer(vrm.scene);
+    for (const [key, anim] of Object.entries(pack)) {
+      const clip = createVRMAnimationClip(anim, vrm);
+      clip.tracks = clip.tracks.filter((track) => !track.name.endsWith('.position'));
+      const action = mixer.clipAction(clip);
+      const once = key === 'greet' || key === 'yes';
+      action.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat, once ? 1 : Infinity);
+      action.clampWhenFinished = once;
+      actions[key] = action;
+    }
+    if (actions.idle) {
+      actions.idle.play();
+      vrm.humanoid.autoUpdateHumanBones = true;
+    } else mixer = null;
+  } catch (err) {
+    console.warn('companion motion', err);
+    mixer = null;
+  }
+  const playMode = (name) => {
+    const next = actions[name];
+    if (!mixer || !next || mode === name) return;
+    const prev = actions[mode];
+    next.reset().fadeIn(0.28).play();
+    prev?.fadeOut(0.28);
+    mode = name;
+    modeLeft = name === 'idle' ? 5.5 + Math.abs(Math.sin(phase * 3)) * 4 : Math.max(1.1, next.getClip().duration * 0.85);
+  };
   let glance = 0;
   let glanceAt = 0;
   let glanceIn = 1.6 + (phase % 2.2);
@@ -632,14 +707,20 @@ export async function createCompanion(url, opts = {}) {
         }
       }
     });
-    tuneSprings(vrm, detail);
+    tuneSprings(vrm, detail, opts.id);
+    settleSprings(vrm, root);
   }
 
+  let partner = null;
   function feel(next) {
     const was = greeting;
     mood = next.mood || mood;
     greeting = !!next.greeting;
-    if (greeting && !was) greetLeft = 1.7;
+    partner = next.partner || null;
+    if (greeting && !was) {
+      greetLeft = 1.7;
+      playMode('greet');
+    }
   }
 
   function update(dt, camera) {
@@ -651,61 +732,74 @@ export async function createCompanion(url, opts = {}) {
       blinkIn = 2.6 + (t % 1.3);
     }
     if (blink > 0) blink = Math.max(0, blink - dt * 7);
+    if (mixer) {
+      modeLeft -= dt;
+      if (!greeting && mode === 'greet' && modeLeft <= 0) playMode('idle');
+      else if (!greeting && mode === 'idle' && modeLeft <= 0) playMode(partner ? 'talk' : (Math.sin(t + phase) > 0.15 ? 'yes' : 'talk'));
+      else if (!greeting && mode !== 'idle' && modeLeft <= 0) playMode('idle');
+      mixer.update(dt);
+    } else {
+      idle.time = (idle.time + dt) % idle.clip.duration;
+      idle.clip.tracks.forEach((track, i) => {
+        sampleQuat(track, idle.time, _qout);
+        idle.bones[i].quaternion.copy(_qout);
+      });
+      const bone = (name) => vrm.humanoid.getRawBoneNode(name);
+      const breath = Math.sin(t * (manner === 'still' ? 1.2 : manner === 'sure' ? 1.55 : 1.38) + phase);
+      const sway = Math.sin(t * 0.42 + phase);
+      const chestBone = bone('chest');
+      const upperBone = bone('upperChest');
+      const spineBone = bone('spine');
+      const hipBone = bone('hips');
+      if (chestBone) chestBone.rotateX(breath * (manner === 'still' ? 0.028 : 0.046));
+      if (upperBone) upperBone.rotation.x = 0.015 + breath * (manner === 'still' ? 0.012 : 0.02);
+      if (spineBone) {
+        spineBone.rotateX(breath * 0.016);
+        spineBone.rotateZ(-sway * (manner === 'sure' ? 0.028 : 0.018));
+      }
+      if (hipBone) hipBone.rotateZ(sway * (manner === 'sure' ? 0.05 : 0.034));
+      bone('leftUpperArm')?.rotateX(breath * 0.012);
+      bone('rightUpperArm')?.rotateX(breath * 0.01);
+      glanceIn -= dt;
+      if (glanceIn <= 0) {
+        const pick = Math.sin(t * 2.15 + phase * 1.7);
+        const reach = manner === 'glance' ? 0.18 : manner === 'still' ? 0.06 : 0.11;
+        glance = Math.abs(pick) < 0.42 ? 0 : Math.sign(pick) * reach;
+        glanceIn = 2.6 + Math.abs(Math.sin(t * 0.7 + phase)) * 2.8;
+      }
+      glanceAt += (glance - glanceAt) * Math.min(1, dt * 1.7);
+      bone('neck')?.rotateY(glanceAt * 0.35);
+      const headBone = bone('head');
+      if (headBone) {
+        headBone.rotateY(glanceAt);
+        headBone.rotateX(Math.sin(t * 0.47 + phase) * 0.012);
+        headBone.rotateZ(sway * 0.008);
+      }
+    }
     let happy = 0.1;
     let relaxed = 0.22;
     let surprised = 0;
     if (hold === 'happy') { happy = 0.72; relaxed = 0.16; }
     else if (hold === 'relaxed') { relaxed = 0.95; happy = 0.08; }
     else if (hold === 'surprised') { surprised = 0.75; relaxed = 0.1; happy = 0.05; }
-    else if (greetLeft > 1.05) { surprised = 0.72; relaxed = 0.1; happy = 0.05; }
-    else if (greetLeft > 0) { happy = 0.88; relaxed = 0.15; }
-    else if (/busy/.test(mood)) { happy = 0.5; relaxed = 0.25; }
-    else if (/hushed/.test(mood)) { relaxed = 0.92; happy = 0.06; }
-    else { relaxed = 0.2; happy = 0.12; }
+    else if (greetLeft > 1.05) { surprised = 0.42; relaxed = 0.18; happy = 0.08; }
+    else if (greetLeft > 0) { happy = 0.28; relaxed = 0.34; }
+    else if (/busy/.test(mood)) { happy = 0.34; relaxed = 0.28; }
+    else if (/hushed/.test(mood)) { relaxed = 0.72; happy = 0.06; }
+    else { relaxed = 0.26; happy = 0.14; }
     const face = vrm.expressionManager;
     if (face) {
       face.setValue('happy', happy);
       face.setValue('relaxed', relaxed);
-      face.setValue('Surprised', surprised);
+      face.setValue('surprised', surprised);
       face.setValue('blink', surprised > 0.4 ? blink * 0.25 : blink);
     }
-    idle.time = (idle.time + dt) % idle.clip.duration;
-    idle.clip.tracks.forEach((track, i) => {
-      sampleQuat(track, idle.time, _qout);
-      idle.bones[i].quaternion.copy(_qout);
-    });
-    const bone = (name) => vrm.humanoid.getRawBoneNode(name);
-    const breath = Math.sin(t * (manner === 'still' ? 1.2 : manner === 'sure' ? 1.55 : 1.38) + phase);
-    const sway = Math.sin(t * 0.42 + phase);
-    const chestBone = bone('chest');
-    const upperBone = bone('upperChest');
-    const spineBone = bone('spine');
-    const hipBone = bone('hips');
-    if (chestBone) chestBone.rotateX(breath * (manner === 'still' ? 0.028 : 0.046));
-    if (upperBone) {
-      upperBone.rotation.x = 0.015 + breath * (manner === 'still' ? 0.012 : 0.02);
-    }
-    if (spineBone) {
-      spineBone.rotateX(breath * 0.016);
-      spineBone.rotateZ(-sway * (manner === 'sure' ? 0.028 : 0.018));
-    }
-    if (hipBone) hipBone.rotateZ(sway * (manner === 'sure' ? 0.05 : 0.034));
-    bone('leftUpperArm')?.rotateX(breath * 0.012);
-    bone('rightUpperArm')?.rotateX(breath * 0.01);
-    glanceIn -= dt;
-    if (glanceIn <= 0) {
-      const pick = Math.sin(t * 2.15 + phase * 1.7);
-      const reach = manner === 'glance' ? 0.18 : manner === 'still' ? 0.06 : 0.11;
-      glance = Math.abs(pick) < 0.42 ? 0 : Math.sign(pick) * reach;
-      glanceIn = 2.6 + Math.abs(Math.sin(t * 0.7 + phase)) * 2.8;
-    }
-    glanceAt += (glance - glanceAt) * Math.min(1, dt * 1.7);
-    bone('neck')?.rotateY(glanceAt * 0.35);
-    const headBone = bone('head');
-    if (headBone) {
-      headBone.rotateY(glanceAt);
-      headBone.rotateX(Math.sin(t * 0.47 + phase) * 0.012);
-      headBone.rotateZ(sway * 0.008);
+    const hairSpring = vrm.springBoneManager;
+    if (hairSpring && (opts.id === 'sable' || opts.id === 'lumen')) {
+      _wind.set(Math.sin(t * 0.65 + phase) * 0.16, -1, Math.cos(t * 0.5 + phase) * 0.1).normalize();
+      for (const joint of hairSpring.joints) {
+        if (/hair/i.test(joint.bone?.name || '') && joint.settings) joint.settings.gravityDir.copy(_wind);
+      }
     }
     if (opts.porcelain) {
       const head = vrm.humanoid.getRawBoneNode('head');
@@ -720,9 +814,12 @@ export async function createCompanion(url, opts = {}) {
       if (wisp) wisp.position.set(0.2 + Math.sin(t * 0.9) * 0.1, 0.18 + Math.sin(t * 1.5) * 0.06, 0.12 + Math.cos(t * 0.7) * 0.08);
       if (mote) mote.position.set(-0.12 + Math.cos(t * 1.2) * 0.08, 0.28 + Math.sin(t * 1.7) * 0.05, 0.18);
     }
-    if (camera) {
-      camera.getWorldPosition(there);
-      const host = camera.parent || vrm.scene.parent;
+    if (camera || partner) {
+      const close = camera ? (camera.getWorldPosition(there), root.getWorldPosition(here), here.distanceTo(there) < 2.8) : false;
+      if ((greeting || close) && camera) camera.getWorldPosition(there);
+      else if (partner) partner.getWorldPosition(there).setY(there.y + 1.45);
+      else root.localToWorld(there.set(0, 1.5, 1.4));
+      const host = vrm.scene.parent || camera?.parent;
       if (host && gaze.parent !== host) host.add(gaze);
       if (gaze.parent) gaze.parent.worldToLocal(gaze.position.copy(there));
       else gaze.position.copy(there);

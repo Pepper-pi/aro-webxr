@@ -331,6 +331,8 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     { id: 'bed', name: 'Rest', x: -3.4, z: 2.4 },
   ];
   const steamWisps = [];
+  const _teaHere = new THREE.Vector3();
+  const _teaThere = new THREE.Vector3();
   let buddy = null;
   let buddyT = 0;
   let nearSpot = null;
@@ -2403,7 +2405,21 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
           ctl.root.position.set(0, 0, 0);
           ctl.root.rotation.set(0, 0, 0);
         }
-        ctl.feel({ mood: id === 'maren' ? marenMood : 'settled', greeting: nearId === id });
+        let partner = null;
+        let partnerDist = 2.3;
+        const mine = ctl.root.getWorldPosition(_teaHere);
+        for (const [otherId, other] of Object.entries(ctls)) {
+          if (otherId === id) continue;
+          const d = mine.distanceTo(other.root.getWorldPosition(_teaThere));
+          if (d < partnerDist) { partnerDist = d; partner = other.root; }
+        }
+        const socialPhase = [...id].reduce((h, c) => h + c.charCodeAt(0), 0);
+        const social = Math.sin(performance.now() * 0.00035 + socialPhase) > 0.15 ? partner : null;
+        ctl.feel({
+          mood: id === 'maren' ? marenMood : 'settled',
+          greeting: name === 'hub' && nearId === id,
+          partner: social,
+        });
         ctl.update(dt, camera);
       }
       porcelain?.update(dt, camera);
