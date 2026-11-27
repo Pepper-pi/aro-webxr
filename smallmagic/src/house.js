@@ -50,7 +50,7 @@ function saveHouse(data) {
 
 function handCue() {
   const g = new THREE.Group();
-  const mat = new THREE.MeshBasicMaterial({ color: '#d7f6ff', transparent: true, opacity: 0.72, depthWrite: false, side: THREE.DoubleSide });
+  const mat = new THREE.MeshBasicMaterial({ color: '#d7f6ff', transparent: true, opacity: 0.4, depthWrite: false, side: THREE.DoubleSide });
   const palm = new THREE.Mesh(new THREE.CircleGeometry(0.045, 14), mat);
   const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.012, 0.04, 2, 6), mat);
   thumb.position.set(-0.04, 0.01, 0);
@@ -61,7 +61,7 @@ function handCue() {
     finger.position.set(-0.02 + i * 0.016, 0.055, 0);
     g.add(finger);
   }
-  g.position.set(0.12, -0.08, 0.02);
+  g.scale.setScalar(0.32);
   return g;
 }
 
@@ -157,12 +157,12 @@ export function createHouse(scene, outdoor) {
   cue.name = 'reach-cue';
   cue.visible = false;
   const ring = new THREE.Mesh(
-    new THREE.RingGeometry(0.22, 0.36, 48),
-    new THREE.MeshBasicMaterial({ color: '#7ee7ff', transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false }),
+    new THREE.RingGeometry(0.06, 0.095, 40),
+    new THREE.MeshBasicMaterial({ color: '#7ee7ff', transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }),
   );
   const fill = new THREE.Mesh(
-    new THREE.RingGeometry(0.04, 0.14, 40, 1, -Math.PI / 2, 0.02),
-    new THREE.MeshBasicMaterial({ color: '#e7c56a', transparent: true, opacity: 0.78, side: THREE.DoubleSide, depthWrite: false }),
+    new THREE.RingGeometry(0.012, 0.048, 32, 1, -Math.PI / 2, 0.02),
+    new THREE.MeshBasicMaterial({ color: '#e7c56a', transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false }),
   );
   cue.add(ring, fill, handCue());
   cue.traverse((o) => {
@@ -290,7 +290,7 @@ export function createHouse(scene, outdoor) {
 
   function setChargeMesh(c) {
     fill.geometry.dispose();
-    fill.geometry = new THREE.RingGeometry(0.04, 0.14, 40, 1, -Math.PI / 2, Math.max(0.04, c) * Math.PI * 2);
+    fill.geometry = new THREE.RingGeometry(0.012, 0.048, 32, 1, -Math.PI / 2, Math.max(0.04, c) * Math.PI * 2);
   }
   function verbOf(piece) {
     return piece?.verb || '';
@@ -305,6 +305,8 @@ export function createHouse(scene, outdoor) {
     }
     if (rotBtn) rotBtn.hidden = !held;
     if (dropBtn) dropBtn.hidden = !held;
+    const useBtn = document.getElementById('hearthUse');
+    if (useBtn && held) useBtn.hidden = true;
     if (tvBar) tvBar.hidden = !(inHub && focus?.id === 'tv' && charge >= 0.98 && !held);
     if (panel && !inHub) panel.hidden = true;
   }
@@ -469,7 +471,7 @@ export function createHouse(scene, outdoor) {
     aim.y += focus.verb === 'Talk' ? 1.25 : 0.7;
     camera.getWorldDirection(view);
     cue.visible = true;
-    cue.position.copy(camera.position).addScaledVector(view, 1.15);
+    cue.position.copy(camera.position).addScaledVector(view, 0.95);
     cue.lookAt(camera.position);
     const s = 0.85 + charge * 0.35;
     ring.scale.setScalar(s);

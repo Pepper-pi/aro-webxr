@@ -4,6 +4,7 @@ import { createBeasts, PACKS, patchWebKitImageBitmap } from './beasts.js';
 import { createHearthShell } from './hearthroom.js';
 import { createCityBlock } from './cityblock.js';
 import { createSkyDeck } from './skydeck.js';
+import { flowWater, makeSky, makeWater, paintSky, paintWater } from './atmosphere.js';
 import { createCompanion, rareFollowRate } from './maren.js';
 import { TUNE } from './rider.js';
 import { buildVillage } from './cabins.js';
@@ -105,6 +106,15 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   ruin.root.visible = false;
   skyDeck.root.visible = false;
   scene.add(canal.root, ruin.root, skyDeck.root);
+  const airSky = makeSky(2800);
+  airSky.visible = false;
+  scene.add(airSky);
+  const lakeLow = detail === 'low' || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || innerWidth < 820;
+  const lakeWater = makeWater(30, 20, lakeLow);
+  lakeWater.position.set(-50, world.water + 0.04, -46);
+  lakeWater.visible = false;
+  scene.add(lakeWater);
+  let shaderWater = null;
   let lanternRain = false;
   const moor = new THREE.Group();
   moor.name = 'sky-door';
@@ -156,6 +166,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   const setLanternRain = (on) => {
     lanternRain = !!on;
     canal.setRain(lanternRain && name === 'block');
+    syncAir();
     const btn = document.getElementById('canalSky');
     if (btn) btn.textContent = lanternRain ? 'Clear dusk' : 'Lantern rain';
   };
@@ -930,16 +941,16 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     bioId[i] = i * 1.7;
   }
   bioGeo.setAttribute('position', new THREE.BufferAttribute(bioPos, 3));
-  bioGeo.setAttribute('color', new THREE.BufferAttribute(bioCol, 3));
+  bioGeo.setAttribute('aColor', new THREE.BufferAttribute(bioCol, 3));
   bioGeo.setAttribute('aId', new THREE.BufferAttribute(bioId, 1));
   const bio = new THREE.Points(bioGeo, new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
     uniforms: { uNow: { value: 0 } },
-    vertexShader: `attribute float aId; attribute vec3 color; varying vec3 vCol; varying float vTw; uniform float uNow;
-      void main() { vCol = color; vTw = 0.25 + 0.75 * abs(sin(uNow * 2.4 + aId)); gl_PointSize = 3.4 + vTw * 6.0; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    vertexShader: `attribute float aId; attribute vec3 aColor; varying vec3 vCol; varying float vTw; uniform float uNow;
+      void main() { vCol = aColor; vTw = 0.25 + 0.75 * abs(sin(uNow * 2.4 + aId)); gl_PointSize = 3.4 + vTw * 6.0; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: `varying vec3 vCol; varying float vTw; void main() { float d = length(gl_PointCoord - 0.5); if (d > 0.5) discard; gl_FragColor = vec4(vCol, vTw * (1.0 - d * 1.4)); }`,
-    vertexColors: true,
+    vertexColors: false,
   }));
   bio.visible = false;
   bio.frustumCulled = false;
@@ -1793,9 +1804,25 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   let waterMat = null;
   let grassU = null;
   world.root.traverse((o) => {
-    if (!waterMat && o.material?.uniforms?.uBio) waterMat = o.material;
+    if (!waterMat && o.material?.uniforms?.uBio) { waterMat = o.material; shaderWater = o; }
     if (!grassU && o.material?.uniforms?.uG1) grassU = o.material.uniforms;
   });
+  function syncAir() {
+    const mood = dusk ? 'dusk' : lanternRain ? 'rain' : 'day';
+    const sun = paintSky(airSky, mood);
+    paintWater(lakeWater, mood);
+    airSky.visible = !!(atLake || name === 'block');
+    if (skyMesh) skyMesh.visible = !atLake;
+    lakeWater.visible = !!atLake;
+    if (shaderWater) shaderWater.visible = !atLake;
+    const canalWater = canal.water;
+    if (canalWater?.material?.uniforms?.sunDirection) {
+      canalWater.material.uniforms.sunDirection.value.copy(sun);
+      if (mood !== 'day') paintWater(canalWater, mood);
+    }
+    if (airSky.material.uniforms.time) airSky.material.uniforms.time.value += 0.016;
+    if (lakeWater.visible) flowWater(lakeWater, 0.016);
+  }
   function setDusk(on) {
     dusk = on;
     if (duskBtn) duskBtn.textContent = on ? 'Day' : 'Dusk';
@@ -1818,6 +1845,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       }
     }
     if (waterMat) waterMat.uniforms.uBio.value = on ? 1 : 0;
+    syncAir();
     bio.visible = on;
     stars.visible = on;
     shoreGlow.visible = on;
@@ -2226,6 +2254,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
     },
     castHeld() {},
     update(dt, gaze) {
+      syncAir();
       if (gaze?.mood) marenMood = gaze.mood;
       try {
         if ((JSON.parse(localStorage.getItem('aro-hub') || '{}').people?.maren?.fp || 0) >= 90 && hearts < 120) hearts = Math.min(120, hearts + dt * 4);

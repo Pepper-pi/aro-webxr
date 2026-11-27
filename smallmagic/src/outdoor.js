@@ -2,6 +2,7 @@
 // Real GPS and device tilt start only from the Enable Outdoor GPS tap, so a phone
 // does not ask on load. Simulate Walk uses locar.fakeGps along the Seaside prom.
 import * as THREE from 'three';
+import { flowWater, makeSky, makeWater, paintSky, paintWater } from './atmosphere.js';
 import { DeviceOrientationControls, LocAR } from 'locar';
 import { distance } from '@turf/distance';
 
@@ -132,24 +133,20 @@ function cacheMesh(kind) {
 
 export function createOutdoor(scene, renderer, zones, hexes) {
   const outdoorScene = new THREE.Scene();
-  outdoorScene.background = new THREE.Color('#9ec8ea');
-  outdoorScene.fog = new THREE.Fog('#c5dff3', 40, 180);
-  const cam = new THREE.PerspectiveCamera(58, 1, 0.1, 400);
-  cam.rotation.x = -0.2;
+  const cam = new THREE.PerspectiveCamera(58, 1, 0.1, 800);
+  cam.rotation.set(-0.04, 0.5, 0);
   outdoorScene.add(cam);
+  const promSky = makeSky(160);
+  cam.add(promSky);
   const ground = new THREE.Mesh(
-    new THREE.CircleGeometry(80, 40),
+    new THREE.CircleGeometry(16, 28),
     new THREE.MeshBasicMaterial({ color: '#e4d2a4' }),
   );
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = -1.35;
   cam.add(ground);
-  const sea = new THREE.Mesh(
-    new THREE.PlaneGeometry(220, 80),
-    new THREE.MeshBasicMaterial({ color: '#7eb6d8' }),
-  );
-  sea.rotation.x = -Math.PI / 2;
-  sea.position.set(-30, -1.2, 20);
+  const sea = makeWater(200, 460, false);
+  sea.position.set(-78, -1.05, 0);
   outdoorScene.add(sea);
 
   const locar = new LocAR(outdoorScene, cam, { gpsMinDistance: 0, gpsMinAccuracy: 30 });
@@ -412,7 +409,12 @@ function hoursLeft(until) {
       if (readEl) readEl.textContent = `Simulate Walk · Seaside Prom · ${Math.round(walked)} m`;
     }
     if (orientation && gpsLive) orientation.update();
-    else cam.rotation.x = -0.2;
+    else cam.rotation.set(-0.04, 0.5, 0);
+    const mood = zones.dusk ? 'dusk' : 'day';
+    paintSky(promSky, mood);
+    paintWater(sea, mood);
+    if (promSky.material.uniforms.time) promSky.material.uniforms.time.value += dt;
+    flowWater(sea, dt);
     tagTarget = null;
     let nearest = Infinity;
     for (const node of nodes) {

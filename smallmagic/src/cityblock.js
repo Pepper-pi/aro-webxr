@@ -2,6 +2,7 @@
 // The seed only changes which pieces, the tint, the fog, and the fireflies.
 // No trees from that kit are used.
 import * as THREE from 'three';
+import { makeWater } from './atmosphere.js';
 
 const PIECES = [
   'wall', 'wall-window-shutters', 'wall-door', 'wall-broken',
@@ -599,8 +600,7 @@ export function createCityBlock(seed = 1, low = false) {
   const root = new THREE.Group();
   root.name = moss ? 'city-ruin' : 'city-canal';
   const tint = moss ? '#b7c9a4' : '#ffffff';
-  const water = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 16, low ? 8 : 24, low ? 16 : 48), waterMaterial(moss ? '#3d6a58' : '#3aa0b0', moss ? '#1c3330' : '#0e3c4a', moss ? 0 : 1));
-  water.rotation.x = -Math.PI / 2;
+  const water = makeWater(2.6, 16, low);
   water.position.set(-4.6, 0.08, 0);
   const flies = moss ? new THREE.InstancedMesh(new THREE.SphereGeometry(0.012, 4, 3), new THREE.MeshBasicMaterial({ color: '#e8ffb0' }), 14) : null;
   if (flies) { flies.frustumCulled = false; flies.name = 'fireflies'; }
@@ -643,9 +643,12 @@ export function createCityBlock(seed = 1, low = false) {
       : seedNow === 3
         ? { water: '#3a6878', deep: '#1a2830', lamp: '#ffb060', sky: '#e0a060', ground: '#3a2414', hemi: 0.72 }
         : { water: '#3aa0b0', deep: '#0e3c4a', lamp: '#ffb45a', sky: '#c4a0b0', ground: '#6a4030', hemi: 0.78 };
-    water.material.uniforms.uColor.value.set(look.water);
-    water.material.uniforms.uDeep.value.set(look.deep);
-    water.material.uniforms.uLamp.value.set(look.lamp);
+    if (water.material.uniforms.waterColor) water.material.uniforms.waterColor.value.set(look.water);
+    else {
+      water.material.uniforms.uColor.value.set(look.water);
+      water.material.uniforms.uDeep.value.set(look.deep);
+      water.material.uniforms.uLamp.value.set(look.lamp);
+    }
     if (hemiLight) {
       hemiLight.color.set(look.sky);
       hemiLight.groundColor.set(look.ground);
@@ -837,6 +840,7 @@ export function createCityBlock(seed = 1, low = false) {
   let setCityRain = () => {};
   return {
     root,
+    water,
     moss,
     ready,
     fog: moss ? ['#7f9a86', 14, 36] : ['#d08868', 26, 64],
@@ -850,7 +854,8 @@ export function createCityBlock(seed = 1, low = false) {
     setGlow(on) { glowOn = !!on; if (glow) glow.visible = glowOn; },
     setRain(on) { setCityRain(on); },
     tick(dt, walker) {
-      water.material.uniforms.uTime.value += dt;
+      if (water.material.uniforms.time) water.material.uniforms.time.value += dt;
+      else if (water.material.uniforms.uTime) water.material.uniforms.uTime.value += dt;
       dressTick(dt, walker);
       const t = performance.now() * 0.001;
       if (spores?.visible) {
