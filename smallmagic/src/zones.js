@@ -508,11 +508,12 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   let dressBuddy = () => {};
   const ctls = {};
   const COMPANIONS = {
-    maren: { url: 'hearth/people/maren-reed.vrm', charm: 'sprig', height: 1.58, dyes: { hair: '#e7b08a', hairShade: '#7a4030', top: '#f3e2c0', topShade: '#a88458', bottom: '#b7d39a', bottomShade: '#4e6a3c', shoe: '#c4926e', shoeShade: '#5c3a28' } },
-    bram: { url: 'hearth/people/bram-vroid.vrm', charm: null, height: 1.72, shape: { waist: 1.06, hips: 1.05 }, dyes: { hair: '#c4a574', hairShade: '#5c4030', top: '#9aaa72', topShade: '#4e5c34', bottom: '#5c4636', bottomShade: '#2e241c', shoe: '#6a5344', shoeShade: '#3a2c22' } },
-    sable: { url: 'hearth/people/sable-vroid.vrm', charm: 'hook', height: 1.66, dyes: { hair: '#2c3844', hairShade: '#141820', top: '#4e8ea0', topShade: '#1e4c58', bottom: '#243038', bottomShade: '#12181c', shoe: '#4a4038', shoeShade: '#241c18' } },
-    lumen: { url: 'hearth/people/lumen-pike.vrm', charm: 'bead', height: 1.6, shape: { waist: 0.9, hips: 0.94 }, dyes: { hair: '#efe6ff', hairShade: '#6d5a96', top: '#2a2158', topShade: '#120c28', bottom: '#3a2a58', bottomShade: '#1a1028', shoe: '#c4a05a', shoeShade: '#5a4020' } },
+    maren: { letter: 'A', charm: 'sprig', height: 1.58, dyes: { hair: '#e7b08a', hairShade: '#7a4030', top: '#f3e2c0', topShade: '#a88458', bottom: '#b7d39a', bottomShade: '#4e6a3c', shoe: '#c4926e', shoeShade: '#5c3a28' } },
+    bram: { letter: 'B', charm: null, height: 1.72, shape: { waist: 1.06, hips: 1.05 }, dyes: { hair: '#c4a574', hairShade: '#5c4030', top: '#9aaa72', topShade: '#4e5c34', bottom: '#5c4636', bottomShade: '#2e241c', shoe: '#6a5344', shoeShade: '#3a2c22' } },
+    sable: { letter: 'C', charm: 'hook', height: 1.66, dyes: { hair: '#2c3844', hairShade: '#141820', top: '#4e8ea0', topShade: '#1e4c58', bottom: '#243038', bottomShade: '#12181c', shoe: '#4a4038', shoeShade: '#241c18' } },
+    lumen: { letter: 'C', charm: 'bead', height: 1.6, shape: { waist: 0.9, hips: 0.94 }, dyes: { hair: '#efe6ff', hairShade: '#6d5a96', top: '#2a2158', topShade: '#120c28', bottom: '#3a2a58', bottomShade: '#1a1028', shoe: '#c4a05a', shoeShade: '#5a4020' } },
   };
+  const sampleUrl = (letter, low) => `figure/hires/AvatarSample_${letter}_${low ? 'Phone' : 'High'}.vrm`;
   let marenMood = 'settled';
   let hearthReady = Promise.resolve(false);
   function layTea(x, y, z) {
@@ -611,13 +612,13 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
       const people = loadedPeople;
       await Promise.all(Object.entries(COMPANIONS).map(async ([id, spec]) => {
         try {
-          ctls[id] = await createCompanion(new URL(spec.url, document.baseURI).href, { ...spec, id, low: detail === 'low' });
+          ctls[id] = await createCompanion(new URL(sampleUrl(spec.letter, detail === 'low'), document.baseURI).href, { ...spec, id, low: detail === 'low' });
         } catch (err) {
           console.warn(id, err);
         }
       }));
       try {
-        const healer = await createCompanion(new URL('hearth/people/sable-vroid.vrm', document.baseURI).href, {
+        const healer = await createCompanion(new URL(sampleUrl('C', detail === 'low'), document.baseURI).href, {
           id: 'porcelain',
           porcelain: true,
           charm: null,
@@ -1058,13 +1059,20 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   deck.position.set(0, 0.28, -1.3);
   const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.7, 0.12), dockWood);
   post.position.set(0.42, 0.85, -2.7);
-  const lantern = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshBasicMaterial({ color: '#fff4e6' }));
-  lantern.position.set(0.42, 1.55, -2.7);
+  const pierGlass = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.055, 0.055, 0.12, 8),
+    new THREE.MeshBasicMaterial({ color: '#ffb060', transparent: true, opacity: 0.45, depthWrite: false }),
+  );
+  pierGlass.position.set(0.42, 1.48, -2.7);
+  const pierCap = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.03, 8), new THREE.MeshStandardMaterial({ color: '#c6a15a', metalness: 0.7, roughness: 0.32 }));
+  pierCap.position.set(0.42, 1.56, -2.7);
+  const pierFlame = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 6), new THREE.MeshBasicMaterial({ color: '#ffd18a', transparent: true, opacity: 0.9 }));
+  pierFlame.position.set(0.42, 1.48, -2.7);
   const hook = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.22, 4), dockWood);
-  hook.position.set(0.42, 1.72, -2.7);
+  hook.position.set(0.42, 1.7, -2.7);
   const lampLight = new THREE.PointLight('#ffd9a0', 0.85, 4.8, 2);
   lampLight.position.set(0.42, 1.48, -2.7);
-  pier.add(deck, post, lantern, hook, lampLight);
+  pier.add(deck, post, pierGlass, pierCap, pierFlame, hook, lampLight);
   const benchWood = new THREE.TextureLoader().load(new URL('hearth/textures/wood_floor_diff_1k.jpg', document.baseURI).href);
   benchWood.colorSpace = THREE.SRGBColorSpace;
   benchWood.wrapS = benchWood.wrapT = THREE.RepeatWrapping;
@@ -1078,32 +1086,38 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   const bench = new THREE.Group();
   bench.name = 'stargaze-bench';
   bench.position.set(bx, benchY, bz);
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(1.28, 0.06, 0.4), benchMat);
-  seat.position.y = 0.42;
-  const backrest = new THREE.Mesh(new THREE.BoxGeometry(1.28, 0.38, 0.05), benchMat);
-  backrest.position.set(0, 0.66, 0.16);
-  backrest.rotation.x = -0.14;
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(1.28, 0.07, 0.42), benchMat);
+  seat.position.y = 0.58;
+  const backrest = new THREE.Mesh(new THREE.BoxGeometry(1.28, 0.36, 0.05), benchMat);
+  backrest.position.set(0, 0.82, 0.17);
+  backrest.rotation.x = -0.12;
   bench.add(seat, backrest);
-  for (const [lx, lz] of [[-0.52, 0.13], [0.52, 0.13], [-0.52, -0.13], [0.52, -0.13]]) {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.42, 0.06), benchMat);
-    leg.position.set(lx, 0.21, lz);
+  for (const [lx, lz] of [[-0.52, 0.14], [0.52, 0.14], [-0.52, -0.14], [0.52, -0.14]]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.58, 0.07), benchMat);
+    leg.position.set(lx, 0.29, lz);
     bench.add(leg);
   }
   const lampPost = new THREE.Group();
-  lampPost.position.set(0.92, 0, 0.05);
-  const stake = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.78, 0.08), benchMat);
-  stake.position.y = 0.39;
-  const collar = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.04, 0.12), brassMat);
-  collar.position.y = 0.78;
-  const glass = new THREE.Mesh(
-    new THREE.BoxGeometry(0.16, 0.18, 0.16),
-    new THREE.MeshBasicMaterial({ color: '#ffd9a0', transparent: true, opacity: 0.42, depthWrite: false }),
+  lampPost.position.set(0.98, 0, 0.02);
+  const stake = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.72, 0.07), benchMat);
+  stake.position.y = 0.36;
+  const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.025, 8), brassMat);
+  collar.position.y = 0.74;
+  const glassMat = new THREE.MeshBasicMaterial({ color: '#ffb060', transparent: true, opacity: 0.38, depthWrite: false });
+  const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.16, 8), glassMat);
+  glass.position.y = 0.86;
+  const lampCap = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.075, 0.03, 8), brassMat);
+  lampCap.position.y = 0.96;
+  const flame = new THREE.Mesh(
+    new THREE.SphereGeometry(0.03, 8, 6),
+    new THREE.MeshBasicMaterial({ color: '#ffc56a', transparent: true, opacity: 0.85 }),
   );
-  glass.position.y = 0.9;
-  const frame = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.02, 0.18), brassMat);
-  frame.position.y = 1.0;
-  const wick = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), new THREE.MeshBasicMaterial({ color: '#fff1c4' }));
-  wick.position.y = 0.9;
+  flame.position.y = 0.86;
+  for (const yaw of [0, Math.PI / 2]) {
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.16, 0.012), brassMat);
+    bar.position.set(Math.cos(yaw) * 0.07, 0.86, Math.sin(yaw) * 0.07);
+    lampPost.add(bar);
+  }
   const lampPool = new THREE.Mesh(
     new THREE.CircleGeometry(1.45, 22),
     new THREE.MeshBasicMaterial({ color: '#ffc98a', transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide }),
@@ -1112,7 +1126,7 @@ export function createZones({ scene, world, walker, camera, air, detail = 'high'
   lampPool.position.set(0.35, 0.025, -0.15);
   const benchLamp = new THREE.PointLight('#ffc98a', 0.62, 4.2, 2);
   benchLamp.position.set(0.92, 0.9, 0.05);
-  lampPost.add(stake, collar, glass, frame, wick);
+  lampPost.add(stake, collar, glass, lampCap, flame);
   bench.add(lampPost, lampPool, benchLamp);
   scene.add(bench);
   const reeds = [];

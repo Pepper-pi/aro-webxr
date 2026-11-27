@@ -6,6 +6,7 @@ const HAIR = /hair/i;
 const TOP = /tops/i;
 const BOTTOM = /bottoms/i;
 const SHOE = /shoes/i;
+const CLOTH = /cloth/i;
 
 const _euler = new THREE.Euler();
 const _qa = new THREE.Quaternion();
@@ -197,24 +198,31 @@ function dye(material, lit, shade) {
   if (material.shadeColorFactor?.set) material.shadeColorFactor.set(shade);
 }
 
-function sharpen(tex, max, aniso = 8) {
+function sharpen(tex, max, aniso = 8, color = true) {
   if (!tex) return;
   tex.magFilter = THREE.LinearFilter;
   tex.minFilter = THREE.LinearMipmapLinearFilter;
   tex.generateMipmaps = true;
   tex.anisotropy = aniso;
+  if (color) tex.colorSpace = THREE.SRGBColorSpace;
   const img = tex.image;
   // An empty image must not be uploaded. That leaves the face black and the eyes as white slits.
   if (!img || !img.width || !img.height) return;
-  if (max && Math.max(img.width, img.height) > max) {
-    const scale = max / Math.max(img.width, img.height);
+  if (!tex.userData.srcImage) tex.userData.srcImage = img;
+  const src = tex.userData.srcImage;
+  if (max && src.width && Math.max(src.width, src.height) > max) {
+    const scale = max / Math.max(src.width, src.height);
     const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(img.width * scale));
-    canvas.height = Math.max(1, Math.round(img.height * scale));
+    canvas.width = Math.max(1, Math.round(src.width * scale));
+    canvas.height = Math.max(1, Math.round(src.height * scale));
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(src, 0, 0, canvas.width, canvas.height);
     tex.image = canvas;
+  } else if (tex.image !== src) {
+    tex.image = src;
   }
   tex.needsUpdate = true;
 }
@@ -546,12 +554,12 @@ export async function createCompanion(url, opts = {}) {
     for (const material of [].concat(o.material || [])) {
       const name = material.name || o.name || '';
       if (HAIR.test(name)) dye(material, dyes.hair, dyes.hairShade);
-      else if (TOP.test(name)) dye(material, dyes.top, dyes.topShade);
-      else if (BOTTOM.test(name)) dye(material, dyes.bottom, dyes.bottomShade);
       else if (SHOE.test(name)) dye(material, dyes.shoe, dyes.shoeShade);
-      if (material.outlineWidthFactor != null) material.outlineWidthFactor = low ? 0 : 0.0015;
+      else if (BOTTOM.test(name)) dye(material, dyes.bottom, dyes.bottomShade);
+      else if (TOP.test(name) || CLOTH.test(name)) dye(material, dyes.top, dyes.topShade);
+      if (material.outlineWidthFactor != null) material.outlineWidthFactor = low ? 0 : 0.0012;
       for (const key of ['map', 'shadeMultiplyTexture', 'normalMap']) {
-        if (material[key]) sharpen(material[key], cap, aniso);
+        if (material[key]) sharpen(material[key], cap, aniso, key !== 'normalMap');
       }
     }
   });
@@ -619,10 +627,8 @@ export async function createCompanion(url, opts = {}) {
       if (!o.isMesh) return;
       for (const material of [].concat(o.material || [])) {
         if (material.outlineWidthFactor != null) material.outlineWidthFactor = detail ? 0 : 0.0015;
-        const label = `${material.name || ''} ${o.name || ''}`;
-        const keepFace = opts.id === 'maren' && /face|eye|brow|eyelash|mouth|skin|body_00|tops|bottoms/i.test(label);
         for (const key of ['map', 'shadeMultiplyTexture', 'normalMap']) {
-          if (material[key]) sharpen(material[key], keepFace ? 0 : max, keepFace ? 16 : aniso);
+          if (material[key]) sharpen(material[key], max, aniso, key !== 'normalMap');
         }
       }
     });
