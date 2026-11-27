@@ -7,7 +7,7 @@ These four clips were converted to VRM Animation (.vrma) by the open-vrma datase
 The conversion tool is MIT. Only the Quaternius CC0 motions are included here.
 CMU motion-capture clips from that dataset are not used.
 
-Idle_Loop.vrma
-Idle_Talking_Loop.vrma
-Interact.vrma
-Yes.vrma
+Idle_Loop.vrma — quaternius/ual1/Idle_Loop.vrma (51020 bytes)
+Idle_Talking_Loop.vrma — quaternius/ual1/Idle_Talking_Loop.vrma (56660 bytes)
+Interact.vrma — quaternius/ual1/Interact.vrma (44532 bytes)
+Yes.vrma — quaternius/ual2/Yes.vrma (51012 bytes)
