@@ -193,6 +193,20 @@
       #fishcue { position: fixed; left: 50%; bottom: calc(max(22px, env(safe-area-inset-bottom)) + 190px); transform: translateX(-50%); z-index: 7; pointer-events: none; color: #fff6dc; font: 22px/1.2 Georgia, serif; letter-spacing: 0.08em; text-transform: uppercase; text-shadow: 0 0 8px #000, 0 2px 0 #1a1008; }
       #dusk, #chase, #ar { top: calc(max(12px, env(safe-area-inset-top)) + 46px); right: max(12px, env(safe-area-inset-right)); padding: 8px 12px; }
       #ar { right: auto; left: max(12px, env(safe-area-inset-left)); }
+      #wildBar { position: fixed; left: max(12px, env(safe-area-inset-left)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 8; display: flex; flex-wrap: wrap; gap: 8px; max-width: min(440px, 92vw); }
+      #wildBar[hidden] { display: none; }
+      #wildBar button { pointer-events: auto; min-height: 36px; padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.78); background: rgba(236, 242, 248, 0.84); color: #1c2430; font: 14px Georgia, serif; }
+      #wildBar button.on { background: #1c2430; color: #f6ead0; }
+      #wildWallet { position: fixed; right: max(12px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); z-index: 8; padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(241, 217, 164, 0.7); background: rgba(20, 12, 28, 0.72); color: #fff6dc; font: 14px Georgia, serif; pointer-events: none; }
+      #wildWallet[hidden] { display: none; }
+      #wildRead { position: fixed; left: 50%; top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%); z-index: 8; padding: 6px 12px; border-radius: 999px; background: rgba(20, 12, 28, 0.55); color: #fff6dc; font: 14px Georgia, serif; pointer-events: none; }
+      #wildRead[hidden] { display: none; }
+      #wildTag { position: fixed; left: 50%; bottom: 18%; transform: translateX(-50%); z-index: 9; min-height: 44px; padding: 8px 16px; border-radius: 999px; border: 2px solid #f1d9a4; background: rgba(20, 12, 28, 0.86); color: #fff6dc; font: 16px Georgia, serif; }
+      #wildTag[hidden] { display: none; }
+      #wildBoard { position: fixed; left: max(12px, env(safe-area-inset-left)); top: 64px; z-index: 8; width: min(280px, 86vw); padding: 10px 12px; border-radius: 16px; background: rgba(236, 242, 248, 0.9); color: #1c2430; border: 1px solid rgba(255, 255, 255, 0.8); font: 14px/1.35 Georgia, serif; }
+      #wildBoard[hidden] { display: none; }
+      #wildBoard .meta { letter-spacing: 0.12em; text-transform: uppercase; color: #6a5a3a; font-size: 11px; margin: 0 0 6px; }
+      #wildBoard button { display: block; width: 100%; text-align: left; margin: 6px 0 0; padding: 8px 10px; border-radius: 12px; border: 1px solid rgba(28, 36, 48, 0.14); background: rgba(255, 255, 255, 0.8); color: #1c2430; font: 14px Georgia, serif; }
       #ar.on { background: #f1d9a4; color: #24160c; }
       #arGrade { position: fixed; inset: 0; z-index: 4; pointer-events: none; display: none; box-shadow: inset 0 0 120px 28px rgba(180, 110, 40, 0.38); background: radial-gradient(circle at 50% 70%, rgba(255, 196, 120, 0.08), transparent 55%); }
       #arGrade.on { display: block; }
@@ -448,6 +462,18 @@
   <body>
     <div id="view"></div>
     <div id="hp">HP 100</div>
+    <div id="wildWallet" hidden>0 coins · 0 timber · 0 shards</div>
+    <div id="wildRead" hidden>Seaside Prom</div>
+    <div id="wildBar" hidden>
+      <button id="wildGps" type="button">Enable Outdoor GPS</button>
+      <button id="wildWalk" type="button">Simulate Walk</button>
+      <button id="wildBack" type="button" hidden>Meadow</button>
+    </div>
+    <button id="wildTag" type="button" hidden>Tag for Home Portal</button>
+    <div id="wildBoard" hidden>
+      <p class="meta">Home portal</p>
+      <div id="wildQueue"></div>
+    </div>
     <div id="parry"></div>
     <div id="hitmark" hidden>HIT</div>
     <button id="hearthUse" type="button" hidden>Use</button>

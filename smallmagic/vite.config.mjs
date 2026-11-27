@@ -9,7 +9,7 @@ export default {
   publicDir: 'public',
   // three-avbd (the destruction block's physics, MIT) is vendored and imported from its source; only its world is
   // used, on a device of its own, so three's WebGPU build is stood in for (src/physics/three-webgpu-shim.js)
-  resolve: { alias: [
+  resolve: { dedupe: ['three'], alias: [
     { find: /^three-avbd\/advanced$/, replacement: `${here}vendor/three-avbd/src/lib/advanced.ts` },
     { find: /^three-avbd$/, replacement: `${here}vendor/three-avbd/src/lib/world.ts` },
     { find: /^three\/webgpu$/, replacement: `${here}src/physics/three-webgpu-shim.js` },

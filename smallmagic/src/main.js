@@ -19,6 +19,7 @@ import { createPets } from './pets.js';
 import { createAppeal } from './appeal.js';
 import { createMind } from './hearthmind.js';
 import { createHexes } from './hexes.js';
+import { createOutdoor } from './outdoor.js';
 import { createHub } from './hub.js';
 import { tracked } from './handtrack.js';
 import { createPage } from './page.js';
@@ -181,6 +182,7 @@ const hub = createHub({
 zones.onTea = (id) => hub.shareTea(id);
 zones.onLand = () => { const shore = hexes.at(walker.feet.x, walker.feet.z); hexes.grant(shore?.id || 'shore', shore ? 16 : 8); };
 zones.seatHexes(hexes.list);
+const outdoor = createOutdoor(scene, renderer, zones, hexes);
 zones.onHexTap = (sx, sy) => {
   const h = hexes.hit(sx, sy);
   if (!h) return false;
@@ -1023,7 +1025,7 @@ function paintWayfinder() {
     const el = document.getElementById(id);
     return el && !el.hidden;
   });
-  const show = zones.name === 'meadow' && !zones.atLake && !postcard && !modal;
+  const show = zones.name === 'meadow' && !zones.atLake && !postcard && !modal && !outdoor.open;
   bar.hidden = !show;
   wayRing.visible = !!(show && wayPick);
   if (!show) return;
@@ -1199,7 +1201,8 @@ function tickStep(dt, draw) {
   const raidOwn = !!duel.playerCam;
   const raidSweep = !!duel.sweep;
   const mapFollow = !free && (!duel.active || raidOwn) && !raidSweep && !ar.on && !bladeClose && settings.viewBack && zones.name === 'meadow' && !zones.atLake;
-  const stepInp = { ...inp, look: { x: inp.look.x, y: inp.look.y }, move: planted ? { x: 0, y: 0 } : inp.move, jump: planted ? false : inp.jump, sprint: planted ? false : inp.sprint };
+  const stepInp = { ...inp, look: { x: inp.look.x, y: inp.look.y }, move: planted || outdoor.open ? { x: 0, y: 0 } : inp.move, jump: planted || outdoor.open ? false : inp.jump, sprint: planted || outdoor.open ? false : inp.sprint };
+  outdoor.update(dt, inp.move);
   if (stepInp.turn) followCam.yaw -= stepInp.turn * 1.8 * dt;
   const orbiting = playtest && tour.t >= 28 && tour.t < 36;
   if (playtest) {
@@ -1514,10 +1517,11 @@ function tickStep(dt, draw) {
       const el = document.getElementById(id);
       return el && !el.hidden;
     });
-    questEl.style.visibility = (open || zones.rodOut) ? 'hidden' : '';
+    questEl.style.visibility = (open || zones.rodOut || outdoor.open) ? 'hidden' : '';
   }
   if (draw && (!q.has('fast') || forceDraw)) {
-    if (renderer.xr.isPresenting) renderer.render(scene, camera);
+    if (outdoor.open) outdoor.render();
+    else if (renderer.xr.isPresenting) renderer.render(scene, camera);
     else post.render(scene, camera, hideStaff ? null : staff, SUN);
     if (q.has('clip')) renderer.getContext().finish?.();
   }
@@ -1556,7 +1560,7 @@ if (ambienceBtn) {
   paintAmb();
   ambienceBtn.addEventListener('pointerup', (e) => { ambience.set(!ambience.on); paintAmb(); e.preventDefault(); e.stopPropagation(); });
 }
-const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar, wander, living, street, duel, appeal, mind, hexes, hub, ranger, warden, alchemist, avatar, playtest, familiar, setPostcard, savePostcard,
+const lab = window.lab = { castDisc, discOn: () => discOn, quest, ar, wander, living, street, duel, appeal, mind, hexes, hub, ranger, warden, alchemist, avatar, playtest, familiar, setPostcard, savePostcard, outdoor,
   THREE, camera, input, post, renderer, scene, timings, world, walker, clock, air, fx, fire, flames, spells, ruin, blast, hole, twister, zones, settings, arms, blade, gun, summoner, tune: TUNE, way: world.way, heightAt: world.ground, ground: world.ground, counts: world.counts,
   player: walker,
   follow: { get yaw() { return walker.yaw; }, set yaw(v) { walker.yaw = v; }, get pitch() { return walker.pitch; }, set pitch(v) { walker.pitch = v; }, want: 0, distance: 0, pivot: new THREE.Vector3() },

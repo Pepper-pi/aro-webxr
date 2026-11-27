@@ -18,3 +18,9 @@ Four clips, and only these four, play as idle, talk, greet, and nod. Each file w
 - `public/hearth/motion/Yes.vrma` is `quaternius/ual2/Yes.vrma`, 51012 bytes.
 
 Near the player they look over, blink, smile, and play the greet. Now and then they look toward the closest companion and gesture. High stays on the 2048 maps. Low stays on the 512 maps. A headless pass of the meadow, Long Lake, the canal, the sky deck, and the home hub still raises no page errors.
+
+## Block 50
+
+`locar` 0.2.12 (MIT, https://github.com/AR-js-org/locar.js) and `@turf/distance` 7.2.0 (MIT) are the only new packages. Full AR.js and jsartoolkit are not installed. `locar.startGps()` and device orientation run only from the Enable Outdoor GPS tap, so a phone is not asked on load. Simulate Walk calls `locar.fakeGps` along the Seaside, Oregon promenade (the turnaround at 45.9934, -123.9298, walking north). Joystick movement offsets that same path. Distances on the nodes come from `@turf/distance`.
+
+Coin and timber caches collect inside 35 m. Tier I Lush Patch, Tier II Relic Shrine, and Tier III Mythic Oasis are GPS beacons. Inside 40 m, Tag for Home Portal queues the hex for 72 hours in `localStorage` (`aro-wild`), with coins, timber, and shards. The Home Hub shows a wallet pill and a Home Portal board. Enter & Farm pays the tier and opens that Super Hex on the meadow. A headless pass of the meadow, Long Lake, the canal, the sky deck, the home hub, and Simulate Walk still raises no page errors.
